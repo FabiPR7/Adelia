@@ -1,0 +1,76 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc().data.role == 'admin';
+    }
+
+    function isCompanyOwner(companyId) {
+      return isSignedIn()
+        && userDoc().data.role == 'company'
+        && userDoc().data.companyId == companyId;
+    }
+
+    match /logins/{loginId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /companyCredentials/{companyId} {
+      allow read: if isAdmin() || isCompanyOwner(companyId);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isCompanyOwner(companyId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['loginPassword', 'mustChangePassword', 'updatedAt'])
+        && request.resource.data.loginPassword is string
+      );
+    }
+
+    match /users/{userId} {
+      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAdmin() || (
+        isSignedIn()
+        && request.auth.uid == userId
+        && userDoc().data.role == 'company'
+        && userDoc().data.mustChangePassword == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChangePassword'])
+        && request.resource.data.mustChangePassword == false
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /companies/{companyId} {
+      allow read: if isSignedIn() && (isAdmin() || isCompanyOwner(companyId));
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /tables/{tableId} {
+      allow read: if isSignedIn()
+        && (isAdmin() || isCompanyOwner(resource.data.companyId));
+      allow create: if isSignedIn()
+        && (isAdmin() || isCompanyOwner(request.resource.data.companyId));
+      allow update, delete: if isSignedIn()
+        && (isAdmin() || isCompanyOwner(resource.data.companyId));
+    }
+
+    match /reservations/{reservationId} {
+      allow read: if isSignedIn()
+        && (isAdmin() || isCompanyOwner(resource.data.companyId));
+      allow create: if isSignedIn()
+        && (isAdmin() || isCompanyOwner(request.resource.data.companyId));
+      allow update, delete: if isSignedIn()
+        && (isAdmin() || isCompanyOwner(resource.data.companyId));
+    }
+  }
+}
