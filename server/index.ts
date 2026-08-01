@@ -3,6 +3,7 @@ import cors from 'cors'
 import express from 'express'
 import companiesRouter from './routes/companies.ts'
 import authRouter from './routes/auth.ts'
+import publicBookingRouter from './routes/public.ts'
 import { adminAuth, adminDb, hasServiceAccount } from './firebase-admin.ts'
 import { getUserRoleWithRest, verifyIdTokenWithRest } from './rest-firebase.ts'
 
@@ -64,6 +65,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/companies', verifyAdmin, companiesRouter)
 app.use('/api/auth', authRouter)
+app.use('/api/public/booking', publicBookingRouter)
 
 app.use(
   (

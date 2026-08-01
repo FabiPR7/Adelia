@@ -19,6 +19,7 @@ interface AuthContextValue {
   company: Company | null
   isLoading: boolean
   refreshProfile: () => Promise<void>
+  refreshCompany: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -44,9 +45,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const credentialsMustChange = userProfile.companyId
-      ? await getCompanyCredentialsMustChange(userProfile.companyId)
-      : null
+    const [credentialsMustChange, companyData] = await Promise.all([
+      userProfile.companyId
+        ? getCompanyCredentialsMustChange(userProfile.companyId)
+        : Promise.resolve(null),
+      userProfile.companyId
+        ? getCompanyById(userProfile.companyId)
+        : Promise.resolve(null),
+    ])
 
     const resolvedProfile = await resolveMustChangePassword(
       currentUser,
@@ -54,15 +60,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       credentialsMustChange,
     )
     setProfile(resolvedProfile)
+    setCompany(companyData)
+  }, [])
 
-    if (resolvedProfile.companyId) {
-      const companyData = await getCompanyById(resolvedProfile.companyId)
-      setCompany(companyData)
+  const refreshCompany = useCallback(async () => {
+    const companyId = profile?.companyId
+
+    if (!companyId) {
+      setCompany(null)
       return
     }
 
-    setCompany(null)
-  }, [])
+    const companyData = await getCompanyById(companyId)
+    setCompany(companyData)
+  }, [profile?.companyId])
 
   const refreshProfile = useCallback(async () => {
     await loadProfile(auth.currentUser)
@@ -85,8 +96,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       company,
       isLoading,
       refreshProfile,
+      refreshCompany,
     }),
-    [user, profile, company, isLoading, refreshProfile],
+    [user, profile, company, isLoading, refreshProfile, refreshCompany],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

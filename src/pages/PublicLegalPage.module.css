@@ -1,0 +1,105 @@
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-cream);
+}
+
+.header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-brown);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brandLogo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.backLink {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-brown-light);
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--color-brown);
+  text-decoration: underline;
+}
+
+.main {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.card {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+}
+
+.card h1 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-brown);
+}
+
+.updated {
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.section {
+  margin-bottom: 1rem;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.section h2 {
+  margin: 0 0 0.35rem;
+  font-size: 0.875rem;
+  color: var(--color-brown);
+}
+
+.section p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--color-brown-light);
+}
+
+.footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-white);
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}

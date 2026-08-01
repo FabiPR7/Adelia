@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import RoleRoute from './components/RoleRoute'
 import MustChangePasswordRoute from './components/MustChangePasswordRoute'
@@ -6,9 +7,12 @@ import AdminDashboard from './pages/AdminDashboard'
 import ChangePasswordPage from './pages/ChangePasswordPage'
 import CompanyDashboard from './pages/CompanyDashboard'
 import LoginPage from './pages/LoginPage'
+import PublicLegalPage from './pages/PublicLegalPage'
 import { getPostLoginPath } from './utils/authProfile'
 
-function AppRoutes() {
+const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
+
+function AuthenticatedRoutes() {
   const { user, profile, isLoading } = useAuth()
 
   if (isLoading) {
@@ -77,7 +81,37 @@ function AppRoutes() {
 }
 
 function App() {
-  return <AppRoutes />
+  return (
+    <Routes>
+      <Route
+        path="/legal/:doc"
+        element={<PublicLegalPage />}
+      />
+      <Route
+        path="/reservar/:slug"
+        element={
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  minHeight: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                Cargando reservas…
+              </div>
+            }
+          >
+            <PublicBookingPage />
+          </Suspense>
+        }
+      />
+      <Route path="*" element={<AuthenticatedRoutes />} />
+    </Routes>
+  )
 }
 
 export default App

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { getAdminCompanies, markCompanyMustChangePassword } from '../services/firestore'
 import { createCompany, deleteCompany, updateCompany } from '../services/adminApi'
@@ -41,6 +42,9 @@ function AdminDashboard() {
   const [form, setForm] = useState<CompanyFormState>(EMPTY_FORM)
   const [isSaving, setIsSaving] = useState(false)
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({})
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
+  const [companyToDelete, setCompanyToDelete] = useState<AdminCompany | null>(null)
+  const [isDeletingCompany, setIsDeletingCompany] = useState(false)
 
   const loadCompanies = async () => {
     setIsLoading(true)
@@ -154,21 +158,23 @@ function AdminDashboard() {
     }
   }
 
-  const handleDelete = async (company: AdminCompany) => {
-    const confirmed = window.confirm(
-      `¿Eliminar "${company.name}"?\n\nSe borrará su acceso, contraseña, mesas y reservas. No podrá volver a entrar en la app.`,
-    )
+  const handleDelete = (company: AdminCompany) => {
+    setCompanyToDelete(company)
+  }
 
-    if (!confirmed) {
+  const handleConfirmDeleteCompany = async () => {
+    if (!companyToDelete) {
       return
     }
 
+    setIsDeletingCompany(true)
     setError(null)
     setSuccess(null)
 
     try {
-      await deleteCompany(company.id)
-      setSuccess(`Empresa "${company.name}" eliminada.`)
+      await deleteCompany(companyToDelete.id)
+      setSuccess(`Empresa "${companyToDelete.name}" eliminada.`)
+      setCompanyToDelete(null)
       await loadCompanies()
     } catch (err) {
       setError(
@@ -178,6 +184,8 @@ function AdminDashboard() {
             : err.message
           : 'No se pudo eliminar la empresa.',
       )
+    } finally {
+      setIsDeletingCompany(false)
     }
   }
 
@@ -195,7 +203,7 @@ function AdminDashboard() {
             <p>Gestión de empresas</p>
           </div>
         </div>
-        <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+        <button type="button" className={styles.logoutButton} onClick={() => setLogoutConfirmOpen(true)}>
           Cerrar sesión
         </button>
       </header>
@@ -367,6 +375,30 @@ function AdminDashboard() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={logoutConfirmOpen}
+        title="Cerrar sesión"
+        message="¿Estás seguro de que quieres cerrar sesión?"
+        confirmLabel="Cerrar sesión"
+        onConfirm={() => void handleLogout()}
+        onCancel={() => setLogoutConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(companyToDelete)}
+        title="Eliminar empresa"
+        message={
+          companyToDelete
+            ? `¿Estás seguro de eliminar "${companyToDelete.name}"? Se borrará su acceso, contraseña, mesas y reservas.`
+            : ''
+        }
+        confirmLabel="Eliminar"
+        variant="danger"
+        isLoading={isDeletingCompany}
+        onConfirm={() => void handleConfirmDeleteCompany()}
+        onCancel={() => setCompanyToDelete(null)}
+      />
     </div>
   )
 }

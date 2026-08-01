@@ -30,9 +30,19 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (
         isCompanyOwner(companyId)
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['loginPassword', 'mustChangePassword', 'updatedAt'])
-        && request.resource.data.loginPassword is string
+        && (
+          (
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['loginPassword', 'mustChangePassword', 'updatedAt'])
+            && request.resource.data.loginPassword is string
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['loginName', 'updatedAt'])
+            && request.resource.data.loginName is string
+            && request.resource.data.loginName.size() > 0
+          )
+        )
       );
     }
 
@@ -46,18 +56,53 @@ service cloud.firestore {
         && userDoc().data.mustChangePassword == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChangePassword'])
         && request.resource.data.mustChangePassword == false
+      ) || (
+        isSignedIn()
+        && request.auth.uid == userId
+        && userDoc().data.role == 'company'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['loginName'])
+        && request.resource.data.loginName is string
+        && request.resource.data.loginName.size() > 0
       );
       allow delete: if isAdmin();
     }
 
+    function isValidPublicReservation() {
+      let data = request.resource.data;
+      return data.companyId is string
+        && data.tableId is string
+        && data.clientName is string
+        && data.clientName.size() > 0
+        && data.clientEmail is string
+        && data.clientPhone is string
+        && data.clientPhone.size() > 0
+        && data.pax is int
+        && data.pax >= 1
+        && data.pax <= 50
+        && data.status == 'confirmed'
+        && data.startTime is timestamp
+        && data.endTime is timestamp
+        && data.cancelToken is string
+        && data.cancelToken.size() > 0
+        && data.notes is string;
+    }
+
     match /companies/{companyId} {
-      allow read: if isSignedIn() && (isAdmin() || isCompanyOwner(companyId));
-      allow create, update, delete: if isAdmin();
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isCompanyOwner(companyId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'phone', 'website', 'location', 'contactEmail', 'logoUrl',
+          'timeSlotMinutes', 'schedule', 'turns', 'floorPlan', 'updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+      );
     }
 
     match /tables/{tableId} {
-      allow read: if isSignedIn()
-        && (isAdmin() || isCompanyOwner(resource.data.companyId));
+      allow read: if true;
       allow create: if isSignedIn()
         && (isAdmin() || isCompanyOwner(request.resource.data.companyId));
       allow update, delete: if isSignedIn()
@@ -65,10 +110,11 @@ service cloud.firestore {
     }
 
     match /reservations/{reservationId} {
-      allow read: if isSignedIn()
-        && (isAdmin() || isCompanyOwner(resource.data.companyId));
-      allow create: if isSignedIn()
-        && (isAdmin() || isCompanyOwner(request.resource.data.companyId));
+      allow read: if true;
+      allow create: if isValidPublicReservation() || (
+        isSignedIn()
+        && (isAdmin() || isCompanyOwner(request.resource.data.companyId))
+      );
       allow update, delete: if isSignedIn()
         && (isAdmin() || isCompanyOwner(resource.data.companyId));
     }

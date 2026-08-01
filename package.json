@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "seed": "node scripts/seed.mjs",
     "cleanup-demo": "node scripts/cleanup-demo.mjs",
-    "backfill-password-flags": "node scripts/backfill-must-change-password.mjs"
+    "backfill-password-flags": "node scripts/backfill-must-change-password.mjs",
+    "seed-carol": "node scripts/seed-carol-demo.mjs"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

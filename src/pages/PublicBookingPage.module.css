@@ -1,0 +1,567 @@
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-cream);
+}
+
+.header {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.headerSide {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.headerSide:last-child {
+  justify-content: flex-end;
+}
+
+.adeliaBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-brown-light);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.adeliaLogo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 3vw, 1.2rem);
+  color: var(--color-brown);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.companyLogo {
+  max-width: 72px;
+  max-height: 40px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.companyLogoFallback {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.contactBar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.75rem;
+  padding: 0.45rem 0.75rem;
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  color: var(--color-brown-light);
+  text-align: center;
+}
+
+.contactBar a {
+  color: var(--color-brown);
+  text-decoration: none;
+}
+
+.contactBar a:hover {
+  text-decoration: underline;
+}
+
+.main {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0.65rem 0.75rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 0.75rem 0.85rem;
+  background: var(--color-white);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.footerBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.footerLogo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.65rem;
+}
+
+.footerLinks a {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-brown-light);
+  text-decoration: none;
+}
+
+.footerLinks a:hover {
+  color: var(--color-brown);
+  text-decoration: underline;
+}
+
+.footerCopy {
+  margin: 0;
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.loading,
+.error {
+  padding: 2rem;
+  text-align: center;
+}
+
+.error {
+  color: var(--color-error);
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.heroMain {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.heroLabel {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-brown-light);
+}
+
+.hero h2 {
+  margin: 0.1rem 0 0;
+  font-family: var(--font-body, inherit);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-brown);
+  text-transform: capitalize;
+  line-height: 1.3;
+}
+
+.mobileDateNav {
+  display: none;
+  gap: 0.35rem;
+}
+
+.iconButton {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-brown);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.heroActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.secondaryButton,
+.primaryButton,
+.backButton {
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryButton {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-brown);
+  font-size: 0.75rem;
+}
+
+.primaryButton {
+  padding: 0.65rem 1.1rem;
+  border: none;
+  background: var(--color-brown);
+  color: var(--color-white);
+}
+
+.primaryButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.backButton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-brown-light);
+  margin-bottom: 0.5rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.calendarPane {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+}
+
+.bookingPane {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+}
+
+.viewToggle {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
+}
+
+.toggleButton {
+  flex: 1;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-brown);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toggleButtonActive {
+  background: var(--color-brown);
+  border-color: var(--color-brown);
+  color: var(--color-white);
+}
+
+.toggleButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.panel h3,
+.formCard h3,
+.successCard h3 {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--color-brown);
+}
+
+.hint,
+.loadingInline,
+.summary {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.slotGrid,
+.tableGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 0.5rem;
+}
+
+.tableGrid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.slotButton,
+.tableButton {
+  padding: 0.65rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-cream);
+  color: var(--color-brown);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.tableButton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: center;
+}
+
+.tableButton span {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-brown-light);
+}
+
+.slotButtonDisabled,
+.tableButtonDisabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.mapLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.mapColumn h3,
+.mapHoursTitle {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--color-brown);
+}
+
+.mapHoursColumn {
+  display: flex;
+  flex-direction: column;
+}
+
+.mapHoursHint {
+  margin: 0;
+  padding: 0.5rem 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.cancelButton {
+  align-self: flex-start;
+  margin-bottom: 0.5rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-brown-light);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancelButton:hover {
+  background: var(--color-cream);
+  color: var(--color-brown);
+}
+
+.mapSlotGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 0.35rem;
+}
+
+.mapSlotGrid .slotButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.5rem 0.35rem;
+}
+
+.mapSlotGrid .slotButton span {
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--color-brown-light);
+}
+
+.formCard,
+.successCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.formCard label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-brown-light);
+}
+
+.formCard input,
+.formCard textarea {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.successCard {
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.calendarOverlay {
+  display: none;
+}
+
+.calendarModal {
+  width: 100%;
+  max-width: 360px;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .calendarPane {
+    display: none;
+  }
+
+  .heroMain {
+    justify-content: space-between;
+    flex: 1;
+  }
+
+  .heroActions {
+    flex-shrink: 0;
+  }
+
+  .mobileDateNav {
+    display: flex;
+  }
+
+  .iconButton {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+
+  .toggleButton {
+    padding: 0.45rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .slotGrid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 0.35rem;
+  }
+
+  .slotButton {
+    padding: 0.45rem 0.35rem;
+    font-size: 0.75rem;
+  }
+
+  .tableGrid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.35rem;
+  }
+
+  .tableButton {
+    padding: 0.5rem 0.35rem;
+    font-size: 0.75rem;
+  }
+
+  .bookingPane {
+    padding: 0.65rem;
+  }
+
+  .mapColumn h3,
+  .mapHoursTitle {
+    font-size: 0.8125rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .mapSlotGrid {
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  }
+
+  .mapHoursHint {
+    font-size: 0.75rem;
+  }
+
+  .calendarOverlay {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 105;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(61, 50, 41, 0.45);
+  }
+}

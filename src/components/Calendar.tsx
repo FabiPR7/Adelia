@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   getMonthGrid,
   isSameDay,
@@ -10,22 +11,39 @@ interface CalendarProps {
   selectedDate: Date
   onSelectDate: (date: Date) => void
   reservationCounts?: Record<number, number>
+  /** Si es false, las flechas de mes solo cambian la vista sin cerrar ni cambiar el día seleccionado. */
+  updateSelectionOnMonthNav?: boolean
+  onMonthChange?: (date: Date) => void
 }
 
 function Calendar({
   selectedDate,
   onSelectDate,
   reservationCounts = {},
+  updateSelectionOnMonthNav = true,
+  onMonthChange,
 }: CalendarProps) {
-  const year = selectedDate.getFullYear()
-  const month = selectedDate.getMonth()
+  const [viewDate, setViewDate] = useState(selectedDate)
+  const year = viewDate.getFullYear()
+  const month = viewDate.getMonth()
   const days = getMonthGrid(year, month)
   const today = new Date()
 
+  useEffect(() => {
+    setViewDate(selectedDate)
+  }, [selectedDate])
+
   const goToMonth = (offset: number) => {
-    const next = new Date(selectedDate)
+    const next = new Date(viewDate)
     next.setMonth(next.getMonth() + offset)
-    onSelectDate(next)
+
+    if (updateSelectionOnMonthNav) {
+      onSelectDate(next)
+      return
+    }
+
+    setViewDate(next)
+    onMonthChange?.(next)
   }
 
   return (

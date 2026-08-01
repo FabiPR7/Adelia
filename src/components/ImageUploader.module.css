@@ -1,0 +1,167 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-brown-light);
+}
+
+.hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.error {
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgba(181, 74, 74, 0.08);
+  border: 1px solid rgba(181, 74, 74, 0.25);
+  color: var(--color-error);
+  font-size: 0.8125rem;
+}
+
+.uploadButton {
+  align-self: flex-start;
+  padding: 0.65rem 1rem;
+  border: 1px dashed var(--color-sand);
+  border-radius: var(--radius-sm);
+  background: var(--color-cream);
+  color: var(--color-brown);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.uploadButton:hover {
+  background: var(--color-beige);
+}
+
+.loaderBox {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-cream);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-brown);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.previewBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-cream);
+  max-width: 280px;
+}
+
+.previewImage {
+  max-height: 120px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+}
+
+.previewActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.secondaryButton,
+.dangerButton {
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryButton {
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-brown);
+}
+
+.dangerButton {
+  border: 1px solid rgba(181, 74, 74, 0.35);
+  background: rgba(181, 74, 74, 0.08);
+  color: var(--color-error);
+}
+
+@media (max-width: 900px) {
+  .wrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .label {
+    font-size: 0.75rem;
+  }
+
+  .hint {
+    font-size: 0.6875rem;
+    line-height: 1.35;
+  }
+
+  .uploadButton {
+    width: 100%;
+    text-align: center;
+    align-self: stretch;
+  }
+
+  .loaderBox {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .previewBox {
+    max-width: none;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .previewImage {
+    max-height: 96px;
+    width: auto;
+    margin: 0 auto;
+  }
+
+  .previewActions {
+    flex-wrap: wrap;
+  }
+
+  .secondaryButton,
+  .dangerButton {
+    flex: 1;
+    min-width: 0;
+  }
+}

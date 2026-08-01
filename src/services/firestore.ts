@@ -1,16 +1,35 @@
 import {
+  addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
   query,
   serverTimestamp,
+  Timestamp,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
-import type { AppUser, AdminCompany, Company, Reservation, ReservationStatus } from '../types'
-import { isSameDay } from '../utils/helpers'
+import type {
+  AppUser,
+  AdminCompany,
+  Company,
+  CompanySettingsPayload,
+  Reservation,
+  ReservationFormData,
+  ReservationStatus,
+  RestaurantTable,
+  TableInput,
+} from '../types'
+import { defaultTurns, parseFloorPlan, serializeFloorPlanForFirestore } from '../types/company'
+import {
+  assertReservationSlotValid,
+  computeReservationCountsByMonth as computeReservationCountsByMonthUtil,
+} from '../utils/reservationSlots'
+import { combineDateAndTime, defaultSchedule, generateUuid, isSameDay } from '../utils/helpers'
 
 export async function getUserProfile(uid: string): Promise<AppUser | null> {
   const snapshot = await getDoc(doc(db, 'users', uid))
@@ -149,50 +168,353 @@ export async function getReservationsByCompany(companyId: string): Promise<Reser
     .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
 }
 
+export function filterReservationsForDate(
+  reservations: Reservation[],
+  date: Date,
+): Reservation[] {
+  return reservations
+    .filter((reservation) => isSameDay(reservation.startTime, date))
+    .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+}
+
+export function computeReservationCountsByMonth(
+  reservations: Reservation[],
+  year: number,
+  month: number,
+): Record<number, number> {
+  return computeReservationCountsByMonthUtil(reservations, year, month)
+}
+
 export async function getReservationsForDate(
   companyId: string,
   date: Date,
+  cachedReservations?: Reservation[],
 ): Promise<Reservation[]> {
-  const all = await getReservationsByCompany(companyId)
-  return all.filter((reservation) => isSameDay(reservation.startTime, date))
+  const all = cachedReservations ?? (await getReservationsByCompany(companyId))
+  return filterReservationsForDate(all, date)
+}
+
+function reservationFormToTimes(
+  date: Date,
+  form: ReservationFormData,
+  durationMinutes: number,
+) {
+  const startTime = combineDateAndTime(date, form.time)
+  const endTime = new Date(startTime.getTime() + durationMinutes * 60000)
+  return { startTime, endTime }
+}
+
+export async function createReservation(
+  companyId: string,
+  date: Date,
+  form: ReservationFormData,
+  durationMinutes: number,
+  schedule: Company['schedule'],
+  cachedDayReservations?: Reservation[],
+): Promise<Reservation> {
+  const dayReservations =
+    cachedDayReservations ?? (await getReservationsForDate(companyId, date))
+
+  assertReservationSlotValid(
+    form.tableId,
+    form.time,
+    date,
+    schedule,
+    durationMinutes,
+    durationMinutes,
+    dayReservations,
+    undefined,
+    form.status,
+  )
+
+  const { startTime, endTime } = reservationFormToTimes(date, form, durationMinutes)
+  const cancelToken = generateUuid()
+
+  const docRef = await addDoc(collection(db, 'reservations'), {
+    companyId,
+    tableId: form.tableId,
+    clientName: form.clientName.trim(),
+    clientEmail: form.clientEmail.trim(),
+    clientPhone: form.clientPhone.trim(),
+    pax: form.pax,
+    startTime: Timestamp.fromDate(startTime),
+    endTime: Timestamp.fromDate(endTime),
+    status: form.status,
+    notes: '',
+    cancelToken,
+    createdAt: serverTimestamp(),
+  })
+
+  return {
+    id: docRef.id,
+    companyId,
+    tableId: form.tableId,
+    clientName: form.clientName.trim(),
+    clientEmail: form.clientEmail.trim(),
+    clientPhone: form.clientPhone.trim(),
+    pax: form.pax,
+    startTime,
+    endTime,
+    status: form.status,
+    notes: '',
+    cancelToken,
+    createdAt: new Date(),
+  }
+}
+
+export interface PublicReservationInput {
+  clientName: string
+  clientEmail: string
+  clientPhone: string
+  pax: number
+  tableId: string
+  time: string
+  notes: string
+}
+
+export async function createPublicReservation(
+  companyId: string,
+  date: Date,
+  input: PublicReservationInput,
+  durationMinutes: number,
+  schedule: Company['schedule'],
+  cachedDayReservations?: Reservation[],
+): Promise<Reservation> {
+  const dayReservations =
+    cachedDayReservations ?? (await getReservationsForDate(companyId, date))
+
+  assertReservationSlotValid(
+    input.tableId,
+    input.time,
+    date,
+    schedule,
+    durationMinutes,
+    durationMinutes,
+    dayReservations,
+    undefined,
+    'confirmed',
+  )
+
+  const form: ReservationFormData = {
+    clientName: input.clientName,
+    clientEmail: input.clientEmail,
+    clientPhone: input.clientPhone,
+    pax: input.pax,
+    tableId: input.tableId,
+    time: input.time,
+    status: 'confirmed',
+  }
+
+  const { startTime, endTime } = reservationFormToTimes(date, form, durationMinutes)
+  const cancelToken = generateUuid()
+
+  const docRef = await addDoc(collection(db, 'reservations'), {
+    companyId,
+    tableId: input.tableId,
+    clientName: input.clientName.trim(),
+    clientEmail: input.clientEmail.trim(),
+    clientPhone: input.clientPhone.trim(),
+    pax: input.pax,
+    notes: input.notes.trim(),
+    startTime: Timestamp.fromDate(startTime),
+    endTime: Timestamp.fromDate(endTime),
+    status: 'confirmed',
+    cancelToken,
+    createdAt: serverTimestamp(),
+  })
+
+  return {
+    id: docRef.id,
+    companyId,
+    tableId: input.tableId,
+    clientName: input.clientName.trim(),
+    clientEmail: input.clientEmail.trim(),
+    clientPhone: input.clientPhone.trim(),
+    pax: input.pax,
+    notes: input.notes.trim(),
+    startTime,
+    endTime,
+    status: 'confirmed',
+    cancelToken,
+    createdAt: new Date(),
+  }
+}
+
+export async function updateReservation(
+  reservationId: string,
+  companyId: string,
+  date: Date,
+  form: ReservationFormData,
+  durationMinutes: number,
+  schedule: Company['schedule'],
+  cachedDayReservations?: Reservation[],
+): Promise<Reservation> {
+  const dayReservations =
+    cachedDayReservations ?? (await getReservationsForDate(companyId, date))
+
+  assertReservationSlotValid(
+    form.tableId,
+    form.time,
+    date,
+    schedule,
+    durationMinutes,
+    durationMinutes,
+    dayReservations,
+    reservationId,
+    form.status,
+  )
+
+  const { startTime, endTime } = reservationFormToTimes(date, form, durationMinutes)
+
+  await updateDoc(doc(db, 'reservations', reservationId), {
+    tableId: form.tableId,
+    clientName: form.clientName.trim(),
+    clientEmail: form.clientEmail.trim(),
+    clientPhone: form.clientPhone.trim(),
+    pax: form.pax,
+    startTime: Timestamp.fromDate(startTime),
+    endTime: Timestamp.fromDate(endTime),
+    status: form.status,
+  })
+
+  const existing = dayReservations.find((item) => item.id === reservationId)
+
+  return {
+    id: reservationId,
+    companyId,
+    tableId: form.tableId,
+    clientName: form.clientName.trim(),
+    clientEmail: form.clientEmail.trim(),
+    clientPhone: form.clientPhone.trim(),
+    pax: form.pax,
+    startTime,
+    endTime,
+    status: form.status,
+    notes: existing?.notes ?? '',
+    cancelToken: existing?.cancelToken ?? '',
+    createdAt: existing?.createdAt ?? new Date(),
+  }
+}
+
+export async function deleteReservation(reservationId: string): Promise<void> {
+  await deleteDoc(doc(db, 'reservations', reservationId))
 }
 
 export async function getReservationCountsByMonth(
   companyId: string,
   year: number,
   month: number,
+  cachedReservations?: Reservation[],
 ): Promise<Record<number, number>> {
-  const all = await getReservationsByCompany(companyId)
-  const counts: Record<number, number> = {}
-
-  for (const reservation of all) {
-    const start = reservation.startTime
-
-    if (start.getFullYear() !== year || start.getMonth() !== month) {
-      continue
-    }
-
-    if (reservation.status === 'cancelled') {
-      continue
-    }
-
-    const day = start.getDate()
-    counts[day] = (counts[day] ?? 0) + 1
-  }
-
-  return counts
+  const all = cachedReservations ?? (await getReservationsByCompany(companyId))
+  return computeReservationCountsByMonth(all, year, month)
 }
 
 export async function getTableNamesByCompany(
   companyId: string,
 ): Promise<Record<string, string>> {
+  const tables = await getTablesByCompany(companyId)
+  return Object.fromEntries(tables.map((table) => [table.id, table.name]))
+}
+
+export async function getTablesByCompany(companyId: string): Promise<RestaurantTable[]> {
   const snapshot = await getDocs(
     query(collection(db, 'tables'), where('companyId', '==', companyId)),
   )
 
+  return snapshot.docs
+    .map((item) => mapTable(item.id, item.data()))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'))
+}
+
+export function tablesToMeta(
+  tables: RestaurantTable[],
+): Record<string, { name: string; capacity: number }> {
   return Object.fromEntries(
-    snapshot.docs.map((item) => [item.id, item.data().name as string]),
+    tables.map((table) => [table.id, { name: table.name, capacity: table.capacity }]),
   )
+}
+
+export async function getTableMetaByCompany(
+  companyId: string,
+): Promise<Record<string, { name: string; capacity: number }>> {
+  const tables = await getTablesByCompany(companyId)
+  return tablesToMeta(tables)
+}
+
+export async function updateCompanySettings(
+  companyId: string,
+  payload: CompanySettingsPayload,
+): Promise<void> {
+  const trimmedName = payload.name.trim()
+  const companySnap = await getDoc(doc(db, 'companies', companyId))
+  const ownerUid = companySnap.data()?.ownerUid as string | undefined
+
+  const batch = writeBatch(db)
+
+  batch.update(doc(db, 'companies', companyId), {
+    name: trimmedName,
+    contactEmail: payload.contactEmail,
+    phone: payload.phone,
+    website: payload.website,
+    location: payload.location,
+    logoUrl: payload.logoUrl,
+    timeSlotMinutes: payload.timeSlotMinutes,
+    schedule: payload.schedule,
+    turns: payload.turns,
+    floorPlan: serializeFloorPlanForFirestore(payload.floorPlan),
+    updatedAt: serverTimestamp(),
+  })
+
+  batch.update(doc(db, 'companyCredentials', companyId), {
+    loginName: trimmedName,
+    updatedAt: serverTimestamp(),
+  })
+
+  if (ownerUid) {
+    batch.update(doc(db, 'users', ownerUid), {
+      loginName: trimmedName,
+    })
+  }
+
+  await batch.commit()
+}
+
+export async function updateCompanyFloorPlan(
+  companyId: string,
+  floorPlan: import('../types/company').FloorPlan,
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    floorPlan: serializeFloorPlanForFirestore(floorPlan),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function replaceCompanyTables(
+  companyId: string,
+  tables: TableInput[],
+): Promise<void> {
+  const existing = await getDocs(
+    query(collection(db, 'tables'), where('companyId', '==', companyId)),
+  )
+
+  const batch = writeBatch(db)
+
+  existing.docs.forEach((item) => {
+    batch.delete(item.ref)
+  })
+
+  tables.forEach((table, index) => {
+    const ref = table.id ? doc(db, 'tables', table.id) : doc(collection(db, 'tables'))
+    batch.set(ref, {
+      companyId,
+      name: table.name.trim(),
+      capacity: table.capacity,
+      sortOrder: index,
+    })
+  })
+
+  await batch.commit()
 }
 
 function mapCompany(id: string, data: Record<string, unknown>): Company {
@@ -201,12 +523,26 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
     name: data.name as string,
     slug: data.slug as string,
     ownerUid: data.ownerUid as string,
-    phone: data.phone as string,
+    phone: (data.phone as string) ?? '',
     website: (data.website as string) ?? '',
-    location: data.location as string,
+    location: (data.location as string) ?? '',
+    contactEmail: (data.contactEmail as string) ?? '',
+    logoUrl: (data.logoUrl as string) ?? '',
     timeSlotMinutes: (data.timeSlotMinutes as number) ?? 120,
-    schedule: data.schedule as Company['schedule'],
+    schedule: (data.schedule as Company['schedule']) ?? defaultSchedule(),
+    turns: (data.turns as Company['turns']) ?? defaultTurns(),
+    floorPlan: parseFloorPlan(data.floorPlan),
     createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+  }
+}
+
+function mapTable(id: string, data: Record<string, unknown>): RestaurantTable {
+  return {
+    id,
+    companyId: data.companyId as string,
+    name: data.name as string,
+    capacity: (data.capacity as number) ?? 2,
+    sortOrder: (data.sortOrder as number) ?? 0,
   }
 }
 
@@ -219,6 +555,7 @@ function mapReservation(id: string, data: Record<string, unknown>): Reservation 
     clientEmail: data.clientEmail as string,
     clientPhone: data.clientPhone as string,
     pax: data.pax as number,
+    notes: (data.notes as string) ?? '',
     startTime: (data.startTime as { toDate?: () => Date })?.toDate?.() ?? new Date(),
     endTime: (data.endTime as { toDate?: () => Date })?.toDate?.() ?? new Date(),
     status: data.status as ReservationStatus,
@@ -227,7 +564,10 @@ function mapReservation(id: string, data: Record<string, unknown>): Reservation 
   }
 }
 
-export function getFirestoreErrorMessage(error: unknown): string {
+export function getFirestoreErrorMessage(
+  error: unknown,
+  context: 'load' | 'save' = 'load',
+): string {
   if (
     typeof error === 'object' &&
     error !== null &&
@@ -235,13 +575,21 @@ export function getFirestoreErrorMessage(error: unknown): string {
     typeof error.code === 'string'
   ) {
     if (error.code === 'permission-denied') {
-      return 'Sin permiso para leer Firestore. Revisa las reglas en Firebase Console.'
+      return context === 'save'
+        ? 'Sin permiso para guardar. Publica las reglas en la base de datos «adelia» (Firebase Console → Firestore → adelia → Reglas).'
+        : 'Sin permiso para leer Firestore. Revisa las reglas en Firebase Console.'
     }
 
     if (error.code === 'unavailable' || error.code === 'not-found') {
-      return 'Firestore no está disponible. Crea la base de datos (default) y ejecuta npm run seed.'
+      return 'Firestore no está disponible. Crea la base de datos «adelia» y ejecuta npm run seed.'
     }
   }
 
-  return 'No se pudieron cargar los datos.'
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  return context === 'save'
+    ? 'No se pudieron guardar los cambios.'
+    : 'No se pudieron cargar los datos.'
 }
