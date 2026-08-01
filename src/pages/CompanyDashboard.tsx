@@ -9,6 +9,7 @@ import {
   type SettingsSection,
 } from '../types'
 import CompanyReservations from './company/CompanyReservations'
+import CompanyHelp from './company/CompanyHelp'
 import styles from './CompanyDashboard.module.css'
 
 const CompanySettings = lazy(() => import('./company/CompanySettings'))
@@ -16,6 +17,10 @@ const CompanySettings = lazy(() => import('./company/CompanySettings'))
 function settingsSectionLabel(tab: CompanyTab): string {
   if (tab === 'reservations') {
     return 'Reservas'
+  }
+
+  if (tab === 'help') {
+    return 'Ayuda'
   }
 
   return SETTINGS_SECTIONS.find((section) => section.id === tab)?.label ?? 'Mi restaurante'
@@ -110,6 +115,15 @@ function CompanyDashboard() {
               ))}
             </div>
           </div>
+
+          <button
+            type="button"
+            className={`${styles.navItem} ${activeTab === 'help' ? styles.navItemActive : ''}`}
+            onClick={() => navigateTo('help')}
+          >
+            <span className={styles.navLabel}>Ayuda</span>
+            <span className={styles.navHint}>Tutoriales y preguntas frecuentes</span>
+          </button>
         </nav>
 
         <div className={styles.sidebarFooter}>
@@ -149,7 +163,10 @@ function CompanyDashboard() {
           <div className={activeTab === 'reservations' ? styles.tabPanelActive : styles.tabPanelHidden}>
             <CompanyReservations companyId={company.id} />
           </div>
-          {activeTab !== 'reservations' && (
+          <div className={activeTab === 'help' ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyHelp />
+          </div>
+          {isSettingsTab(activeTab) && (
             <Suspense
               fallback={
                 <div className={styles.pageLoading}>

@@ -51,6 +51,7 @@ interface FloorPlanViewerProps {
   selectedTableId: string | null
   onSelectTable: (tableId: string) => void
   compact?: boolean
+  large?: boolean
 }
 
 function FloorPlanViewer({
@@ -59,6 +60,7 @@ function FloorPlanViewer({
   selectedTableId,
   onSelectTable,
   compact = false,
+  large = false,
 }: FloorPlanViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -342,7 +344,15 @@ function FloorPlanViewer({
   }
 
   return (
-    <div className={`${styles.wrapper} ${compact ? styles.wrapperCompact : ''}`}>
+    <div
+      className={[
+        styles.wrapper,
+        compact ? styles.wrapperCompact : '',
+        large ? styles.wrapperLarge : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <div
         ref={scrollContainerRef}
         className={`${styles.canvasScroll} ${isPanning ? styles.canvasScrollPanning : ''}`}

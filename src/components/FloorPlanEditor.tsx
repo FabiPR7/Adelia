@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type PointerEvent,
+  type ReactNode,
 } from 'react'
 import type { FloorPlan, FloorPlanElement, TableInput } from '../types'
 import {
@@ -117,6 +118,104 @@ function clampCanvasDimension(
   return Math.min(max, Math.max(min, parsed))
 }
 
+function HandleIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg className={styles.handleIcon} viewBox="0 0 24 24" aria-hidden="true">
+      {children}
+    </svg>
+  )
+}
+
+function RotateIcon() {
+  return (
+    <HandleIcon>
+      <path
+        d="M12 4V2M12 4a8 8 0 1 0 7.75 10"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M20 4h-3v3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </HandleIcon>
+  )
+}
+
+function ResizeIcon() {
+  return (
+    <HandleIcon>
+      <path
+        d="M16 4h4v4M20 4l-6 6M8 20H4v-4M4 20l6-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </HandleIcon>
+  )
+}
+
+function DeleteIcon() {
+  return (
+    <HandleIcon>
+      <path
+        d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"
+        fill="currentColor"
+      />
+    </HandleIcon>
+  )
+}
+
+interface SelectionHandlesProps {
+  onRotate: (event: PointerEvent<HTMLButtonElement>) => void
+  onResize: (event: PointerEvent<HTMLButtonElement>) => void
+  onDelete?: (event: PointerEvent<HTMLButtonElement>) => void
+}
+
+function SelectionHandles({ onRotate, onResize, onDelete }: SelectionHandlesProps) {
+  return (
+    <>
+      <button
+        type="button"
+        className={`${styles.objectHandle} ${styles.rotateHandle}`}
+        title="Girar"
+        aria-label="Girar"
+        onPointerDown={onRotate}
+      >
+        <RotateIcon />
+      </button>
+      <button
+        type="button"
+        className={`${styles.objectHandle} ${styles.resizeHandle}`}
+        title="Redimensionar"
+        aria-label="Redimensionar"
+        onPointerDown={onResize}
+      >
+        <ResizeIcon />
+      </button>
+      {onDelete && (
+        <button
+          type="button"
+          className={`${styles.objectHandle} ${styles.deleteHandle}`}
+          title="Eliminar"
+          aria-label="Eliminar"
+          onPointerDown={onDelete}
+        >
+          <DeleteIcon />
+        </button>
+      )}
+    </>
+  )
+}
+
 function pointerDistance(
   a: { x: number; y: number },
   b: { x: number; y: number },
@@ -136,7 +235,13 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
     midpointX: number
     midpointY: number
   } | null>(null)
-  const [dragState, setDragState] = useState<DragKind | null>(null)
+  const dragStateRef = useRef<DragKind | null>(null)
+  const [dragState, setDragStateState] = useState<DragKind | null>(null)
+
+  const setDragState = (state: DragKind | null) => {
+    dragStateRef.current = state
+    setDragStateState(state)
+  }
   const [selection, setSelection] = useState<Selection>(null)
   const [floorsOpen, setFloorsOpen] = useState(false)
   const [viewScale, setViewScale] = useState(1)
@@ -351,10 +456,12 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
   }
 
   const handleViewportPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (dragState?.type === 'pan') {
+    const drag = dragStateRef.current
+
+    if (drag?.type === 'pan') {
       setViewPan({
-        x: dragState.startPanX + (event.clientX - dragState.startPointerX),
-        y: dragState.startPanY + (event.clientY - dragState.startPointerY),
+        x: drag.startPanX + (event.clientX - drag.startPointerX),
+        y: drag.startPanY + (event.clientY - drag.startPointerY),
       })
     }
 
@@ -389,7 +496,7 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
       pinchRef.current = null
     }
 
-    if (dragState?.type === 'pan') {
+    if (dragStateRef.current?.type === 'pan') {
       setDragState(null)
     }
   }
@@ -437,7 +544,7 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
     width: number,
     height: number,
     axis: 'corner' | 'width' | 'height',
-    event: PointerEvent<HTMLSpanElement>,
+    event: PointerEvent<HTMLButtonElement>,
   ) => {
     event.stopPropagation()
     const pointer = pointerToPercent(event.clientX, event.clientY)
@@ -460,7 +567,7 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
     rotation: number,
     centerX: number,
     centerY: number,
-    event: PointerEvent<HTMLSpanElement>,
+    event: PointerEvent<HTMLButtonElement>,
   ) => {
     event.stopPropagation()
     const pointer = pointerToPercent(event.clientX, event.clientY)
@@ -478,55 +585,57 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
   }
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!dragState || dragState.type === 'pan') {
+    const drag = dragStateRef.current
+
+    if (!drag || drag.type === 'pan') {
       return
     }
 
     const pointer = pointerToPercent(event.clientX, event.clientY)
 
-    if (dragState.type === 'table') {
-      updateTable(dragState.tableKey, {
-        x: clampPercent(pointer.x - dragState.offsetX, 2, 96),
-        y: clampPercent(pointer.y - dragState.offsetY, 2, 96),
+    if (drag.type === 'table') {
+      updateTable(drag.tableKey, {
+        x: clampPercent(pointer.x - drag.offsetX, 2, 96),
+        y: clampPercent(pointer.y - drag.offsetY, 2, 96),
       })
       return
     }
 
-    if (dragState.type === 'element') {
-      updateElement(dragState.elementId, {
-        x: clampPercent(pointer.x - dragState.offsetX, 0, 95),
-        y: clampPercent(pointer.y - dragState.offsetY, 0, 95),
+    if (drag.type === 'element') {
+      updateElement(drag.elementId, {
+        x: clampPercent(pointer.x - drag.offsetX, 0, 95),
+        y: clampPercent(pointer.y - drag.offsetY, 0, 95),
       })
       return
     }
 
-    if (dragState.type === 'resize') {
-      const widthDelta = pointer.x - dragState.startPointerX
-      const heightDelta = pointer.y - dragState.startPointerY
+    if (drag.type === 'resize') {
+      const widthDelta = pointer.x - drag.startPointerX
+      const heightDelta = pointer.y - drag.startPointerY
       const nextWidth =
-        dragState.axis === 'height'
-          ? dragState.startWidth
-          : clampPercent(dragState.startWidth + widthDelta, 3, 45)
+        drag.axis === 'height'
+          ? drag.startWidth
+          : clampPercent(drag.startWidth + widthDelta, 3, 45)
       const nextHeight =
-        dragState.axis === 'width'
-          ? dragState.startHeight
-          : clampPercent(dragState.startHeight + heightDelta, 3, 45)
+        drag.axis === 'width'
+          ? drag.startHeight
+          : clampPercent(drag.startHeight + heightDelta, 3, 45)
 
-      if (dragState.target === 'element') {
-        updateElement(dragState.id, { width: nextWidth, height: nextHeight })
+      if (drag.target === 'element') {
+        updateElement(drag.id, { width: nextWidth, height: nextHeight })
       } else {
-        updateTable(dragState.id, { width: nextWidth, height: nextHeight })
+        updateTable(drag.id, { width: nextWidth, height: nextHeight })
       }
       return
     }
 
-    const angle = (Math.atan2(pointer.y - dragState.centerY, pointer.x - dragState.centerX) * 180) / Math.PI
-    const nextRotation = dragState.startRotation + (angle - dragState.startAngle)
+    const angle = (Math.atan2(pointer.y - drag.centerY, pointer.x - drag.centerX) * 180) / Math.PI
+    const nextRotation = drag.startRotation + (angle - drag.startAngle)
 
-    if (dragState.target === 'element') {
-      updateElement(dragState.id, { rotation: nextRotation })
+    if (drag.target === 'element') {
+      updateElement(drag.id, { rotation: nextRotation })
     } else {
-      updateTable(dragState.id, { rotation: nextRotation })
+      updateTable(drag.id, { rotation: nextRotation })
     }
   }
 
@@ -693,74 +802,25 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
                       draggable={false}
                     />
                     {isSelected && (
-                      <>
-                        <span
-                          className={styles.rotateHandle}
-                          title="Girar"
-                          onPointerDown={(event) =>
-                            startRotate('element', element.id, rotation, centerX, centerY, event)
-                          }
-                        />
-                        <span
-                          className={styles.resizeHandleWidth}
-                          title="Ancho"
-                          onPointerDown={(event) =>
-                            startResize(
-                              'element',
-                              element.id,
-                              element.width,
-                              element.height,
-                              'width',
-                              event,
-                            )
-                          }
-                        />
-                        <span
-                          className={styles.resizeHandleHeight}
-                          title="Alto"
-                          onPointerDown={(event) =>
-                            startResize(
-                              'element',
-                              element.id,
-                              element.width,
-                              element.height,
-                              'height',
-                              event,
-                            )
-                          }
-                        />
-                        <span
-                          className={styles.resizeHandle}
-                          title="Ancho y alto"
-                          onPointerDown={(event) =>
-                            startResize(
-                              'element',
-                              element.id,
-                              element.width,
-                              element.height,
-                              'corner',
-                              event,
-                            )
-                          }
-                        />
-                        <span
-                          className={styles.deleteHandle}
-                          title="Eliminar"
-                          role="button"
-                          aria-label="Eliminar"
-                          onPointerDown={(event) => {
-                            event.stopPropagation()
-                            removeElement(element.id)
-                          }}
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path
-                              d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"
-                              fill="currentColor"
-                            />
-                          </svg>
-                        </span>
-                      </>
+                      <SelectionHandles
+                        onRotate={(event) =>
+                          startRotate('element', element.id, rotation, centerX, centerY, event)
+                        }
+                        onResize={(event) =>
+                          startResize(
+                            'element',
+                            element.id,
+                            element.width,
+                            element.height,
+                            'corner',
+                            event,
+                          )
+                        }
+                        onDelete={(event) => {
+                          event.stopPropagation()
+                          removeElement(element.id)
+                        }}
+                      />
                     )}
                   </div>
                 )
@@ -806,57 +866,21 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
                       draggable={false}
                     />
                     {isSelected && (
-                      <>
-                        <span
-                          className={styles.rotateHandle}
-                          title="Girar"
-                          onPointerDown={(event) =>
-                            startRotate('table', tableKey, rotation, position.x, position.y, event)
-                          }
-                        />
-                        <span
-                          className={styles.resizeHandleWidth}
-                          title="Ancho"
-                          onPointerDown={(event) =>
-                            startResize(
-                              'table',
-                              tableKey,
-                              position.width,
-                              position.height,
-                              'width',
-                              event,
-                            )
-                          }
-                        />
-                        <span
-                          className={styles.resizeHandleHeight}
-                          title="Alto"
-                          onPointerDown={(event) =>
-                            startResize(
-                              'table',
-                              tableKey,
-                              position.width,
-                              position.height,
-                              'height',
-                              event,
-                            )
-                          }
-                        />
-                        <span
-                          className={styles.resizeHandle}
-                          title="Ancho y alto"
-                          onPointerDown={(event) =>
-                            startResize(
-                              'table',
-                              tableKey,
-                              position.width,
-                              position.height,
-                              'corner',
-                              event,
-                            )
-                          }
-                        />
-                      </>
+                      <SelectionHandles
+                        onRotate={(event) =>
+                          startRotate('table', tableKey, rotation, position.x, position.y, event)
+                        }
+                        onResize={(event) =>
+                          startResize(
+                            'table',
+                            tableKey,
+                            position.width,
+                            position.height,
+                            'corner',
+                            event,
+                          )
+                        }
+                      />
                     )}
                   </div>
                 )

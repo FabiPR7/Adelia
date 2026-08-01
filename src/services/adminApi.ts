@@ -14,7 +14,7 @@ async function parseResponse(response: Response) {
     if (!response.ok) {
       throw new Error(
         response.status === 502 || response.status === 504
-          ? 'La API no responde. Ejecuta npm run dev (frontend + API).'
+          ? 'La API no responde. Inténtalo de nuevo en unos segundos.'
           : `Error del servidor (${response.status}) sin respuesta.`,
       )
     }
@@ -25,7 +25,7 @@ async function parseResponse(response: Response) {
   try {
     return JSON.parse(text) as Record<string, unknown>
   } catch {
-    throw new Error('Respuesta inválida del servidor. ¿Está npm run dev en marcha?')
+    throw new Error('Respuesta inválida del servidor.')
   }
 }
 
@@ -51,7 +51,7 @@ async function apiRequest<T>(
       },
     })
   } catch {
-    throw new Error('No se pudo conectar con la API. Ejecuta npm run dev.')
+    throw new Error('No se pudo conectar con la API.')
   }
 
   const data = await parseResponse(response)

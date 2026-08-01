@@ -116,6 +116,14 @@
   max-height: 200px;
 }
 
+.wrapperLarge .canvasScroll {
+  aspect-ratio: 16 / 11;
+  width: 100%;
+  min-height: 360px;
+  height: min(62vh, 680px);
+  max-height: none;
+}
+
 @media (max-width: 900px) {
   .canvasScroll {
     aspect-ratio: auto;
@@ -126,5 +134,12 @@
   .wrapperCompact .canvasScroll {
     height: min(44vw, 180px);
     max-height: 180px;
+  }
+
+  .wrapperLarge .canvasScroll {
+    aspect-ratio: 1;
+    min-height: 300px;
+    height: min(92vw, 520px);
+    max-height: 520px;
   }
 }

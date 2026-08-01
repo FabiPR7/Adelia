@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
-import { getAdminCompanies, markCompanyMustChangePassword } from '../services/firestore'
-import { createCompany, deleteCompany, updateCompany } from '../services/adminApi'
+import { getAdminCompanies, markCompanyMustChangePassword, syncAllCompanyLoginIndexes } from '../services/firestore'
+import { createCompany, deleteCompany, updateCompany } from '../services/adminCompanies'
 import { logout } from '../services/auth'
 import type { AdminCompany } from '../types'
 import styles from './AdminDashboard.module.css'
@@ -51,6 +51,10 @@ function AdminDashboard() {
     setError(null)
 
     try {
+      void syncAllCompanyLoginIndexes().catch(() => {
+        // El login sigue resolviendo accesos por nombre de empresa.
+      })
+
       const data = await getAdminCompanies()
       setCompanies(data)
     } catch (err) {
@@ -111,23 +115,22 @@ function AdminDashboard() {
       const newPassword = form.password.trim()
 
       if (editingCompany) {
-        await updateCompany(editingCompany.id, {
+        if (newPassword) {
+          setError(
+            'Para cambiar la contraseña de una empresa existente, el restaurante debe hacerlo al entrar con «Cambiar contraseña», o créala de nuevo con la contraseña deseada.',
+          )
+          setIsSaving(false)
+          return
+        }
+
+        await updateCompany(editingCompany.id, editingCompany, {
           name: form.name,
           location: form.location,
           phone: form.phone,
           website: form.website,
-          ...(newPassword ? { password: newPassword } : {}),
         })
 
-        if (newPassword) {
-          await markCompanyMustChangePassword(editingCompany.ownerUid, editingCompany.id)
-        }
-
-        setSuccess(
-          newPassword
-            ? `Empresa "${form.name}" actualizada. Deberá cambiar la contraseña al entrar.`
-            : `Empresa "${form.name}" actualizada correctamente.`,
-        )
+        setSuccess(`Empresa "${form.name}" actualizada correctamente.`)
       } else {
         const result = await createCompany({
           name: form.name,
@@ -138,7 +141,6 @@ function AdminDashboard() {
         })
 
         await markCompanyMustChangePassword(result.company.ownerUid, result.company.id)
-
         setSuccess(`Empresa "${form.name}" creada. Deberá cambiar la contraseña al entrar.`)
       }
 
@@ -146,13 +148,7 @@ function AdminDashboard() {
       await loadCompanies()
       await refreshProfile()
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message.includes('Failed to fetch')
-            ? 'No se pudo conectar con la API. Ejecuta npm run dev (incluye frontend y API).'
-            : err.message
-          : 'No se pudo guardar la empresa.',
-      )
+      setError(err instanceof Error ? err.message : 'No se pudo guardar la empresa.')
     } finally {
       setIsSaving(false)
     }
@@ -172,18 +168,12 @@ function AdminDashboard() {
     setSuccess(null)
 
     try {
-      await deleteCompany(companyToDelete.id)
+      await deleteCompany(companyToDelete.id, companyToDelete)
       setSuccess(`Empresa "${companyToDelete.name}" eliminada.`)
       setCompanyToDelete(null)
       await loadCompanies()
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message.includes('Failed to fetch')
-            ? 'No se pudo conectar con la API. Ejecuta npm run dev.'
-            : err.message
-          : 'No se pudo eliminar la empresa.',
-      )
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar la empresa.')
     } finally {
       setIsDeletingCompany(false)
     }

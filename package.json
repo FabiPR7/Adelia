@@ -4,11 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev": "vite",
+    "dev:all": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:web": "vite",
     "dev:api": "tsx watch server/index.ts",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "deploy": "npm run build && firebase deploy --only hosting,firestore,functions",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy:rules": "firebase deploy --only firestore",
+    "deploy:api": "firebase deploy --only functions",
     "seed": "node scripts/seed.mjs",
     "cleanup-demo": "node scripts/cleanup-demo.mjs",
     "backfill-password-flags": "node scripts/backfill-must-change-password.mjs",
@@ -17,6 +22,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.5",
@@ -31,8 +37,10 @@
     "express": "^5.2.1",
     "firebase": "^12.16.0",
     "firebase-admin": "^14.2.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.2"
+    "react-router-dom": "^7.18.2",
+    "resend": "^6.18.1"
   }
 }

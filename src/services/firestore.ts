@@ -12,7 +12,7 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { db, auth } from '../config/firebase'
 import type {
   AppUser,
   AdminCompany,
@@ -29,7 +29,187 @@ import {
   assertReservationSlotValid,
   computeReservationCountsByMonth as computeReservationCountsByMonthUtil,
 } from '../utils/reservationSlots'
-import { combineDateAndTime, defaultSchedule, generateUuid, isSameDay } from '../utils/helpers'
+import { combineDateAndTime, dateToIsoDate, defaultSchedule, generateUuid, isSameDay, slugToAuthEmail, slugify } from '../utils/helpers'
+import { notifyReservationConfirmationEmail } from './reservationEmailApi'
+
+const API_BASE = import.meta.env.VITE_API_URL ?? ''
+
+export async function syncCompanyLoginIndex(
+  loginName: string,
+  authEmail: string,
+  companyId?: string,
+): Promise<void> {
+  const trimmed = loginName.trim()
+  const loginId = slugify(trimmed)
+  const batch = writeBatch(db)
+
+  const stale = await getDocs(
+    query(collection(db, 'logins'), where('authEmail', '==', authEmail)),
+  )
+
+  stale.docs.forEach((item) => {
+    if (item.id !== loginId) {
+      batch.delete(item.ref)
+    }
+  })
+
+  batch.set(doc(db, 'logins', loginId), {
+    loginName: trimmed,
+    authEmail,
+    role: 'company',
+    ...(companyId ? { companyId } : {}),
+  })
+
+  await batch.commit()
+}
+
+async function getCompanyAuthEmail(companyId: string): Promise<string | null> {
+  try {
+    const credentialsSnap = await getDoc(doc(db, 'companyCredentials', companyId))
+
+    if (!credentialsSnap.exists()) {
+      return null
+    }
+
+    return (credentialsSnap.data().authEmail as string | undefined) ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function resolveLoginAuthEmail(username: string): Promise<string> {
+  const trimmed = username.trim()
+
+  if (!trimmed) {
+    throw new Error('Indica tu nombre de usuario.')
+  }
+
+  const normalized = slugify(trimmed)
+  const loginSnap = await getDoc(doc(db, 'logins', normalized))
+
+  if (loginSnap.exists()) {
+    const authEmail = loginSnap.data().authEmail as string | undefined
+
+    if (authEmail) {
+      return authEmail
+    }
+  }
+
+  const byLoginName = await getDocs(
+    query(collection(db, 'logins'), where('loginName', '==', trimmed)),
+  )
+
+  if (!byLoginName.empty) {
+    const authEmail = byLoginName.docs[0].data().authEmail as string | undefined
+
+    if (authEmail) {
+      return authEmail
+    }
+  }
+
+  const companyLogins = await getDocs(
+    query(collection(db, 'logins'), where('role', '==', 'company')),
+  )
+
+  const loginByDisplayName = companyLogins.docs.find((item) => {
+    const storedLoginName = item.data().loginName as string | undefined
+
+    if (!storedLoginName) {
+      return false
+    }
+
+    return storedLoginName === trimmed || slugify(storedLoginName) === normalized
+  })
+
+  if (loginByDisplayName) {
+    const authEmail = loginByDisplayName.data().authEmail as string | undefined
+
+    if (authEmail) {
+      return authEmail
+    }
+  }
+
+  const companies = await getDocs(collection(db, 'companies'))
+  const companyMatch = companies.docs.find((item) => {
+    const name = item.data().name as string
+    return name === trimmed || slugify(name) === normalized
+  })
+
+  if (companyMatch) {
+    const byCompanyId = companyLogins.docs.find(
+      (item) => item.data().companyId === companyMatch.id,
+    )
+
+    if (byCompanyId) {
+      const authEmail = byCompanyId.data().authEmail as string | undefined
+
+      if (authEmail) {
+        return authEmail
+      }
+    }
+
+    const credentialsAuthEmail = await getCompanyAuthEmail(companyMatch.id)
+
+    if (credentialsAuthEmail) {
+      return credentialsAuthEmail
+    }
+
+    return slugToAuthEmail(companyMatch.data().slug as string)
+  }
+
+  return slugToAuthEmail(normalized)
+}
+
+export async function ensureCompanyLoginIndex(companyId: string): Promise<void> {
+  const [credentialsSnap, companySnap] = await Promise.all([
+    getDoc(doc(db, 'companyCredentials', companyId)),
+    getDoc(doc(db, 'companies', companyId)),
+  ])
+
+  if (!credentialsSnap.exists() || !companySnap.exists()) {
+    return
+  }
+
+  const loginName =
+    (credentialsSnap.data().loginName as string | undefined) ??
+    (companySnap.data().name as string | undefined)
+  const authEmail =
+    (credentialsSnap.data().authEmail as string | undefined) ??
+    slugToAuthEmail(companySnap.data().slug as string)
+
+  if (!loginName || !authEmail) {
+    return
+  }
+
+  await syncCompanyLoginIndex(loginName, authEmail, companyId)
+}
+
+/** Sincroniza el índice de acceso de todas las empresas (solo admin). */
+export async function syncAllCompanyLoginIndexes(): Promise<void> {
+  const [companiesSnap, credentialsSnap] = await Promise.all([
+    getDocs(collection(db, 'companies')),
+    getDocs(collection(db, 'companyCredentials')),
+  ])
+
+  const credentialsByCompanyId = Object.fromEntries(
+    credentialsSnap.docs.map((item) => [item.id, item.data()]),
+  )
+
+  for (const companyDoc of companiesSnap.docs) {
+    const credentials = credentialsByCompanyId[companyDoc.id]
+    const companyData = companyDoc.data()
+    const loginName =
+      (credentials?.loginName as string | undefined) ??
+      (companyData.name as string | undefined)
+    const authEmail =
+      (credentials?.authEmail as string | undefined) ??
+      slugToAuthEmail(companyData.slug as string)
+
+    if (loginName && authEmail) {
+      await syncCompanyLoginIndex(loginName, authEmail, companyDoc.id)
+    }
+  }
+}
 
 export async function getUserProfile(uid: string): Promise<AppUser | null> {
   const snapshot = await getDoc(doc(db, 'users', uid))
@@ -228,6 +408,64 @@ export async function createReservation(
   )
 
   const { startTime, endTime } = reservationFormToTimes(date, form, durationMinutes)
+
+  const currentUser = auth.currentUser
+
+  if (currentUser) {
+    try {
+      const token = await currentUser.getIdToken()
+      const response = await fetch(`${API_BASE}/api/company/${encodeURIComponent(companyId)}/reservations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          date: dateToIsoDate(date),
+          time: form.time,
+          tableId: form.tableId,
+          clientName: form.clientName.trim(),
+          clientEmail: form.clientEmail.trim(),
+          clientPhone: form.clientPhone.trim(),
+          pax: form.pax,
+          status: form.status,
+          notes: '',
+        }),
+      })
+
+      const data = (await response.json().catch(() => ({}))) as {
+        id?: string
+        error?: string
+      }
+
+      if (response.ok && data.id) {
+        return {
+          id: data.id,
+          companyId,
+          tableId: form.tableId,
+          clientName: form.clientName.trim(),
+          clientEmail: form.clientEmail.trim(),
+          clientPhone: form.clientPhone.trim(),
+          pax: form.pax,
+          startTime,
+          endTime,
+          status: form.status,
+          notes: '',
+          cancelToken: generateUuid(),
+          createdAt: new Date(),
+        }
+      }
+
+      if (response.status >= 400 && response.status < 500 && data.error) {
+        throw new Error(data.error)
+      }
+    } catch (apiError) {
+      if (apiError instanceof Error && apiError.message.trim()) {
+        throw apiError
+      }
+    }
+  }
+
   const cancelToken = generateUuid()
 
   const docRef = await addDoc(collection(db, 'reservations'), {
@@ -244,6 +482,10 @@ export async function createReservation(
     cancelToken,
     createdAt: serverTimestamp(),
   })
+
+  if (form.clientEmail.trim()) {
+    await notifyReservationConfirmationEmail(docRef.id)
+  }
 
   return {
     id: docRef.id,
@@ -299,7 +541,7 @@ export async function createPublicReservation(
     clientName: input.clientName,
     clientEmail: input.clientEmail,
     clientPhone: input.clientPhone,
-    pax: input.pax,
+    pax: Math.trunc(input.pax),
     tableId: input.tableId,
     time: input.time,
     status: 'confirmed',
@@ -314,7 +556,7 @@ export async function createPublicReservation(
     clientName: input.clientName.trim(),
     clientEmail: input.clientEmail.trim(),
     clientPhone: input.clientPhone.trim(),
-    pax: input.pax,
+    pax: Math.trunc(input.pax),
     notes: input.notes.trim(),
     startTime: Timestamp.fromDate(startTime),
     endTime: Timestamp.fromDate(endTime),
@@ -323,6 +565,10 @@ export async function createPublicReservation(
     createdAt: serverTimestamp(),
   })
 
+  if (input.clientEmail.trim()) {
+    await notifyReservationConfirmationEmail(docRef.id)
+  }
+
   return {
     id: docRef.id,
     companyId,
@@ -330,7 +576,7 @@ export async function createPublicReservation(
     clientName: input.clientName.trim(),
     clientEmail: input.clientEmail.trim(),
     clientPhone: input.clientPhone.trim(),
-    pax: input.pax,
+    pax: Math.trunc(input.pax),
     notes: input.notes.trim(),
     startTime,
     endTime,
@@ -448,7 +694,11 @@ export async function updateCompanySettings(
 ): Promise<void> {
   const trimmedName = payload.name.trim()
   const companySnap = await getDoc(doc(db, 'companies', companyId))
+  const credentialsSnap = await getDoc(doc(db, 'companyCredentials', companyId))
   const ownerUid = companySnap.data()?.ownerUid as string | undefined
+  const authEmail =
+    (credentialsSnap.data()?.authEmail as string | undefined) ??
+    slugToAuthEmail(companySnap.data()?.slug as string)
 
   const batch = writeBatch(db)
 
@@ -478,6 +728,10 @@ export async function updateCompanySettings(
   }
 
   await batch.commit()
+
+  if (authEmail) {
+    await syncCompanyLoginIndex(trimmedName, authEmail, companyId)
+  }
 }
 
 export async function updateCompanyFloorPlan(

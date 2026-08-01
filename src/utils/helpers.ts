@@ -97,6 +97,44 @@ export function isSameDay(a: Date, b: Date): boolean {
   )
 }
 
+export function startOfDay(date: Date): Date {
+  const value = new Date(date)
+  value.setHours(0, 0, 0, 0)
+  return value
+}
+
+export function isPastCalendarDate(date: Date): boolean {
+  return startOfDay(date).getTime() < startOfDay(new Date()).getTime()
+}
+
+export function isReservationStartInPast(date: Date, time: string): boolean {
+  return combineDateAndTime(date, time).getTime() <= Date.now()
+}
+
+export function assertReservationStartInFuture(
+  date: Date,
+  time: string,
+  status: 'confirmed' | 'cancelled' | 'completed' = 'confirmed',
+): void {
+  if (status !== 'confirmed') {
+    return
+  }
+
+  if (isPastCalendarDate(date) || isReservationStartInPast(date, time)) {
+    throw new Error('No se pueden hacer reservas en fechas u horas pasadas.')
+  }
+}
+
+export function clampToTodayOrFuture(date: Date): Date {
+  const today = startOfDay(new Date())
+
+  if (startOfDay(date).getTime() < today.getTime()) {
+    return new Date(today)
+  }
+
+  return date
+}
+
 export function getMonthGrid(year: number, month: number): (Date | null)[] {
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
@@ -190,6 +228,56 @@ export function isValidEmail(input: string): boolean {
   }
 
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed)
+}
+
+export async function copyTextToClipboard(text: string): Promise<boolean> {
+  const value = text.trim()
+
+  if (!value || typeof document === 'undefined') {
+    return false
+  }
+
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value)
+      return true
+    } catch {
+      // Fallback below for mobile browsers and older WebViews.
+    }
+  }
+
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = value
+    textarea.setAttribute('readonly', 'true')
+    textarea.style.position = 'fixed'
+    textarea.style.top = '0'
+    textarea.style.left = '0'
+    textarea.style.width = '2em'
+    textarea.style.height = '2em'
+    textarea.style.opacity = '0'
+    textarea.style.pointerEvents = 'none'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+    textarea.setSelectionRange(0, value.length)
+
+    const copied = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return copied
+  } catch {
+    return false
+  }
+}
+
+export function selectInputText(input: HTMLInputElement | HTMLTextAreaElement | null): void {
+  if (!input) {
+    return
+  }
+
+  input.focus()
+  input.select()
+  input.setSelectionRange(0, input.value.length)
 }
 
 export function isValidClientName(input: string): boolean {

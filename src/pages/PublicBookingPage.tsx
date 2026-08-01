@@ -18,6 +18,8 @@ import {
   getTableStatesForSlot,
 } from '../utils/reservationSlots'
 import {
+  assertReservationStartInFuture,
+  clampToTodayOrFuture,
   dateToIsoDate,
   formatDateSpanish,
   formatSpanishPhoneForStorage,
@@ -25,6 +27,7 @@ import {
   isValidEmail,
   isValidSpanishPhone,
 } from '../utils/helpers'
+import { waitForReservationSubmit } from '../services/reservationEmailApi'
 import styles from './PublicBookingPage.module.css'
 
 const FloorPlanViewer = lazy(() => import('../components/FloorPlanViewer'))
@@ -89,7 +92,6 @@ function PublicBookingPage() {
         if (cancelled) return
         setCompany(data.company)
         setTables(data.tables)
-        setViewMode(data.company.floorPlan.enabled ? 'map' : 'hours')
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Restaurante no encontrado.')
@@ -239,8 +241,17 @@ function PublicBookingPage() {
       return
     }
 
+    try {
+      assertReservationStartInFuture(selectedDate, selectedTime)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Horario no válido.')
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
+
+    const hasEmail = clientEmail.trim().length > 0
 
     try {
       await createPublicReservation(slug, {
@@ -253,6 +264,10 @@ function PublicBookingPage() {
         pax,
         notes: notes.trim(),
       })
+
+      if (!hasEmail) {
+        await waitForReservationSubmit()
+      }
 
       setStep('done')
       setClientName('')
@@ -268,10 +283,14 @@ function PublicBookingPage() {
     }
   }
 
+  const selectBookingDate = (date: Date) => {
+    setSelectedDate(clampToTodayOrFuture(date))
+  }
+
   const shiftSelectedDate = (days: number) => {
     const next = new Date(selectedDate)
     next.setDate(next.getDate() + days)
-    setSelectedDate(next)
+    setSelectedDate(clampToTodayOrFuture(next))
   }
 
   if (isBootLoading) {
@@ -354,7 +373,8 @@ function PublicBookingPage() {
           <aside className={styles.calendarPane}>
             <Calendar
               selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
+              onSelectDate={selectBookingDate}
+              disablePastDates
             />
           </aside>
 
@@ -403,7 +423,13 @@ function PublicBookingPage() {
                   <p className={styles.loadingInline}>Actualizando disponibilidad…</p>
                 ) : step === 'form' ? (
                   <form className={styles.formCard} onSubmit={(event) => void handleSubmit(event)}>
-                    <button type="button" className={styles.backButton} onClick={resetSelection}>
+                    {isSubmitting && (
+                      <div className={styles.submitOverlay} aria-live="polite">
+                        <span className={styles.spinner} aria-hidden="true" />
+                        <span>Confirmando tu reserva…</span>
+                      </div>
+                    )}
+                    <button type="button" className={styles.backButton} onClick={resetSelection} disabled={isSubmitting}>
                       ← Volver
                     </button>
                     <h3>Completa tu reserva</h3>
@@ -411,6 +437,7 @@ function PublicBookingPage() {
                       {formatDateSpanish(selectedDate)} · {selectedTime} –{' '}
                       {formatSlotEndTime(selectedTime, durationMinutes)} · {selectedTable?.name}
                     </p>
+                    <fieldset className={styles.formFields} disabled={isSubmitting}>
                     <label>
                       Nombre
                       <input
@@ -464,8 +491,16 @@ function PublicBookingPage() {
                       />
                     </label>
                     <button type="submit" className={styles.primaryButton} disabled={isSubmitting}>
-                      {isSubmitting ? 'Reservando…' : 'Confirmar reserva'}
+                      {isSubmitting ? (
+                        <span className={styles.submittingLabel}>
+                          <span className={styles.spinner} aria-hidden="true" />
+                          Confirmando…
+                        </span>
+                      ) : (
+                        'Confirmar reserva'
+                      )}
                     </button>
+                    </fieldset>
                   </form>
                 ) : viewMode === 'hours' ? (
                   <div className={styles.panel}>
@@ -524,6 +559,7 @@ function PublicBookingPage() {
                             tables={tables}
                             selectedTableId={selectedTableId}
                             onSelectTable={handleSelectTableOnMap}
+                            large
                           />
                         </Suspense>
                       </div>
@@ -591,9 +627,10 @@ function PublicBookingPage() {
             <Calendar
               selectedDate={selectedDate}
               onSelectDate={(date) => {
-                setSelectedDate(date)
+                selectBookingDate(date)
                 setCalendarOpen(false)
               }}
+              disablePastDates
             />
           </div>
         </div>

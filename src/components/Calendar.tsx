@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   getMonthGrid,
   isSameDay,
+  isPastCalendarDate,
   MONTH_NAMES,
   WEEKDAY_NAMES,
 } from '../utils/helpers'
@@ -14,6 +15,7 @@ interface CalendarProps {
   /** Si es false, las flechas de mes solo cambian la vista sin cerrar ni cambiar el día seleccionado. */
   updateSelectionOnMonthNav?: boolean
   onMonthChange?: (date: Date) => void
+  disablePastDates?: boolean
 }
 
 function Calendar({
@@ -22,6 +24,7 @@ function Calendar({
   reservationCounts = {},
   updateSelectionOnMonthNav = true,
   onMonthChange,
+  disablePastDates = false,
 }: CalendarProps) {
   const [viewDate, setViewDate] = useState(selectedDate)
   const year = viewDate.getFullYear()
@@ -87,6 +90,7 @@ function Calendar({
           const count = reservationCounts[day.getDate()] ?? 0
           const isSelected = isSameDay(day, selectedDate)
           const isToday = isSameDay(day, today)
+          const isPast = disablePastDates && isPastCalendarDate(day)
 
           return (
             <button
@@ -96,10 +100,16 @@ function Calendar({
                 styles.day,
                 isSelected ? styles.selected : '',
                 isToday ? styles.today : '',
+                isPast ? styles.pastDay : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
-              onClick={() => onSelectDate(day)}
+              onClick={() => {
+                if (!isPast) {
+                  onSelectDate(day)
+                }
+              }}
+              disabled={isPast}
             >
               <span className={styles.dayNumber}>{day.getDate()}</span>
               {count > 0 && (

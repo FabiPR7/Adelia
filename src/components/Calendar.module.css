@@ -117,3 +117,12 @@
 .selected.today {
   border-color: var(--color-brown);
 }
+
+.pastDay {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pastDay:hover {
+  background: var(--color-cream);
+}

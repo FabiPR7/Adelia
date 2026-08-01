@@ -7,7 +7,7 @@ import {
 } from 'firebase/auth'
 import { auth } from '../config/firebase'
 import { clearMustChangePassword, updateCompanyLoginPassword } from './firestore'
-import { slugify, slugToAuthEmail } from '../utils/helpers'
+import { resolveLoginAuthEmail } from './firestore'
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/invalid-email': 'El nombre no es válido.',
@@ -42,7 +42,7 @@ export function getAuthErrorMessage(error: unknown): string {
 }
 
 export async function loginWithUsername(username: string, password: string) {
-  const email = slugToAuthEmail(slugify(username))
+  const email = await resolveLoginAuthEmail(username)
   const credential = await signInWithEmailAndPassword(auth, email, password)
   return credential.user
 }

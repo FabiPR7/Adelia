@@ -1,11 +1,13 @@
 import { Router, type Request, type Response } from 'express'
 import { Timestamp } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
+import { processReservationConfirmationEmail } from '../email/processReservationEmail.ts'
 import { adminDb } from '../firebase-admin.ts'
 import {
   assertReservationSlotValid,
   isSameDay,
   parseBookingDate,
+  assertReservationStartInFuture,
 } from '../reservationSlots.ts'
 import { defaultSchedule } from '../utils.ts'
 
@@ -223,6 +225,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       .filter((item) => isSameDay(item.startTime, date))
 
     try {
+      assertReservationStartInFuture(date, time)
       assertReservationSlotValid(
         tableId,
         time,
@@ -247,7 +250,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
     startTime.setHours(hours, minutes, 0, 0)
     const endTime = new Date(startTime.getTime() + company.timeSlotMinutes * 60000)
 
-    const reservationRef = await adminDb.collection('reservations').add({
+    const reservationData = {
       companyId: company.id,
       tableId,
       clientName: clientName.trim(),
@@ -260,7 +263,17 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       status: 'confirmed',
       cancelToken: randomUUID(),
       createdAt: Timestamp.now(),
-    })
+    }
+
+    const reservationRef = await adminDb.collection('reservations').add(reservationData)
+
+    if (email) {
+      try {
+        await processReservationConfirmationEmail(reservationRef.id, reservationData)
+      } catch (emailError) {
+        console.error('Public reservation confirmation email error:', emailError)
+      }
+    }
 
     res.status(201).json({
       id: reservationRef.id,

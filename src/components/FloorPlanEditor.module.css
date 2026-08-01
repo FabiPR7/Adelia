@@ -597,64 +597,44 @@
   display: block;
 }
 
-.resizeHandle {
+.objectHandle {
   position: absolute;
-  right: 1px;
-  bottom: 1px;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--color-brown);
-  border: 1px solid var(--color-white);
-  cursor: nwse-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(92, 74, 58, 0.35);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--color-brown);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
   z-index: 8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.handleIcon {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.resizeHandle {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
   transform: translate(50%, 50%);
 }
 
-.resizeHandleWidth {
-  position: absolute;
-  right: 1px;
-  top: 50%;
-  width: 8px;
-  height: 12px;
-  border-radius: 2px;
-  background: var(--color-brown);
-  border: 1px solid var(--color-white);
-  cursor: ew-resize;
-  z-index: 8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  transform: translate(50%, -50%);
-}
-
-.resizeHandleHeight {
-  position: absolute;
-  bottom: 1px;
-  left: 50%;
-  width: 12px;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--color-brown);
-  border: 1px solid var(--color-white);
-  cursor: ns-resize;
-  z-index: 8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  transform: translate(-50%, 50%);
-}
-
 .rotateHandle {
-  position: absolute;
-  top: 1px;
+  top: 0;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-brown);
-  border: 1px solid var(--color-white);
   cursor: grab;
-  z-index: 8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  border-radius: 999px;
 }
 
 .rotateHandle:active {
@@ -662,33 +642,26 @@
 }
 
 .deleteHandle {
-  position: absolute;
-  left: 1px;
-  bottom: 1px;
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  background: var(--color-error);
-  border: 1px solid var(--color-white);
-  color: var(--color-white);
-  cursor: pointer;
-  z-index: 8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+  left: 0;
+  bottom: 0;
+  color: var(--color-error);
+  border-color: rgba(181, 74, 74, 0.4);
+  background: rgba(255, 255, 255, 0.96);
   transform: translate(-50%, 50%);
 }
 
-.deleteHandle svg {
-  width: 8px;
-  height: 8px;
-  pointer-events: none;
+.deleteHandle .handleIcon {
+  width: 13px;
+  height: 13px;
+}
+
+.objectHandle:hover {
+  filter: brightness(1.03);
+  border-color: var(--color-brown-light);
 }
 
 .deleteHandle:hover {
-  filter: brightness(1.08);
+  background: rgba(181, 74, 74, 0.08);
 }
 
 @media (min-width: 901px) {
@@ -724,6 +697,29 @@
   .canvasScroll {
     min-height: 240px;
     max-height: min(55vh, 420px);
+  }
+
+  .objectHandle::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+
+  .objectHandle {
+    width: 32px;
+    height: 32px;
+    border-width: 2px;
+    border-radius: 8px;
+  }
+
+  .handleIcon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .deleteHandle .handleIcon {
+    width: 17px;
+    height: 17px;
   }
 
   .paletteIcon {

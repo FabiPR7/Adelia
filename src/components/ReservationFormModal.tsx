@@ -6,7 +6,7 @@ import type {
   ReservationStatus,
   RestaurantTable,
 } from '../types'
-import { dateToTimeInput } from '../utils/helpers'
+import { dateToTimeInput, isReservationStartInPast } from '../utils/helpers'
 import {
   formatSlotEndTime,
   generateSlotTimes,
@@ -250,6 +250,11 @@ function ReservationFormModal({
 
     if (selectedTable && form.pax > selectedTable.capacity) {
       setError(`La mesa "${selectedTable.name}" admite máximo ${selectedTable.capacity} personas.`)
+      return
+    }
+
+    if (form.status !== 'cancelled' && isReservationStartInPast(selectedDate, form.time)) {
+      setError('No se pueden hacer reservas en fechas u horas pasadas.')
       return
     }
 

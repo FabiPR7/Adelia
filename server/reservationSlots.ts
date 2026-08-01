@@ -83,6 +83,10 @@ export function isSlotAvailableForTable(
   durationMinutes: number,
   reservations: ReservationLike[],
 ): boolean {
+  if (reservationStart(date, time).getTime() <= Date.now()) {
+    return false
+  }
+
   const startTime = combineDateAndTime(date, time)
   const endTime = new Date(startTime.getTime() + durationMinutes * 60000)
 
@@ -112,6 +116,8 @@ export function assertReservationSlotValid(
   durationMinutes: number,
   reservations: ReservationLike[],
 ): void {
+  assertReservationStartInFuture(date, time)
+
   const slots = generateSlotTimes(date, schedule, slotIntervalMinutes, durationMinutes)
 
   if (!slots.includes(time)) {
@@ -152,4 +158,27 @@ export function isSameDay(a: Date, b: Date): boolean {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
   )
+}
+
+function startOfDay(date: Date): Date {
+  const value = new Date(date)
+  value.setHours(0, 0, 0, 0)
+  return value
+}
+
+function reservationStart(date: Date, time: string): Date {
+  const [hours, minutes] = time.split(':').map(Number)
+  const start = new Date(date)
+  start.setHours(hours, minutes, 0, 0)
+  return start
+}
+
+export function assertReservationStartInFuture(date: Date, time: string): void {
+  if (startOfDay(date).getTime() < startOfDay(new Date()).getTime()) {
+    throw new Error('No se pueden hacer reservas en fechas u horas pasadas.')
+  }
+
+  if (reservationStart(date, time).getTime() <= Date.now()) {
+    throw new Error('No se pueden hacer reservas en fechas u horas pasadas.')
+  }
 }

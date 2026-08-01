@@ -1,7 +1,8 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import ImageUploader from '../../components/ImageUploader'
 import { useAuth } from '../../context/AuthContext'
 import {
+  ensureCompanyLoginIndex,
   getFirestoreErrorMessage,
   getTablesByCompany,
   replaceCompanyTables,
@@ -16,7 +17,8 @@ import {
   SCHEDULE_DAY_LABELS,
   syncFloorPlanWithTables,
 } from '../../types/company'
-import { defaultSchedule, getPublicBookingUrl } from '../../utils/helpers'
+import { copyTextToClipboard, defaultSchedule, getPublicBookingUrl, selectInputText, slugify } from '../../utils/helpers'
+import { downloadBookingQrCode } from '../../utils/bookingQr'
 import styles from './CompanySettings.module.css'
 
 const FloorPlanEditor = lazy(() => import('../../components/FloorPlanEditor'))
@@ -72,7 +74,33 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
   const [isSavingMap, setIsSavingMap] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [tableSearchQuery, setTableSearchQuery] = useState('')
+  const [tableCapacityFilter, setTableCapacityFilter] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
+  const clientLinkInputRef = useRef<HTMLInputElement>(null)
+  const [isDownloadingQr, setIsDownloadingQr] = useState(false)
+
+  const tableCapacityOptions = useMemo(
+    () =>
+      [...new Set(tables.map((table) => table.capacity))].sort((a, b) => a - b),
+    [tables],
+  )
+
+  const filteredTableEntries = useMemo(() => {
+    const query = tableSearchQuery.trim().toLowerCase()
+
+    return tables
+      .map((table, index) => ({ table, index }))
+      .filter(({ table }) => {
+        const matchesName = !query || table.name.toLowerCase().includes(query)
+        const matchesCapacity =
+          !tableCapacityFilter || table.capacity === Number(tableCapacityFilter)
+
+        return matchesName && matchesCapacity
+      })
+  }, [tables, tableSearchQuery, tableCapacityFilter])
+
+  const hasTableFilters = Boolean(tableSearchQuery.trim() || tableCapacityFilter)
 
   useEffect(() => {
     if (!company) {
@@ -86,6 +114,10 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
       setError(null)
 
       try {
+        void ensureCompanyLoginIndex(company.id).catch(() => {
+          // El acceso se resuelve también por nombre público de la empresa.
+        })
+
         const tableRows = await getTablesByCompany(company.id)
 
         if (cancelled) {
@@ -340,12 +372,32 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
   const clientBookingUrl = getPublicBookingUrl(company.slug)
 
   const handleCopyClientLink = async () => {
-    try {
-      await navigator.clipboard.writeText(clientBookingUrl)
+    setError(null)
+    selectInputText(clientLinkInputRef.current)
+
+    const copied = await copyTextToClipboard(clientBookingUrl)
+
+    if (copied) {
       setLinkCopied(true)
       window.setTimeout(() => setLinkCopied(false), 2000)
+      return
+    }
+
+    selectInputText(clientLinkInputRef.current)
+    setError('No se pudo copiar automáticamente. Mantén pulsado el enlace y elige «Copiar».')
+  }
+
+  const handleDownloadClientQr = async () => {
+    setIsDownloadingQr(true)
+    setError(null)
+
+    try {
+      const filename = `qr-reservas-${slugify(company.slug || company.name)}.png`
+      await downloadBookingQrCode(clientBookingUrl, filename)
     } catch {
-      setError('No se pudo copiar el enlace.')
+      setError('No se pudo generar el código QR.')
+    } finally {
+      setIsDownloadingQr(false)
     }
   }
 
@@ -406,15 +458,32 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
           <div className={`${styles.fullWidth} ${styles.clientLinkBox}`}>
             <span className={styles.clientLinkLabel}>Enlace para clientes</span>
             <div className={styles.clientLinkRow}>
-              <a href={clientBookingUrl} target="_blank" rel="noreferrer" className={styles.clientLink}>
-                {clientBookingUrl}
-              </a>
-              <button type="button" className={styles.copyLinkButton} onClick={() => void handleCopyClientLink()}>
-                {linkCopied ? 'Copiado' : 'Copiar'}
-              </button>
+              <input
+                ref={clientLinkInputRef}
+                type="text"
+                readOnly
+                value={clientBookingUrl}
+                className={styles.clientLinkInput}
+                aria-label="Enlace para clientes"
+                onFocus={(event) => event.currentTarget.select()}
+                onClick={(event) => event.currentTarget.select()}
+              />
+              <div className={styles.clientLinkActions}>
+                <button type="button" className={styles.copyLinkButton} onClick={() => void handleCopyClientLink()}>
+                  {linkCopied ? 'Copiado' : 'Copiar'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.downloadQrButton}
+                  onClick={() => void handleDownloadClientQr()}
+                  disabled={isDownloadingQr}
+                >
+                  {isDownloadingQr ? 'Generando…' : 'Descargar QR'}
+                </button>
+              </div>
             </div>
             <p className={styles.clientLinkHint}>
-              Comparte este enlace para que tus clientes reserven mesa online.
+              Comparte el enlace o imprime el QR para que tus clientes reserven mesa online.
             </p>
           </div>
           <div className={`${styles.fullWidth} ${styles.logoField}`}>
@@ -573,53 +642,100 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
 
         <div className={styles.tablesLayout}>
           <div className={styles.tablesListPanel}>
+            <div className={styles.tablesFilters}>
+              <label className={styles.tablesFilterField}>
+                <span className={styles.tablesFilterLabel}>Buscar mesa</span>
+                <input
+                  type="search"
+                  value={tableSearchQuery}
+                  onChange={(e) => setTableSearchQuery(e.target.value)}
+                  placeholder="Nombre de mesa…"
+                  aria-label="Buscar mesa por nombre"
+                />
+              </label>
+              <label className={styles.tablesFilterField}>
+                <span className={styles.tablesFilterLabel}>Capacidad</span>
+                <select
+                  value={tableCapacityFilter}
+                  onChange={(e) => setTableCapacityFilter(e.target.value)}
+                  aria-label="Filtrar por capacidad"
+                >
+                  <option value="">Todas</option>
+                  {tableCapacityOptions.map((capacity) => (
+                    <option key={capacity} value={String(capacity)}>
+                      {capacity} {capacity === 1 ? 'persona' : 'personas'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {hasTableFilters && (
+                <button
+                  type="button"
+                  className={styles.tablesFilterClear}
+                  onClick={() => {
+                    setTableSearchQuery('')
+                    setTableCapacityFilter('')
+                  }}
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
             <div className={styles.tablesGrid} role="table" aria-label="Listado de mesas">
               <div className={styles.tablesGridHeader} role="row">
                 <span role="columnheader">Nombre</span>
                 <span role="columnheader">Capacidad</span>
                 <span className={styles.tablesGridHeaderAction} aria-hidden="true" />
               </div>
-              {tables.map((table, index) => (
-                <div
-                  key={table.id ?? `new-${index}`}
-                  className={styles.tablesGridRow}
-                  role="row"
-                >
-                  <input
-                    className={styles.tablesGridCell}
-                    value={table.name}
-                    onChange={(e) => updateTable(index, { name: e.target.value })}
-                    placeholder="Mesa 1"
-                    aria-label={`Nombre mesa ${index + 1}`}
-                  />
-                  <input
-                    className={`${styles.tablesGridCell} ${styles.tablesGridCellNumber}`}
-                    type="number"
-                    min={1}
-                    max={99}
-                    value={table.capacity}
-                    onChange={(e) =>
-                      updateTable(index, { capacity: Number(e.target.value) || 1 })
-                    }
-                    aria-label={`Capacidad mesa ${index + 1}`}
-                  />
-                  <button
-                    type="button"
-                    className={styles.tablesDeleteButton}
-                    onClick={() => removeTable(index)}
-                    disabled={tables.length <= 1}
-                    title="Eliminar mesa"
-                    aria-label={`Eliminar ${table.name || `mesa ${index + 1}`}`}
+              {filteredTableEntries.length === 0 ? (
+                <p className={styles.tablesFilterEmpty}>
+                  {hasTableFilters
+                    ? 'Ninguna mesa coincide con los filtros.'
+                    : 'No hay mesas. Añade la primera con el botón de abajo.'}
+                </p>
+              ) : (
+                filteredTableEntries.map(({ table, index }) => (
+                  <div
+                    key={table.id ?? `new-${index}`}
+                    className={styles.tablesGridRow}
+                    role="row"
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                    <input
+                      className={styles.tablesGridCell}
+                      value={table.name}
+                      onChange={(e) => updateTable(index, { name: e.target.value })}
+                      placeholder="Mesa 1"
+                      aria-label={`Nombre mesa ${index + 1}`}
+                    />
+                    <input
+                      className={`${styles.tablesGridCell} ${styles.tablesGridCellNumber}`}
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={table.capacity}
+                      onChange={(e) =>
+                        updateTable(index, { capacity: Number(e.target.value) || 1 })
+                      }
+                      aria-label={`Capacidad mesa ${index + 1}`}
+                    />
+                    <button
+                      type="button"
+                      className={styles.tablesDeleteButton}
+                      onClick={() => removeTable(index)}
+                      disabled={tables.length <= 1}
+                      title="Eliminar mesa"
+                      aria-label={`Eliminar ${table.name || `mesa ${index + 1}`}`}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
             <button type="button" className={styles.addButton} onClick={addTable}>
               + Añadir mesa

@@ -1,4 +1,5 @@
-import { formatTimeSpanish } from '../utils/helpers'
+import { useMemo, useState } from 'react'
+import { dateToTimeInput, formatTimeSpanish } from '../utils/helpers'
 import type { Reservation } from '../types'
 import styles from './ReservationList.module.css'
 
@@ -25,13 +26,35 @@ function ReservationList({
   onEdit,
   onDelete,
 }: ReservationListProps) {
+  const [nameSearchQuery, setNameSearchQuery] = useState('')
+  const [hourFilter, setHourFilter] = useState('')
+
   const formattedDate = new Intl.DateTimeFormat('es-ES', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   }).format(selectedDate)
 
-  const activeCount = reservations.filter((item) => item.status !== 'cancelled').length
+  const reservationHours = useMemo(() => {
+    const hours = new Set(reservations.map((item) => dateToTimeInput(item.startTime)))
+    return [...hours].sort()
+  }, [reservations])
+
+  const filteredReservations = useMemo(() => {
+    const query = nameSearchQuery.trim().toLowerCase()
+
+    return reservations.filter((reservation) => {
+      const matchesName =
+        !query || reservation.clientName.toLowerCase().includes(query)
+      const matchesHour =
+        !hourFilter || dateToTimeInput(reservation.startTime) === hourFilter
+
+      return matchesName && matchesHour
+    })
+  }, [reservations, nameSearchQuery, hourFilter])
+
+  const hasFilters = Boolean(nameSearchQuery.trim() || hourFilter)
+  const activeCount = filteredReservations.filter((item) => item.status !== 'cancelled').length
 
   return (
     <section className={styles.section}>
@@ -50,11 +73,67 @@ function ReservationList({
         </div>
       </header>
 
+      {reservations.length > 0 && (
+        <div className={styles.filters}>
+          <label className={styles.filterField}>
+            <span className={styles.filterLabel}>Buscar cliente</span>
+            <input
+              type="search"
+              value={nameSearchQuery}
+              onChange={(e) => setNameSearchQuery(e.target.value)}
+              placeholder="Nombre del cliente…"
+              aria-label="Buscar reserva por nombre de cliente"
+            />
+          </label>
+          <label className={styles.filterField}>
+            <span className={styles.filterLabel}>Hora</span>
+            <select
+              value={hourFilter}
+              onChange={(e) => setHourFilter(e.target.value)}
+              aria-label="Filtrar por hora"
+            >
+              <option value="">Todas</option>
+              {reservationHours.map((hour) => (
+                <option key={hour} value={hour}>
+                  {hour}
+                </option>
+              ))}
+            </select>
+          </label>
+          {hasFilters && (
+            <button
+              type="button"
+              className={styles.filterClear}
+              onClick={() => {
+                setNameSearchQuery('')
+                setHourFilter('')
+              }}
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
+      )}
+
       {reservations.length === 0 ? (
         <div className={styles.empty}>
           <p>No hay reservas para este día.</p>
           <button type="button" className={styles.addButton} onClick={onAdd}>
             Crear primera reserva
+          </button>
+        </div>
+      ) : filteredReservations.length === 0 ? (
+        <div className={styles.empty}>
+          <p>Ninguna reserva coincide con los filtros.</p>
+          <button
+            type="button"
+            className={styles.filterClearButton}
+            onClick={() => {
+              setNameSearchQuery('')
+              setHourFilter('')
+            }}
+          >
+            Limpiar filtros
           </button>
         </div>
       ) : (
@@ -69,7 +148,7 @@ function ReservationList({
             <span />
           </div>
           <ul className={styles.list}>
-            {reservations.map((reservation) => {
+            {filteredReservations.map((reservation) => {
               const table = tableMeta[reservation.tableId]
               const isCancelled = reservation.status === 'cancelled'
 

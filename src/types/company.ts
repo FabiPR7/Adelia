@@ -308,7 +308,7 @@ export function serializeFloorPlanForFirestore(floorPlan: FloorPlan) {
 
 export type SettingsSection = 'contact' | 'reservation-settings' | 'schedule' | 'tables'
 
-export type CompanyTab = 'reservations' | SettingsSection
+export type CompanyTab = 'reservations' | 'help' | SettingsSection
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: string }[] = [
   { id: 'contact', label: 'Contacto', hint: 'Datos y logo' },
@@ -318,7 +318,7 @@ export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: stri
 ]
 
 export function isSettingsTab(tab: CompanyTab): tab is SettingsSection {
-  return tab !== 'reservations'
+  return tab !== 'reservations' && tab !== 'help'
 }
 
 export const SCHEDULE_DAY_KEYS = [

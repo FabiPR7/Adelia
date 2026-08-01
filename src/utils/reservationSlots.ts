@@ -1,5 +1,5 @@
 import type { CompanySchedule, DaySchedule, Reservation } from '../types'
-import { addMinutes, combineDateAndTime } from './helpers'
+import { addMinutes, combineDateAndTime, assertReservationStartInFuture, isReservationStartInPast } from './helpers'
 
 const WEEKDAY_TO_SCHEDULE: Record<number, keyof CompanySchedule> = {
   0: 'sunday',
@@ -71,6 +71,10 @@ export function isSlotAvailableForTable(
   reservations: Reservation[],
   excludeReservationId?: string,
 ): boolean {
+  if (isReservationStartInPast(date, time)) {
+    return false
+  }
+
   const startTime = combineDateAndTime(date, time)
   const endTime = addMinutes(startTime, durationMinutes)
 
@@ -198,6 +202,8 @@ export function assertReservationSlotValid(
   if (status === 'cancelled') {
     return
   }
+
+  assertReservationStartInFuture(date, time, status)
 
   const slots = generateSlotTimes(date, schedule, slotIntervalMinutes, durationMinutes)
 

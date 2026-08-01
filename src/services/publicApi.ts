@@ -47,29 +47,6 @@ export interface PublicBookingPayload {
   notes: string
 }
 
-function parseBookingDate(value: string): Date {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
-
-  if (!match) {
-    throw new Error('Fecha inválida.')
-  }
-
-  const year = Number(match[1])
-  const month = Number(match[2]) - 1
-  const day = Number(match[3])
-  const date = new Date(year, month, day)
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month ||
-    date.getDate() !== day
-  ) {
-    throw new Error('Fecha inválida.')
-  }
-
-  return date
-}
-
 async function getCompanyOrThrow(slug: string) {
   const company = await getCompanyBySlug(slug)
 
@@ -159,6 +136,29 @@ export async function createPublicReservation(
 
     throw new Error(getFirestoreErrorMessage(error, 'save'))
   }
+}
+
+function parseBookingDate(value: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+
+  if (!match) {
+    throw new Error('Fecha inválida.')
+  }
+
+  const year = Number(match[1])
+  const month = Number(match[2]) - 1
+  const day = Number(match[3])
+  const date = new Date(year, month, day)
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month ||
+    date.getDate() !== day
+  ) {
+    throw new Error('Fecha inválida.')
+  }
+
+  return date
 }
 
 export function availabilityToReservations(items: PublicAvailabilityReservation[]): Reservation[] {

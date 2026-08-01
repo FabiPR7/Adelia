@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 import { auth } from '../config/firebase'
-import { getCompanyById, getCompanyCredentialsMustChange, getUserProfile } from '../services/firestore'
+import { getCompanyById, getCompanyCredentialsMustChange, getUserProfile, ensureCompanyLoginIndex } from '../services/firestore'
 import { resolveMustChangePassword } from '../utils/authProfile'
 import type { AppUser, Company } from '../types'
 
@@ -61,6 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
     setProfile(resolvedProfile)
     setCompany(companyData)
+
+    if (userProfile.companyId) {
+      void ensureCompanyLoginIndex(userProfile.companyId).catch(() => {
+        // El login también resuelve el acceso por nombre público de la empresa.
+      })
+    }
   }, [])
 
   const refreshCompany = useCallback(async () => {

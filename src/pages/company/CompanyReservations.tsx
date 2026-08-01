@@ -17,7 +17,7 @@ import {
 } from '../../services/firestore'
 import type { Reservation, ReservationFormData } from '../../types'
 import type { RestaurantTable } from '../../types'
-import { formatDateSpanish, defaultSchedule } from '../../utils/helpers'
+import { clampToTodayOrFuture, formatDateSpanish, defaultSchedule } from '../../utils/helpers'
 import styles from './CompanyReservations.module.css'
 
 interface CompanyReservationsProps {
@@ -76,11 +76,11 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   const shiftSelectedDate = (days: number) => {
     const next = new Date(selectedDate)
     next.setDate(next.getDate() + days)
-    setSelectedDate(next)
+    setSelectedDate(clampToTodayOrFuture(next))
   }
 
   const handleSelectDate = (date: Date) => {
-    setSelectedDate(date)
+    setSelectedDate(clampToTodayOrFuture(date))
     setCalendarOpen(false)
   }
 
@@ -289,6 +289,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
             selectedDate={selectedDate}
             onSelectDate={handleSelectDate}
             reservationCounts={reservationCounts}
+            disablePastDates
           />
         </aside>
 
@@ -327,6 +328,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
               reservationCounts={calendarModalCounts}
               updateSelectionOnMonthNav={false}
               onMonthChange={setCalendarViewDate}
+              disablePastDates
             />
           </div>
         </div>
