@@ -1,13 +1,16 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getAuthErrorMessage, loginWithUsername } from '../services/auth'
 import { getFirestoreErrorMessage, getCompanyCredentialsMustChange, getUserProfile } from '../services/firestore'
 import { getPostLoginPath, resolveMustChangePassword } from '../utils/authProfile'
+import { ADELIA_LOGO_URL } from '../constants/brand'
 import styles from './LoginPage.module.css'
 
 function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const passwordResetSuccess = (location.state as { passwordReset?: boolean } | null)?.passwordReset === true
   const { refreshProfile } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -67,7 +70,7 @@ function LoginPage() {
           <header className={styles.header}>
             <div className={styles.logoWrapper}>
               <img
-                src="/adelia-logo.png"
+                src={ADELIA_LOGO_URL}
                 alt="Adelia — Akita Inu"
                 className={styles.logo}
               />
@@ -79,6 +82,12 @@ function LoginPage() {
           </header>
 
           <form className={styles.form} onSubmit={handleSubmit}>
+            {passwordResetSuccess && (
+              <div className={styles.success} role="status">
+                Contraseña actualizada. Ya puedes iniciar sesión.
+              </div>
+            )}
+
             {error && (
               <div className={styles.error} role="alert">
                 {error}
@@ -122,9 +131,9 @@ function LoginPage() {
                 <input type="checkbox" />
                 <span>Recordarme</span>
               </label>
-              <a href="#" className={styles.forgotLink}>
+              <Link to="/olvide-contrasena" className={styles.forgotLink}>
                 ¿Olvidaste tu contraseña?
-              </a>
+              </Link>
             </div>
 
             <button

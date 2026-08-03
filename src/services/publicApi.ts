@@ -22,7 +22,14 @@ export interface PublicBookingCompany {
   phone: string
   contactEmail: string
   location: string
+  municipality: string
+  country: string
+  postalCode: string
+  description: string
   logoUrl: string
+  photos: string[]
+  videos: string[]
+  characteristics: string[]
   timeSlotMinutes: number
   schedule: CompanySchedule
   floorPlan: FloorPlan
@@ -127,7 +134,7 @@ export async function createPublicReservation(
 
     return {
       id: created.id,
-      message: 'Reserva confirmada.',
+      message: 'Hemos recibido tu reserva.',
     }
   } catch (error) {
     if (error instanceof Error && error.message.trim()) {
@@ -180,3 +187,21 @@ export function availabilityToReservations(items: PublicAvailabilityReservation[
 }
 
 export { dateToIsoDate }
+
+const API_BASE = import.meta.env.VITE_API_URL ?? ''
+
+export async function cancelPublicReservation(token: string): Promise<string> {
+  const response = await fetch(`${API_BASE}/api/public/booking/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+
+  const data = (await response.json().catch(() => ({}))) as { message?: string; error?: string }
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cancelar la reserva.')
+  }
+
+  return data.message ?? 'Tu reserva ha sido cancelada correctamente.'
+}

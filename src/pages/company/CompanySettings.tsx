@@ -1,6 +1,14 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react'
 import ImageUploader from '../../components/ImageUploader'
+import CharacteristicPicker from '../../components/CharacteristicPicker'
+import MediaGalleryUploader from '../../components/MediaGalleryUploader'
 import { useAuth } from '../../context/AuthContext'
+import {
+  COMPANY_CHARACTERISTIC_OPTIONS,
+  MAX_COMPANY_CHARACTERISTICS,
+  MAX_COMPANY_PHOTOS,
+  MAX_COMPANY_VIDEOS,
+} from '../../data/companyCharacteristics'
 import {
   ensureCompanyLoginIndex,
   getFirestoreErrorMessage,
@@ -15,16 +23,39 @@ import {
   defaultTurns,
   SCHEDULE_DAY_KEYS,
   SCHEDULE_DAY_LABELS,
+  SETTINGS_SECTIONS,
   syncFloorPlanWithTables,
 } from '../../types/company'
 import { copyTextToClipboard, defaultSchedule, getPublicBookingUrl, selectInputText, slugify } from '../../utils/helpers'
+import {
+  normalizeCompanySettingsPayload,
+  validateCompanyContact,
+  validateCompanyProfile,
+  validateCompanySchedule,
+  validateServiceTurns,
+} from '../../utils/companyValidation'
 import { downloadBookingQrCode } from '../../utils/bookingQr'
+import {
+  applySectionSnapshot,
+  createAllSectionSnapshots,
+  createSectionSnapshot,
+  isSectionDirty as isSettingsSectionDirty,
+  type SettingsEditorState,
+} from '../../utils/settingsSnapshots'
 import styles from './CompanySettings.module.css'
 
 const FloorPlanEditor = lazy(() => import('../../components/FloorPlanEditor'))
 
+const SETTINGS_SECTION_IDS = SETTINGS_SECTIONS.map((section) => section.id)
+
 interface CompanySettingsProps {
   activeSection: SettingsSection
+}
+
+export interface CompanySettingsHandle {
+  isSectionDirty: (section: SettingsSection) => boolean
+  discardSection: (section: SettingsSection) => void
+  saveSection: (section: SettingsSection) => Promise<boolean>
 }
 
 const SCHEDULE_DAY_SHORT: Record<(typeof SCHEDULE_DAY_KEYS)[number], string> = {
@@ -43,6 +74,28 @@ function sectionCardClass(section: SettingsSection, activeSection: SettingsSecti
   }`
 }
 
+const MAX_TIME_SLOT_MINUTES = 240
+
+function sanitizeTimeSlotMinutesInput(raw: string): string {
+  return raw.replace(/\D/g, '')
+}
+
+function parseTimeSlotMinutesForSave(input: string): number | null {
+  const digits = sanitizeTimeSlotMinutesInput(input)
+
+  if (!digits) {
+    return null
+  }
+
+  const value = Number(digits)
+
+  if (!Number.isFinite(value) || value <= 0 || value > MAX_TIME_SLOT_MINUTES) {
+    return null
+  }
+
+  return value
+}
+
 function companyToForm(company: Company): CompanySettingsPayload {
   return {
     name: company.name,
@@ -50,7 +103,14 @@ function companyToForm(company: Company): CompanySettingsPayload {
     phone: company.phone,
     website: company.website,
     location: company.location,
+    municipality: company.municipality,
+    country: company.country || 'España',
+    postalCode: company.postalCode,
+    description: company.description,
     logoUrl: company.logoUrl,
+    photos: company.photos ?? [],
+    videos: company.videos ?? [],
+    characteristics: company.characteristics ?? [],
     timeSlotMinutes: company.timeSlotMinutes,
     schedule: company.schedule ?? defaultSchedule(),
     turns: company.turns?.length ? company.turns : defaultTurns(),
@@ -65,7 +125,10 @@ function emptyTable(index: number): TableInput {
   }
 }
 
-function CompanySettings({ activeSection }: CompanySettingsProps) {
+const CompanySettings = forwardRef(function CompanySettings(
+  { activeSection }: CompanySettingsProps,
+  ref: Ref<CompanySettingsHandle>,
+) {
   const { company, refreshCompany } = useAuth()
   const [form, setForm] = useState<CompanySettingsPayload | null>(null)
   const [tables, setTables] = useState<TableInput[]>([])
@@ -79,6 +142,55 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
   const [linkCopied, setLinkCopied] = useState(false)
   const clientLinkInputRef = useRef<HTMLInputElement>(null)
   const [isDownloadingQr, setIsDownloadingQr] = useState(false)
+  const [timeSlotMinutesInput, setTimeSlotMinutesInput] = useState('')
+  const [savedSnapshots, setSavedSnapshots] = useState<Record<SettingsSection, string> | null>(
+    null,
+  )
+  const saveHandlersRef = useRef<Partial<Record<SettingsSection, () => Promise<boolean>>>>({})
+
+  const editorState = useMemo<SettingsEditorState | null>(() => {
+    if (!form) {
+      return null
+    }
+
+    return { form, tables, timeSlotMinutesInput }
+  }, [form, tables, timeSlotMinutesInput])
+
+  const markSectionSaved = (section: SettingsSection, state: SettingsEditorState) => {
+    setSavedSnapshots((current) => ({
+      ...(current ?? ({} as Record<SettingsSection, string>)),
+      [section]: createSectionSnapshot(section, state),
+    }))
+  }
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      isSectionDirty(section) {
+        if (!editorState || !savedSnapshots) {
+          return false
+        }
+
+        return isSettingsSectionDirty(section, editorState, savedSnapshots[section])
+      },
+      discardSection(section) {
+        if (!editorState || !savedSnapshots?.[section]) {
+          return
+        }
+
+        const restored = applySectionSnapshot(section, savedSnapshots[section], editorState)
+        setForm(restored.form)
+        setTables(restored.tables)
+        setTimeSlotMinutesInput(restored.timeSlotMinutesInput)
+        setError(null)
+        setSuccess(null)
+      },
+      saveSection(section) {
+        return saveHandlersRef.current[section]?.() ?? Promise.resolve(false)
+      },
+    }),
+    [editorState, savedSnapshots],
+  )
 
   const tableCapacityOptions = useMemo(
     () =>
@@ -124,15 +236,29 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
           return
         }
 
-        setForm(companyToForm(company))
-        setTables(
+        const initialForm = companyToForm(company)
+        const initialTables =
           tableRows.length > 0
             ? tableRows.map((table) => ({
                 id: table.id,
                 name: table.name,
                 capacity: table.capacity,
               }))
-            : [emptyTable(0), emptyTable(1), emptyTable(2)],
+            : [emptyTable(0), emptyTable(1), emptyTable(2)]
+        const initialTimeSlot = String(company.timeSlotMinutes)
+
+        setForm(initialForm)
+        setTimeSlotMinutesInput(initialTimeSlot)
+        setTables(initialTables)
+        setSavedSnapshots(
+          createAllSectionSnapshots(
+            {
+              form: initialForm,
+              tables: initialTables,
+              timeSlotMinutesInput: initialTimeSlot,
+            },
+            SETTINGS_SECTION_IDS,
+          ),
         )
       } catch (err) {
         if (!cancelled) {
@@ -160,77 +286,125 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
     return <p className={styles.loading}>Cargando configuración…</p>
   }
 
-  const handleSaveContact = async () => {
+  const handleSaveContact = async (): Promise<boolean> => {
     setError(null)
     setSuccess(null)
 
-    if (!form.name.trim()) {
-      setError('Indica el nombre del restaurante.')
-      return
+    const contactError = validateCompanyContact(form)
+
+    if (contactError) {
+      setError(contactError)
+      return false
     }
 
-    if (!form.phone.trim()) {
-      setError('Indica el teléfono.')
-      return
-    }
-
-    if (!form.location.trim()) {
-      setError('Indica la dirección.')
-      return
-    }
+    const normalizedForm = normalizeCompanySettingsPayload(form)
 
     setSavingSection('contact')
 
     try {
-      await updateCompanySettings(company.id, form)
+      await updateCompanySettings(company.id, normalizedForm)
       await refreshCompany()
+      setForm(normalizedForm)
+      markSectionSaved('contact', {
+        form: normalizedForm,
+        tables,
+        timeSlotMinutesInput,
+      })
       setSuccess('Contacto guardado correctamente.')
+      return true
     } catch (err) {
       setError(getFirestoreErrorMessage(err, 'save'))
+      return false
     } finally {
       setSavingSection(null)
     }
   }
 
-  const handleSaveReservations = async () => {
+  const handleSaveProfile = async (): Promise<boolean> => {
     setError(null)
     setSuccess(null)
 
-    if (form.timeSlotMinutes < 30 || form.timeSlotMinutes > 240) {
-      setError('La duración debe estar entre 30 y 240 minutos.')
-      return
+    const profileError = validateCompanyProfile(form)
+
+    if (profileError) {
+      setError(profileError)
+      return false
     }
+
+    const normalizedForm = normalizeCompanySettingsPayload(form)
+
+    setSavingSection('profile')
+
+    try {
+      await updateCompanySettings(company.id, normalizedForm)
+      await refreshCompany()
+      setForm(normalizedForm)
+      markSectionSaved('profile', {
+        form: normalizedForm,
+        tables,
+        timeSlotMinutesInput,
+      })
+      setSuccess('Perfil guardado correctamente.')
+      return true
+    } catch (err) {
+      setError(getFirestoreErrorMessage(err, 'save'))
+      return false
+    } finally {
+      setSavingSection(null)
+    }
+  }
+
+  const handleSaveReservations = async (): Promise<boolean> => {
+    setError(null)
+    setSuccess(null)
+
+    const timeSlotMinutes = parseTimeSlotMinutesForSave(timeSlotMinutesInput)
+
+    if (timeSlotMinutes === null) {
+      setError('La duración debe ser un número entre 1 y 240 minutos.')
+      return false
+    }
+
+    const turnsError = validateServiceTurns(form.turns)
+
+    if (turnsError) {
+      setError(turnsError)
+      return false
+    }
+
+    const scheduleError = validateCompanySchedule(form.schedule)
+
+    if (scheduleError) {
+      setError(scheduleError)
+      return false
+    }
+
+    const reservationSettings = normalizeCompanySettingsPayload({ ...form, timeSlotMinutes })
+    const savedTimeSlotInput = String(timeSlotMinutes)
 
     setSavingSection('reservation-settings')
 
     try {
-      await updateCompanySettings(company.id, form)
+      await updateCompanySettings(company.id, reservationSettings)
       await refreshCompany()
-      setSuccess('Reservas guardadas correctamente.')
+      setForm(reservationSettings)
+      setTimeSlotMinutesInput(savedTimeSlotInput)
+      markSectionSaved('reservation-settings', {
+        form: reservationSettings,
+        tables,
+        timeSlotMinutesInput: savedTimeSlotInput,
+      })
+      setSuccess('Reservas y horario guardados correctamente.')
+      return true
     } catch (err) {
       setError(getFirestoreErrorMessage(err, 'save'))
+      return false
     } finally {
       setSavingSection(null)
     }
   }
 
-  const handleSaveSchedule = async () => {
-    setError(null)
-    setSuccess(null)
-    setSavingSection('schedule')
-
-    try {
-      await updateCompanySettings(company.id, form)
-      await refreshCompany()
-      setSuccess('Horario guardado correctamente.')
-    } catch (err) {
-      setError(getFirestoreErrorMessage(err, 'save'))
-    } finally {
-      setSavingSection(null)
-    }
-  }
-
-  const handleSaveTables = async () => {
+  const handleSaveTables = async (): Promise<boolean> => {
     setError(null)
     setSuccess(null)
 
@@ -238,7 +412,7 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
 
     if (validTables.length === 0) {
       setError('Añade al menos una mesa con nombre.')
-      return
+      return false
     }
 
     setSavingSection('tables')
@@ -259,11 +433,19 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
 
       await updateCompanyFloorPlan(company.id, floorPlan)
       setTables(savedTables)
-      setForm((current) => (current ? { ...current, floorPlan } : current))
+      const nextForm = { ...form, floorPlan }
+      setForm(nextForm)
       await refreshCompany()
+      markSectionSaved('tables', {
+        form: nextForm,
+        tables: savedTables,
+        timeSlotMinutesInput,
+      })
       setSuccess('Mesas guardadas correctamente.')
+      return true
     } catch (err) {
       setError(getFirestoreErrorMessage(err, 'save'))
+      return false
     } finally {
       setSavingSection(null)
     }
@@ -332,13 +514,13 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
   const renderSectionSave = (
     section: SettingsSection,
     label: string,
-    onSave: () => void | Promise<void>,
+    onSave: () => Promise<boolean> | boolean,
   ) => (
     <div className={styles.sectionActions}>
       <button
         type="button"
         className={styles.saveButton}
-        onClick={() => void onSave()}
+        onClick={() => void Promise.resolve(onSave())}
         disabled={isAnySaving}
       >
         {savingSection === section ? 'Guardando…' : label}
@@ -359,14 +541,27 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
     try {
       const floorPlan = syncFloorPlanWithTables(form.floorPlan, tables)
       await updateCompanyFloorPlan(company.id, floorPlan)
-      setForm((current) => (current ? { ...current, floorPlan } : current))
+      const nextForm = { ...form, floorPlan }
+      setForm(nextForm)
       await refreshCompany()
+      markSectionSaved('tables', {
+        form: nextForm,
+        tables,
+        timeSlotMinutesInput,
+      })
       setSuccess('Mapa guardado correctamente.')
     } catch (err) {
       setError(getFirestoreErrorMessage(err, 'save'))
     } finally {
       setIsSavingMap(false)
     }
+  }
+
+  saveHandlersRef.current = {
+    contact: handleSaveContact,
+    profile: handleSaveProfile,
+    'reservation-settings': handleSaveReservations,
+    tables: handleSaveTables,
   }
 
   const clientBookingUrl = getPublicBookingUrl(company.slug)
@@ -438,6 +633,10 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
             <input
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              type="tel"
+              inputMode="tel"
+              placeholder="612 345 678"
+              maxLength={20}
             />
           </label>
           <label>
@@ -445,6 +644,8 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
             <input
               value={form.location}
               onChange={(e) => setForm({ ...form, location: e.target.value })}
+              maxLength={200}
+              placeholder="Calle y número"
             />
           </label>
           <label className={styles.fullWidth}>
@@ -452,7 +653,8 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
             <input
               value={form.website}
               onChange={(e) => setForm({ ...form, website: e.target.value })}
-              placeholder="https://"
+              placeholder="https://turestaurante.com"
+              maxLength={200}
             />
           </label>
           <div className={`${styles.fullWidth} ${styles.clientLinkBox}`}>
@@ -499,22 +701,107 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
         {renderSectionSave('contact', 'Guardar contacto', handleSaveContact)}
       </section>
 
+      <section className={sectionCardClass('profile', activeSection)}>
+        <header className={styles.cardHeader}>
+          <h2>Perfil del local</h2>
+          <p>Ubicación, descripción, galería y características visibles para tus clientes.</p>
+        </header>
+        <div className={`${styles.grid} ${styles.contactGrid}`}>
+          <label>
+            Municipio
+            <input
+              value={form.municipality}
+              onChange={(e) => setForm({ ...form, municipality: e.target.value })}
+              placeholder="Ej. Madrid"
+              maxLength={80}
+            />
+          </label>
+          <label>
+            Código postal
+            <input
+              value={form.postalCode}
+              onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+              placeholder="28001"
+              inputMode="numeric"
+              maxLength={10}
+            />
+          </label>
+          <label>
+            País
+            <input
+              value={form.country}
+              onChange={(e) => setForm({ ...form, country: e.target.value })}
+              placeholder="España"
+              maxLength={60}
+            />
+          </label>
+          <label className={styles.fullWidth}>
+            Descripción
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={5}
+              maxLength={2000}
+              placeholder="Cuéntanos qué hace especial a tu restaurante…"
+            />
+          </label>
+          <div className={styles.fullWidth}>
+            <MediaGalleryUploader
+              label="Fotos del local"
+              hint={`Máximo ${MAX_COMPANY_PHOTOS} fotos. Se suben a Cloudinary.`}
+              urls={form.photos}
+              maxItems={MAX_COMPANY_PHOTOS}
+              mediaType="image"
+              onChange={(photos) => setForm({ ...form, photos })}
+            />
+          </div>
+          <div className={styles.fullWidth}>
+            <MediaGalleryUploader
+              label="Vídeos del local"
+              hint={`Máximo ${MAX_COMPANY_VIDEOS} vídeos.`}
+              urls={form.videos}
+              maxItems={MAX_COMPANY_VIDEOS}
+              mediaType="video"
+              onChange={(videos) => setForm({ ...form, videos })}
+            />
+          </div>
+          <div className={styles.fullWidth}>
+            <CharacteristicPicker
+              options={COMPANY_CHARACTERISTIC_OPTIONS}
+              selected={form.characteristics}
+              maxSelected={MAX_COMPANY_CHARACTERISTICS}
+              onChange={(characteristics) => setForm({ ...form, characteristics })}
+            />
+          </div>
+        </div>
+        {renderSectionSave('profile', 'Guardar perfil', handleSaveProfile)}
+      </section>
+
       <section className={sectionCardClass('reservation-settings', activeSection)}>
         <header className={styles.cardHeader}>
-          <h2>Reservas</h2>
-          <p>Duración por reserva y turnos del servicio.</p>
+          <h2>Reservas y horario</h2>
+          <p>Duración por reserva, turnos del servicio y días de apertura.</p>
         </header>
         <label className={styles.inlineField}>
           Duración de cada reserva (minutos)
           <input
-            type="number"
-            min={30}
-            max={240}
-            step={15}
-            value={form.timeSlotMinutes}
-            onChange={(e) =>
-              setForm({ ...form, timeSlotMinutes: Number(e.target.value) || 120 })
-            }
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={timeSlotMinutesInput}
+            onChange={(e) => {
+              const digits = sanitizeTimeSlotMinutesInput(e.target.value)
+
+              if (!digits) {
+                setTimeSlotMinutesInput('')
+                return
+              }
+
+              const parsed = Math.min(MAX_TIME_SLOT_MINUTES, Number(digits))
+              setTimeSlotMinutesInput(String(parsed))
+              setForm({ ...form, timeSlotMinutes: parsed })
+            }}
+            placeholder="120"
           />
         </label>
 
@@ -553,15 +840,11 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
             </div>
           ))}
         </div>
-        {renderSectionSave('reservation-settings', 'Guardar reservas', handleSaveReservations)}
-      </section>
 
-      <section className={sectionCardClass('schedule', activeSection)}>
-        <header className={styles.cardHeader}>
-          <h2>Horario semanal</h2>
-          <p>Indica cuándo aceptas reservas cada día.</p>
-        </header>
-        <div className={styles.scheduleList}>
+        <div className={styles.scheduleBlock}>
+          <h3>Horario semanal</h3>
+          <p className={styles.scheduleHint}>Indica cuándo aceptas reservas cada día.</p>
+          <div className={styles.scheduleList}>
           {SCHEDULE_DAY_KEYS.map((dayKey) => {
             const day = form.schedule[dayKey]
 
@@ -616,8 +899,9 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
               </div>
             )
           })}
+          </div>
         </div>
-        {renderSectionSave('schedule', 'Guardar horario', handleSaveSchedule)}
+        {renderSectionSave('reservation-settings', 'Guardar reservas y horario', handleSaveReservations)}
       </section>
 
       <section className={`${sectionCardClass('tables', activeSection)} ${styles.tablesSection}`}>
@@ -777,6 +1061,6 @@ function CompanySettings({ activeSection }: CompanySettingsProps) {
       </section>
     </div>
   )
-}
+})
 
 export default CompanySettings

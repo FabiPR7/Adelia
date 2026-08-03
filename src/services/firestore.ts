@@ -17,6 +17,7 @@ import type {
   AppUser,
   AdminCompany,
   Company,
+  CompanyEmailTemplates,
   CompanySettingsPayload,
   Reservation,
   ReservationFormData,
@@ -26,11 +27,19 @@ import type {
 } from '../types'
 import { defaultTurns, parseFloorPlan, serializeFloorPlanForFirestore } from '../types/company'
 import {
+  normalizeCompanyEmailTemplates,
+  parseCompanyEmailTemplatesFromFirestore,
+} from '../utils/emailTemplates'
+import {
   assertReservationSlotValid,
   computeReservationCountsByMonth as computeReservationCountsByMonthUtil,
 } from '../utils/reservationSlots'
 import { combineDateAndTime, dateToIsoDate, defaultSchedule, generateUuid, isSameDay, slugToAuthEmail, slugify } from '../utils/helpers'
-import { notifyReservationConfirmationEmail } from './reservationEmailApi'
+import {
+  normalizeCompanySettingsPayload,
+} from '../utils/companyValidation'
+import { notifyReservationConfirmationEmail, notifyReservationReceivedEmail, syncReservationClient } from './reservationEmailApi'
+import { upsertCompanyClientFromReservation } from './companyClients'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -392,6 +401,7 @@ export async function createReservation(
   schedule: Company['schedule'],
   cachedDayReservations?: Reservation[],
 ): Promise<Reservation> {
+  const bookingStatus: Reservation['status'] = 'completed'
   const dayReservations =
     cachedDayReservations ?? (await getReservationsForDate(companyId, date))
 
@@ -404,7 +414,7 @@ export async function createReservation(
     durationMinutes,
     dayReservations,
     undefined,
-    form.status,
+    bookingStatus,
   )
 
   const { startTime, endTime } = reservationFormToTimes(date, form, durationMinutes)
@@ -428,7 +438,7 @@ export async function createReservation(
           clientEmail: form.clientEmail.trim(),
           clientPhone: form.clientPhone.trim(),
           pax: form.pax,
-          status: form.status,
+          status: bookingStatus,
           notes: '',
         }),
       })
@@ -449,7 +459,7 @@ export async function createReservation(
           pax: form.pax,
           startTime,
           endTime,
-          status: form.status,
+          status: bookingStatus,
           notes: '',
           cancelToken: generateUuid(),
           createdAt: new Date(),
@@ -477,14 +487,23 @@ export async function createReservation(
     pax: form.pax,
     startTime: Timestamp.fromDate(startTime),
     endTime: Timestamp.fromDate(endTime),
-    status: form.status,
+    status: bookingStatus,
     notes: '',
     cancelToken,
     createdAt: serverTimestamp(),
   })
 
   if (form.clientEmail.trim()) {
-    await notifyReservationConfirmationEmail(docRef.id)
+    await upsertCompanyClientFromReservation(companyId, docRef.id, {
+      clientEmail: form.clientEmail,
+      clientName: form.clientName,
+      clientPhone: form.clientPhone,
+      reservationDate: new Date(),
+    }).catch(() => syncReservationClient(docRef.id))
+  }
+
+  if (form.clientEmail.trim()) {
+    await notifyReservationReceivedEmail(docRef.id)
   }
 
   return {
@@ -497,7 +516,7 @@ export async function createReservation(
     pax: form.pax,
     startTime,
     endTime,
-    status: form.status,
+    status: bookingStatus,
     notes: '',
     cancelToken,
     createdAt: new Date(),
@@ -534,7 +553,7 @@ export async function createPublicReservation(
     durationMinutes,
     dayReservations,
     undefined,
-    'confirmed',
+    'completed',
   )
 
   const form: ReservationFormData = {
@@ -544,7 +563,7 @@ export async function createPublicReservation(
     pax: Math.trunc(input.pax),
     tableId: input.tableId,
     time: input.time,
-    status: 'confirmed',
+    status: 'completed',
   }
 
   const { startTime, endTime } = reservationFormToTimes(date, form, durationMinutes)
@@ -560,14 +579,13 @@ export async function createPublicReservation(
     notes: input.notes.trim(),
     startTime: Timestamp.fromDate(startTime),
     endTime: Timestamp.fromDate(endTime),
-    status: 'confirmed',
+    status: 'completed',
     cancelToken,
     createdAt: serverTimestamp(),
   })
 
-  if (input.clientEmail.trim()) {
-    await notifyReservationConfirmationEmail(docRef.id)
-  }
+  await syncReservationClient(docRef.id)
+  await notifyReservationReceivedEmail(docRef.id)
 
   return {
     id: docRef.id,
@@ -580,7 +598,7 @@ export async function createPublicReservation(
     notes: input.notes.trim(),
     startTime,
     endTime,
-    status: 'confirmed',
+    status: 'completed',
     cancelToken,
     createdAt: new Date(),
   }
@@ -642,6 +660,17 @@ export async function updateReservation(
   }
 }
 
+export async function updateReservationStatus(
+  reservationId: string,
+  status: 'confirmed' | 'cancelled',
+): Promise<void> {
+  await updateDoc(doc(db, 'reservations', reservationId), { status })
+
+  if (status === 'confirmed') {
+    await notifyReservationConfirmationEmail(reservationId)
+  }
+}
+
 export async function deleteReservation(reservationId: string): Promise<void> {
   await deleteDoc(doc(db, 'reservations', reservationId))
 }
@@ -692,9 +721,13 @@ export async function updateCompanySettings(
   companyId: string,
   payload: CompanySettingsPayload,
 ): Promise<void> {
-  const trimmedName = payload.name.trim()
+  const normalizedPayload = normalizeCompanySettingsPayload(payload)
+
+  const trimmedName = normalizedPayload.name.trim()
   const companySnap = await getDoc(doc(db, 'companies', companyId))
   const credentialsSnap = await getDoc(doc(db, 'companyCredentials', companyId))
+  const currentName = ((companySnap.data()?.name as string) ?? '').trim()
+  const nameChanged = trimmedName !== currentName
   const ownerUid = companySnap.data()?.ownerUid as string | undefined
   const authEmail =
     (credentialsSnap.data()?.authEmail as string | undefined) ??
@@ -704,34 +737,55 @@ export async function updateCompanySettings(
 
   batch.update(doc(db, 'companies', companyId), {
     name: trimmedName,
-    contactEmail: payload.contactEmail,
-    phone: payload.phone,
-    website: payload.website,
-    location: payload.location,
-    logoUrl: payload.logoUrl,
-    timeSlotMinutes: payload.timeSlotMinutes,
-    schedule: payload.schedule,
-    turns: payload.turns,
-    floorPlan: serializeFloorPlanForFirestore(payload.floorPlan),
+    contactEmail: normalizedPayload.contactEmail,
+    phone: normalizedPayload.phone,
+    website: normalizedPayload.website,
+    location: normalizedPayload.location,
+    municipality: normalizedPayload.municipality,
+    country: normalizedPayload.country,
+    postalCode: normalizedPayload.postalCode,
+    description: normalizedPayload.description,
+    logoUrl: normalizedPayload.logoUrl,
+    photos: normalizedPayload.photos,
+    videos: normalizedPayload.videos,
+    characteristics: normalizedPayload.characteristics,
+    timeSlotMinutes: normalizedPayload.timeSlotMinutes,
+    schedule: normalizedPayload.schedule,
+    turns: normalizedPayload.turns,
+    floorPlan: serializeFloorPlanForFirestore(normalizedPayload.floorPlan),
     updatedAt: serverTimestamp(),
   })
 
-  batch.update(doc(db, 'companyCredentials', companyId), {
-    loginName: trimmedName,
-    updatedAt: serverTimestamp(),
-  })
-
-  if (ownerUid) {
-    batch.update(doc(db, 'users', ownerUid), {
+  if (nameChanged) {
+    batch.update(doc(db, 'companyCredentials', companyId), {
       loginName: trimmedName,
+      updatedAt: serverTimestamp(),
     })
+
+    if (ownerUid) {
+      batch.update(doc(db, 'users', ownerUid), {
+        loginName: trimmedName,
+      })
+    }
   }
 
   await batch.commit()
 
-  if (authEmail) {
+  if (nameChanged && authEmail) {
     await syncCompanyLoginIndex(trimmedName, authEmail, companyId)
   }
+}
+
+export async function updateCompanyEmailTemplates(
+  companyId: string,
+  templates: CompanyEmailTemplates,
+): Promise<void> {
+  const normalized = normalizeCompanyEmailTemplates(templates)
+
+  await updateDoc(doc(db, 'companies', companyId), {
+    emailTemplates: normalized,
+    updatedAt: serverTimestamp(),
+  })
 }
 
 export async function updateCompanyFloorPlan(
@@ -780,12 +834,22 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
     phone: (data.phone as string) ?? '',
     website: (data.website as string) ?? '',
     location: (data.location as string) ?? '',
+    municipality: (data.municipality as string) ?? '',
+    country: (data.country as string) ?? '',
+    postalCode: (data.postalCode as string) ?? '',
+    description: (data.description as string) ?? '',
     contactEmail: (data.contactEmail as string) ?? '',
     logoUrl: (data.logoUrl as string) ?? '',
+    photos: Array.isArray(data.photos) ? (data.photos as string[]).slice(0, 5) : [],
+    videos: Array.isArray(data.videos) ? (data.videos as string[]).slice(0, 2) : [],
+    characteristics: Array.isArray(data.characteristics)
+      ? (data.characteristics as string[]).slice(0, 5)
+      : [],
     timeSlotMinutes: (data.timeSlotMinutes as number) ?? 120,
     schedule: (data.schedule as Company['schedule']) ?? defaultSchedule(),
     turns: (data.turns as Company['turns']) ?? defaultTurns(),
     floorPlan: parseFloorPlan(data.floorPlan),
+    emailTemplates: parseCompanyEmailTemplatesFromFirestore(data.emailTemplates),
     createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
   }
 }

@@ -172,7 +172,8 @@ label {
   color: var(--color-brown-light);
 }
 
-input {
+input,
+textarea {
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -231,6 +232,25 @@ input:disabled {
 .turnRow span {
   color: var(--color-text-muted);
   text-align: center;
+}
+
+.scheduleBlock {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.scheduleBlock h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-brown);
+  margin: 0 0 0.35rem;
+}
+
+.scheduleHint {
+  margin: 0 0 0.85rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
 }
 
 .scheduleList {

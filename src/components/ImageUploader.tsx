@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './ImageUploader.module.css'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -61,6 +62,9 @@ function ImageUploader({
   }, [currentImageUrl])
 
   const displayUrl = previewUrl || currentImageUrl
+  const optimizedDisplayUrl = displayUrl
+    ? optimizeCloudinaryUrl(displayUrl, CLOUDINARY_DISPLAY.photoPreview)
+    : ''
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -135,7 +139,7 @@ function ImageUploader({
         </div>
       ) : displayUrl ? (
         <div className={styles.previewBox}>
-          <img src={displayUrl} alt="Vista previa" className={styles.previewImage} />
+          <img src={optimizedDisplayUrl} alt="Vista previa" className={styles.previewImage} />
           <div className={styles.previewActions}>
             <button type="button" className={styles.secondaryButton} onClick={handleChangeClick}>
               Cambiar

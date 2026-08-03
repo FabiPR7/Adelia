@@ -17,6 +17,11 @@ cpSync(sourceDir, targetDir, {
 
 mkdirSync(libDir, { recursive: true })
 
+cpSync(
+  path.join(projectRoot, 'public', 'adelia-logo-email.png'),
+  path.join(libDir, 'adelia-logo-email.png'),
+)
+
 await build({
   entryPoints: [path.join(functionsDir, 'src', 'index.ts')],
   bundle: true,

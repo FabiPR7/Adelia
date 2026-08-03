@@ -40,7 +40,7 @@ const EMPTY_FORM: ReservationFormData = {
   pax: 2,
   tableId: '',
   time: '',
-  status: 'confirmed',
+  status: 'completed',
 }
 
 const STATUS_OPTIONS: { value: ReservationStatus; label: string }[] = [

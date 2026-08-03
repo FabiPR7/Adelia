@@ -197,7 +197,7 @@ export function assertReservationSlotValid(
   durationMinutes: number,
   reservations: Reservation[],
   excludeReservationId?: string,
-  status: Reservation['status'] = 'confirmed',
+  status: Reservation['status'] = 'completed',
 ): void {
   if (status === 'cancelled') {
     return

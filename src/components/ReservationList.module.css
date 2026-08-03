@@ -124,6 +124,59 @@
   background: var(--color-cream);
 }
 
+.attendanceBar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.attendanceLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-brown-light);
+}
+
+.attendanceHours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.attendanceHourButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-brown);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.attendanceHourPending {
+  border-color: rgba(234, 179, 8, 0.55);
+  background: rgba(234, 179, 8, 0.16);
+}
+
+.attendancePendingBadge {
+  min-width: 18px;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(234, 179, 8, 0.35);
+  color: #92680a;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-align: center;
+}
+
 .empty {
   padding: 2rem 1.5rem;
   text-align: center;

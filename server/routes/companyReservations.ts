@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express'
 import { Timestamp } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
-import { processReservationConfirmationEmail } from '../email/processReservationEmail.ts'
+import { processReservationReceivedEmail } from '../email/processReservationEmail.ts'
+import { upsertCompanyClientFromReservation } from '../clients/upsertCompanyClient.ts'
 import { adminAuth, adminDb } from '../firebase-admin.ts'
 import {
   assertReservationSlotValid,
@@ -58,7 +59,7 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
       clientEmail = '',
       clientPhone = '',
       pax,
-      status = 'confirmed',
+      status = 'completed',
       notes = '',
     } = req.body as Record<string, unknown>
 
@@ -152,7 +153,7 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
         timeSlotMinutes,
         dayReservations,
         undefined,
-        status === 'cancelled' ? 'cancelled' : 'confirmed',
+        status === 'cancelled' ? 'cancelled' : 'completed',
       )
     } catch (validationError) {
       res.status(409).json({
@@ -169,7 +170,7 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
     startTime.setHours(hours, minutes, 0, 0)
     const endTime = new Date(startTime.getTime() + timeSlotMinutes * 60000)
 
-    const reservationStatus = status === 'cancelled' ? 'cancelled' : 'confirmed'
+    const reservationStatus = status === 'cancelled' ? 'cancelled' : 'completed'
     const email = typeof clientEmail === 'string' ? clientEmail.trim() : ''
     const phone = typeof clientPhone === 'string' ? clientPhone.trim() : ''
 
@@ -190,11 +191,17 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
 
     const reservationRef = await adminDb.collection('reservations').add(reservationData)
 
+    try {
+      await upsertCompanyClientFromReservation(adminDb, reservationRef.id, reservationData)
+    } catch (clientError) {
+      console.error('Company reservation client sync error:', clientError)
+    }
+
     if (email && reservationStatus !== 'cancelled') {
       try {
-        await processReservationConfirmationEmail(reservationRef.id, reservationData)
+        await processReservationReceivedEmail(reservationRef.id, reservationData)
       } catch (emailError) {
-        console.error('Company reservation confirmation email error:', emailError)
+        console.error('Company reservation received email error:', emailError)
       }
     }
 

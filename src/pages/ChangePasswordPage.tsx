@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { changeInitialPassword } from '../services/auth'
 import { getFirestoreErrorMessage } from '../services/firestore'
 import { syncInitialPasswordChange } from '../services/authApi'
+import { ADELIA_LOGO_URL } from '../constants/brand'
 import styles from './LoginPage.module.css'
 
 function ChangePasswordPage() {
@@ -62,7 +63,7 @@ function ChangePasswordPage() {
           <header className={styles.header}>
             <div className={styles.logoWrapper}>
               <img
-                src="/adelia-logo.png"
+                src={ADELIA_LOGO_URL}
                 alt="Adelia — Akita Inu"
                 className={styles.logo}
               />

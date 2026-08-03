@@ -1,0 +1,224 @@
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-cream);
+}
+
+.header {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid var(--color-border);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.headerSide {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.headerSide:last-child {
+  justify-content: flex-end;
+}
+
+.adeliaBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--color-brown-light);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.adeliaLogo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.headerCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.headerTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-brown);
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(360px, 38vw);
+}
+
+.companyLogo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.companyLogoFallback {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.headerLink,
+.headerLinkPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.875rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.headerLink {
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-brown);
+}
+
+.headerLink:hover {
+  background: var(--color-cream);
+  transform: translateY(-1px);
+}
+
+.headerLinkPrimary {
+  border: none;
+  background: var(--color-brown);
+  color: var(--color-white);
+  box-shadow: 0 4px 14px rgba(61, 50, 41, 0.18);
+}
+
+.headerLinkPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(61, 50, 41, 0.22);
+}
+
+.footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 0.85rem 1rem;
+  background: var(--color-white);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.footerBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.footerLogo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.65rem;
+}
+
+.footerLinks a {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-brown-light);
+  text-decoration: none;
+}
+
+.footerLinks a:hover {
+  color: var(--color-brown);
+  text-decoration: underline;
+}
+
+.footerCopy {
+  margin: 0;
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .header {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'brand actions'
+      'title title';
+  }
+
+  .headerSide:first-child {
+    grid-area: brand;
+  }
+
+  .headerCenter {
+    grid-area: title;
+    flex-direction: row;
+    gap: 0.5rem;
+    padding-top: 0.15rem;
+  }
+
+  .headerSide:last-child {
+    grid-area: actions;
+  }
+
+  .headerTitle {
+    max-width: none;
+    white-space: normal;
+    font-size: 1rem;
+  }
+
+  .companyLogo,
+  .companyLogoFallback {
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+  }
+
+  .headerLink,
+  .headerLinkPrimary {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.6875rem;
+  }
+}

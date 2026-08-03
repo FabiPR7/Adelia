@@ -2,6 +2,7 @@ import cors from 'cors'
 import express from 'express'
 import companiesRouter from './routes/companies.ts'
 import authRouter from './routes/auth.ts'
+import companyEmailRouter from './routes/companyEmail.ts'
 import companyReservationsRouter from './routes/companyReservations.ts'
 import publicBookingRouter from './routes/public.ts'
 import reservationEmailRouter from './routes/reservationEmail.ts'
@@ -67,6 +68,7 @@ export function createApp() {
   app.use('/api/companies', verifyAdmin, companiesRouter)
   app.use('/api/auth', authRouter)
   app.use('/api/company', companyReservationsRouter)
+  app.use('/api/company', companyEmailRouter)
   app.use('/api/reservations', reservationEmailRouter)
   app.use('/api/public/booking', publicBookingRouter)
 

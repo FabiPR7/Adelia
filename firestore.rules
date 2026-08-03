@@ -15,9 +15,13 @@ service cloud.firestore {
     }
 
     function isCompanyOwner(companyId) {
-      return isSignedIn()
-        && userDoc().data.role == 'company'
-        && userDoc().data.companyId == companyId;
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid == request.auth.uid
+        || (
+          userDoc().data.role == 'company'
+          && userDoc().data.companyId == companyId
+        )
+      );
     }
 
     match /logins/{loginId} {
@@ -44,6 +48,10 @@ service cloud.firestore {
           )
         )
       );
+    }
+
+    match /passwordResetTokens/{tokenId} {
+      allow read, write: if false;
     }
 
     match /users/{userId} {
@@ -74,12 +82,13 @@ service cloud.firestore {
         && data.clientName is string
         && data.clientName.size() > 0
         && data.clientEmail is string
+        && data.clientEmail.size() > 0
         && data.clientPhone is string
         && data.clientPhone.size() > 0
         && data.pax is int
         && data.pax >= 1
         && data.pax <= 50
-        && data.status == 'confirmed'
+        && data.status == 'completed'
         && data.startTime is timestamp
         && data.endTime is timestamp
         && data.cancelToken is string
@@ -87,18 +96,32 @@ service cloud.firestore {
         && data.notes is string;
     }
 
+    function isValidCompanyOwnerUpdate() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return !changedKeys.hasAny(['slug', 'ownerUid', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0;
+    }
+
     match /companies/{companyId} {
       allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (
         isCompanyOwner(companyId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'name', 'phone', 'website', 'location', 'contactEmail', 'logoUrl',
-          'timeSlotMinutes', 'schedule', 'turns', 'floorPlan', 'updatedAt'
-        ])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() > 0
+        && isValidCompanyOwnerUpdate()
       );
+
+      match /clients/{clientId} {
+        allow read: if isCompanyOwner(companyId) || isAdmin();
+        allow create, update: if isCompanyOwner(companyId) || isAdmin();
+        allow delete: if isAdmin();
+      }
+
+      match /promotions/{promotionId} {
+        allow get: if isCompanyOwner(companyId) || isAdmin();
+        allow list: if isCompanyOwner(companyId) || isAdmin();
+        allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
+      }
     }
 
     match /tables/{tableId} {

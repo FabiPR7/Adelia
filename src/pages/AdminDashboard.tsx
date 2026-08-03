@@ -5,6 +5,7 @@ import { getAdminCompanies, markCompanyMustChangePassword, syncAllCompanyLoginIn
 import { createCompany, deleteCompany, updateCompany } from '../services/adminCompanies'
 import { logout } from '../services/auth'
 import type { AdminCompany } from '../types'
+import { ADELIA_LOGO_URL } from '../constants/brand'
 import styles from './AdminDashboard.module.css'
 
 interface CompanyFormState {
@@ -187,7 +188,7 @@ function AdminDashboard() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.brand}>
-          <img src="/adelia-logo.png" alt="Adelia" className={styles.logo} />
+          <img src={ADELIA_LOGO_URL} alt="Adelia" className={styles.logo} />
           <div>
             <h1>Panel Admin</h1>
             <p>Gestión de empresas</p>

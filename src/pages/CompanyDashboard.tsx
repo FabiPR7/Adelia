@@ -1,15 +1,28 @@
-import { Suspense, lazy, useState } from 'react'
+import { Suspense, lazy, useRef, useState } from 'react'
 import ConfirmDialog from '../components/ConfirmDialog'
+import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import { useAuth } from '../context/AuthContext'
 import { logout } from '../services/auth'
 import {
+  CLIENTS_SECTIONS,
+  isClientsTab,
+  isReportsTab,
   isSettingsTab,
+  REPORTS_SECTIONS,
   SETTINGS_SECTIONS,
   type CompanyTab,
   type SettingsSection,
 } from '../types'
+import type { CompanySettingsHandle } from './company/CompanySettings'
 import CompanyReservations from './company/CompanyReservations'
+import CompanyClients from './company/CompanyClients'
+import CompanyReportsReservations from './company/CompanyReportsReservations'
+import CompanyReportsClients from './company/CompanyReportsClients'
+import CompanyPromotions from './company/CompanyPromotions'
+import CompanyEmailTemplate from './company/CompanyEmailTemplate'
 import CompanyHelp from './company/CompanyHelp'
+import { ADELIA_LOGO_URL } from '../constants/brand'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './CompanyDashboard.module.css'
 
 const CompanySettings = lazy(() => import('./company/CompanySettings'))
@@ -17,6 +30,14 @@ const CompanySettings = lazy(() => import('./company/CompanySettings'))
 function settingsSectionLabel(tab: CompanyTab): string {
   if (tab === 'reservations') {
     return 'Reservas'
+  }
+
+  if (isClientsTab(tab)) {
+    return CLIENTS_SECTIONS.find((section) => section.id === tab)?.label ?? 'Clientes'
+  }
+
+  if (isReportsTab(tab)) {
+    return REPORTS_SECTIONS.find((section) => section.id === tab)?.label ?? 'Informes'
   }
 
   if (tab === 'help') {
@@ -29,20 +50,80 @@ function settingsSectionLabel(tab: CompanyTab): string {
 function CompanyDashboard() {
   const { company } = useAuth()
   const [activeTab, setActiveTab] = useState<CompanyTab>('reservations')
+  const [lastSettingsSection, setLastSettingsSection] = useState<SettingsSection>('contact')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
+  const [pendingTab, setPendingTab] = useState<CompanyTab | null>(null)
+  const [unsavedSection, setUnsavedSection] = useState<SettingsSection | null>(null)
+  const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false)
+  const [isSavingUnsaved, setIsSavingUnsaved] = useState(false)
+  const settingsRef = useRef<CompanySettingsHandle>(null)
 
   const handleLogout = async () => {
     await logout()
   }
 
-  const navigateTo = (tab: CompanyTab) => {
+  const completeNavigation = (tab: CompanyTab) => {
+    if (isSettingsTab(tab)) {
+      setLastSettingsSection(tab)
+    }
+
     setActiveTab(tab)
     setSidebarOpen(false)
+    setPendingTab(null)
+    setUnsavedSection(null)
+    setUnsavedDialogOpen(false)
+    setIsSavingUnsaved(false)
   }
 
-  const openSettingsSection = (section: SettingsSection) => {
-    navigateTo(section)
+  const attemptNavigate = (tab: CompanyTab) => {
+    if (tab === activeTab) {
+      setSidebarOpen(false)
+      return
+    }
+
+    if (isSettingsTab(activeTab) && settingsRef.current?.isSectionDirty(activeTab)) {
+      setPendingTab(tab)
+      setUnsavedSection(activeTab)
+      setUnsavedDialogOpen(true)
+      return
+    }
+
+    completeNavigation(tab)
+  }
+
+  const handleStayEditing = () => {
+    setPendingTab(null)
+    setUnsavedSection(null)
+    setUnsavedDialogOpen(false)
+    setIsSavingUnsaved(false)
+  }
+
+  const handleDiscardChanges = () => {
+    if (unsavedSection) {
+      settingsRef.current?.discardSection(unsavedSection)
+    }
+
+    if (pendingTab) {
+      completeNavigation(pendingTab)
+    }
+  }
+
+  const handleSaveUnsavedChanges = async () => {
+    if (!unsavedSection || !pendingTab) {
+      return
+    }
+
+    setIsSavingUnsaved(true)
+
+    const saved = await settingsRef.current?.saveSection(unsavedSection)
+
+    if (!saved) {
+      setIsSavingUnsaved(false)
+      return
+    }
+
+    completeNavigation(pendingTab)
   }
 
   if (!company) {
@@ -53,8 +134,15 @@ function CompanyDashboard() {
     )
   }
 
-  const logoSrc = company.logoUrl || '/adelia-logo.png'
+  const logoSrc = company.logoUrl
+    ? optimizeCloudinaryUrl(company.logoUrl, CLOUDINARY_DISPLAY.logo)
+    : ADELIA_LOGO_URL
   const inSettings = isSettingsTab(activeTab)
+  const inClients = isClientsTab(activeTab)
+  const inReports = isReportsTab(activeTab)
+  const settingsSection = isSettingsTab(activeTab) ? activeTab : lastSettingsSection
+  const unsavedSectionLabel =
+    SETTINGS_SECTIONS.find((section) => section.id === unsavedSection)?.label ?? 'Ajustes'
 
   return (
     <div className={styles.page}>
@@ -88,11 +176,55 @@ function CompanyDashboard() {
           <button
             type="button"
             className={`${styles.navItem} ${activeTab === 'reservations' ? styles.navItemActive : ''}`}
-            onClick={() => navigateTo('reservations')}
+            onClick={() => attemptNavigate('reservations')}
           >
             <span className={styles.navLabel}>Reservas</span>
             <span className={styles.navHint}>Calendario y listado del día</span>
           </button>
+
+          <div className={styles.navGroup}>
+            <div className={`${styles.navGroupTitle} ${inClients ? styles.navGroupTitleActive : ''}`}>
+              <span className={styles.navLabel}>Clientes</span>
+            </div>
+
+            <div className={styles.navSubmenu}>
+              {CLIENTS_SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`${styles.navSubItem} ${
+                    activeTab === section.id ? styles.navSubItemActive : ''
+                  }`}
+                  onClick={() => attemptNavigate(section.id)}
+                >
+                  <span className={styles.navSubLabel}>{section.label}</span>
+                  <span className={styles.navHint}>{section.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.navGroup}>
+            <div className={`${styles.navGroupTitle} ${inReports ? styles.navGroupTitleActive : ''}`}>
+              <span className={styles.navLabel}>Informes</span>
+            </div>
+
+            <div className={styles.navSubmenu}>
+              {REPORTS_SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`${styles.navSubItem} ${
+                    activeTab === section.id ? styles.navSubItemActive : ''
+                  }`}
+                  onClick={() => attemptNavigate(section.id)}
+                >
+                  <span className={styles.navSubLabel}>{section.label}</span>
+                  <span className={styles.navHint}>{section.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className={styles.navGroup}>
             <div className={`${styles.navGroupTitle} ${inSettings ? styles.navGroupTitleActive : ''}`}>
@@ -107,7 +239,7 @@ function CompanyDashboard() {
                   className={`${styles.navSubItem} ${
                     activeTab === section.id ? styles.navSubItemActive : ''
                   }`}
-                  onClick={() => openSettingsSection(section.id)}
+                  onClick={() => attemptNavigate(section.id)}
                 >
                   <span className={styles.navSubLabel}>{section.label}</span>
                   <span className={styles.navHint}>{section.hint}</span>
@@ -119,7 +251,7 @@ function CompanyDashboard() {
           <button
             type="button"
             className={`${styles.navItem} ${activeTab === 'help' ? styles.navItemActive : ''}`}
-            onClick={() => navigateTo('help')}
+            onClick={() => attemptNavigate('help')}
           >
             <span className={styles.navLabel}>Ayuda</span>
             <span className={styles.navHint}>Tutoriales y preguntas frecuentes</span>
@@ -163,10 +295,28 @@ function CompanyDashboard() {
           <div className={activeTab === 'reservations' ? styles.tabPanelActive : styles.tabPanelHidden}>
             <CompanyReservations companyId={company.id} />
           </div>
+          <div className={activeTab === 'clients-reservations' ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyClients companyId={company.id} />
+          </div>
+          <div className={activeTab === 'clients-promotions' ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyPromotions companyId={company.id} />
+          </div>
+          <div className={activeTab === 'clients-email-received' ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyEmailTemplate kind="received" />
+          </div>
+          <div className={activeTab === 'clients-email-confirmation' ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyEmailTemplate kind="confirmation" />
+          </div>
+          <div className={activeTab === 'reports-reservations' ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyReportsReservations companyId={company.id} />
+          </div>
+          <div className={activeTab === 'reports-clients' ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyReportsClients companyId={company.id} />
+          </div>
           <div className={activeTab === 'help' ? styles.tabPanelActive : styles.tabPanelHidden}>
             <CompanyHelp />
           </div>
-          {isSettingsTab(activeTab) && (
+          <div className={inSettings ? styles.tabPanelActive : styles.tabPanelHidden}>
             <Suspense
               fallback={
                 <div className={styles.pageLoading}>
@@ -174,11 +324,20 @@ function CompanyDashboard() {
                 </div>
               }
             >
-              <CompanySettings activeSection={activeTab} />
+              <CompanySettings ref={settingsRef} activeSection={settingsSection} />
             </Suspense>
-          )}
+          </div>
         </main>
       </div>
+
+      <UnsavedChangesDialog
+        isOpen={unsavedDialogOpen}
+        sectionLabel={unsavedSectionLabel}
+        isSaving={isSavingUnsaved}
+        onStay={handleStayEditing}
+        onDiscard={handleDiscardChanges}
+        onSave={() => void handleSaveUnsavedChanges()}
+      />
 
       <ConfirmDialog
         isOpen={logoutConfirmOpen}

@@ -1,5 +1,6 @@
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { isPublicLegalDocId, PUBLIC_LEGAL_DOCUMENTS } from '../content/publicLegal'
+import { ADELIA_LOGO_URL } from '../constants/brand'
 import styles from './PublicLegalPage.module.css'
 
 function PublicLegalPage() {
@@ -19,12 +20,12 @@ function PublicLegalPage() {
       <header className={styles.header}>
         {safeReturnTo ? (
           <Link to={safeReturnTo} className={styles.brand}>
-            <img src="/adelia-logo.png" alt="" className={styles.brandLogo} />
+            <img src={ADELIA_LOGO_URL} alt="" className={styles.brandLogo} />
             <span>Adelia</span>
           </Link>
         ) : (
           <div className={styles.brand}>
-            <img src="/adelia-logo.png" alt="" className={styles.brandLogo} />
+            <img src={ADELIA_LOGO_URL} alt="" className={styles.brandLogo} />
             <span>Adelia</span>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { dateToTimeInput, formatTimeSpanish } from '../utils/helpers'
+import { dateToTimeInput, formatTimeSpanish, isReservationStartInPast, startOfDay } from '../utils/helpers'
 import type { Reservation } from '../types'
 import styles from './ReservationList.module.css'
 
@@ -10,6 +10,7 @@ interface ReservationListProps {
   onAdd: () => void
   onEdit: (reservation: Reservation) => void
   onDelete: (reservation: Reservation) => void
+  onOpenAttendance?: (hour: string) => void
 }
 
 const STATUS_LABELS: Record<Reservation['status'], string> = {
@@ -25,6 +26,7 @@ function ReservationList({
   onAdd,
   onEdit,
   onDelete,
+  onOpenAttendance,
 }: ReservationListProps) {
   const [nameSearchQuery, setNameSearchQuery] = useState('')
   const [hourFilter, setHourFilter] = useState('')
@@ -39,6 +41,19 @@ function ReservationList({
     const hours = new Set(reservations.map((item) => dateToTimeInput(item.startTime)))
     return [...hours].sort()
   }, [reservations])
+
+  const isFutureDay =
+    startOfDay(selectedDate).getTime() > startOfDay(new Date()).getTime()
+
+  const attendanceHours = useMemo(() => {
+    if (isFutureDay) {
+      return []
+    }
+
+    return reservationHours.filter((hour) => isReservationStartInPast(selectedDate, hour))
+  }, [isFutureDay, reservationHours, selectedDate])
+
+  const showAttendanceBar = attendanceHours.length > 0 && Boolean(onOpenAttendance)
 
   const filteredReservations = useMemo(() => {
     const query = nameSearchQuery.trim().toLowerCase()
@@ -72,6 +87,36 @@ function ReservationList({
           </button>
         </div>
       </header>
+
+      {showAttendanceBar && (
+        <div className={styles.attendanceBar}>
+          <span className={styles.attendanceLabel}>Control de asistencia por hora</span>
+          <div className={styles.attendanceHours}>
+            {attendanceHours.map((hour) => {
+              const pendingCount = reservations.filter(
+                (item) =>
+                  item.status === 'completed' && dateToTimeInput(item.startTime) === hour,
+              ).length
+
+              return (
+                <button
+                  key={hour}
+                  type="button"
+                  className={`${styles.attendanceHourButton} ${
+                    pendingCount > 0 ? styles.attendanceHourPending : ''
+                  }`}
+                  onClick={() => onOpenAttendance?.(hour)}
+                >
+                  {hour}
+                  {pendingCount > 0 && (
+                    <span className={styles.attendancePendingBadge}>{pendingCount}</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {reservations.length > 0 && (
         <div className={styles.filters}>

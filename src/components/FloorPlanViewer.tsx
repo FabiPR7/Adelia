@@ -19,6 +19,7 @@ import styles from './FloorPlanViewer.module.css'
 const MIN_VIEW_SCALE = 0.35
 const MAX_VIEW_SCALE = 3
 const MIN_PINCH_DISTANCE = 10
+const DRAG_CLICK_THRESHOLD = 6
 
 const FLOOR_STYLE_CLASSES: Record<FloorStyleId, string> = {
   wine: editorStyles.canvasFloorWine,
@@ -79,6 +80,8 @@ function FloorPlanViewer({
   const viewScaleRef = useRef(0.5)
   const viewPanRef = useRef({ x: 0, y: 0 })
   const isGesturingRef = useRef(false)
+  const suppressTableClickRef = useRef(false)
+  const dragDistanceRef = useRef(0)
   const [viewScale, setViewScale] = useState(0.5)
   const [viewPan, setViewPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
@@ -260,11 +263,16 @@ function FloorPlanViewer({
       return
     }
 
+    if (isTableTarget(event.target)) {
+      return
+    }
+
     activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
     event.currentTarget.setPointerCapture(event.pointerId)
 
-    if (activePointersRef.current.size === 1 && !isTableTarget(event.target)) {
+    if (activePointersRef.current.size === 1) {
       isGesturingRef.current = true
+      dragDistanceRef.current = 0
       panRef.current = {
         startPanX: viewPanRef.current.x,
         startPanY: viewPanRef.current.y,
@@ -310,6 +318,11 @@ function FloorPlanViewer({
     const pan = panRef.current
 
     if (pan) {
+      dragDistanceRef.current = Math.max(
+        dragDistanceRef.current,
+        Math.hypot(event.clientX - pan.startX, event.clientY - pan.startY),
+      )
+
       setTransform(viewScaleRef.current, {
         x: pan.startPanX + (event.clientX - pan.startX),
         y: pan.startPanY + (event.clientY - pan.startY),
@@ -325,12 +338,23 @@ function FloorPlanViewer({
     }
 
     if (panRef.current) {
+      if (dragDistanceRef.current > DRAG_CLICK_THRESHOLD) {
+        suppressTableClickRef.current = true
+      }
+
       panRef.current = null
       setIsPanning(false)
     }
 
     if (activePointersRef.current.size === 0) {
       commitTransform()
+
+      if (suppressTableClickRef.current) {
+        window.setTimeout(() => {
+          suppressTableClickRef.current = false
+        }, 0)
+      }
+
       return
     }
 
@@ -439,8 +463,11 @@ function FloorPlanViewer({
                       height: `${position.height}%`,
                       transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
                     }}
+                    onPointerDown={(event) => {
+                      event.stopPropagation()
+                    }}
                     onClick={() => {
-                      if (isGesturingRef.current) {
+                      if (suppressTableClickRef.current) {
                         return
                       }
 

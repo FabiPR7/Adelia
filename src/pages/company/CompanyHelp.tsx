@@ -4,13 +4,14 @@ const HELP_EMAIL = 'contacto@adeliareservas.com'
 
 const HELP_ITEMS = [
   {
-    id: 'schedule',
-    question: '¿Cómo cambio los horarios del restaurante?',
+    id: 'reservation-settings',
+    question: '¿Cómo configuro reservas, turnos y horario?',
     answer: [
-      'En el menú lateral, entra en Mi restaurante → Horario.',
-      'Marca los días en los que aceptas reservas y define la hora de apertura y cierre de cada uno.',
-      'Pulsa Guardar horario para aplicar los cambios.',
-      'Los clientes solo podrán reservar en los días y franjas que tengas activos.',
+      'Abre Mi restaurante → Reservas y horario.',
+      'Duración de cada reserva: indica cuántos minutos ocupa una mesa (por defecto suele ser 120 min).',
+      'Turnos: define los tramos del servicio (por ejemplo, Comida 13:00–16:00 y Cena 20:00–23:30).',
+      'Horario semanal: marca los días activos y la hora de apertura y cierre de cada uno.',
+      'Pulsa Guardar reservas y horario. Esto afecta al calendario y a la web pública.',
     ],
   },
   {
@@ -21,16 +22,6 @@ const HELP_ITEMS = [
       'Cada fila es una mesa: escribe el nombre (por ejemplo, «Mesa 1» o «Terraza 3») y la capacidad máxima de comensales.',
       'Usa + Añadir mesa para crear nuevas mesas.',
       'Pulsa Guardar mesas cuando termines. Los cambios se reflejan en tus reservas y en el mapa.',
-    ],
-  },
-  {
-    id: 'reservation-settings',
-    question: '¿Cómo configuro la duración de las reservas y los turnos?',
-    answer: [
-      'Abre Mi restaurante → Reservas.',
-      'Duración de cada reserva: indica cuántos minutos ocupa una mesa (por defecto suele ser 120 min).',
-      'Turnos: define los tramos del servicio (por ejemplo, Comida 13:00–16:00 y Cena 20:00–23:30).',
-      'Guarda los cambios. Esto afecta a los huecos disponibles en el calendario y en la web pública.',
     ],
   },
   {
@@ -88,7 +79,7 @@ const HELP_ITEMS = [
     answer: [
       'Entra con el nombre de tu restaurante y la contraseña que te proporcionamos.',
       'No uses el email de contacto para iniciar sesión: el acceso es por nombre del restaurante.',
-      'Si olvidas la contraseña, escríbenos a contacto@adeliareservas.com.',
+      'Si olvidas la contraseña, usa «¿Olvidaste tu contraseña?» en la pantalla de acceso.',
     ],
   },
 ] as const

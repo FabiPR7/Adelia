@@ -6,8 +6,12 @@ import {
 import { getResendApiKey } from '../server/email/config.ts'
 import {
   processReservationConfirmationEmail,
+  processReservationReceivedEmail,
   shouldSendConfirmationOnUpdate,
+  shouldSendReceivedOnCreate,
 } from '../server/email/processReservationEmail.ts'
+import { upsertCompanyClientFromReservation } from '../server/clients/upsertCompanyClient.ts'
+import { adminDb } from '../server/firebase-admin.ts'
 
 export const resendApiKeySecret = defineSecret('RESEND_API_KEY')
 
@@ -31,12 +35,22 @@ export const onReservationCreatedSendEmail = onDocumentCreated(
       return
     }
 
+    try {
+      await upsertCompanyClientFromReservation(adminDb, snapshot.id, snapshot.data()!)
+    } catch (error) {
+      console.error(`Failed to sync client for reservation ${snapshot.id}:`, error)
+    }
+
+    if (!shouldSendReceivedOnCreate(snapshot.data())) {
+      return
+    }
+
     const apiKey = resolveResendApiKey()
 
     try {
-      await processReservationConfirmationEmail(snapshot.id, snapshot.data(), apiKey)
+      await processReservationReceivedEmail(snapshot.id, snapshot.data(), apiKey)
     } catch (error) {
-      console.error(`Failed to send confirmation email for reservation ${snapshot.id}:`, error)
+      console.error(`Failed to send received email for reservation ${snapshot.id}:`, error)
     }
   },
 )

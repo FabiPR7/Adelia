@@ -65,7 +65,7 @@
   cursor: pointer;
   transform-origin: center center;
   z-index: 2;
-  touch-action: none;
+  touch-action: manipulation;
 }
 
 .tableObjectSelected {
@@ -119,9 +119,8 @@
 .wrapperLarge .canvasScroll {
   aspect-ratio: 16 / 11;
   width: 100%;
-  min-height: 360px;
-  height: min(62vh, 680px);
-  max-height: none;
+  height: 420px;
+  max-height: 420px;
 }
 
 @media (max-width: 900px) {

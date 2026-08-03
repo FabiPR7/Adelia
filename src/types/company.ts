@@ -21,7 +21,14 @@ export interface CompanySettingsPayload {
   phone: string
   website: string
   location: string
+  municipality: string
+  country: string
+  postalCode: string
+  description: string
   logoUrl: string
+  photos: string[]
+  videos: string[]
+  characteristics: string[]
   timeSlotMinutes: number
   schedule: CompanySchedule
   turns: ServiceTurn[]
@@ -306,19 +313,275 @@ export function serializeFloorPlanForFirestore(floorPlan: FloorPlan) {
   }
 }
 
-export type SettingsSection = 'contact' | 'reservation-settings' | 'schedule' | 'tables'
+export type EmailTemplateKind = 'received' | 'confirmation'
+export type EmailHeaderStyle = 'gradient' | 'solid' | 'light'
+export type EmailLayoutStyle = 'classic' | 'compact'
 
-export type CompanyTab = 'reservations' | 'help' | SettingsSection
+export interface ReservationEmailTemplate {
+  subject: string
+  headerEyebrow: string
+  headline: string
+  introMessage: string
+  preDetailsMessage: string
+  detailsSectionTitle: string
+  closingMessage: string
+  accentColor: string
+  accentColorEnd: string
+  headerStyle: EmailHeaderStyle
+  layoutStyle: EmailLayoutStyle
+  showRestaurantLogo: boolean
+  showRestaurantName: boolean
+  showDate: boolean
+  showTime: boolean
+  showPax: boolean
+  showTable: boolean
+  showPhone: boolean
+  showLocation: boolean
+  showNotes: boolean
+  showWebsite: boolean
+  showContactEmail: boolean
+  showCancelButton: boolean
+  cancelButtonLabel: string
+  cancelHelpText: string
+  showPromotion: boolean
+  promotionTitle: string
+  promotionMessage: string
+  promotionCode: string
+  showViewRestaurantButton: boolean
+  viewRestaurantButtonLabel: string
+}
+
+export interface CompanyEmailTemplates {
+  received: ReservationEmailTemplate
+  confirmation: ReservationEmailTemplate
+}
+
+const SHARED_EMAIL_TEMPLATE_DEFAULTS: Omit<
+  ReservationEmailTemplate,
+  'headerEyebrow' | 'introMessage' | 'closingMessage'
+> = {
+  subject: '',
+  headline: '',
+  preDetailsMessage: '',
+  detailsSectionTitle: 'Detalles de tu reserva',
+  accentColor: '#6d28d9',
+  accentColorEnd: '#9333ea',
+  headerStyle: 'gradient',
+  layoutStyle: 'classic',
+  showRestaurantLogo: true,
+  showRestaurantName: true,
+  showDate: true,
+  showTime: true,
+  showPax: true,
+  showTable: true,
+  showPhone: true,
+  showLocation: true,
+  showNotes: true,
+  showWebsite: false,
+  showContactEmail: false,
+  showCancelButton: false,
+  cancelButtonLabel: 'Cancelar reserva',
+  cancelHelpText: 'Si no puedes acudir, cancela tu reserva con el botón de abajo.',
+  showPromotion: false,
+  promotionTitle: 'Oferta especial',
+  promotionMessage: 'Presenta este correo en el restaurante para disfrutar de nuestra promoción.',
+  promotionCode: '',
+  showViewRestaurantButton: false,
+  viewRestaurantButtonLabel: 'Ver restaurante',
+}
+
+export const DEFAULT_RECEIVED_EMAIL_TEMPLATE: ReservationEmailTemplate = {
+  ...SHARED_EMAIL_TEMPLATE_DEFAULTS,
+  headerEyebrow: 'Solicitud de reserva',
+  introMessage:
+    'Hola {nombre}, hemos recibido tu solicitud de reserva. Estos son los detalles:',
+  closingMessage:
+    'Recibirás otro correo cuando el restaurante confirme tu asistencia el día de la reserva.',
+}
+
+export const DEFAULT_CONFIRMATION_EMAIL_TEMPLATE: ReservationEmailTemplate = {
+  ...SHARED_EMAIL_TEMPLATE_DEFAULTS,
+  headerEyebrow: 'Confirmación de reserva',
+  introMessage: 'Hola {nombre}, tu reserva ha quedado confirmada. Estos son los detalles:',
+  closingMessage: 'Te esperamos. Si necesitas modificar algo, contacta con el restaurante.',
+}
+
+export function defaultCompanyEmailTemplates(): CompanyEmailTemplates {
+  return {
+    received: { ...DEFAULT_RECEIVED_EMAIL_TEMPLATE },
+    confirmation: { ...DEFAULT_CONFIRMATION_EMAIL_TEMPLATE },
+  }
+}
+
+export type ClientsSection =
+  | 'clients-reservations'
+  | 'clients-email-received'
+  | 'clients-email-confirmation'
+  | 'clients-promotions'
+
+export type PromotionType = 'reservation_ladder' | 'time_limited' | 'attendance'
+
+export interface CompanyPromotion {
+  id: string
+  companyId: string
+  type: PromotionType
+  title: string
+  description: string
+  photoUrl: string
+  active: boolean
+  requiresReservation: boolean
+  requiredReservations: number | null
+  activeFromTime: string
+  activeToTime: string
+  maxRedemptions: number | null
+  currentRedemptions: number
+  arrivalWindowMinutes: number | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface PromotionInput {
+  type: PromotionType
+  title: string
+  description: string
+  photoUrl: string
+  active: boolean
+  requiresReservation: boolean
+  requiredReservations: number | null
+  activeFromTime: string
+  activeToTime: string
+  maxRedemptions: number | null
+  arrivalWindowMinutes: number | null
+}
+
+export const PROMOTION_TYPE_LABELS: Record<PromotionType, string> = {
+  reservation_ladder: 'Premio por reservas',
+  time_limited: 'Tiempo limitado',
+  attendance: 'Asistencia puntual',
+}
+
+export const PROMOTION_TYPE_HINTS: Record<PromotionType, string> = {
+  reservation_ladder: 'Escalable: el cliente canjea primero el premio de menos reservas.',
+  time_limited: 'Activa solo en un tramo horario y con cupos limitados.',
+  attendance: 'El cliente debe presentarse en un plazo; si no viene, se libera el cupo.',
+}
+
+export function defaultPromotionInput(type: PromotionType): PromotionInput {
+  return {
+    type,
+    title: '',
+    description: '',
+    photoUrl: '',
+    active: false,
+    requiresReservation: type === 'reservation_ladder',
+    requiredReservations: null,
+    activeFromTime: '12:00',
+    activeToTime: '16:00',
+    maxRedemptions: type === 'reservation_ladder' ? null : 10,
+    arrivalWindowMinutes: type === 'attendance' ? 30 : null,
+  }
+}
+
+export function validatePromotionInput(
+  input: PromotionInput,
+  existing: CompanyPromotion[],
+  editingId: string | null,
+): string | null {
+  if (!input.title.trim()) {
+    return 'El título es obligatorio.'
+  }
+
+  if (!input.description.trim()) {
+    return 'La descripción es obligatoria.'
+  }
+
+  if (input.type === 'reservation_ladder') {
+    if (
+      input.requiredReservations === null
+      || !Number.isFinite(input.requiredReservations)
+      || input.requiredReservations < 1
+    ) {
+      return 'Indica cuántas reservas se requieren (número positivo, mínimo 1).'
+    }
+
+    if (input.active) {
+      const conflict = existing.find(
+        (promotion) => promotion.id !== editingId
+          && promotion.active
+          && promotion.type === 'reservation_ladder'
+          && promotion.requiredReservations === input.requiredReservations,
+      )
+
+      if (conflict) {
+        return `Ya hay una promoción activa que requiere ${input.requiredReservations} reservas.`
+      }
+    }
+  }
+
+  if (input.type === 'time_limited' || input.type === 'attendance') {
+    if (!input.activeFromTime || !input.activeToTime) {
+      return 'Indica la franja horaria activa.'
+    }
+
+    if (!input.maxRedemptions || input.maxRedemptions < 1) {
+      return 'Indica el máximo de canjes permitidos (mínimo 1).'
+    }
+  }
+
+  if (input.type === 'attendance') {
+    if (!input.arrivalWindowMinutes || input.arrivalWindowMinutes < 1) {
+      return 'Indica el tiempo máximo de llegada en minutos.'
+    }
+  }
+
+  return null
+}
+
+export type SettingsSection =
+  | 'contact'
+  | 'profile'
+  | 'reservation-settings'
+  | 'tables'
+
+export type ReportsSection = 'reports-reservations' | 'reports-clients'
+
+export type CompanyTab = 'reservations' | ClientsSection | ReportsSection | 'help' | SettingsSection
+
+export const CLIENTS_SECTIONS: { id: ClientsSection; label: string; hint: string }[] = [
+  { id: 'clients-reservations', label: 'Reservas', hint: 'Historial por cliente' },
+  { id: 'clients-promotions', label: 'Promociones', hint: 'Premios y cupos limitados' },
+  { id: 'clients-email-received', label: 'Reserva recibida', hint: 'Correo al solicitar' },
+  { id: 'clients-email-confirmation', label: 'Confirmación', hint: 'Correo al confirmar' },
+]
+
+export const REPORTS_SECTIONS: { id: ReportsSection; label: string; hint: string }[] = [
+  { id: 'reports-reservations', label: 'Reservas', hint: 'KPIs, gráficos y listado' },
+  { id: 'reports-clients', label: 'Clientes', hint: 'Informes de clientes' },
+]
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: string }[] = [
   { id: 'contact', label: 'Contacto', hint: 'Datos y logo' },
-  { id: 'reservation-settings', label: 'Reservas', hint: 'Duración y turnos' },
-  { id: 'schedule', label: 'Horario', hint: 'Días y franjas' },
+  { id: 'profile', label: 'Perfil', hint: 'Ficha del local' },
+  { id: 'reservation-settings', label: 'Reservas y horario', hint: 'Duración, turnos y días' },
   { id: 'tables', label: 'Mesas', hint: 'Capacidad y mapa' },
 ]
 
+export function isClientsTab(tab: CompanyTab): tab is ClientsSection {
+  return tab === 'clients-reservations'
+    || tab === 'clients-promotions'
+    || tab === 'clients-email-received'
+    || tab === 'clients-email-confirmation'
+}
+
+export function isReportsTab(tab: CompanyTab): tab is ReportsSection {
+  return tab === 'reports-reservations' || tab === 'reports-clients'
+}
+
 export function isSettingsTab(tab: CompanyTab): tab is SettingsSection {
-  return tab !== 'reservations' && tab !== 'help'
+  return tab !== 'reservations'
+    && !isClientsTab(tab)
+    && !isReportsTab(tab)
+    && tab !== 'help'
 }
 
 export const SCHEDULE_DAY_KEYS = [

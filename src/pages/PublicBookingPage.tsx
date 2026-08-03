@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import Calendar from '../components/Calendar'
+import PublicBookingShell from '../components/PublicBookingShell'
 import {
   availabilityToReservations,
   createPublicReservation,
@@ -27,7 +28,8 @@ import {
   isValidEmail,
   isValidSpanishPhone,
 } from '../utils/helpers'
-import { waitForReservationSubmit } from '../services/reservationEmailApi'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import { formatRestaurantLocation, hasRestaurantProfile } from '../utils/publicBooking'
 import styles from './PublicBookingPage.module.css'
 
 const FloorPlanViewer = lazy(() => import('../components/FloorPlanViewer'))
@@ -251,8 +253,6 @@ function PublicBookingPage() {
     setIsSubmitting(true)
     setError(null)
 
-    const hasEmail = clientEmail.trim().length > 0
-
     try {
       await createPublicReservation(slug, {
         date: dateToIsoDate(selectedDate),
@@ -264,10 +264,6 @@ function PublicBookingPage() {
         pax,
         notes: notes.trim(),
       })
-
-      if (!hasEmail) {
-        await waitForReservationSubmit()
-      }
 
       setStep('done')
       setClientName('')
@@ -311,34 +307,40 @@ function PublicBookingPage() {
 
   const today = new Date()
   const isToday = selectedDate.toDateString() === today.toDateString()
+  const profileHref = hasRestaurantProfile(company) ? `/reservar/${slug}/restaurante` : null
+  const locationLine = formatRestaurantLocation(company)
+  const coverPhoto = company.photos[0]
+    ? optimizeCloudinaryUrl(company.photos[0], CLOUDINARY_DISPLAY.photoThumb)
+    : null
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerSide}>
-          <div className={styles.adeliaBrand}>
-            <img src="/adelia-logo.png" alt="" className={styles.adeliaLogo} />
-            <span>Adelia</span>
-          </div>
-        </div>
-        <h1 className={styles.headerTitle}>{company.name}</h1>
-        <div className={styles.headerSide}>
-          {company.logoUrl ? (
-            <img src={company.logoUrl} alt="" className={styles.companyLogo} />
-          ) : (
-            <span className={styles.companyLogoFallback} aria-hidden="true">
-              {company.name.charAt(0).toUpperCase()}
-            </span>
+    <PublicBookingShell
+      company={company}
+      legalFrom={legalFrom}
+      profileHref={profileHref}
+    >
+      {(profileHref || locationLine || company.phone) && (
+        <section className={styles.restaurantTeaser}>
+          {coverPhoto && (
+            <img src={coverPhoto} alt="" className={styles.teaserPhoto} loading="lazy" />
           )}
-        </div>
-      </header>
-
-      {(company.contactEmail || company.phone || company.location) && (
-        <div className={styles.contactBar}>
-          {company.phone && <a href={`tel:${company.phone}`}>{company.phone}</a>}
-          {company.contactEmail && <a href={`mailto:${company.contactEmail}`}>{company.contactEmail}</a>}
-          {company.location && <span>{company.location}</span>}
-        </div>
+          <div className={styles.teaserBody}>
+            <div className={styles.teaserText}>
+              <span className={styles.teaserEyebrow}>Tu mesa te espera</span>
+              {locationLine && <p className={styles.teaserLocation}>{locationLine}</p>}
+              {company.characteristics.length > 0 && (
+                <p className={styles.teaserTags}>
+                  {company.characteristics.slice(0, 3).join(' · ')}
+                </p>
+              )}
+            </div>
+            {profileHref && (
+              <Link to={profileHref} className={styles.teaserButton}>
+                Ver restaurante
+              </Link>
+            )}
+          </div>
+        </section>
       )}
 
       <main className={styles.main}>
@@ -381,11 +383,11 @@ function PublicBookingPage() {
           <div className={styles.bookingPane}>
             {step === 'done' ? (
               <div className={styles.successCard}>
-                <h3>Reserva confirmada</h3>
+                <h3>Reserva recibida</h3>
                 <p>
-                  Tu reserva en <strong>{company.name}</strong> para el{' '}
+                  Hemos recibido tu solicitud de reserva en <strong>{company.name}</strong> para el{' '}
                   <strong>{formatDateSpanish(selectedDate)}</strong> a las <strong>{selectedTime}</strong>{' '}
-                  ({selectedTable?.name ?? 'mesa'}) está confirmada.
+                  ({selectedTable?.name ?? 'mesa'}). Te avisaremos por correo cuando se confirme tu asistencia.
                 </p>
                 <button type="button" className={styles.primaryButton} onClick={resetSelection}>
                   Hacer otra reserva
@@ -426,7 +428,7 @@ function PublicBookingPage() {
                     {isSubmitting && (
                       <div className={styles.submitOverlay} aria-live="polite">
                         <span className={styles.spinner} aria-hidden="true" />
-                        <span>Confirmando tu reserva…</span>
+                        <span>Enviando tu reserva…</span>
                       </div>
                     )}
                     <button type="button" className={styles.backButton} onClick={resetSelection} disabled={isSubmitting}>
@@ -462,13 +464,14 @@ function PublicBookingPage() {
                       />
                     </label>
                     <label>
-                      Email (opcional)
+                      Email
                       <input
                         type="email"
                         value={clientEmail}
                         onChange={(e) => setClientEmail(e.target.value)}
                         autoComplete="email"
-                        placeholder="Opcional"
+                        placeholder="tu@email.com"
+                        required
                       />
                     </label>
                     <label>
@@ -494,7 +497,7 @@ function PublicBookingPage() {
                       {isSubmitting ? (
                         <span className={styles.submittingLabel}>
                           <span className={styles.spinner} aria-hidden="true" />
-                          Confirmando…
+                          Enviando…
                         </span>
                       ) : (
                         'Confirmar reserva'
@@ -606,21 +609,6 @@ function PublicBookingPage() {
         </div>
       </main>
 
-      <footer className={styles.footer}>
-        <div className={styles.footerBrand}>
-          <img src="/adelia-logo.png" alt="" className={styles.footerLogo} />
-          <span>Adelia</span>
-        </div>
-        <nav className={styles.footerLinks} aria-label="Legal">
-          <Link to={`/legal/privacidad?from=${encodeURIComponent(legalFrom)}`}>Privacidad</Link>
-          <Link to={`/legal/terminos?from=${encodeURIComponent(legalFrom)}`}>Términos</Link>
-          <Link to={`/legal/cookies?from=${encodeURIComponent(legalFrom)}`}>Cookies</Link>
-        </nav>
-        <p className={styles.footerCopy}>
-          © {new Date().getFullYear()} Adelia · Gestión de reservas para restaurantes
-        </p>
-      </footer>
-
       {calendarOpen && (
         <div className={styles.calendarOverlay} onClick={() => setCalendarOpen(false)} role="presentation">
           <div className={styles.calendarModal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -635,7 +623,7 @@ function PublicBookingPage() {
           </div>
         </div>
       )}
-    </div>
+    </PublicBookingShell>
   )
 }
 

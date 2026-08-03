@@ -16,7 +16,7 @@ import type {
   CreateCompanyPayload,
   UpdateCompanyPayload,
 } from '../types'
-import { defaultTurns, parseFloorPlan } from '../types/company'
+import { defaultTurns, parseFloorPlan, defaultCompanyEmailTemplates } from '../types/company'
 import { defaultSchedule, slugify, slugToAuthEmail } from '../utils/helpers'
 import { syncCompanyLoginIndex } from './firestore'
 
@@ -136,10 +136,18 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
       location,
       contactEmail: '',
       logoUrl: '',
+      municipality: '',
+      country: 'España',
+      postalCode: '',
+      description: '',
+      photos: [],
+      videos: [],
+      characteristics: [],
       timeSlotMinutes: 120,
       schedule: defaultSchedule(),
       turns: defaultTurns(),
       floorPlan: parseFloorPlan(undefined),
+      emailTemplates: defaultCompanyEmailTemplates(),
       createdAt: new Date(),
     },
     loginName: name,

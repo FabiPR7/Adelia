@@ -1,7 +1,9 @@
 import { Router, type Request, type Response } from 'express'
 import { Timestamp } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
-import { processReservationConfirmationEmail } from '../email/processReservationEmail.ts'
+import { processReservationReceivedEmail } from '../email/processReservationEmail.ts'
+import { upsertCompanyClientFromReservation } from '../clients/upsertCompanyClient.ts'
+import { isValidClientEmail } from '../email/config.ts'
 import { adminDb } from '../firebase-admin.ts'
 import {
   assertReservationSlotValid,
@@ -153,8 +155,13 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
     const email = typeof clientEmail === 'string' ? clientEmail.trim() : ''
     const phone = typeof clientPhone === 'string' ? clientPhone.trim() : ''
 
-    if (!email && !phone) {
-      res.status(400).json({ error: 'Indica un teléfono o un correo electrónico.' })
+    if (!isValidClientEmail(email)) {
+      res.status(400).json({ error: 'Indica un correo electrónico válido.' })
+      return
+    }
+
+    if (!phone) {
+      res.status(400).json({ error: 'Indica un teléfono de contacto.' })
       return
     }
 
@@ -260,28 +267,72 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       notes: typeof notes === 'string' ? notes.trim() : '',
       startTime: Timestamp.fromDate(startTime),
       endTime: Timestamp.fromDate(endTime),
-      status: 'confirmed',
+      status: 'completed',
       cancelToken: randomUUID(),
       createdAt: Timestamp.now(),
     }
 
     const reservationRef = await adminDb.collection('reservations').add(reservationData)
 
-    if (email) {
-      try {
-        await processReservationConfirmationEmail(reservationRef.id, reservationData)
-      } catch (emailError) {
-        console.error('Public reservation confirmation email error:', emailError)
-      }
+    try {
+      await upsertCompanyClientFromReservation(adminDb, reservationRef.id, reservationData)
+    } catch (clientError) {
+      console.error('Public reservation client sync error:', clientError)
+    }
+
+    try {
+      await processReservationReceivedEmail(reservationRef.id, reservationData)
+    } catch (emailError) {
+      console.error('Public reservation received email error:', emailError)
     }
 
     res.status(201).json({
       id: reservationRef.id,
-      message: 'Reserva confirmada.',
+      message: 'Hemos recibido tu reserva.',
     })
   } catch (error) {
     console.error('Public reservation error:', error)
     res.status(500).json({ error: 'No se pudo crear la reserva.' })
+  }
+})
+
+router.post('/cancel', async (req: Request, res: Response) => {
+  try {
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : ''
+
+    if (!token) {
+      res.status(400).json({ error: 'Enlace de cancelación no válido.' })
+      return
+    }
+
+    const snapshot = await adminDb
+      .collection('reservations')
+      .where('cancelToken', '==', token)
+      .limit(1)
+      .get()
+
+    if (snapshot.empty) {
+      res.status(404).json({ error: 'No encontramos ninguna reserva con este enlace.' })
+      return
+    }
+
+    const reservationRef = snapshot.docs[0].ref
+    const reservation = snapshot.docs[0].data()
+
+    if (reservation.status === 'cancelled') {
+      res.status(409).json({ error: 'Esta reserva ya estaba cancelada.' })
+      return
+    }
+
+    await reservationRef.update({
+      status: 'cancelled',
+      updatedAt: Timestamp.now(),
+    })
+
+    res.json({ message: 'Tu reserva ha sido cancelada correctamente.' })
+  } catch (error) {
+    console.error('Public reservation cancel error:', error)
+    res.status(500).json({ error: 'No se pudo cancelar la reserva.' })
   }
 })
 

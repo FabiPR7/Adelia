@@ -96,6 +96,23 @@
   line-height: 1.4;
 }
 
+.success {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(46, 125, 107, 0.08);
+  border: 1px solid rgba(46, 125, 107, 0.25);
+  color: #2e7d6b;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.helperText {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 .field {
   display: flex;
   flex-direction: column;

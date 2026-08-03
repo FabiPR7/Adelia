@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import AttendanceCheckModal from '../../components/AttendanceCheckModal'
 import Calendar from '../../components/Calendar'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import ReservationFormModal from '../../components/ReservationFormModal'
@@ -14,10 +15,11 @@ import {
   getTablesByCompany,
   tablesToMeta,
   updateReservation,
+  updateReservationStatus,
 } from '../../services/firestore'
 import type { Reservation, ReservationFormData } from '../../types'
 import type { RestaurantTable } from '../../types'
-import { clampToTodayOrFuture, formatDateSpanish, defaultSchedule } from '../../utils/helpers'
+import { clampToTodayOrFuture, dateToTimeInput, formatDateSpanish, defaultSchedule, isReservationStartInPast, isSameDay } from '../../utils/helpers'
 import styles from './CompanyReservations.module.css'
 
 interface CompanyReservationsProps {
@@ -43,6 +45,12 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calendarViewDate, setCalendarViewDate] = useState(new Date())
+  const [attendanceHour, setAttendanceHour] = useState<string | null>(null)
+  const [attendanceSavingId, setAttendanceSavingId] = useState<string | null>(null)
+  const [dismissedAttendanceHours, setDismissedAttendanceHours] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [attendanceClock, setAttendanceClock] = useState(() => Date.now())
 
   const durationMinutes = company?.timeSlotMinutes ?? 120
 
@@ -126,6 +134,98 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
     }
   }, [calendarOpen, selectedDate])
 
+  useEffect(() => {
+    setDismissedAttendanceHours(new Set())
+    setAttendanceHour(null)
+  }, [selectedDate])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setAttendanceClock(Date.now())
+    }, 30000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
+  const nextPendingAttendanceHour = useMemo(() => {
+    void attendanceClock
+
+    if (!isSameDay(selectedDate, new Date())) {
+      return null
+    }
+
+    const pendingHours = [
+      ...new Set(
+        reservations
+          .filter((reservation) => reservation.status === 'completed')
+          .map((reservation) => dateToTimeInput(reservation.startTime)),
+      ),
+    ]
+      .filter((hour) => isReservationStartInPast(selectedDate, hour))
+      .filter((hour) => !dismissedAttendanceHours.has(hour))
+      .sort()
+
+    return pendingHours[0] ?? null
+  }, [attendanceClock, dismissedAttendanceHours, reservations, selectedDate])
+
+  useEffect(() => {
+    if (
+      !nextPendingAttendanceHour ||
+      attendanceHour ||
+      modalOpen ||
+      reservationToDelete ||
+      isLoading
+    ) {
+      return
+    }
+
+    setAttendanceHour(nextPendingAttendanceHour)
+  }, [
+    attendanceHour,
+    isLoading,
+    modalOpen,
+    nextPendingAttendanceHour,
+    reservationToDelete,
+  ])
+
+  useEffect(() => {
+    if (!attendanceHour) {
+      return
+    }
+
+    const hasPending = reservations.some(
+      (reservation) =>
+        reservation.status === 'completed' &&
+        dateToTimeInput(reservation.startTime) === attendanceHour,
+    )
+
+    if (!hasPending) {
+      setAttendanceHour(null)
+    }
+  }, [attendanceHour, reservations])
+
+  const handleDismissAttendance = () => {
+    if (attendanceHour) {
+      setDismissedAttendanceHours((current) => {
+        const next = new Set(current)
+        next.add(attendanceHour)
+        return next
+      })
+    }
+
+    setAttendanceHour(null)
+  }
+
+  const handleOpenAttendance = (hour: string) => {
+    if (!isReservationStartInPast(selectedDate, hour)) {
+      return
+    }
+
+    setAttendanceHour(hour)
+  }
+
   const handleOpenCreate = () => {
     setEditingReservation(null)
     setModalOpen(true)
@@ -202,6 +302,29 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
       throw err instanceof Error ? err : new Error(getFirestoreErrorMessage(err))
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleMarkAttendance = async (
+    reservationId: string,
+    status: 'confirmed' | 'cancelled',
+  ) => {
+    setAttendanceSavingId(reservationId)
+    setError(null)
+
+    try {
+      await updateReservationStatus(reservationId, status)
+      setAllReservations((current) =>
+        sortReservations(
+          current.map((reservation) =>
+            reservation.id === reservationId ? { ...reservation, status } : reservation,
+          ),
+        ),
+      )
+    } catch (err) {
+      setError(getFirestoreErrorMessage(err))
+    } finally {
+      setAttendanceSavingId(null)
     }
   }
 
@@ -304,6 +427,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
               onAdd={handleOpenCreate}
               onEdit={handleOpenEdit}
               onDelete={handleDelete}
+              onOpenAttendance={handleOpenAttendance}
             />
           )}
         </div>
@@ -345,6 +469,16 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
         isSaving={isSaving}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
+      />
+
+      <AttendanceCheckModal
+        isOpen={Boolean(attendanceHour)}
+        hour={attendanceHour ?? ''}
+        reservations={reservations}
+        tableMeta={tableMeta}
+        isSavingId={attendanceSavingId}
+        onDismiss={handleDismissAttendance}
+        onMarkAttendance={handleMarkAttendance}
       />
 
       <ConfirmDialog

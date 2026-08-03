@@ -114,9 +114,9 @@ export function isReservationStartInPast(date: Date, time: string): boolean {
 export function assertReservationStartInFuture(
   date: Date,
   time: string,
-  status: 'confirmed' | 'cancelled' | 'completed' = 'confirmed',
+  status: 'confirmed' | 'cancelled' | 'completed' = 'completed',
 ): void {
-  if (status !== 'confirmed') {
+  if (status === 'cancelled') {
     return
   }
 

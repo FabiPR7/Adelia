@@ -7,10 +7,14 @@ import AdminDashboard from './pages/AdminDashboard'
 import ChangePasswordPage from './pages/ChangePasswordPage'
 import CompanyDashboard from './pages/CompanyDashboard'
 import LoginPage from './pages/LoginPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import PublicLegalPage from './pages/PublicLegalPage'
 import { getPostLoginPath } from './utils/authProfile'
 
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
+const PublicRestaurantProfile = lazy(() => import('./pages/PublicRestaurantProfile'))
+const PublicCancelReservation = lazy(() => import('./pages/PublicCancelReservation'))
 
 function AuthenticatedRoutes() {
   const { user, profile, isLoading } = useAuth()
@@ -84,8 +88,60 @@ function App() {
   return (
     <Routes>
       <Route
+        path="/olvide-contrasena"
+        element={<ForgotPasswordPage />}
+      />
+      <Route
+        path="/restablecer-contrasena"
+        element={<ResetPasswordPage />}
+      />
+      <Route
         path="/legal/:doc"
         element={<PublicLegalPage />}
+      />
+      <Route
+        path="/reservar/:slug/restaurante"
+        element={
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  minHeight: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                Cargando restaurante…
+              </div>
+            }
+          >
+            <PublicRestaurantProfile />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/reservar/:slug/cancelar"
+        element={
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  minHeight: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                Cargando…
+              </div>
+            }
+          >
+            <PublicCancelReservation />
+          </Suspense>
+        }
       />
       <Route
         path="/reservar/:slug"
