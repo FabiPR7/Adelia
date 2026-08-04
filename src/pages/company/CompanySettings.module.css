@@ -81,6 +81,20 @@
   color: var(--color-brown);
 }
 
+.mapFieldLabel {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.mapFieldHint {
+  margin: 0.2rem 0 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
 .clientLinkRow {
   display: flex;
   gap: 0.5rem;

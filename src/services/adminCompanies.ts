@@ -139,6 +139,8 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
       municipality: '',
       country: 'España',
       postalCode: '',
+      latitude: null,
+      longitude: null,
       description: '',
       photos: [],
       videos: [],

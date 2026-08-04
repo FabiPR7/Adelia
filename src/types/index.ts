@@ -42,6 +42,8 @@ export interface Company {
   municipality: string
   country: string
   postalCode: string
+  latitude: number | null
+  longitude: number | null
   description: string
   contactEmail: string
   logoUrl: string

@@ -47,6 +47,7 @@
 }
 
 .hero {
+  position: relative;
   min-height: 220px;
   background:
     linear-gradient(145deg, rgba(107, 83, 68, 0.92), rgba(196, 168, 130, 0.88)),
@@ -59,6 +60,21 @@
   font-family: var(--font-display);
   font-size: 4rem;
   color: rgba(255, 255, 255, 0.88);
+}
+
+.heroBadge {
+  position: absolute;
+  left: 0.85rem;
+  bottom: 0.85rem;
+  padding: 0.32rem 0.62rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 107, 74, 0.95), rgba(255, 79, 143, 0.95));
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 22px rgba(255, 79, 143, 0.35);
 }
 
 .body {
@@ -81,6 +97,12 @@
   font-weight: 700;
 }
 
+.distance {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-brown);
+}
+
 .body h2 {
   margin: 0.2rem 0 0;
   font-family: var(--font-display);
@@ -96,6 +118,45 @@
   font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.statsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 14px;
+  background: rgba(255, 249, 242, 0.92);
+  border: 1px solid rgba(107, 83, 68, 0.1);
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.stat strong {
+  font-size: 0.95rem;
+  color: var(--color-brown);
+}
+
+.statDivider {
+  width: 1px;
+  height: 1.25rem;
+  background: rgba(107, 83, 68, 0.14);
+}
+
+.hook {
+  margin: 0.65rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--color-brown);
 }
 
 .tags {
@@ -116,40 +177,56 @@
 
 .actions {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.55rem;
   margin-top: 1rem;
+}
+
+.secondaryActions {
+  display: none;
 }
 
 .primaryButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.82rem 1rem;
+  padding: 0.95rem 1rem;
   border-radius: 999px;
   background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
   color: #fff;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 800;
   text-decoration: none;
-  box-shadow: 0 10px 24px rgba(255, 79, 143, 0.25);
+  box-shadow: 0 12px 28px rgba(255, 79, 143, 0.32);
+  animation: reservePulse 2.4s ease-in-out infinite;
+}
+
+@keyframes reservePulse {
+  0%,
+  100% {
+    box-shadow: 0 12px 28px rgba(255, 79, 143, 0.32);
+  }
+
+  50% {
+    box-shadow: 0 14px 34px rgba(255, 79, 143, 0.48);
+  }
 }
 
 .iconButton {
-  width: 46px;
-  height: 46px;
+  min-height: 46px;
+  padding: 0 0.85rem;
   border: 1px solid rgba(107, 83, 68, 0.14);
   border-radius: 999px;
   background: #fff;
   color: var(--color-brown);
-  font-size: 1.1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .iconButtonActive {
-  background: rgba(255, 79, 143, 0.12);
-  border-color: rgba(255, 79, 143, 0.35);
-  color: #c62828;
+  display: none;
 }
 
 .secondaryLink {

@@ -1,13 +1,15 @@
 import { Link } from 'react-router-dom'
+import AdelinaCoin from './AdelinaCoin'
+import { formatDistanceKm } from '../utils/geo'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import { getMockAdelinaReviewCount, getMockReviewRating } from '../utils/mockReviewRating'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import styles from './RestaurantPreviewSheet.module.css'
 
 interface RestaurantPreviewSheetProps {
   restaurant: PublicDiscoveryRestaurant | null
-  isFavorite: boolean
+  distanceKm?: number
   onClose: () => void
-  onToggleFavorite: () => void
 }
 
 async function shareRestaurant(restaurant: PublicDiscoveryRestaurant) {
@@ -28,9 +30,8 @@ async function shareRestaurant(restaurant: PublicDiscoveryRestaurant) {
 
 function RestaurantPreviewSheet({
   restaurant,
-  isFavorite,
+  distanceKm,
   onClose,
-  onToggleFavorite,
 }: RestaurantPreviewSheetProps) {
   if (!restaurant) {
     return null
@@ -39,6 +40,8 @@ function RestaurantPreviewSheet({
   const imageUrl = restaurant.photoUrl
     ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoGallery)
     : ''
+  const reviewRating = getMockReviewRating(restaurant.slug)
+  const adelinaCount = getMockAdelinaReviewCount(restaurant.slug)
 
   return (
     <div className={styles.backdrop} onClick={onClose} role="presentation">
@@ -58,16 +61,40 @@ function RestaurantPreviewSheet({
           style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}
         >
           {!imageUrl && <span>{restaurant.name.charAt(0)}</span>}
+          <span className={styles.heroBadge}>+XP al reservar</span>
         </div>
 
         <div className={styles.body}>
           <div className={styles.titleRow}>
             <div>
-              <p className={styles.location}>{restaurant.municipality || restaurant.location}</p>
+              <p className={styles.location}>
+                {restaurant.municipality || restaurant.location}
+                {typeof distanceKm === 'number' && (
+                  <span className={styles.distance}> · {formatDistanceKm(distanceKm)}</span>
+                )}
+              </p>
               <h2>{restaurant.name}</h2>
             </div>
             <span className={styles.badge}>En Adelia</span>
           </div>
+
+          <div className={styles.statsRow}>
+            <span className={styles.stat}>
+              <AdelinaCoin size="sm" variant="review" alt="" />
+              <strong>{reviewRating.toFixed(1)}</strong>
+              <span>reseñas</span>
+            </span>
+            <span className={styles.statDivider} aria-hidden="true" />
+            <span className={styles.stat}>
+              <AdelinaCoin size="sm" alt="" />
+              <strong>{adelinaCount}</strong>
+              <span>Adelinas</span>
+            </span>
+          </div>
+
+          <p className={styles.hook}>
+            Reserva hoy, puntúa después y escala en el ranking de foodies.
+          </p>
 
           {restaurant.characteristics.length > 0 && (
             <div className={styles.tags}>
@@ -81,28 +108,20 @@ function RestaurantPreviewSheet({
 
           <div className={styles.actions}>
             <Link to={`/reservar/${restaurant.slug}`} className={styles.primaryButton}>
-              Reservar mesa
+              Reservar mesa ahora
             </Link>
-            <button
-              type="button"
-              className={`${styles.iconButton} ${isFavorite ? styles.iconButtonActive : ''}`}
-              onClick={onToggleFavorite}
-              aria-label={isFavorite ? 'Quitar de favoritos' : 'Guardar favorito'}
-            >
-              {isFavorite ? '♥' : '♡'}
-            </button>
             <button
               type="button"
               className={styles.iconButton}
               onClick={() => void shareRestaurant(restaurant)}
               aria-label="Compartir restaurante"
             >
-              ↗
+              ↗ Compartir
             </button>
           </div>
 
           <Link to={`/reservar/${restaurant.slug}/restaurante`} className={styles.secondaryLink}>
-            Ver ficha completa
+            Ver ficha completa del local
           </Link>
         </div>
       </div>

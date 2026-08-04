@@ -7,9 +7,8 @@ import styles from './RestaurantInfiniteCarousel.module.css'
 interface RestaurantInfiniteCarouselProps {
   restaurants: PublicDiscoveryRestaurant[]
   direction: 'left' | 'right'
+  distancesKm?: Record<string, number>
   onOpenRestaurant: (restaurant: PublicDiscoveryRestaurant) => void
-  isFavorite: (slug: string) => boolean
-  onToggleFavorite: (slug: string) => void
 }
 
 const SCROLL_SPEED_PX_PER_SECOND = 72
@@ -46,9 +45,8 @@ function expandRestaurantsForCarousel(
 function RestaurantInfiniteCarousel({
   restaurants,
   direction,
+  distancesKm,
   onOpenRestaurant,
-  isFavorite,
-  onToggleFavorite,
 }: RestaurantInfiniteCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const groupRef = useRef<HTMLDivElement>(null)
@@ -129,9 +127,8 @@ function RestaurantInfiniteCarousel({
         key={`${prefix}-${restaurant.id}`}
         restaurant={restaurant}
         onOpen={onOpenRestaurant}
-        isFavorite={isFavorite(restaurant.slug)}
-        onToggleFavorite={onToggleFavorite}
         reviewRating={getMockReviewRating(restaurant.slug)}
+        distanceKm={distancesKm?.[restaurant.slug]}
       />
     ))
 

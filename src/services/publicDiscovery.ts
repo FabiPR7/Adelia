@@ -1,9 +1,5 @@
 import { getAllCompanies, getFirestoreErrorMessage } from './firestore'
-import {
-  mapCompanyToDiscoveryRestaurant,
-  mapCompanyToPublicBooking,
-  type PublicDiscoveryRestaurant,
-} from '../utils/publicDiscovery'
+import { mapCompanyToDiscoveryRestaurant, mapCompanyToPublicBooking, type PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import { hasRestaurantProfile } from '../utils/publicBooking'
 
 export async function fetchPublicDiscoveryRestaurants(): Promise<PublicDiscoveryRestaurant[]> {

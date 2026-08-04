@@ -11,6 +11,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import PublicLegalPage from './pages/PublicLegalPage'
 import PublicDiscoveryPage from './pages/PublicDiscoveryPage'
+import CompanyLandingPage from './pages/CompanyLandingPage'
 import UserLoginPage from './pages/UserLoginPage'
 import UserRegisterPage from './pages/UserRegisterPage'
 import CustomerAccountPage from './pages/CustomerAccountPage'
@@ -102,6 +103,10 @@ function App() {
       <Route
         path="/"
         element={<PublicDiscoveryPage />}
+      />
+      <Route
+        path="/empresa"
+        element={<CompanyLandingPage />}
       />
       <Route
         path="/cuenta"

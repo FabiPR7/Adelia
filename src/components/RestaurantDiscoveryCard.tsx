@@ -1,22 +1,22 @@
+import { Link } from 'react-router-dom'
 import AdelinaCoin from './AdelinaCoin'
+import { formatDistanceKm } from '../utils/geo'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import styles from './RestaurantDiscoveryCard.module.css'
 
 interface RestaurantDiscoveryCardProps {
   restaurant: PublicDiscoveryRestaurant
-  isFavorite?: boolean
   reviewRating: number
+  distanceKm?: number
   onOpen: (restaurant: PublicDiscoveryRestaurant) => void
-  onToggleFavorite?: (slug: string) => void
 }
 
 function RestaurantDiscoveryCard({
   restaurant,
-  isFavorite = false,
   reviewRating,
+  distanceKm,
   onOpen,
-  onToggleFavorite,
 }: RestaurantDiscoveryCardProps) {
   const imageUrl = restaurant.photoUrl
     ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoThumb)
@@ -42,6 +42,10 @@ function RestaurantDiscoveryCard({
             <span>{reviewRating.toFixed(1)}</span>
           </span>
 
+          {typeof distanceKm === 'number' && (
+            <span className={styles.distanceBadge}>{formatDistanceKm(distanceKm)}</span>
+          )}
+
           <div className={styles.topOverlay}>
             <h3>{restaurant.name}</h3>
           </div>
@@ -60,16 +64,9 @@ function RestaurantDiscoveryCard({
         </div>
       </button>
 
-      {onToggleFavorite && (
-        <button
-          type="button"
-          className={`${styles.favoriteButton} ${isFavorite ? styles.favoriteButtonActive : ''}`}
-          onClick={() => onToggleFavorite(restaurant.slug)}
-          aria-label={isFavorite ? 'Quitar de favoritos' : 'Guardar favorito'}
-        >
-          {isFavorite ? '♥' : '♡'}
-        </button>
-      )}
+      <Link to={`/reservar/${restaurant.slug}`} className={styles.reserveButton}>
+        Reservar mesa
+      </Link>
     </article>
   )
 }

@@ -24,6 +24,8 @@ export interface CompanySettingsPayload {
   municipality: string
   country: string
   postalCode: string
+  latitude: number | null
+  longitude: number | null
   description: string
   logoUrl: string
   photos: string[]

@@ -2,6 +2,7 @@ import { Suspense, lazy, forwardRef, useEffect, useImperativeHandle, useMemo, us
 import ImageUploader from '../../components/ImageUploader'
 import CharacteristicPicker from '../../components/CharacteristicPicker'
 import CityAutocomplete from '../../components/CityAutocomplete'
+import LocationMapPicker from '../../components/LocationMapPicker'
 import MediaGalleryUploader from '../../components/MediaGalleryUploader'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -28,6 +29,7 @@ import {
   syncFloorPlanWithTables,
 } from '../../types/company'
 import { copyTextToClipboard, defaultSchedule, getPublicBookingUrl, selectInputText, slugify } from '../../utils/helpers'
+import { toGeoCoordinates } from '../../utils/mapCoordinates'
 import {
   isConfirmedCitySelection,
   municipalityToCitySuggestion,
@@ -112,6 +114,8 @@ function companyToForm(company: Company): CompanySettingsPayload {
     municipality: company.municipality,
     country: company.country || 'España',
     postalCode: company.postalCode,
+    latitude: company.latitude,
+    longitude: company.longitude,
     description: company.description,
     logoUrl: company.logoUrl,
     photos: company.photos ?? [],
@@ -769,6 +773,23 @@ const CompanySettings = forwardRef(function CompanySettings(
               maxLength={60}
             />
           </label>
+          <div className={styles.fullWidth}>
+            <span className={styles.mapFieldLabel}>Ubicación en el mapa</span>
+            <p className={styles.mapFieldHint}>
+              Obligatorio para aparecer en Adelia. Marca la entrada exacta de tu local.
+            </p>
+            <LocationMapPicker
+              value={toGeoCoordinates(form.latitude, form.longitude)}
+              geocodeQuery={[form.location, form.municipality, form.country].filter(Boolean).join(', ')}
+              onChange={(coords) => {
+                setForm({
+                  ...form,
+                  latitude: coords.lat,
+                  longitude: coords.lng,
+                })
+              }}
+            />
+          </div>
           <label className={styles.fullWidth}>
             Descripción
             <textarea

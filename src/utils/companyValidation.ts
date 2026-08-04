@@ -6,6 +6,7 @@ import {
 } from '../data/companyCharacteristics'
 import type { CompanySchedule, CompanySettingsPayload, ServiceTurn } from '../types'
 import { SCHEDULE_DAY_LABELS, SCHEDULE_DAY_KEYS } from '../types/company'
+import { isValidMapCoordinates } from './mapCoordinates'
 import {
   formatSpanishPhoneForStorage,
   isValidEmail,
@@ -187,7 +188,7 @@ export function validateCompanyContact(payload: Pick<
 
 export function validateCompanyProfile(payload: Pick<
   CompanySettingsPayload,
-  'municipality' | 'country' | 'postalCode' | 'description' | 'photos' | 'videos' | 'characteristics'
+  'municipality' | 'country' | 'postalCode' | 'description' | 'photos' | 'videos' | 'characteristics' | 'latitude' | 'longitude'
 >): string | null {
   if (!isValidMunicipality(payload.municipality)) {
     return 'Indica un municipio válido.'
@@ -231,6 +232,10 @@ export function validateCompanyProfile(payload: Pick<
 
   if (invalidCharacteristic) {
     return 'Hay características no válidas. Elige opciones de la lista.'
+  }
+
+  if (!isValidMapCoordinates(payload.latitude, payload.longitude)) {
+    return 'Marca la ubicación exacta de tu local en el mapa.'
   }
 
   return null
@@ -296,6 +301,8 @@ export function normalizeCompanySettingsPayload(
     municipality: normalizeSpaces(payload.municipality),
     country: normalizeSpaces(payload.country) || 'España',
     postalCode: payload.postalCode.trim().toUpperCase().replace(/\s+/g, ''),
+    latitude: payload.latitude,
+    longitude: payload.longitude,
     description: payload.description.trim(),
     logoUrl: payload.logoUrl.trim(),
     photos: sanitizeMediaUrls(payload.photos, MAX_COMPANY_PHOTOS),

@@ -1,5 +1,6 @@
 import type { Company } from '../types'
 import type { PublicBookingCompany } from '../services/publicApi'
+import { isValidMapCoordinates } from './mapCoordinates'
 
 export interface PublicDiscoveryRestaurant {
   id: string
@@ -7,6 +8,9 @@ export interface PublicDiscoveryRestaurant {
   slug: string
   location: string
   municipality: string
+  country: string
+  latitude: number | null
+  longitude: number | null
   photoUrl: string
   characteristics: string[]
   searchText: string
@@ -36,6 +40,7 @@ export function mapCompanyToPublicBooking(company: Company): PublicBookingCompan
 
 export function mapCompanyToDiscoveryRestaurant(company: Company): PublicDiscoveryRestaurant {
   const photoUrl = company.photos?.[0] ?? company.logoUrl ?? ''
+  const hasPin = isValidMapCoordinates(company.latitude, company.longitude)
 
   return {
     id: company.id,
@@ -43,6 +48,9 @@ export function mapCompanyToDiscoveryRestaurant(company: Company): PublicDiscove
     slug: company.slug,
     location: company.location,
     municipality: company.municipality,
+    country: company.country,
+    latitude: hasPin ? (company.latitude as number) : null,
+    longitude: hasPin ? (company.longitude as number) : null,
     photoUrl,
     characteristics: company.characteristics ?? [],
     searchText: [
@@ -56,6 +64,10 @@ export function mapCompanyToDiscoveryRestaurant(company: Company): PublicDiscove
       .join(' ')
       .toLowerCase(),
   }
+}
+
+export function restaurantHasMapPin(restaurant: Pick<PublicDiscoveryRestaurant, 'latitude' | 'longitude'>): boolean {
+  return isValidMapCoordinates(restaurant.latitude, restaurant.longitude)
 }
 
 function normalizeSearch(value: string): string {
@@ -158,6 +170,25 @@ export function collectPopularCharacteristics(
   }
 
   return merged.slice(0, limit)
+}
+
+export function buildRestaurantGeocodeQuery(restaurant: PublicDiscoveryRestaurant): string {
+  const parts = [restaurant.location, restaurant.municipality, restaurant.country]
+    .map((value) => value.trim())
+    .filter(Boolean)
+
+  return parts.join(', ') || restaurant.name
+}
+
+export function sortRestaurantsByDistance(
+  restaurants: PublicDiscoveryRestaurant[],
+  distancesKm: Record<string, number>,
+): PublicDiscoveryRestaurant[] {
+  return [...restaurants].sort((left, right) => {
+    const leftDistance = distancesKm[left.slug] ?? Number.POSITIVE_INFINITY
+    const rightDistance = distancesKm[right.slug] ?? Number.POSITIVE_INFINITY
+    return leftDistance - rightDistance
+  })
 }
 
 export function collectDiscoveryZones(restaurants: PublicDiscoveryRestaurant[]): string[] {

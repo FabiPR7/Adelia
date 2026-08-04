@@ -109,7 +109,7 @@ function UserLoginPage() {
           </Link>
         </p>
 
-        <Link to="/login" className={styles.businessLink}>
+        <Link to="/empresa" className={styles.businessLink}>
           ¿Eres restaurante? Acceso empresas
         </Link>
       </main>

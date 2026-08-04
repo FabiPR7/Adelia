@@ -1,0 +1,64 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.toolButton {
+  padding: 0.48rem 0.82rem;
+  border: 1px solid rgba(107, 83, 68, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-brown);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toolButton:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.map {
+  width: 100%;
+  height: min(52vh, 360px);
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(107, 83, 68, 0.12);
+  box-shadow: 0 10px 28px rgba(35, 28, 22, 0.08);
+}
+
+.hint,
+.status,
+.coords {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.hint {
+  color: var(--color-text-muted);
+}
+
+.status {
+  color: var(--color-brown);
+  font-weight: 600;
+}
+
+.coords {
+  color: var(--color-brown-light);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (min-width: 960px) {
+  .map {
+    height: 380px;
+  }
+}
