@@ -1,0 +1,174 @@
+.page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255, 107, 74, 0.35), transparent 40%),
+    radial-gradient(circle at 85% 20%, rgba(255, 79, 163, 0.28), transparent 35%),
+    linear-gradient(165deg, #1f1418 0%, #4a1835 45%, #2a1228 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.glowOne,
+.glowTwo {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.glowOne {
+  width: 220px;
+  height: 220px;
+  top: 8%;
+  left: -40px;
+  background: rgba(255, 107, 74, 0.45);
+}
+
+.glowTwo {
+  width: 260px;
+  height: 260px;
+  bottom: 10%;
+  right: -60px;
+  background: rgba(255, 79, 163, 0.35);
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 420px);
+  padding: 1.25rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 60px rgba(10, 8, 12, 0.35);
+}
+
+.backLink {
+  display: inline-flex;
+  margin-bottom: 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-brown-light);
+  text-decoration: none;
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: contain;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(35, 28, 22, 0.12);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #ff6b4a;
+}
+
+.card h1 {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  color: var(--color-brown);
+}
+
+.lead {
+  margin: 0.75rem 0 1rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-brown);
+}
+
+.form input {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(107, 83, 68, 0.16);
+  border-radius: 14px;
+  font-size: 0.9375rem;
+  color: var(--color-brown);
+}
+
+.form input:focus {
+  outline: none;
+  border-color: #ff6b4a;
+  box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.18);
+}
+
+.error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-error);
+}
+
+.submitButton {
+  margin-top: 0.25rem;
+  padding: 0.82rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(255, 79, 143, 0.28);
+}
+
+.submitButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.switchText {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.switchLink {
+  color: #c62828;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.businessLink {
+  display: block;
+  margin-top: 0.85rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-brown-light);
+  text-decoration: none;
+}
+
+.businessLink:hover {
+  text-decoration: underline;
+}

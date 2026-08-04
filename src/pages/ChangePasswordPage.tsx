@@ -41,7 +41,7 @@ function ChangePasswordPage() {
       await changeInitialPassword(currentPassword, newPassword, profile?.companyId ?? null)
       await syncInitialPasswordChange(newPassword)
       await refreshProfile()
-      navigate('/', { replace: true })
+      navigate('/panel', { replace: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo cambiar la contraseña.'
       if (message.includes('permission') || message.includes('Firestore')) {

@@ -33,7 +33,7 @@ function MustChangePasswordRoute({ children }: MustChangePasswordRouteProps) {
   }
 
   if (!profile.mustChangePassword) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/panel" replace />
   }
 
   return children

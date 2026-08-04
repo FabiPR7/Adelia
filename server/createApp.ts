@@ -5,6 +5,8 @@ import authRouter from './routes/auth.ts'
 import companyEmailRouter from './routes/companyEmail.ts'
 import companyReservationsRouter from './routes/companyReservations.ts'
 import publicBookingRouter from './routes/public.ts'
+import publicPromotionsRouter from './routes/publicPromotions.ts'
+import citiesRouter from './routes/cities.ts'
 import reservationEmailRouter from './routes/reservationEmail.ts'
 import { adminAuth, adminDb, canUseAdminSdk } from './firebase-admin.ts'
 import { getUserRoleWithRest, verifyIdTokenWithRest } from './rest-firebase.ts'
@@ -71,6 +73,8 @@ export function createApp() {
   app.use('/api/company', companyEmailRouter)
   app.use('/api/reservations', reservationEmailRouter)
   app.use('/api/public/booking', publicBookingRouter)
+  app.use('/api/public/promotions', publicPromotionsRouter)
+  app.use('/api/public/cities', citiesRouter)
 
   app.use(
     (

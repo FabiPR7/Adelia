@@ -18,7 +18,7 @@ export const resendApiKeySecret = defineSecret('RESEND_API_KEY')
 const triggerOptions = {
   document: 'reservations/{reservationId}',
   database: 'adelia',
-  region: 'europe-west1',
+  region: 'europe-southwest1',
   secrets: [resendApiKeySecret],
 } as const
 

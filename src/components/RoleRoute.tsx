@@ -28,11 +28,19 @@ function RoleRoute({ children, role, requirePasswordChanged = false }: RoleRoute
   }
 
   if (!user || !profile) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/cuenta/entrar" replace />
   }
 
   if (profile.role !== role) {
-    return <Navigate to={profile.role === 'admin' ? '/admin' : '/'} replace />
+    if (profile.role === 'admin') {
+      return <Navigate to="/admin" replace />
+    }
+
+    if (profile.role === 'customer') {
+      return <Navigate to="/cuenta" replace />
+    }
+
+    return <Navigate to="/panel" replace />
   }
 
   if (requirePasswordChanged && profile.mustChangePassword) {

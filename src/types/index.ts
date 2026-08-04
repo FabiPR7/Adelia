@@ -1,4 +1,6 @@
-export type UserRole = 'admin' | 'company'
+import type { CustomerGamificationState } from './gamification'
+
+export type UserRole = 'admin' | 'company' | 'customer'
 
 export interface DaySchedule {
   open: string
@@ -20,6 +22,9 @@ export interface AppUser {
   email: string
   role: UserRole
   companyId: string | null
+  displayName: string
+  favoriteSlugs: string[]
+  gamification: CustomerGamificationState
   mustChangePassword: boolean
   /** Firestore tiene mustChangePassword: false (ya cambió la suya). */
   mustChangePasswordCleared: boolean
@@ -113,11 +118,18 @@ export interface UpdateCompanyPayload {
 }
 
 export type {
-  CompanySettingsPayload,
+  CustomerGamificationState,
+  GamificationLevel,
+  MissionDefinition,
+  MissionProgress,
+} from './gamification'
+export { defaultGamificationState } from './gamification'
+export type {
   CompanyTab,
   ClientsSection,
   ReportsSection,
   SettingsSection,
+  CompanySettingsPayload,
   EmailTemplateKind,
   ReservationEmailTemplate,
   CompanyEmailTemplates,

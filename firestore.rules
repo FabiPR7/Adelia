@@ -71,6 +71,18 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['loginName'])
         && request.resource.data.loginName is string
         && request.resource.data.loginName.size() > 0
+      ) || (
+        isSignedIn()
+        && request.auth.uid == userId
+        && userDoc().data.role == 'customer'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['displayName', 'favoriteSlugs'])
+      ) || (
+        isSignedIn()
+        && request.auth.uid == userId
+        && userDoc().data.role == 'customer'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['gamification', 'xp', 'adelinas'])
       );
       allow delete: if isAdmin();
     }
@@ -118,8 +130,8 @@ service cloud.firestore {
       }
 
       match /promotions/{promotionId} {
-        allow get: if isCompanyOwner(companyId) || isAdmin();
-        allow list: if isCompanyOwner(companyId) || isAdmin();
+        allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
+        allow list: if isCompanyOwner(companyId) || isAdmin() || resource.data.active == true;
         allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
       }
     }

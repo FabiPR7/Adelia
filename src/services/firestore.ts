@@ -25,6 +25,8 @@ import type {
   RestaurantTable,
   TableInput,
 } from '../types'
+import { defaultGamificationState } from '../types/gamification'
+import type { CustomerGamificationState } from '../types/gamification'
 import { defaultTurns, parseFloorPlan, serializeFloorPlanForFirestore } from '../types/company'
 import {
   normalizeCompanyEmailTemplates,
@@ -233,10 +235,64 @@ export async function getUserProfile(uid: string): Promise<AppUser | null> {
     email: data.email as string,
     role: data.role as AppUser['role'],
     companyId: (data.companyId as string | null) ?? null,
+    displayName: (data.displayName as string) ?? '',
+    favoriteSlugs: Array.isArray(data.favoriteSlugs) ? (data.favoriteSlugs as string[]) : [],
+    gamification: parseGamificationData(data),
     mustChangePassword: data.mustChangePassword === true,
     mustChangePasswordCleared: data.mustChangePassword === false,
     createdAt: data.createdAt?.toDate?.() ?? new Date(),
   }
+}
+
+function parseGamificationData(data: Record<string, unknown>): CustomerGamificationState {
+  const base = defaultGamificationState()
+  const raw = data.gamification
+
+  if (!raw || typeof raw !== 'object') {
+    return {
+      ...base,
+      xp: typeof data.xp === 'number' ? data.xp : base.xp,
+      adelinas: typeof data.adelinas === 'number' ? data.adelinas : base.adelinas,
+    }
+  }
+
+  const gamification = raw as Record<string, unknown>
+
+  return {
+    xp: typeof gamification.xp === 'number' ? gamification.xp : base.xp,
+    adelinas: typeof gamification.adelinas === 'number' ? gamification.adelinas : base.adelinas,
+    completedMissions: Array.isArray(gamification.completedMissions)
+      ? (gamification.completedMissions as string[])
+      : [],
+    visitedCompanyIds: Array.isArray(gamification.visitedCompanyIds)
+      ? (gamification.visitedCompanyIds as string[])
+      : [],
+    weekKey: typeof gamification.weekKey === 'string' ? gamification.weekKey : '',
+    weeklyCompleted: Array.isArray(gamification.weeklyCompleted)
+      ? (gamification.weeklyCompleted as string[])
+      : [],
+    monthKey: typeof gamification.monthKey === 'string' ? gamification.monthKey : '',
+    monthlyCompleted: Array.isArray(gamification.monthlyCompleted)
+      ? (gamification.monthlyCompleted as string[])
+      : [],
+    reviewsCount: typeof gamification.reviewsCount === 'number' ? gamification.reviewsCount : 0,
+    redemptionsCount: typeof gamification.redemptionsCount === 'number' ? gamification.redemptionsCount : 0,
+    helpfulReviewVotes: typeof gamification.helpfulReviewVotes === 'number' ? gamification.helpfulReviewVotes : 0,
+    favoritesAddedThisWeek: typeof gamification.favoritesAddedThisWeek === 'number'
+      ? gamification.favoritesAddedThisWeek
+      : 0,
+  }
+}
+
+export async function updateCustomerGamification(
+  uid: string,
+  gamification: CustomerGamificationState,
+): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), {
+    gamification,
+    xp: gamification.xp,
+    adelinas: gamification.adelinas,
+  })
 }
 
 export async function clearMustChangePassword(uid: string): Promise<void> {
@@ -355,6 +411,22 @@ export async function getReservationsByCompany(companyId: string): Promise<Reser
   return snapshot.docs
     .map((item) => mapReservation(item.id, item.data()))
     .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+}
+
+export async function getCustomerReservations(email: string): Promise<Reservation[]> {
+  const normalizedEmail = email.trim().toLowerCase()
+
+  if (!normalizedEmail) {
+    return []
+  }
+
+  const snapshot = await getDocs(
+    query(collection(db, 'reservations'), where('clientEmail', '==', normalizedEmail)),
+  )
+
+  return snapshot.docs
+    .map((item) => mapReservation(item.id, item.data()))
+    .sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
 }
 
 export function filterReservationsForDate(

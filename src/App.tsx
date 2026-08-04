@@ -10,6 +10,10 @@ import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import PublicLegalPage from './pages/PublicLegalPage'
+import PublicDiscoveryPage from './pages/PublicDiscoveryPage'
+import UserLoginPage from './pages/UserLoginPage'
+import UserRegisterPage from './pages/UserRegisterPage'
+import CustomerAccountPage from './pages/CustomerAccountPage'
 import { getPostLoginPath } from './utils/authProfile'
 
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
@@ -64,7 +68,7 @@ function AuthenticatedRoutes() {
         }
       />
       <Route
-        path="/"
+        path="/panel"
         element={
           <RoleRoute role="company" requirePasswordChanged>
             <CompanyDashboard />
@@ -75,7 +79,7 @@ function AuthenticatedRoutes() {
         path="*"
         element={
           <Navigate
-            to={user && profile ? getPostLoginPath(profile) : '/login'}
+            to={user && profile ? getPostLoginPath(profile) : '/'}
             replace
           />
         }
@@ -94,6 +98,26 @@ function App() {
       <Route
         path="/restablecer-contrasena"
         element={<ResetPasswordPage />}
+      />
+      <Route
+        path="/"
+        element={<PublicDiscoveryPage />}
+      />
+      <Route
+        path="/cuenta"
+        element={
+          <RoleRoute role="customer">
+            <CustomerAccountPage />
+          </RoleRoute>
+        }
+      />
+      <Route
+        path="/cuenta/entrar"
+        element={<UserLoginPage />}
+      />
+      <Route
+        path="/cuenta/registro"
+        element={<UserRegisterPage />}
       />
       <Route
         path="/legal/:doc"

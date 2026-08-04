@@ -12,7 +12,7 @@ const app = createApp()
 
 export const api = onRequest(
   {
-    region: 'europe-west1',
+    region: 'europe-southwest1',
     memory: '256MiB',
     timeoutSeconds: 60,
     secrets: [resendApiKeySecret],

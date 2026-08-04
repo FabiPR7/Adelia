@@ -1,0 +1,22 @@
+{
+  "name": "Adelia Reservas",
+  "short_name": "Adelia",
+  "description": "Descubre restaurantes y reserva mesa con promociones exclusivas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff9f2",
+  "theme_color": "#ff6b4a",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/adelia-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/adelia-logo.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    }
+  ]
+}

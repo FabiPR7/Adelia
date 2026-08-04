@@ -1,0 +1,547 @@
+.arena {
+  position: relative;
+  margin: 0.65rem 0 0;
+  padding: 0.25rem 0 0.5rem;
+  overflow: hidden;
+}
+
+.auroraTop,
+.auroraBottom {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(28px);
+}
+
+.auroraTop {
+  top: -20%;
+  left: -8%;
+  width: 55%;
+  height: 70%;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.22), transparent 68%);
+}
+
+.auroraBottom {
+  right: -10%;
+  bottom: -25%;
+  width: 50%;
+  height: 65%;
+  background: radial-gradient(circle, rgba(196, 181, 253, 0.18), transparent 70%);
+}
+
+.sparkles span {
+  position: absolute;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: #fde68a;
+  box-shadow: 0 0 12px rgba(253, 230, 138, 0.85);
+  animation: sparkle 3.6s ease-in-out infinite;
+}
+
+.sparkles span:nth-child(1) {
+  top: 18%;
+  left: 12%;
+  animation-delay: 0s;
+}
+
+.sparkles span:nth-child(2) {
+  top: 28%;
+  right: 18%;
+  animation-delay: 0.8s;
+}
+
+.sparkles span:nth-child(3) {
+  bottom: 22%;
+  left: 22%;
+  animation-delay: 1.4s;
+}
+
+.sparkles span:nth-child(4) {
+  bottom: 30%;
+  right: 10%;
+  animation-delay: 2.1s;
+}
+
+@keyframes sparkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.layout {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-inline: 0.75rem;
+  padding: 1.35rem 1rem 1.5rem;
+  border-radius: 26px;
+  background:
+    linear-gradient(145deg, rgba(255, 249, 242, 0.11) 0%, rgba(255, 249, 242, 0.04) 100%),
+    rgba(74, 51, 72, 0.22);
+  border: 1px solid rgba(255, 249, 242, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 249, 242, 0.12),
+    0 24px 48px rgba(45, 30, 42, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.eyebrow {
+  align-self: flex-start;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.2), rgba(196, 181, 253, 0.18));
+  border: 1px solid rgba(253, 230, 138, 0.28);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fde68a;
+}
+
+.copy h2 {
+  margin: 0.7rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 7vw, 2.35rem);
+  line-height: 1.02;
+  color: #fff9f2;
+  text-shadow: 0 8px 28px rgba(45, 30, 42, 0.35);
+}
+
+.headlineAccent {
+  display: block;
+  background: linear-gradient(90deg, #fde68a, #f5c4a8, #fcd34d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lead {
+  margin: 0.65rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgba(255, 249, 242, 0.82);
+}
+
+.spotlightCard {
+  margin-top: 1rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 1.1rem;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(253, 230, 138, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 249, 242, 0.06);
+}
+
+.spotlightTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.favTag,
+.peekTag {
+  padding: 0.18rem 0.48rem;
+  border-radius: 999px;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.favTag {
+  background: rgba(244, 63, 94, 0.18);
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  color: #fecdd3;
+}
+
+.peekTag {
+  background: rgba(255, 249, 242, 0.1);
+  border: 1px solid rgba(255, 249, 242, 0.16);
+  color: rgba(255, 249, 242, 0.72);
+}
+
+.rankPulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #86efac;
+}
+
+.rankPulse::before {
+  content: '';
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: #86efac;
+  box-shadow: 0 0 10px rgba(134, 239, 172, 0.75);
+  animation: pulseDot 1.6s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.86);
+  }
+}
+
+.spotlightName {
+  display: block;
+  margin-top: 0.55rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.1;
+  color: #fff9f2;
+}
+
+.spotlightStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.spotlightStats span,
+.ratingChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(253, 230, 138, 0.22);
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fde68a;
+}
+
+.spotlightHint {
+  margin: 0.55rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgba(255, 249, 242, 0.62);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.72rem 1.1rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #fde68a, #f5c4a8);
+  color: #4a3348;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow:
+    0 12px 28px rgba(251, 191, 36, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.ctaGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.58rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 249, 242, 0.18);
+  background: rgba(255, 249, 242, 0.06);
+  color: rgba(255, 249, 242, 0.82);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* Escenario: Adelina gigante */
+.stage {
+  position: relative;
+  min-height: 16.5rem;
+  display: grid;
+  place-items: center;
+  margin-top: 0.25rem;
+}
+
+.orbitRing,
+.orbitRingInner {
+  position: absolute;
+  border-radius: 999px;
+  border: 1px solid rgba(253, 230, 138, 0.18);
+}
+
+.orbitRing {
+  width: min(88%, 18rem);
+  aspect-ratio: 1;
+  animation: orbitSpin 18s linear infinite;
+}
+
+.orbitRingInner {
+  width: min(72%, 14.5rem);
+  aspect-ratio: 1;
+  border-color: rgba(196, 181, 253, 0.22);
+  animation: orbitSpin 24s linear infinite reverse;
+}
+
+.orbitRing::before,
+.orbitRingInner::before {
+  content: '';
+  position: absolute;
+  top: -0.22rem;
+  left: 50%;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #fde68a;
+  box-shadow: 0 0 12px rgba(253, 230, 138, 0.8);
+  transform: translateX(-50%);
+}
+
+@keyframes orbitSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.coinHalo {
+  position: absolute;
+  width: min(70%, 13rem);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.42), rgba(251, 191, 36, 0.08) 52%, transparent 72%);
+  filter: blur(8px);
+  animation: haloPulse 3.2s ease-in-out infinite;
+}
+
+@keyframes haloPulse {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+.coinPedestal {
+  position: absolute;
+  bottom: 12%;
+  width: min(62%, 11rem);
+  height: 1.1rem;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgba(253, 230, 138, 0.35), transparent 72%);
+  filter: blur(2px);
+}
+
+.heroCoin {
+  position: relative;
+  z-index: 2;
+  width: clamp(6.5rem, 34vw, 9.5rem) !important;
+  height: clamp(6.5rem, 34vw, 9.5rem) !important;
+  filter:
+    drop-shadow(0 0 28px rgba(251, 191, 36, 0.55))
+    drop-shadow(0 16px 32px rgba(0, 0, 0, 0.35));
+  animation: coinFloat 4.5s ease-in-out infinite;
+}
+
+@keyframes coinFloat {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(3deg);
+  }
+}
+
+.floatStatLeft,
+.floatStatRight {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.85rem;
+  background: rgba(10, 8, 8, 0.72);
+  border: 1px solid rgba(253, 230, 138, 0.24);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.floatStatLeft {
+  left: 4%;
+  top: 22%;
+  animation: floatDrift 5s ease-in-out infinite;
+}
+
+.floatStatRight {
+  right: 4%;
+  bottom: 24%;
+  animation: floatDrift 5.5s ease-in-out infinite reverse;
+}
+
+.floatLabel {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 249, 242, 0.55);
+}
+
+.floatStatLeft strong,
+.floatStatRight strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  line-height: 1;
+  color: #fde68a;
+}
+
+@keyframes floatDrift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.vsBadge {
+  position: absolute;
+  top: 50%;
+  right: 8%;
+  z-index: 4;
+  width: 2.1rem;
+  height: 2.1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  border: 2px solid rgba(255, 249, 242, 0.35);
+  font-size: 0.6875rem;
+  font-weight: 900;
+  color: #fff;
+  box-shadow: 0 0 22px rgba(139, 92, 246, 0.45);
+  transform: translateY(-50%);
+}
+
+@media (min-width: 480px) {
+  .layout {
+    margin-inline: 1rem;
+    padding: 1.5rem 1.15rem 1.65rem;
+  }
+}
+
+@media (min-width: 960px) {
+  .arena {
+    margin-top: 1rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .layout {
+    margin-inline: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 1.5rem 2.5rem;
+    align-items: center;
+    padding: 2rem 2.25rem;
+    border-radius: 32px;
+  }
+
+  .copy h2 {
+    font-size: clamp(2.1rem, 3.2vw, 2.85rem);
+  }
+
+  .headlineAccent {
+    display: inline;
+  }
+
+  .lead {
+    font-size: 1rem;
+    max-width: 34rem;
+  }
+
+  .spotlightCard {
+    max-width: 28rem;
+    padding: 1rem 1.1rem;
+  }
+
+  .spotlightName {
+    font-size: 1.45rem;
+  }
+
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .stage {
+    min-height: 22rem;
+    margin-top: 0;
+  }
+
+  .heroCoin {
+    width: clamp(8.5rem, 12vw, 11rem) !important;
+    height: clamp(8.5rem, 12vw, 11rem) !important;
+  }
+
+  .floatStatLeft strong,
+  .floatStatRight strong {
+    font-size: 1.45rem;
+  }
+
+  .vsBadge {
+    right: 12%;
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbitRing,
+  .orbitRingInner,
+  .heroCoin,
+  .floatStatLeft,
+  .floatStatRight,
+  .coinHalo,
+  .sparkles span,
+  .rankPulse::before {
+    animation: none;
+  }
+}

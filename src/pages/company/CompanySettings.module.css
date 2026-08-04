@@ -163,6 +163,10 @@
   grid-column: 1 / -1;
 }
 
+.cityField {
+  min-width: 0;
+}
+
 label {
   display: flex;
   flex-direction: column;

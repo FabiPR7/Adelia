@@ -1,0 +1,155 @@
+.card {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(148px, 42vw, 188px);
+}
+
+.openButton {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.imageWrap {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, rgba(107, 83, 68, 0.92), rgba(196, 168, 130, 0.88)),
+    var(--color-beige);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 10px 28px rgba(35, 28, 22, 0.14);
+}
+
+.imageFallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.topOverlay,
+.bottomOverlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 0.65rem 0.7rem;
+}
+
+.topOverlay {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(20, 16, 12, 0.78), transparent);
+}
+
+.topOverlay h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.15;
+  color: #fff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bottomOverlay {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(20, 16, 12, 0.82), transparent);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.tag {
+  display: inline-flex;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(4px);
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.popularBadge,
+.reviewBadge {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.18rem 0.42rem 0.18rem 0.32rem;
+  border-radius: 999px;
+  background: rgba(20, 16, 12, 0.62);
+  border: 1px solid rgba(255, 249, 242, 0.22);
+  backdrop-filter: blur(6px);
+  color: #fde68a;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+.reviewBadge span:last-child {
+  line-height: 1;
+}
+
+.favoriteButton {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  z-index: 2;
+  width: 1.85rem;
+  height: 1.85rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-brown);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(20, 16, 12, 0.18);
+}
+
+.favoriteButtonActive {
+  color: #c62828;
+}
+
+@media (hover: hover) {
+  .openButton:hover .imageWrap {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px rgba(35, 28, 22, 0.18);
+  }
+
+  .imageWrap {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+}
+
+@media (min-width: 960px) {
+  .card {
+    width: clamp(210px, 16vw, 260px);
+  }
+
+  .topOverlay h3 {
+    font-size: 1.1rem;
+  }
+}

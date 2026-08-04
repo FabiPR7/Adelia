@@ -1,0 +1,385 @@
+.section {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0.5rem;
+  overflow: hidden;
+  background: transparent;
+}
+
+.hero {
+  position: relative;
+  min-height: 210px;
+  overflow: hidden;
+  margin: 0 1rem;
+  border-radius: 22px;
+  box-shadow: 0 14px 36px rgba(74, 51, 72, 0.18);
+}
+
+.heroImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+  transform: scale(1.03);
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, rgba(74, 51, 72, 0.88) 10%, rgba(74, 51, 72, 0.35) 58%, rgba(143, 102, 120, 0.42) 100%),
+    linear-gradient(120deg, rgba(255, 107, 74, 0.22), transparent 48%);
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  padding: 1.25rem 1rem 1rem;
+}
+
+.heroBadge {
+  display: inline-flex;
+  margin-bottom: 0.55rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d4846a, #c9979f);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 18px rgba(184, 137, 143, 0.35);
+}
+
+.heroContent h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 7.5vw, 2.2rem);
+  line-height: 0.98;
+  color: #fff9f2;
+  text-shadow: 0 6px 20px rgba(74, 51, 72, 0.35);
+}
+
+.heroAccent {
+  background: linear-gradient(90deg, #fde68a, #f5c4a8, #ffb4a2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.heroText {
+  margin: 0.65rem 0 0;
+  max-width: 20rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: rgba(255, 249, 242, 0.88);
+}
+
+.cardsTrack {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem 0.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.cardsTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.card {
+  position: relative;
+  flex: 0 0 min(78vw, 260px);
+  min-height: 290px;
+  scroll-snap-align: center;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 16px 34px rgba(74, 51, 72, 0.22);
+}
+
+.cardImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(74, 51, 72, 0.9) 12%, rgba(74, 51, 72, 0.22) 62%, rgba(74, 51, 72, 0.32) 100%);
+}
+
+.accent_coral .cardOverlay {
+  background:
+    linear-gradient(to top, rgba(90, 48, 52, 0.92) 10%, transparent 58%),
+    linear-gradient(135deg, rgba(255, 107, 74, 0.28), transparent 50%);
+}
+
+.accent_gold .cardOverlay {
+  background:
+    linear-gradient(to top, rgba(84, 58, 42, 0.92) 10%, transparent 58%),
+    linear-gradient(135deg, rgba(232, 168, 76, 0.28), transparent 50%);
+}
+
+.accent_magenta .cardOverlay {
+  background:
+    linear-gradient(to top, rgba(74, 44, 68, 0.92) 10%, transparent 58%),
+    linear-gradient(135deg, rgba(184, 137, 143, 0.32), transparent 50%);
+}
+
+.accent_sunset .cardOverlay {
+  background:
+    linear-gradient(to top, rgba(74, 48, 58, 0.92) 10%, transparent 58%),
+    linear-gradient(135deg, rgba(212, 138, 120, 0.3), transparent 50%);
+}
+
+.cardBody {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  min-height: 290px;
+  padding: 0.85rem;
+}
+
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.highlight {
+  display: inline-flex;
+  padding: 0.35rem 0.65rem;
+  border-radius: 12px;
+  background: #fff9f2;
+  color: #8f4f58;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 20px rgba(74, 51, 72, 0.2);
+  transform: rotate(-3deg);
+}
+
+.typePill {
+  padding: 0.28rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 249, 242, 0.16);
+  border: 1px solid rgba(255, 249, 242, 0.24);
+  backdrop-filter: blur(6px);
+  color: #fff9f2;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cardBottom h3 {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.1;
+  color: #fff9f2;
+}
+
+.restaurant {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 249, 242, 0.72);
+}
+
+.description {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(255, 249, 242, 0.88);
+}
+
+.detailChip {
+  display: inline-flex;
+  margin-top: 0.55rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 249, 242, 0.14);
+  color: #fff9f2;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.cardLink {
+  display: inline-flex;
+  margin-top: 0.55rem;
+  padding: 0.42rem 0.72rem;
+  border-radius: 999px;
+  background: rgba(255, 249, 242, 0.94);
+  color: #8f4f58;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.cta {
+  position: relative;
+  margin: 1rem 1rem 0;
+  padding: 1.1rem 1rem;
+  border-radius: 22px;
+  overflow: hidden;
+  text-align: center;
+  background: linear-gradient(135deg, #c9979f 0%, #b8898f 45%, #8f6678 100%);
+  box-shadow: 0 14px 32px rgba(74, 51, 72, 0.22);
+}
+
+.ctaGlow {
+  position: absolute;
+  inset: -40% auto auto 50%;
+  width: 180px;
+  height: 180px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(255, 249, 242, 0.18);
+  filter: blur(12px);
+}
+
+.ctaEyebrow {
+  position: relative;
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 249, 242, 0.85);
+}
+
+.ctaTitle {
+  position: relative;
+  margin: 0.45rem 0 0.85rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  line-height: 1.25;
+  color: #fff9f2;
+}
+
+.ctaButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: min(100%, 280px);
+  padding: 0.82rem 1.2rem;
+  border-radius: 999px;
+  background: #fff9f2;
+  color: #8f4f58;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 10px 28px rgba(74, 51, 72, 0.2);
+  animation: ctaPulse 2.4s ease-in-out infinite;
+}
+
+.ctaFinePrint {
+  position: relative;
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  color: rgba(255, 249, 242, 0.82);
+}
+
+@keyframes ctaPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+@media (min-width: 720px) {
+  .hero {
+    min-height: 240px;
+    margin-inline: 0;
+  }
+
+  .cardsTrack {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    overflow: visible;
+    padding-inline: 0;
+  }
+
+  .card {
+    flex: initial;
+    min-height: 320px;
+  }
+
+  .cardBody {
+    min-height: 320px;
+  }
+
+  .cta {
+    margin-inline: 0;
+  }
+}
+
+@media (min-width: 960px) {
+  .hero {
+    min-height: 280px;
+    border-radius: 28px;
+  }
+
+  .heroContent {
+    padding: 2rem 2.5rem;
+  }
+
+  .heroContent h2 {
+    font-size: clamp(2rem, 3vw, 2.75rem);
+  }
+
+  .heroText {
+    font-size: 1rem;
+    max-width: 36rem;
+  }
+
+  .cardsTrack {
+    gap: 1.25rem;
+  }
+
+  .card {
+    min-height: 340px;
+  }
+
+  .cardBody {
+    min-height: 340px;
+  }
+
+  .cardBottom h3 {
+    font-size: 1.4rem;
+  }
+
+  .cta {
+    margin-top: 1.5rem;
+    padding: 1.5rem 2rem;
+  }
+
+  .ctaTitle {
+    font-size: 1.45rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctaButton {
+    animation: none;
+  }
+}

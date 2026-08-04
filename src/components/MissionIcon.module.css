@@ -1,0 +1,12 @@
+.emoji {
+  display: inline-block;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+}

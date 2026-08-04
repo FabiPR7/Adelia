@@ -1,0 +1,227 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1rem;
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  width: min(100%, 22rem);
+  margin-top: 0.5rem;
+  padding: 1rem 1rem 0.95rem;
+  border-radius: 1.25rem;
+  color: #fff;
+  pointer-events: auto;
+  overflow: hidden;
+  animation: toastIn 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.xp_gain {
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.35), transparent 42%),
+    linear-gradient(135deg, #1e3a8a 0%, #312e81 55%, #4c1d95 100%);
+}
+
+.rank_up {
+  background:
+    radial-gradient(circle at top right, rgba(251, 191, 36, 0.4), transparent 40%),
+    linear-gradient(135deg, #92400e 0%, #b45309 40%, #7c2d12 100%);
+}
+
+.surpassed {
+  background:
+    radial-gradient(circle at top right, rgba(236, 72, 153, 0.35), transparent 42%),
+    linear-gradient(135deg, #831843 0%, #9d174d 45%, #581c87 100%);
+}
+
+.level_up {
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.35), transparent 42%),
+    linear-gradient(135deg, #0e7490 0%, #7c3aed 48%, #db2777 100%);
+}
+
+.shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.16) 50%, transparent 65%);
+  animation: shineSweep 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shineSweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sparkle {
+  position: absolute;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: #fde68a;
+  box-shadow: 0 0 10px rgba(253, 230, 138, 0.85);
+  animation: sparkleFloat 2.2s ease-in-out infinite;
+}
+
+.sparkle:nth-child(1) {
+  top: 18%;
+  left: 12%;
+  animation-delay: 0s;
+}
+
+.sparkle:nth-child(2) {
+  top: 24%;
+  right: 16%;
+  animation-delay: 0.35s;
+}
+
+.sparkle:nth-child(3) {
+  bottom: 22%;
+  left: 20%;
+  animation-delay: 0.7s;
+}
+
+.sparkle:nth-child(4) {
+  bottom: 18%;
+  right: 12%;
+  animation-delay: 1.05s;
+}
+
+@keyframes sparkleFloat {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0) scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.15);
+  }
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+}
+
+.topRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.35));
+  animation: iconPop 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes iconPop {
+  0% {
+    transform: scale(0.4) rotate(-12deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.closeButton {
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.title {
+  margin: 0.55rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.message {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.rankJump {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.rankJump span {
+  opacity: 0.72;
+}
+
+.rankJump strong {
+  color: #fde68a;
+}
+
+.progressBar {
+  margin-top: 0.7rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #fde68a, #f59e0b);
+  animation: progressDrain 5.1s linear forwards;
+}
+
+@keyframes progressDrain {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

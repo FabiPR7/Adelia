@@ -40,6 +40,9 @@ await build({
     'firebase-functions/params',
     'express',
     'cors',
+    'resend',
+    'dotenv',
+    'dotenv/config',
   ],
   logLevel: 'info',
 })

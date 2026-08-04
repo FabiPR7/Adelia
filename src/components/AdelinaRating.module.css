@@ -1,0 +1,33 @@
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.12rem;
+}
+
+.label {
+  margin-left: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: inherit;
+}
+
+.coinButton {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: default;
+  line-height: 0;
+}
+
+.coinButtonInteractive {
+  cursor: pointer;
+}
+
+.inactive {
+  opacity: 0.28;
+  filter: grayscale(0.35) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.12));
+}
+
+.active {
+  transform: scale(1.02);
+}

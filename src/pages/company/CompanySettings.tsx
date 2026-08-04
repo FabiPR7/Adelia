@@ -1,6 +1,7 @@
 import { Suspense, lazy, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react'
 import ImageUploader from '../../components/ImageUploader'
 import CharacteristicPicker from '../../components/CharacteristicPicker'
+import CityAutocomplete from '../../components/CityAutocomplete'
 import MediaGalleryUploader from '../../components/MediaGalleryUploader'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -27,6 +28,11 @@ import {
   syncFloorPlanWithTables,
 } from '../../types/company'
 import { copyTextToClipboard, defaultSchedule, getPublicBookingUrl, selectInputText, slugify } from '../../utils/helpers'
+import {
+  isConfirmedCitySelection,
+  municipalityToCitySuggestion,
+} from '../../utils/citySelection'
+import type { CitySuggestion } from '../../services/citySearch'
 import {
   normalizeCompanySettingsPayload,
   validateCompanyContact,
@@ -143,6 +149,7 @@ const CompanySettings = forwardRef(function CompanySettings(
   const clientLinkInputRef = useRef<HTMLInputElement>(null)
   const [isDownloadingQr, setIsDownloadingQr] = useState(false)
   const [timeSlotMinutesInput, setTimeSlotMinutesInput] = useState('')
+  const [selectedMunicipality, setSelectedMunicipality] = useState<CitySuggestion | null>(null)
   const [savedSnapshots, setSavedSnapshots] = useState<Record<SettingsSection, string> | null>(
     null,
   )
@@ -182,6 +189,11 @@ const CompanySettings = forwardRef(function CompanySettings(
         setForm(restored.form)
         setTables(restored.tables)
         setTimeSlotMinutesInput(restored.timeSlotMinutesInput)
+        if (section === 'profile') {
+          setSelectedMunicipality(
+            municipalityToCitySuggestion(restored.form.municipality, restored.form.country),
+          )
+        }
         setError(null)
         setSuccess(null)
       },
@@ -248,6 +260,9 @@ const CompanySettings = forwardRef(function CompanySettings(
         const initialTimeSlot = String(company.timeSlotMinutes)
 
         setForm(initialForm)
+        setSelectedMunicipality(
+          municipalityToCitySuggestion(initialForm.municipality, initialForm.country),
+        )
         setTimeSlotMinutesInput(initialTimeSlot)
         setTables(initialTables)
         setSavedSnapshots(
@@ -324,6 +339,15 @@ const CompanySettings = forwardRef(function CompanySettings(
     setError(null)
     setSuccess(null)
 
+    if (!form) {
+      return false
+    }
+
+    if (!isConfirmedCitySelection(selectedMunicipality, form.municipality)) {
+      setError('Selecciona tu ciudad de la lista de sugerencias.')
+      return false
+    }
+
     const profileError = validateCompanyProfile(form)
 
     if (profileError) {
@@ -339,6 +363,9 @@ const CompanySettings = forwardRef(function CompanySettings(
       await updateCompanySettings(company.id, normalizedForm)
       await refreshCompany()
       setForm(normalizedForm)
+      setSelectedMunicipality(
+        municipalityToCitySuggestion(normalizedForm.municipality, normalizedForm.country),
+      )
       markSectionSaved('profile', {
         form: normalizedForm,
         tables,
@@ -707,15 +734,22 @@ const CompanySettings = forwardRef(function CompanySettings(
           <p>Ubicación, descripción, galería y características visibles para tus clientes.</p>
         </header>
         <div className={`${styles.grid} ${styles.contactGrid}`}>
-          <label>
-            Municipio
-            <input
-              value={form.municipality}
-              onChange={(e) => setForm({ ...form, municipality: e.target.value })}
+          <div className={styles.cityField}>
+            <CityAutocomplete
+              value={selectedMunicipality}
+              onChange={(city) => {
+                setSelectedMunicipality(city)
+                setForm({
+                  ...form,
+                  municipality: city?.name ?? '',
+                  country: city?.country || form.country,
+                })
+              }}
+              label="Municipio"
               placeholder="Ej. Madrid"
-              maxLength={80}
+              variant="form"
             />
-          </label>
+          </div>
           <label>
             Código postal
             <input

@@ -1,0 +1,772 @@
+/* Mobile-first: Inicio | flecha vertical | Meta legendaria */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.progressBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 0.95rem;
+  background: rgba(255, 249, 242, 0.1);
+  border: 1px solid rgba(255, 249, 242, 0.14);
+}
+
+.progressBanner strong {
+  font-family: var(--font-display);
+  font-size: clamp(0.88rem, 3.8vw, 0.95rem);
+  line-height: 1.15;
+  color: #fff9f2;
+}
+
+.progressBanner span:last-child {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255, 249, 242, 0.62);
+}
+
+.nowBadge {
+  align-self: flex-start;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(232, 168, 76, 0.18);
+  border: 1px solid rgba(253, 230, 138, 0.28);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fde68a;
+}
+
+.journey {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.35rem minmax(0, 1fr);
+  gap: 0.28rem;
+  align-items: stretch;
+  width: 100%;
+  min-height: 8.75rem;
+}
+
+.slotLabel {
+  margin: 0 0 0.28rem;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 249, 242, 0.55);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.startSlot,
+.legendSlot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pathColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: stretch;
+  min-width: 0;
+}
+
+.pathLabel {
+  margin: 0.2rem 0 0;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fde68a;
+}
+
+/* Tarjeta inicio compacta (sin depender del card grande) */
+.startCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: 7.25rem;
+  padding: 0.55rem 0.45rem;
+  border-radius: 0.85rem;
+  text-align: center;
+  color: #334155;
+  background:
+    radial-gradient(circle at top right, rgba(148, 163, 184, 0.35), transparent 40%),
+    linear-gradient(145deg, #ffffff 0%, #e2e8f0 48%, #cbd5e1 100%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 8px 18px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.startCardBadge {
+  align-self: center;
+  padding: 0.14rem 0.38rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.startCardTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(0.62rem, 2.9vw, 0.78rem);
+  line-height: 1.15;
+  color: #334155;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.startHint {
+  display: none;
+  margin: 0.25rem 0 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: rgba(51, 65, 85, 0.72);
+}
+
+/* Flecha vertical (móvil por defecto) */
+.arrowTrack {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 6.5rem;
+}
+
+.arrowRail {
+  position: absolute;
+  top: 0.2rem;
+  bottom: 1.45rem;
+  left: 50%;
+  width: 0.38rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 249, 242, 0.12);
+  overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.arrowFill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: var(--path-progress, 10%);
+  border-radius: inherit;
+  background: linear-gradient(0deg, #cbd5e1 0%, #e8a84c 38%, #fbbf24 72%, #f97316 100%);
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.4);
+  transition: height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.arrowHead {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1.45rem;
+  height: 1.45rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fbbf24, #f97316);
+  color: #1a1208;
+  font-size: 0.58rem;
+  font-weight: 900;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.45);
+}
+
+.arrowHead span {
+  transform: translateY(-1px);
+}
+
+.travelerPin {
+  position: absolute;
+  left: 50%;
+  bottom: var(--path-progress, 10%);
+  transform: translate(-50%, 50%);
+  z-index: 2;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff9f2, #e8d5cf);
+  border: 2px solid #fbbf24;
+  color: #4a3348;
+  font-size: 0.5625rem;
+  font-weight: 900;
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.5);
+  transition: bottom 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.travelerPinCelebrate {
+  animation: pinPopVertical 0.9s ease-in-out 2;
+}
+
+@keyframes pinPopVertical {
+  0%,
+  100% {
+    transform: translate(-50%, 50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, 42%) scale(1.12);
+  }
+}
+
+.levelMarkers {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.18rem;
+}
+
+.levelMarkers span {
+  text-align: center;
+  font-size: 0.5rem;
+  font-weight: 800;
+  padding: 0.2rem 0;
+  border-radius: 0.4rem;
+}
+
+.markerPending {
+  color: rgba(255, 249, 242, 0.28);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.markerDone {
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+}
+
+.ascendCopy {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  text-align: center;
+  color: rgba(255, 249, 242, 0.58);
+}
+
+/* Tarjeta legendaria */
+.legendCard {
+  position: relative;
+  flex: 1;
+  min-height: 7.25rem;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  padding: 2px;
+  background: linear-gradient(145deg, #fcd34d, #f59e0b 40%, #92400e 60%, #fbbf24);
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.35),
+    0 0 24px rgba(251, 191, 36, 0.22),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.legendUnlocked {
+  animation: legendPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes legendPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(251, 191, 36, 0.45),
+      0 0 28px rgba(251, 191, 36, 0.3),
+      0 12px 28px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(253, 224, 71, 0.65),
+      0 0 40px rgba(251, 191, 36, 0.42),
+      0 16px 32px rgba(0, 0, 0, 0.4);
+  }
+}
+
+.legendFrame {
+  position: absolute;
+  inset: 2px;
+  border-radius: calc(0.85rem - 2px);
+  border: 1px solid rgba(253, 224, 71, 0.35);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.flameLayer {
+  position: absolute;
+  inset: auto 0 0;
+  height: 48%;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.flame {
+  position: absolute;
+  bottom: -20%;
+  width: 40%;
+  height: 90%;
+  border-radius: 50% 50% 20% 20%;
+  background: radial-gradient(circle at 50% 80%, rgba(251, 191, 36, 0.95), rgba(249, 115, 22, 0.55), transparent 72%);
+  filter: blur(2px);
+  animation: flameDance 2.2s ease-in-out infinite;
+}
+
+.flame:nth-child(1) {
+  left: 6%;
+}
+
+.flame:nth-child(2) {
+  left: 32%;
+  width: 44%;
+  height: 105%;
+  animation-delay: 0.35s;
+}
+
+.flame:nth-child(3) {
+  right: 6%;
+  animation-delay: 0.7s;
+}
+
+@keyframes flameDance {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateY(-8%) scale(1.06);
+    opacity: 1;
+  }
+}
+
+.legendInner {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  min-height: calc(7.25rem - 4px);
+  padding: 0.45rem 0.5rem 0.5rem;
+  border-radius: calc(0.85rem - 2px);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.14), transparent 42%),
+    linear-gradient(180deg, #141010 0%, #0a0908 45%, #050505 100%);
+  color: #fde68a;
+}
+
+.legendCrown {
+  position: absolute;
+  top: 0.28rem;
+  right: 0.32rem;
+  font-size: 0.85rem;
+  filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.75));
+}
+
+.legendBadge {
+  align-self: flex-start;
+  padding: 0.12rem 0.34rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(253, 224, 71, 0.35);
+  font-size: 0.45rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fcd34d;
+}
+
+.legendInner h4 {
+  margin: 0.22rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(0.62rem, 2.9vw, 0.95rem);
+  line-height: 1.12;
+  color: #fde68a;
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.legendXp {
+  margin: 0.12rem 0 0;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.legendHint {
+  display: none;
+  margin-top: 0.35rem;
+  font-size: 0.625rem;
+  line-height: 1.35;
+  color: rgba(253, 230, 138, 0.62);
+}
+
+/* Tablet: más presencia sin perder el layout móvil */
+@media (min-width: 720px) {
+  .wrap {
+    gap: 0.75rem;
+  }
+
+  .progressBanner {
+    padding: 0.85rem 1rem;
+  }
+
+  .progressBanner strong {
+    font-size: 1.05rem;
+  }
+
+  .progressBanner span:last-child {
+    font-size: 0.75rem;
+  }
+
+  .nowBadge {
+    font-size: 0.6875rem;
+  }
+
+  .journey {
+    grid-template-columns: minmax(0, 0.9fr) 3.25rem minmax(0, 0.9fr);
+    gap: 0.55rem;
+    min-height: 10.5rem;
+  }
+
+  .slotLabel {
+    font-size: 0.625rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .startCard,
+  .legendCard {
+    min-height: 9.75rem;
+    border-radius: 1.1rem;
+  }
+
+  .startCard {
+    padding: 0.85rem 0.75rem;
+  }
+
+  .startCardBadge {
+    font-size: 0.5625rem;
+    padding: 0.18rem 0.48rem;
+  }
+
+  .startCardTitle {
+    font-size: 1.05rem;
+  }
+
+  .startHint {
+    display: block;
+  }
+
+  .legendInner {
+    min-height: calc(9.75rem - 4px);
+    padding: 0.75rem 0.8rem;
+  }
+
+  .legendInner h4 {
+    font-size: 0.95rem;
+  }
+
+  .legendXp {
+    font-size: 0.6875rem;
+  }
+
+  .legendHint {
+    display: block;
+    font-size: 0.5625rem;
+  }
+
+  .legendCrown {
+    font-size: 1.1rem;
+  }
+
+  .legendBadge {
+    font-size: 0.5rem;
+  }
+
+  .arrowTrack {
+    min-height: 8rem;
+  }
+
+  .arrowRail {
+    width: 0.42rem;
+  }
+
+  .travelerPin {
+    width: 1.55rem;
+    height: 1.55rem;
+    font-size: 0.625rem;
+  }
+
+  .levelMarkers span {
+    font-size: 0.625rem;
+    padding: 0.28rem 0;
+  }
+
+  .ascendCopy {
+    font-size: 0.75rem;
+  }
+}
+
+/* Pantallas medianas-móvil */
+@media (min-width: 480px) and (max-width: 719px) {
+  .journey {
+    grid-template-columns: minmax(0, 1fr) 2.75rem minmax(0, 1fr);
+    gap: 0.4rem;
+    min-height: 9.5rem;
+  }
+
+  .startCard,
+  .legendCard {
+    min-height: 8.5rem;
+  }
+
+  .legendInner {
+    min-height: calc(8.5rem - 4px);
+    padding: 0.55rem 0.6rem 0.6rem;
+  }
+
+  .arrowTrack {
+    min-height: 7.25rem;
+  }
+
+  .slotLabel {
+    font-size: 0.5625rem;
+  }
+
+  .levelMarkers span {
+    font-size: 0.5625rem;
+  }
+}
+
+@keyframes pinPopHorizontal {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -58%) scale(1.12);
+  }
+}
+
+/* Escritorio: flecha horizontal + tarjetas épicas */
+@media (min-width: 960px) {
+  .wrap {
+    gap: 1.15rem;
+    width: 100%;
+  }
+
+  .progressBanner {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 1rem;
+    padding: 1rem 1.15rem;
+    border-radius: 1.15rem;
+  }
+
+  .nowBadge {
+    margin-right: auto;
+    font-size: 0.6875rem;
+  }
+
+  .progressBanner strong {
+    font-size: 1.2rem;
+    flex: 1 1 auto;
+  }
+
+  .progressBanner span:last-child {
+    font-size: 0.8125rem;
+    margin-left: auto;
+  }
+
+  .journey {
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.35fr) minmax(0, 0.75fr);
+    gap: 1.25rem;
+    min-height: 14rem;
+  }
+
+  .slotLabel {
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+
+  .startCard,
+  .legendCard {
+    min-height: 14rem;
+    border-radius: 1.35rem;
+  }
+
+  .startCard {
+    padding: 1.35rem 1.15rem;
+  }
+
+  .startCardBadge {
+    font-size: 0.75rem;
+    padding: 0.28rem 0.65rem;
+  }
+
+  .startCardTitle {
+    font-size: 1.5rem;
+    line-height: 1.08;
+  }
+
+  .startHint {
+    font-size: 0.75rem;
+    margin-top: 0.55rem;
+  }
+
+  .legendCard {
+    padding: 3px;
+    box-shadow:
+      0 0 0 1px rgba(251, 191, 36, 0.35),
+      0 0 40px rgba(251, 191, 36, 0.28),
+      0 20px 44px rgba(0, 0, 0, 0.45);
+  }
+
+  .legendFrame {
+    border-radius: calc(1.35rem - 3px);
+  }
+
+  .legendInner {
+    min-height: calc(14rem - 6px);
+    padding: 1.15rem 1.2rem;
+    border-radius: calc(1.35rem - 3px);
+  }
+
+  .legendInner h4 {
+    font-size: 1.45rem;
+    line-height: 1.08;
+    text-shadow:
+      0 0 18px rgba(251, 191, 36, 0.45),
+      0 2px 8px rgba(0, 0, 0, 0.8);
+  }
+
+  .legendXp {
+    font-size: 0.8125rem;
+  }
+
+  .legendHint {
+    font-size: 0.6875rem;
+    margin-top: 0.45rem;
+  }
+
+  .legendCrown {
+    top: 0.55rem;
+    right: 0.65rem;
+    font-size: 1.5rem;
+  }
+
+  .legendBadge {
+    font-size: 0.5625rem;
+    padding: 0.2rem 0.52rem;
+  }
+
+  .flameLayer {
+    height: 52%;
+  }
+
+  .pathColumn {
+    justify-content: center;
+  }
+
+  .arrowTrack {
+    min-height: 4rem;
+    width: 100%;
+  }
+
+  .arrowRail {
+    top: 50%;
+    bottom: auto;
+    left: 0;
+    right: 2.4rem;
+    width: auto;
+    height: 0.55rem;
+    transform: translateY(-50%);
+  }
+
+  .arrowFill {
+    top: 0;
+    bottom: auto;
+    left: 0;
+    width: var(--path-progress, 10%);
+    height: 100%;
+    background: linear-gradient(90deg, #cbd5e1 0%, #e8a84c 38%, #fbbf24 72%, #f97316 100%);
+    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .arrowHead {
+    bottom: auto;
+    top: 50%;
+    right: 0;
+    left: auto;
+    transform: translateY(-50%);
+    width: 2.4rem;
+    height: 2rem;
+    border-radius: 0.65rem;
+    clip-path: polygon(0 25%, 62% 25%, 62% 0, 100% 50%, 62% 100%, 62% 75%, 0 75%);
+  }
+
+  .arrowHead span {
+    transform: translateX(-0.12rem) rotate(90deg);
+    font-size: 0.85rem;
+  }
+
+  .travelerPin {
+    bottom: auto;
+    top: 50%;
+    left: var(--path-progress, 10%);
+    transform: translate(-50%, -50%);
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+    transition: left 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .travelerPinCelebrate {
+    animation: pinPopHorizontal 0.9s ease-in-out 2;
+  }
+
+  .pathLabel {
+    display: none;
+  }
+
+  .levelMarkers {
+    gap: 0.35rem;
+  }
+
+  .levelMarkers span {
+    font-size: 0.75rem;
+    padding: 0.35rem 0;
+    border-radius: 0.55rem;
+  }
+
+  .ascendCopy {
+    font-size: 0.8125rem;
+    max-width: 36rem;
+    margin-inline: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flame,
+  .legendUnlocked,
+  .travelerPinCelebrate {
+    animation: none;
+  }
+}

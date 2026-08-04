@@ -10,7 +10,8 @@ import { clearMustChangePassword, updateCompanyLoginPassword } from './firestore
 import { resolveLoginAuthEmail } from './firestore'
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  'auth/invalid-email': 'El nombre no es válido.',
+  'auth/email-already-in-use': 'Ya existe una cuenta con este email.',
+  'auth/invalid-email': 'El email no es válido.',
   'auth/user-disabled': 'Esta cuenta ha sido deshabilitada.',
   'auth/user-not-found': 'Nombre o contraseña incorrectos.',
   'auth/wrong-password': 'Nombre o contraseña incorrectos.',

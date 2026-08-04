@@ -1,0 +1,63 @@
+.viewport {
+  overflow: hidden;
+  width: 100%;
+  padding: 0.15rem 0;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 6%,
+    #000 94%,
+    transparent 100%
+  );
+}
+
+.track {
+  display: flex;
+  width: max-content;
+  gap: 1.35rem;
+  will-change: transform;
+}
+
+.group {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 1.35rem;
+}
+
+@media (min-width: 960px) {
+  .viewport {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      #000 1.5%,
+      #000 98.5%,
+      transparent 100%
+    );
+    padding-inline: clamp(0.75rem, 2vw, 1.5rem);
+  }
+
+  .track {
+    gap: 1.5rem;
+  }
+
+  .group {
+    gap: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    overflow-x: auto;
+    max-width: 100%;
+    padding-bottom: 0.35rem;
+    scroll-snap-type: x mandatory;
+  }
+
+  .group {
+    scroll-snap-align: start;
+  }
+
+  .viewport {
+    mask-image: none;
+  }
+}

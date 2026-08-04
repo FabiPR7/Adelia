@@ -35,9 +35,13 @@ export function getPostLoginPath(profile: AppUser) {
     return '/admin'
   }
 
+  if (profile.role === 'customer') {
+    return '/cuenta'
+  }
+
   if (profile.mustChangePassword) {
     return '/cambiar-contrasena'
   }
 
-  return '/'
+  return '/panel'
 }

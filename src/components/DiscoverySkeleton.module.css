@@ -1,0 +1,38 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.searchSkeleton {
+  height: 96px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.85), rgba(255,255,255,0.5));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.carouselSkeleton {
+  display: flex;
+  gap: 0.85rem;
+  overflow: hidden;
+}
+
+.cardSkeleton {
+  flex: 0 0 42vw;
+  aspect-ratio: 1;
+  border-radius: 18px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.45), rgba(255,255,255,0.8), rgba(255,255,255,0.45));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
