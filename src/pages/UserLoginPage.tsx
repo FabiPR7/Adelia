@@ -1,16 +1,20 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { ADELIA_LOGO_URL } from '../constants/brand'
 import { auth } from '../config/firebase'
-import { loginCustomer } from '../services/customerAuth'
+import { ADELIA_LOGO_URL } from '../constants/brand'
+import { loginCustomer, signInCustomerWithGoogle } from '../services/customerAuth'
 import { getUserProfile } from '../services/firestore'
 import { getAuthErrorMessage } from '../services/auth'
 import { getPostLoginPath } from '../utils/authProfile'
+import GoogleSignInButton from '../components/GoogleSignInButton'
+import CustomerAuthShell from '../components/CustomerAuthShell'
 import styles from './UserCustomerAuth.module.css'
 
 function UserLoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const emailVerified = searchParams.get('verified') === '1'
   const { user, profile, refreshProfile } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,7 +22,20 @@ function UserLoginPage() {
   const [error, setError] = useState<string | null>(null)
 
   if (user && profile) {
-    return <Navigate to={getPostLoginPath(profile)} replace />
+    return <Navigate to={getPostLoginPath(profile, user)} replace />
+  }
+
+  const finishLogin = async () => {
+    await refreshProfile()
+    const currentUser = auth.currentUser
+    const nextProfile = currentUser ? await getUserProfile(currentUser.uid) : null
+
+    if (!nextProfile || nextProfile.role !== 'customer') {
+      setError('Esta cuenta no es de cliente. Usa el acceso de empresas.')
+      return
+    }
+
+    navigate(getPostLoginPath(nextProfile, currentUser), { replace: true })
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -28,17 +45,21 @@ function UserLoginPage() {
 
     try {
       await loginCustomer(email, password)
-      await refreshProfile()
-      const nextProfile = auth.currentUser
-        ? await getUserProfile(auth.currentUser.uid)
-        : null
+      await finishLogin()
+    } catch (err) {
+      setError(getAuthErrorMessage(err))
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-      if (nextProfile?.role !== 'customer') {
-        setError('Esta cuenta no es de cliente. Usa el acceso de empresas.')
-        return
-      }
+  const handleGoogle = async () => {
+    setError(null)
+    setIsLoading(true)
 
-      navigate('/cuenta', { replace: true })
+    try {
+      await signInCustomerWithGoogle()
+      await finishLogin()
     } catch (err) {
       setError(getAuthErrorMessage(err))
     } finally {
@@ -47,10 +68,7 @@ function UserLoginPage() {
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.glowOne} aria-hidden="true" />
-      <div className={styles.glowTwo} aria-hidden="true" />
-
+    <CustomerAuthShell variant="login">
       <main className={styles.card}>
         <Link to="/" className={styles.backLink}>
           ← Volver
@@ -65,8 +83,21 @@ function UserLoginPage() {
         </div>
 
         <p className={styles.lead}>
-          Accede a tus reservas, favoritos y promociones exclusivas.
+          Accede a tus reservas, favoritos, promociones y misiones.
         </p>
+
+        {emailVerified && (
+          <p className={styles.successBanner} role="status">
+            Correo confirmado. Ya puedes iniciar sesión.
+          </p>
+        )}
+
+        <GoogleSignInButton
+          disabled={isLoading}
+          onClick={() => void handleGoogle()}
+        />
+
+        <div className={styles.divider}>o con email</div>
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <label>
@@ -113,7 +144,7 @@ function UserLoginPage() {
           ¿Eres restaurante? Acceso empresas
         </Link>
       </main>
-    </div>
+    </CustomerAuthShell>
   )
 }
 

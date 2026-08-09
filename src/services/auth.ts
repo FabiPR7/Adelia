@@ -33,7 +33,7 @@ export function getAuthErrorMessage(error: unknown): string {
     typeof error.code === 'string'
   ) {
     if (error.code === 'permission-denied') {
-      return 'Firestore bloquea el acceso. Cambia las reglas en Firebase Console y ejecuta npm run seed.'
+      return 'No tienes permiso en Firestore. Despliega las reglas con npm run deploy:rules (base de datos adelia).'
     }
 
     return AUTH_ERROR_MESSAGES[error.code] ?? 'No se pudo iniciar sesión.'

@@ -1,3 +1,5 @@
+@import 'tailwindcss';
+
 :root {
   --color-cream: #faf7f2;
   --color-beige: #f0e6d8;
@@ -14,6 +16,7 @@
   --color-shadow-strong: rgba(92, 74, 58, 0.15);
 
   --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-epic: 'Bebas Neue', 'Arial Narrow', sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
 
   --radius-sm: 8px;

@@ -1,4 +1,4 @@
-import AdelinaCoin from './AdelinaCoin'
+import GamificationLevelFrameCard from './GamificationLevelFrameCard'
 import type { CSSProperties } from 'react'
 import type { GamificationLevel } from '../types/gamification'
 import styles from './GamificationLevelCard.module.css'
@@ -6,10 +6,12 @@ import styles from './GamificationLevelCard.module.css'
 interface GamificationLevelCardProps {
   level: GamificationLevel
   xp: number
-  adelinas: number
   levelProgress: number
   xpToNext: number | null
   unlockedRewards: Array<{ level: number; reward: string }>
+  displayName?: string
+  handle?: string
+  photoUrl?: string
   compact?: boolean
   epic?: boolean
   celebrate?: boolean
@@ -19,20 +21,38 @@ interface GamificationLevelCardProps {
 function GamificationLevelCard({
   level,
   xp,
-  adelinas,
   levelProgress,
   xpToNext,
   unlockedRewards,
+  displayName,
+  handle,
+  photoUrl,
   compact = false,
   epic = false,
   celebrate = false,
   minimal = false,
 }: GamificationLevelCardProps) {
+  if (epic) {
+    return (
+      <GamificationLevelFrameCard
+        level={level.level}
+        levelTitle={level.title}
+        displayName={displayName ?? 'Tu perfil'}
+        handle={handle}
+        photoUrl={photoUrl}
+        xp={xp}
+        levelProgress={levelProgress}
+        showProgress={!minimal}
+        className={celebrate ? styles.celebrateFrame : ''}
+      />
+    )
+  }
+
   const progressPercent = Math.round(levelProgress * 100)
 
   return (
     <article
-      className={`${styles.card} ${styles[level.styleClass]} ${compact ? styles.compact : ''} ${epic ? styles.epic : ''} ${celebrate ? styles.celebrate : ''} ${minimal ? styles.minimal : ''}`}
+      className={`${styles.card} ${styles[level.styleClass]} ${compact ? styles.compact : ''} ${celebrate ? styles.celebrate : ''} ${minimal ? styles.minimal : ''}`}
       style={{
         '--level-color-a': level.colors[0],
         '--level-color-b': level.colors[1],
@@ -40,11 +60,7 @@ function GamificationLevelCard({
     >
       {level.level >= 6 && (
         <span className={styles.rankEmblem} aria-hidden="true">
-          {level.level >= 7 ? (
-            <AdelinaCoin size="lg" alt="" />
-          ) : (
-            '👑'
-          )}
+          👑
         </span>
       )}
 
@@ -57,25 +73,21 @@ function GamificationLevelCard({
           {!minimal && (
             <div className={styles.stats}>
               <span className={styles.levelBadge}>{xp.toLocaleString('es-ES')} XP</span>
-              <span className={styles.adelinasChip}>
-                <AdelinaCoin size="sm" alt="" />
-                {adelinas.toLocaleString('es-ES')} Adelinas
-              </span>
             </div>
           )}
         </div>
 
         {!minimal && (
           <div className={styles.progressBlock}>
-          <div className={styles.progressMeta}>
-            <span>Siguiente rango</span>
-            <span>
-              {xpToNext === null ? 'Leyenda máxima' : `${xpToNext.toLocaleString('es-ES')} XP`}
-            </span>
-          </div>
-          <div className={styles.progressTrack} aria-hidden="true">
-            <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
-          </div>
+            <div className={styles.progressMeta}>
+              <span>Siguiente rango</span>
+              <span>
+                {xpToNext === null ? 'Leyenda máxima' : `${xpToNext.toLocaleString('es-ES')} XP`}
+              </span>
+            </div>
+            <div className={styles.progressTrack} aria-hidden="true">
+              <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
+            </div>
           </div>
         )}
 

@@ -30,13 +30,21 @@ export async function resolveMustChangePassword(
   }
 }
 
-export function getPostLoginPath(profile: AppUser) {
+export function getPostLoginPath(profile: AppUser, user?: { emailVerified: boolean } | null) {
   if (profile.role === 'admin') {
     return '/admin'
   }
 
   if (profile.role === 'customer') {
-    return '/cuenta'
+    if (user && profile.authProvider === 'password' && !user.emailVerified) {
+      return '/cuenta/verificar-email'
+    }
+
+    if (!profile.onboardingCompleted) {
+      return '/cuenta/completar-perfil'
+    }
+
+    return '/app/explorar'
   }
 
   if (profile.mustChangePassword) {

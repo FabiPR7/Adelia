@@ -1,0 +1,68 @@
+.rankWrap,
+.medalWrap {
+  flex-shrink: 0;
+  display: block;
+  line-height: 1;
+}
+
+.medalWrap {
+  width: 1.65rem;
+  text-align: center;
+}
+
+.medalEmoji {
+  font-size: 1.45rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+}
+
+.stack {
+  display: grid;
+  grid-template: 1fr / 1fr;
+  align-items: center;
+  font-family: var(--font-epic);
+  line-height: 0.9;
+}
+
+.outline,
+.fill,
+.shine {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.outline {
+  color: transparent;
+  paint-order: stroke fill;
+  z-index: 0;
+}
+
+.fill {
+  z-index: 1;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.shine {
+  z-index: 2;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  opacity: 0.38;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+@media (min-width: 900px) {
+  .medalWrap {
+    width: 1.75rem;
+  }
+
+  .medalEmoji {
+    font-size: 1.52rem;
+  }
+}

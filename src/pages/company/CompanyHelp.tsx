@@ -5,12 +5,11 @@ const HELP_EMAIL = 'contacto@adeliareservas.com'
 const HELP_ITEMS = [
   {
     id: 'reservation-settings',
-    question: '¿Cómo configuro reservas, turnos y horario?',
+    question: '¿Cómo configuro reservas y horario?',
     answer: [
       'Abre Mi restaurante → Reservas y horario.',
       'Duración de cada reserva: indica cuántos minutos ocupa una mesa (por defecto suele ser 120 min).',
-      'Turnos: define los tramos del servicio (por ejemplo, Comida 13:00–16:00 y Cena 20:00–23:30).',
-      'Horario semanal: marca los días activos y la hora de apertura y cierre de cada uno.',
+      'Horario semanal: marca los días activos y hasta 3 tramos por día (por ejemplo, 12:00–16:00 y 20:00–00:00). Los tramos no pueden cruzarse.',
       'Pulsa Guardar reservas y horario. Esto afecta al calendario y a la web pública.',
     ],
   },

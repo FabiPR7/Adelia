@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import PublicBookingShell from '../components/PublicBookingShell'
+import { useAuth } from '../context/AuthContext'
 import { fetchPublicBookingPage, type PublicBookingCompany } from '../services/publicApi'
+import { getCompanyMainPhotoUrl } from '../utils/companyPhotos'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import { formatRestaurantLocation, hasRestaurantProfile } from '../utils/publicBooking'
 import styles from './PublicRestaurantProfile.module.css'
@@ -9,8 +11,10 @@ import styles from './PublicRestaurantProfile.module.css'
 function PublicRestaurantProfile() {
   const { slug = '' } = useParams()
   const location = useLocation()
+  const { profile } = useAuth()
   const legalFrom = `${location.pathname}${location.search}`
   const reserveHref = `/reservar/${slug}`
+  const customerBackHref = profile?.role === 'customer' ? '/app/explorar' : null
 
   const [company, setCompany] = useState<PublicBookingCompany | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -47,6 +51,15 @@ function PublicRestaurantProfile() {
     }
   }, [slug])
 
+  useEffect(() => {
+    if (company) {
+      const index = company.photos.length > 0
+        ? Math.min(company.mainPhotoIndex ?? 0, company.photos.length - 1)
+        : 0
+      setActivePhoto(index)
+    }
+  }, [company])
+
   if (isLoading) {
     return (
       <div className={styles.loadingPage}>
@@ -69,8 +82,9 @@ function PublicRestaurantProfile() {
   }
 
   const locationLine = formatRestaurantLocation(company)
-  const heroPhoto = company.photos[0]
-    ? optimizeCloudinaryUrl(company.photos[0], CLOUDINARY_DISPLAY.photoGallery)
+  const mainPhotoUrl = getCompanyMainPhotoUrl(company.photos, company.mainPhotoIndex ?? 0)
+  const heroPhoto = mainPhotoUrl
+    ? optimizeCloudinaryUrl(mainPhotoUrl, CLOUDINARY_DISPLAY.photoGallery)
     : null
   const galleryPhotos = company.photos.map((photo) =>
     optimizeCloudinaryUrl(photo, CLOUDINARY_DISPLAY.photoGallery),
@@ -78,6 +92,13 @@ function PublicRestaurantProfile() {
 
   return (
     <PublicBookingShell company={company} legalFrom={legalFrom} reserveHref={reserveHref}>
+      {customerBackHref && (
+        <div className={styles.customerBackBar}>
+          <Link to={customerBackHref} className={styles.customerBackLink}>
+            ← Volver
+          </Link>
+        </div>
+      )}
       <section
         className={styles.hero}
         style={heroPhoto ? { backgroundImage: `url(${heroPhoto})` } : undefined}

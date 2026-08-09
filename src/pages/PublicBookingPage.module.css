@@ -5,6 +5,43 @@
   background: var(--color-cream);
 }
 
+.bookingPage {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-cream);
+}
+
+.bookingTopBar {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.backToLanding {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--color-brown);
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bookingTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--color-brown);
+  text-align: center;
+  padding-right: 3rem;
+}
+
 .restaurantTeaser {
   flex-shrink: 0;
   display: flex;
@@ -327,6 +364,11 @@
   cursor: not-allowed;
 }
 
+.slotButtonPromoBlocked {
+  opacity: 0.55;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
 .panel {
   display: flex;
   flex-direction: column;
@@ -614,4 +656,58 @@
     padding: 1rem;
     background: rgba(61, 50, 41, 0.45);
   }
+}
+
+.promoBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255, 107, 74, 0.12), rgba(255, 79, 143, 0.08));
+  border: 1px solid rgba(255, 107, 74, 0.22);
+}
+
+.promoBannerBadge {
+  flex-shrink: 0;
+  padding: 0.22rem 0.45rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fff9f2, #fde68a);
+  color: #7c3a2e;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.promoBannerText strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  color: var(--color-brown);
+}
+
+.promoBannerText p {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.promoBannerMinSpend {
+  margin-top: 0.35rem !important;
+  font-weight: 700 !important;
+  color: #9a3412 !important;
+}
+
+.promoSlotError {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  color: #991b1b;
+  font-size: 0.8125rem;
+  line-height: 1.45;
 }

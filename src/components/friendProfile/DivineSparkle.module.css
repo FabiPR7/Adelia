@@ -1,0 +1,122 @@
+/* Destello real: núcleo brillante + 4 rayos en cruz (difracción) */
+
+.sparkle {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  pointer-events: none;
+  transform-origin: center center;
+}
+
+.sparkle::before,
+.sparkle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Rayo vertical */
+.sparkle::before {
+  width: 1.5px;
+  height: 220%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.15) 18%,
+    rgba(255, 248, 220, 0.95) 50%,
+    rgba(255, 255, 255, 0.15) 82%,
+    transparent 100%
+  );
+}
+
+/* Rayo horizontal */
+.sparkle::after {
+  width: 220%;
+  height: 1.5px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.15) 18%,
+    rgba(255, 248, 220, 0.95) 50%,
+    rgba(255, 255, 255, 0.15) 82%,
+    transparent 100%
+  );
+}
+
+.xs {
+  width: 2px;
+  height: 2px;
+  background: #fffef5;
+  box-shadow:
+    0 0 4px rgba(255, 255, 255, 0.95),
+    0 0 8px rgba(253, 224, 71, 0.75);
+}
+
+.sm {
+  width: 3px;
+  height: 3px;
+  background: #fffbeb;
+  box-shadow:
+    0 0 6px rgba(255, 255, 255, 1),
+    0 0 14px rgba(253, 224, 71, 0.85),
+    0 0 22px rgba(249, 115, 22, 0.45);
+}
+
+.md {
+  width: 4px;
+  height: 4px;
+  background: #ffffff;
+  box-shadow:
+    0 0 8px rgba(255, 255, 255, 1),
+    0 0 18px rgba(253, 224, 71, 0.9),
+    0 0 32px rgba(251, 146, 60, 0.55);
+}
+
+.lg {
+  width: 5px;
+  height: 5px;
+  background: #ffffff;
+  box-shadow:
+    0 0 12px rgba(255, 255, 255, 1),
+    0 0 28px rgba(253, 224, 71, 0.95),
+    0 0 48px rgba(249, 115, 22, 0.65);
+}
+
+.bright::before,
+.bright::after {
+  filter: brightness(1.15);
+}
+
+.bright.sm::before {
+  height: 280%;
+}
+
+.bright.sm::after {
+  width: 280%;
+}
+
+.bright.md::before {
+  height: 320%;
+}
+
+.bright.md::after {
+  width: 320%;
+}
+
+.bright.lg::before {
+  height: 360%;
+}
+
+.bright.lg::after {
+  width: 360%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sparkle {
+    opacity: 0.65;
+  }
+}

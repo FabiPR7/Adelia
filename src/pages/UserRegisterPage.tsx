@@ -1,10 +1,19 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { auth } from '../config/firebase'
 import { ADELIA_LOGO_URL } from '../constants/brand'
-import { registerCustomer } from '../services/customerAuth'
+import { registerCustomerAndSignOut, signInCustomerWithGoogle } from '../services/customerAuth'
+import { getUserProfile } from '../services/firestore'
 import { getAuthErrorMessage } from '../services/auth'
 import { getPostLoginPath } from '../utils/authProfile'
+import {
+  getPasswordChecks,
+  isPasswordValid,
+  PASSWORD_REQUIREMENTS,
+} from '../utils/passwordValidation'
+import GoogleSignInButton from '../components/GoogleSignInButton'
+import CustomerAuthShell from '../components/CustomerAuthShell'
 import styles from './UserCustomerAuth.module.css'
 
 function UserRegisterPage() {
@@ -13,28 +22,63 @@ function UserRegisterPage() {
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const passwordChecks = useMemo(
+    () => getPasswordChecks(password, confirmPassword),
+    [password, confirmPassword],
+  )
+  const passwordReady = isPasswordValid(passwordChecks)
+
   if (user && profile) {
-    return <Navigate to={getPostLoginPath(profile)} replace />
+    return <Navigate to={getPostLoginPath(profile, user)} replace />
   }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const finishGoogleRegister = async () => {
+    await refreshProfile()
+    const currentUser = auth.currentUser
+    const nextProfile = currentUser ? await getUserProfile(currentUser.uid) : null
+
+    if (!nextProfile || nextProfile.role !== 'customer') {
+      setError('Esta cuenta de Google no es de cliente.')
+      return
+    }
+
+    navigate(getPostLoginPath(nextProfile, currentUser), { replace: true })
+  }
+
+  const handleGoogle = async () => {
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      await signInCustomerWithGoogle()
+      await finishGoogleRegister()
+    } catch (err) {
+      setError(getAuthErrorMessage(err))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleAccountSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
 
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.')
+    if (!passwordReady) {
+      setError('Revisa los requisitos de contraseña antes de continuar.')
       return
     }
 
     setIsLoading(true)
 
     try {
-      await registerCustomer(email, password, displayName)
-      await refreshProfile()
-      navigate('/cuenta', { replace: true })
+      await registerCustomerAndSignOut({ email, password, displayName })
+      navigate(`/cuenta/verificar-email?email=${encodeURIComponent(email.trim().toLowerCase())}`, {
+        replace: true,
+      })
     } catch (err) {
       setError(getAuthErrorMessage(err))
     } finally {
@@ -43,11 +87,8 @@ function UserRegisterPage() {
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.glowOne} aria-hidden="true" />
-      <div className={styles.glowTwo} aria-hidden="true" />
-
-      <main className={styles.card}>
+    <CustomerAuthShell variant="register">
+      <main className={`${styles.card} ${styles.cardCompact} ${styles.cardRegister}`}>
         <Link to="/" className={styles.backLink}>
           ← Volver
         </Link>
@@ -60,11 +101,10 @@ function UserRegisterPage() {
           </div>
         </div>
 
-        <p className={styles.lead}>
-          Regístrate para guardar favoritos, ver tus reservas y desbloquear promociones.
-        </p>
-
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form
+          className={`${styles.form} ${styles.formCompact} ${styles.formRegister}`}
+          onSubmit={handleAccountSubmit}
+        >
           <label>
             Nombre
             <input
@@ -96,20 +136,62 @@ function UserRegisterPage() {
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="new-password"
               required
-              minLength={6}
+              minLength={8}
             />
           </label>
 
-          {error && (
-            <p className={styles.error} role="alert">
-              {error}
-            </p>
-          )}
+          <label>
+            Confirmar contraseña
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              autoComplete="new-password"
+              required
+              minLength={8}
+            />
+          </label>
 
-          <button type="submit" className={styles.submitButton} disabled={isLoading}>
+          <ul className={styles.passwordRequirements} aria-live="polite">
+            {PASSWORD_REQUIREMENTS.map((requirement) => {
+              const met = passwordChecks[requirement.key]
+
+              return (
+                <li
+                  key={requirement.key}
+                  className={met ? styles.requirementMet : styles.requirementPending}
+                >
+                  <span className={styles.requirementIcon} aria-hidden="true">
+                    {met ? '✓' : '○'}
+                  </span>
+                  {requirement.label}
+                </li>
+              )
+            })}
+          </ul>
+
+          <button
+            type="submit"
+            className={styles.submitButton}
+            disabled={isLoading || !passwordReady}
+          >
             {isLoading ? 'Creando cuenta…' : 'Registrarme'}
           </button>
         </form>
+
+        <div className={styles.divider}>o</div>
+
+        <GoogleSignInButton
+          label="Registrarse con Google"
+          disabled={isLoading}
+          onClick={() => void handleGoogle()}
+        />
+
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
 
         <p className={styles.switchText}>
           ¿Ya tienes cuenta?{' '}
@@ -118,7 +200,7 @@ function UserRegisterPage() {
           </Link>
         </p>
       </main>
-    </div>
+    </CustomerAuthShell>
   )
 }
 

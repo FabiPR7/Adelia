@@ -29,6 +29,7 @@ export function createSectionSnapshot(
         postalCode: form.postalCode,
         description: form.description,
         photos: form.photos,
+        mainPhotoIndex: form.mainPhotoIndex,
         videos: form.videos,
         characteristics: form.characteristics,
       })
@@ -102,6 +103,7 @@ export function applySectionSnapshot(
           postalCode: parsed.postalCode as string,
           description: parsed.description as string,
           photos: parsed.photos as string[],
+          mainPhotoIndex: typeof parsed.mainPhotoIndex === 'number' ? parsed.mainPhotoIndex : 0,
           videos: parsed.videos as string[],
           characteristics: parsed.characteristics as string[],
         },

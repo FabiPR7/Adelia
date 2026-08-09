@@ -33,7 +33,11 @@ import styles from './PublicDiscoveryPage.module.css'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
 
-function PublicDiscoveryPage() {
+interface PublicDiscoveryPageProps {
+  appMode?: boolean
+}
+
+function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   const { user, profile, isLoading: authLoading } = useAuth()
   const { favoriteSlugs } = useFavoriteRestaurants()
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
@@ -258,15 +262,20 @@ function PublicDiscoveryPage() {
       : '📍 Cerca'
 
   if (!authLoading && user && profile && profile.role !== 'customer') {
-    return <Navigate to={getPostLoginPath(profile)} replace />
+    return <Navigate to={getPostLoginPath(profile, user)} replace />
+  }
+
+  if (!authLoading && user && profile?.role === 'customer' && !appMode && profile.onboardingCompleted) {
+    return <Navigate to="/app/explorar" replace />
   }
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${appMode ? styles.pageAppMode : ''}`}>
+      {!appMode ? (
       <header className={styles.header}>
         <div className={styles.authLinks}>
           {isCustomer ? (
-            <Link to="/cuenta" className={`${styles.authLink} ${styles.authLinkPrimary}`}>
+            <Link to="/app/perfil" className={`${styles.authLink} ${styles.authLinkPrimary}`}>
               Mi cuenta
             </Link>
           ) : (
@@ -289,8 +298,15 @@ function PublicDiscoveryPage() {
           <img src={ADELIA_LOGO_URL} alt="" className={styles.logo} />
         </Link>
       </header>
+      ) : (
+        <header className={styles.appHeader}>
+          <h1 className={styles.appHeaderTitle}>Explorar</h1>
+          <p className={styles.appHeaderText}>Encuentra tu mesa ideal</p>
+        </header>
+      )}
 
       <main className={styles.main}>
+        {!appMode ? (
         <section className={styles.hero}>
           <p className={styles.heroEyebrow}>Reserva · Opina · Domina</p>
           <h1 className={styles.heroTitle}>Encuentra tu mesa ideal</h1>
@@ -298,6 +314,7 @@ function PublicDiscoveryPage() {
             Descubre restaurantes y desbloquea promociones exclusivas.
           </p>
         </section>
+        ) : null}
 
         <section className={styles.searchSection}>
           <div className={styles.searchRow}>

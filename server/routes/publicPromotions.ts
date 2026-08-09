@@ -3,48 +3,229 @@ import { adminDb } from '../firebase-admin.ts'
 
 const router = Router()
 
+interface PromotionOfferConfig {
+  kind: string
+  bundleGet: number | null
+  bundlePay: number | null
+  discountPercent: number | null
+  fixedPriceCents: number | null
+  customLabel: string
+}
+
+interface PromotionProductRef {
+  nodeId: string
+  name: string
+  photoUrl: string
+}
+
 export interface PublicPromotionPayload {
   id: string
   companyId: string
   companyName: string
   companySlug: string
   companyPhotoUrl: string
+  companyLatitude: number | null
+  companyLongitude: number | null
   type: string
   title: string
   description: string
   photoUrl: string
+  offer: PromotionOfferConfig | null
+  productRefs: PromotionProductRef[]
   requiredReservations: number | null
+  minimumSpendEnabled: boolean
+  minimumSpendCents: number | null
   activeFromTime: string
   activeToTime: string
+  arrivalWindowMinutes: number | null
   maxRedemptions: number | null
   currentRedemptions: number
   detail: string
   highlight: string
 }
 
-function buildHighlight(data: FirebaseFirestore.DocumentData): string {
-  if (data.type === 'reservation_ladder') {
-    return `${data.requiredReservations ?? 0} reservas`
+function normalizeOffer(data: FirebaseFirestore.DocumentData): PromotionOfferConfig | null {
+  const raw = data.offer
+  if (raw && typeof raw === 'object') {
+    const offer = raw as Partial<PromotionOfferConfig>
+    return {
+      kind: typeof offer.kind === 'string' ? offer.kind : 'custom',
+      bundleGet: typeof offer.bundleGet === 'number' ? offer.bundleGet : null,
+      bundlePay: typeof offer.bundlePay === 'number' ? offer.bundlePay : null,
+      discountPercent: typeof offer.discountPercent === 'number' ? offer.discountPercent : null,
+      fixedPriceCents: typeof offer.fixedPriceCents === 'number' ? offer.fixedPriceCents : null,
+      customLabel: typeof offer.customLabel === 'string' ? offer.customLabel : '',
+    }
+  }
+
+  if (typeof data.offerHighlight === 'string' && data.offerHighlight.trim()) {
+    return {
+      kind: 'custom',
+      bundleGet: null,
+      bundlePay: null,
+      discountPercent: null,
+      fixedPriceCents: null,
+      customLabel: data.offerHighlight.trim(),
+    }
+  }
+
+  return null
+}
+
+function normalizeProductRefs(data: FirebaseFirestore.DocumentData): PromotionProductRef[] {
+  if (!Array.isArray(data.productRefs)) {
+    return []
+  }
+
+  return data.productRefs
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null
+      }
+
+      const ref = entry as Partial<PromotionProductRef>
+      if (typeof ref.nodeId !== 'string' || !ref.nodeId.trim()) {
+        return null
+      }
+
+      return {
+        nodeId: ref.nodeId,
+        name: typeof ref.name === 'string' ? ref.name : '',
+        photoUrl: typeof ref.photoUrl === 'string' ? ref.photoUrl : '',
+      }
+    })
+    .filter((entry): entry is PromotionProductRef => entry !== null)
+}
+
+function formatOfferBadge(offer: PromotionOfferConfig): string {
+  switch (offer.kind) {
+    case 'bundle':
+      return offer.bundleGet && offer.bundlePay ? `${offer.bundleGet}×${offer.bundlePay}` : 'Oferta'
+    case 'discount':
+      return offer.discountPercent != null ? `${offer.discountPercent}% Descuento` : 'Descuento'
+    case 'fixed_price':
+      return offer.fixedPriceCents != null
+        ? `${(offer.fixedPriceCents / 100).toFixed(2).replace('.', ',')} €`
+        : 'Precio especial'
+    case 'second_unit':
+      return offer.discountPercent != null ? `2ª ${offer.discountPercent}% dto.` : '2ª unidad'
+    case 'free_item':
+      return 'GRATIS'
+    case 'custom':
+      return offer.customLabel.trim() || 'Promo'
+    default:
+      return 'Promo'
+  }
+}
+
+function formatReservationCount(count: number): string {
+  return `${count} reserva${count === 1 ? '' : 's'}`
+}
+
+function buildHighlight(
+  data: FirebaseFirestore.DocumentData,
+  offer: PromotionOfferConfig | null,
+): string {
+  if (offer && offer.kind !== 'custom') {
+    return formatOfferBadge(offer)
+  }
+
+  if (offer?.kind === 'custom') {
+    if (offer.customLabel.trim()) {
+      return offer.customLabel.trim()
+    }
+    if (data.type === 'reservation_ladder' && typeof data.requiredReservations === 'number') {
+      return formatReservationCount(data.requiredReservations)
+    }
+  }
+
+  if (data.type === 'reservation_ladder' && typeof data.requiredReservations === 'number') {
+    return formatReservationCount(data.requiredReservations)
   }
 
   if (data.type === 'time_limited') {
     const max = data.maxRedemptions as number | null
-    return max ? `${Math.max(0, max - ((data.currentRedemptions as number) ?? 0))} plazas` : 'Limitado'
+    if (max) {
+      return `${Math.max(0, max - ((data.currentRedemptions as number) ?? 0))} plazas`
+    }
+    return 'Limitado'
   }
 
   return 'Puntual'
 }
 
 function buildDetail(data: FirebaseFirestore.DocumentData): string {
-  if (data.type === 'reservation_ladder') {
-    return `${data.requiredReservations ?? 0} reservas`
+  if (data.type === 'reservation_ladder' && typeof data.requiredReservations === 'number') {
+    return formatReservationCount(data.requiredReservations)
   }
 
   if (data.type === 'time_limited') {
-    return `${data.activeFromTime ?? ''}-${data.activeToTime ?? ''}`.trim()
+    const from = (data.activeFromTime as string) ?? ''
+    const to = (data.activeToTime as string) ?? ''
+    return `${from}-${to}`.replace(/^-|-$/g, '').trim() || 'Tiempo limitado'
   }
 
-  return `${data.arrivalWindowMinutes ?? 30} min`
+  if (data.type === 'attendance') {
+    return `${typeof data.arrivalWindowMinutes === 'number' ? data.arrivalWindowMinutes : 30} min`
+  }
+
+  return ''
+}
+
+async function loadPromotionsForCompany(
+  companyDoc: FirebaseFirestore.QueryDocumentSnapshot,
+): Promise<PublicPromotionPayload[]> {
+  const companyData = companyDoc.data()
+  const promotionsSnapshot = await companyDoc.ref
+    .collection('promotions')
+    .where('active', '==', true)
+    .get()
+
+  const photos = Array.isArray(companyData.photos) ? companyData.photos : []
+  const logoUrl = (companyData.logoUrl as string) ?? ''
+  const mainPhotoIndex = typeof companyData.mainPhotoIndex === 'number'
+    ? Math.max(0, Math.min(photos.length - 1, companyData.mainPhotoIndex))
+    : 0
+  const companyPhotoUrl = (photos[mainPhotoIndex] as string) ?? (photos[0] as string) ?? logoUrl
+
+  return promotionsSnapshot.docs.map((promotionDoc) => {
+    const data = promotionDoc.data()
+    const offer = normalizeOffer(data)
+    const productRefs = normalizeProductRefs(data)
+    const productPhoto = productRefs.find((ref) => ref.photoUrl.trim())?.photoUrl ?? ''
+
+    return {
+      id: promotionDoc.id,
+      companyId: companyDoc.id,
+      companyName: (companyData.name as string) ?? 'Restaurante',
+      companySlug: (companyData.slug as string) ?? '',
+      companyPhotoUrl,
+      companyLatitude: typeof companyData.latitude === 'number' ? companyData.latitude : null,
+      companyLongitude: typeof companyData.longitude === 'number' ? companyData.longitude : null,
+      type: (data.type as string) ?? 'time_limited',
+      title: (data.title as string) ?? '',
+      description: (data.description as string) ?? '',
+      photoUrl: (data.photoUrl as string) ?? productPhoto ?? companyPhotoUrl,
+      offer,
+      productRefs,
+      requiredReservations: typeof data.requiredReservations === 'number'
+        ? data.requiredReservations
+        : null,
+      minimumSpendEnabled: data.minimumSpendEnabled === true,
+      minimumSpendCents: typeof data.minimumSpendCents === 'number'
+        ? data.minimumSpendCents
+        : null,
+      activeFromTime: (data.activeFromTime as string) ?? '',
+      activeToTime: (data.activeToTime as string) ?? '',
+      arrivalWindowMinutes: typeof data.arrivalWindowMinutes === 'number'
+        ? data.arrivalWindowMinutes
+        : null,
+      maxRedemptions: typeof data.maxRedemptions === 'number' ? data.maxRedemptions : null,
+      currentRedemptions: typeof data.currentRedemptions === 'number' ? data.currentRedemptions : 0,
+      detail: buildDetail(data),
+      highlight: buildHighlight(data, offer),
+    }
+  })
 }
 
 router.get('/', async (_req: Request, res: Response) => {
@@ -53,38 +234,7 @@ router.get('/', async (_req: Request, res: Response) => {
     const promotions: PublicPromotionPayload[] = []
 
     for (const companyDoc of companiesSnapshot.docs) {
-      const companyData = companyDoc.data()
-      const promotionsSnapshot = await companyDoc.ref
-        .collection('promotions')
-        .where('active', '==', true)
-        .get()
-
-      for (const promotionDoc of promotionsSnapshot.docs) {
-        const data = promotionDoc.data()
-        const photos = Array.isArray(companyData.photos) ? companyData.photos : []
-        const logoUrl = (companyData.logoUrl as string) ?? ''
-
-        promotions.push({
-          id: promotionDoc.id,
-          companyId: companyDoc.id,
-          companyName: (companyData.name as string) ?? 'Restaurante',
-          companySlug: (companyData.slug as string) ?? '',
-          companyPhotoUrl: (photos[0] as string) ?? logoUrl,
-          type: (data.type as string) ?? 'time_limited',
-          title: (data.title as string) ?? '',
-          description: (data.description as string) ?? '',
-          photoUrl: (data.photoUrl as string) ?? (photos[0] as string) ?? logoUrl,
-          requiredReservations: typeof data.requiredReservations === 'number'
-            ? data.requiredReservations
-            : null,
-          activeFromTime: (data.activeFromTime as string) ?? '',
-          activeToTime: (data.activeToTime as string) ?? '',
-          maxRedemptions: typeof data.maxRedemptions === 'number' ? data.maxRedemptions : null,
-          currentRedemptions: typeof data.currentRedemptions === 'number' ? data.currentRedemptions : 0,
-          detail: buildDetail(data),
-          highlight: buildHighlight(data),
-        })
-      }
+      promotions.push(...await loadPromotionsForCompany(companyDoc))
     }
 
     promotions.sort((left, right) => left.companyName.localeCompare(right.companyName, 'es'))
@@ -92,6 +242,32 @@ router.get('/', async (_req: Request, res: Response) => {
     res.json({ promotions: promotions.slice(0, 12) })
   } catch (error) {
     console.error('Public promotions error:', error)
+    res.status(500).json({ error: 'No se pudieron cargar las promociones.' })
+  }
+})
+
+router.get('/:slug', async (req: Request, res: Response) => {
+  try {
+    const slug = String(req.params.slug ?? '').trim().toLowerCase()
+    if (!slug) {
+      res.status(400).json({ error: 'Slug inválido.' })
+      return
+    }
+
+    const companiesSnapshot = await adminDb.collection('companies')
+      .where('slug', '==', slug)
+      .limit(1)
+      .get()
+
+    if (companiesSnapshot.empty) {
+      res.json({ promotions: [] })
+      return
+    }
+
+    const promotions = await loadPromotionsForCompany(companiesSnapshot.docs[0])
+    res.json({ promotions })
+  } catch (error) {
+    console.error('Public promotions by slug error:', error)
     res.status(500).json({ error: 'No se pudieron cargar las promociones.' })
   }
 })

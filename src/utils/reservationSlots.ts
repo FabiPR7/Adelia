@@ -1,5 +1,6 @@
 import type { CompanySchedule, DaySchedule, Reservation } from '../types'
 import { addMinutes, combineDateAndTime, assertReservationStartInFuture, isReservationStartInPast } from './helpers'
+import { getDaySchedulePeriods } from './schedule'
 
 const WEEKDAY_TO_SCHEDULE: Record<number, keyof CompanySchedule> = {
   0: 'sunday',
@@ -35,23 +36,35 @@ export function generateSlotTimes(
 ): string[] {
   const day = getDaySchedule(date, schedule)
 
-  if (!day.active || !day.open || !day.close) {
+  if (!day.active) {
     return []
   }
 
-  const openMinutes = timeToMinutes(day.open)
-  const closeMinutes = timeToMinutes(day.close)
+  const periods = getDaySchedulePeriods(day)
   const slots: string[] = []
 
-  for (
-    let cursor = openMinutes;
-    cursor + reservationDurationMinutes <= closeMinutes;
-    cursor += slotIntervalMinutes
-  ) {
-    slots.push(minutesToTime(cursor))
+  for (const period of periods) {
+    if (!period.open || !period.close) {
+      continue
+    }
+
+    const openMinutes = timeToMinutes(period.open)
+    const closeMinutes = timeToMinutes(period.close)
+
+    for (
+      let cursor = openMinutes;
+      cursor + reservationDurationMinutes <= closeMinutes;
+      cursor += slotIntervalMinutes
+    ) {
+      const time = minutesToTime(cursor)
+
+      if (!slots.includes(time)) {
+        slots.push(time)
+      }
+    }
   }
 
-  return slots
+  return slots.sort()
 }
 
 export function reservationsOverlap(

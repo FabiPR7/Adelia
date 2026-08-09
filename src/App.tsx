@@ -14,10 +14,21 @@ import PublicDiscoveryPage from './pages/PublicDiscoveryPage'
 import CompanyLandingPage from './pages/CompanyLandingPage'
 import UserLoginPage from './pages/UserLoginPage'
 import UserRegisterPage from './pages/UserRegisterPage'
-import CustomerAccountPage from './pages/CustomerAccountPage'
+import CustomerAppLayout from './components/CustomerAppLayout'
+import CustomerGate from './components/CustomerGate'
+import VerifyEmailPage from './pages/VerifyEmailPage'
+import CustomerOnboardingPage from './pages/CustomerOnboardingPage'
+import CustomerExploreTab from './pages/customer/CustomerExploreTab'
+import CustomerPromotionsTab from './pages/customer/CustomerPromotionsTab'
+import CustomerMissionsTab from './pages/customer/CustomerMissionsTab'
+import CustomerProfileTab from './pages/customer/CustomerProfileTab'
+import CustomerReservationsTab from './pages/customer/CustomerReservationsTab'
 import { getPostLoginPath } from './utils/authProfile'
 
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
+const PublicMenuPage = lazy(() => import('./pages/PublicMenuPage'))
+const PublicMenuViewPage = lazy(() => import('./pages/PublicMenuViewPage'))
+const PublicRestaurantPromotionsPage = lazy(() => import('./pages/PublicRestaurantPromotionsPage'))
 const PublicRestaurantProfile = lazy(() => import('./pages/PublicRestaurantProfile'))
 const PublicCancelReservation = lazy(() => import('./pages/PublicCancelReservation'))
 
@@ -46,7 +57,7 @@ function AuthenticatedRoutes() {
         path="/login"
         element={
           user && profile ? (
-            <Navigate to={getPostLoginPath(profile)} replace />
+            <Navigate to={getPostLoginPath(profile, user)} replace />
           ) : (
             <LoginPage />
           )
@@ -80,7 +91,7 @@ function AuthenticatedRoutes() {
         path="*"
         element={
           <Navigate
-            to={user && profile ? getPostLoginPath(profile) : '/'}
+            to={user && profile ? getPostLoginPath(profile, user) : '/'}
             replace
           />
         }
@@ -108,18 +119,25 @@ function App() {
         path="/empresa"
         element={<CompanyLandingPage />}
       />
+      <Route path="/cuenta" element={<Navigate to="/app/perfil" replace />} />
+      <Route path="/cuenta/verificar-email" element={<VerifyEmailPage />} />
+      <Route path="/cuenta/completar-perfil" element={<CustomerOnboardingPage />} />
       <Route
-        path="/cuenta"
+        path="/app"
         element={
-          <RoleRoute role="customer">
-            <CustomerAccountPage />
-          </RoleRoute>
+          <CustomerGate>
+            <CustomerAppLayout />
+          </CustomerGate>
         }
-      />
-      <Route
-        path="/cuenta/entrar"
-        element={<UserLoginPage />}
-      />
+      >
+        <Route index element={<Navigate to="/app/explorar" replace />} />
+        <Route path="explorar" element={<CustomerExploreTab />} />
+        <Route path="promociones" element={<CustomerPromotionsTab />} />
+        <Route path="reservas" element={<CustomerReservationsTab />} />
+        <Route path="misiones" element={<CustomerMissionsTab />} />
+        <Route path="perfil" element={<CustomerProfileTab />} />
+      </Route>
+      <Route path="/cuenta/entrar" element={<UserLoginPage />} />
       <Route
         path="/cuenta/registro"
         element={<UserRegisterPage />}
@@ -169,6 +187,72 @@ function App() {
             }
           >
             <PublicCancelReservation />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/reservar/:slug/promociones"
+        element={
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  minHeight: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                Cargando promociones…
+              </div>
+            }
+          >
+            <PublicRestaurantPromotionsPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/reservar/:slug/carta/:boardId"
+        element={
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  minHeight: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                Cargando carta…
+              </div>
+            }
+          >
+            <PublicMenuViewPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/reservar/:slug/carta"
+        element={
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  minHeight: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                Cargando carta…
+              </div>
+            }
+          >
+            <PublicMenuPage />
           </Suspense>
         }
       />

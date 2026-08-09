@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { useLocation, useParams, useSearchParams } from 'react-router-dom'
 import Calendar from '../components/Calendar'
-import PublicBookingShell from '../components/PublicBookingShell'
+import BookingRestaurantLanding from '../components/booking/BookingRestaurantLanding'
+import { useAuth } from '../context/AuthContext'
 import {
   availabilityToReservations,
   createPublicReservation,
@@ -28,19 +29,29 @@ import {
   isValidEmail,
   isValidSpanishPhone,
 } from '../utils/helpers'
-import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
-import { formatRestaurantLocation, hasRestaurantProfile } from '../utils/publicBooking'
+import { mergeDemoPromotions } from '../data/demoNearbyPromotions'
+import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
+import {
+  getAttendanceDayBlockMessage,
+  getPromoBookingHint,
+  getPromoSlotDisabledReason,
+  isPromoTimeConstrained,
+  validatePromoSlotSelection,
+} from '../utils/promotionBooking'
+import { resolvePromotionHighlight, resolvePromotionMinimumSpend } from '../utils/promotionOffer'
 import styles from './PublicBookingPage.module.css'
 
 const FloorPlanViewer = lazy(() => import('../components/FloorPlanViewer'))
 
 type ViewMode = 'hours' | 'map'
 type BookingStep = 'pick' | 'form' | 'done'
+type PageView = 'landing' | 'booking'
 
 function PublicBookingPage() {
   const { slug = '' } = useParams()
   const location = useLocation()
-  const legalFrom = `${location.pathname}${location.search}`
+  const { profile } = useAuth()
+  const [searchParams] = useSearchParams()
   const [company, setCompany] = useState<PublicBookingCompany | null>(null)
   const [tables, setTables] = useState<PublicBookingTable[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -60,7 +71,11 @@ function PublicBookingPage() {
   const [clientPhone, setClientPhone] = useState('')
   const [pax, setPax] = useState(2)
   const [notes, setNotes] = useState('')
+  const [pageView, setPageView] = useState<PageView>('landing')
+  const [activePromo, setActivePromo] = useState<PublicPromotion | null>(null)
+  const [promoSlotError, setPromoSlotError] = useState<string | null>(null)
 
+  const promoId = searchParams.get('promo')
   const durationMinutes = company?.timeSlotMinutes ?? 120
   const schedule = company?.schedule
 
@@ -113,17 +128,55 @@ function PublicBookingPage() {
   }, [slug])
 
   useEffect(() => {
-    if (!company) {
+    if (!company || pageView !== 'booking') {
       return
     }
 
     void loadAvailability()
-  }, [company, loadAvailability])
+  }, [company, loadAvailability, pageView])
+
+  useEffect(() => {
+    if (searchParams.get('reservar') === '1') {
+      setPageView('booking')
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (!slug || !promoId) {
+      setActivePromo(null)
+      return
+    }
+
+    let cancelled = false
+
+    void fetchPublicPromotionsBySlug(slug)
+      .then((promotions) => {
+        if (cancelled) {
+          return
+        }
+
+        const merged = mergeDemoPromotions(promotions)
+        const found = merged.find(
+          (promotion) => promotion.id === promoId && promotion.companySlug === slug,
+        ) ?? null
+        setActivePromo(found)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setActivePromo(null)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [slug, promoId])
 
   useEffect(() => {
     setStep('pick')
     setSelectedTime('')
     setSelectedTableId('')
+    setPromoSlotError(null)
   }, [selectedDate, viewMode])
 
   const selectedTable = tables.find((table) => table.id === selectedTableId)
@@ -145,6 +198,41 @@ function PublicBookingPage() {
     )
   }, [schedule, selectedDate, durationMinutes, tables, dayReservations])
 
+  const availableHourTimes = useMemo(
+    () => hourSlots.filter((slot) => slot.available).map((slot) => slot.time),
+    [hourSlots],
+  )
+
+  const enrichedHourSlots = useMemo(() => {
+    if (!activePromo || !isPromoTimeConstrained(activePromo)) {
+      return hourSlots.map((slot) => ({ ...slot, promoBlocked: false, promoReason: undefined as string | undefined }))
+    }
+
+    return hourSlots.map((slot) => {
+      const reason = getPromoSlotDisabledReason(
+        activePromo,
+        slot.time,
+        slot.available,
+        selectedDate,
+        availableHourTimes,
+      )
+
+      return {
+        ...slot,
+        promoBlocked: Boolean(reason),
+        promoReason: reason ?? undefined,
+      }
+    })
+  }, [hourSlots, activePromo, selectedDate, availableHourTimes])
+
+  const attendanceDayBlock = useMemo(() => {
+    if (!activePromo || activePromo.type !== 'attendance') {
+      return null
+    }
+
+    return getAttendanceDayBlockMessage(activePromo, selectedDate)
+  }, [activePromo, selectedDate])
+
   const tableSlots = useMemo(() => {
     if (!schedule || !selectedTableId) {
       return []
@@ -159,6 +247,33 @@ function PublicBookingPage() {
       dayReservations,
     )
   }, [schedule, selectedTableId, selectedDate, durationMinutes, dayReservations])
+
+  const availableTableSlotTimes = useMemo(
+    () => tableSlots.filter((slot) => slot.available).map((slot) => slot.time),
+    [tableSlots],
+  )
+
+  const enrichedTableSlots = useMemo(() => {
+    if (!activePromo || !isPromoTimeConstrained(activePromo)) {
+      return tableSlots.map((slot) => ({ ...slot, promoBlocked: false, promoReason: undefined as string | undefined }))
+    }
+
+    return tableSlots.map((slot) => {
+      const reason = getPromoSlotDisabledReason(
+        activePromo,
+        slot.time,
+        slot.available,
+        selectedDate,
+        availableTableSlotTimes,
+      )
+
+      return {
+        ...slot,
+        promoBlocked: Boolean(reason),
+        promoReason: reason ?? undefined,
+      }
+    })
+  }, [tableSlots, activePromo, selectedDate, availableTableSlotTimes])
 
   const tablesForSelectedHour = useMemo(() => {
     if (!selectedTime) {
@@ -179,6 +294,29 @@ function PublicBookingPage() {
     setSelectedTime('')
     setSelectedTableId('')
     setError(null)
+    setPromoSlotError(null)
+  }
+
+  const trySelectPromoSlot = (time: string, availableTimes: string[]): boolean => {
+    if (!activePromo || !isPromoTimeConstrained(activePromo)) {
+      setPromoSlotError(null)
+      return true
+    }
+
+    const validationError = validatePromoSlotSelection(
+      activePromo,
+      time,
+      selectedDate,
+      availableTimes,
+    )
+
+    if (validationError) {
+      setPromoSlotError(validationError)
+      return false
+    }
+
+    setPromoSlotError(null)
+    return true
   }
 
   const openForm = () => {
@@ -187,6 +325,10 @@ function PublicBookingPage() {
   }
 
   const handleSelectHour = (time: string) => {
+    if (!trySelectPromoSlot(time, availableHourTimes)) {
+      return
+    }
+
     setSelectedTime(time)
     setSelectedTableId('')
   }
@@ -202,6 +344,10 @@ function PublicBookingPage() {
   }
 
   const handleSelectSlotForTable = (time: string) => {
+    if (!trySelectPromoSlot(time, availableTableSlotTimes)) {
+      return
+    }
+
     setSelectedTime(time)
     openForm()
   }
@@ -248,6 +394,19 @@ function PublicBookingPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Horario no válido.')
       return
+    }
+
+    if (activePromo && isPromoTimeConstrained(activePromo)) {
+      const promoError = validatePromoSlotSelection(
+        activePromo,
+        selectedTime,
+        selectedDate,
+        viewMode === 'map' ? availableTableSlotTimes : availableHourTimes,
+      )
+      if (promoError) {
+        setError(promoError)
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -307,41 +466,37 @@ function PublicBookingPage() {
 
   const today = new Date()
   const isToday = selectedDate.toDateString() === today.toDateString()
-  const profileHref = hasRestaurantProfile(company) ? `/reservar/${slug}/restaurante` : null
-  const locationLine = formatRestaurantLocation(company)
-  const coverPhoto = company.photos[0]
-    ? optimizeCloudinaryUrl(company.photos[0], CLOUDINARY_DISPLAY.photoThumb)
-    : null
+  const menuHref = `/reservar/${slug}/carta`
+  const promotionsHref = `/reservar/${slug}/promociones`
+  const fromPromotions =
+    (location.state as { from?: string } | null)?.from === 'promociones'
+    || searchParams.get('from') === 'promociones'
+  const landingBackHref =
+    profile?.role === 'customer' && fromPromotions ? '/app/promociones' : null
+
+  if (pageView === 'landing') {
+    return (
+      <BookingRestaurantLanding
+        company={company}
+        menuHref={menuHref}
+        promotionsHref={promotionsHref}
+        backHref={landingBackHref}
+        onReserve={() => {
+          setPageView('booking')
+          setStep('pick')
+        }}
+      />
+    )
+  }
 
   return (
-    <PublicBookingShell
-      company={company}
-      legalFrom={legalFrom}
-      profileHref={profileHref}
-    >
-      {(profileHref || locationLine || company.phone) && (
-        <section className={styles.restaurantTeaser}>
-          {coverPhoto && (
-            <img src={coverPhoto} alt="" className={styles.teaserPhoto} loading="lazy" />
-          )}
-          <div className={styles.teaserBody}>
-            <div className={styles.teaserText}>
-              <span className={styles.teaserEyebrow}>Tu mesa te espera</span>
-              {locationLine && <p className={styles.teaserLocation}>{locationLine}</p>}
-              {company.characteristics.length > 0 && (
-                <p className={styles.teaserTags}>
-                  {company.characteristics.slice(0, 3).join(' · ')}
-                </p>
-              )}
-            </div>
-            {profileHref && (
-              <Link to={profileHref} className={styles.teaserButton}>
-                Ver restaurante
-              </Link>
-            )}
-          </div>
-        </section>
-      )}
+    <div className={styles.bookingPage}>
+      <header className={styles.bookingTopBar}>
+        <button type="button" className={styles.backToLanding} onClick={() => setPageView('landing')}>
+          ← Volver
+        </button>
+        <h1 className={styles.bookingTitle}>{company.name}</h1>
+      </header>
 
       <main className={styles.main}>
         <section className={styles.hero}>
@@ -368,6 +523,31 @@ function PublicBookingPage() {
             </button>
           </div>
         </section>
+
+        {activePromo && isPromoTimeConstrained(activePromo) ? (
+          <div className={styles.promoBanner}>
+            <span className={styles.promoBannerBadge}>
+              {resolvePromotionHighlight(activePromo, 0)}
+            </span>
+            <div className={styles.promoBannerText}>
+              <strong>{activePromo.title}</strong>
+              <p>{getPromoBookingHint(activePromo)}</p>
+              {resolvePromotionMinimumSpend(activePromo) ? (
+                <p className={styles.promoBannerMinSpend}>
+                  {resolvePromotionMinimumSpend(activePromo)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {promoSlotError && step !== 'done' ? (
+          <div className={styles.promoSlotError}>{promoSlotError}</div>
+        ) : null}
+
+        {attendanceDayBlock && step !== 'done' ? (
+          <div className={styles.promoSlotError}>{attendanceDayBlock}</div>
+        ) : null}
 
         {error && step !== 'done' && <div className={styles.error}>{error}</div>}
 
@@ -511,17 +691,18 @@ function PublicBookingPage() {
                       <>
                         <h3>Elige una hora</h3>
                         <div className={styles.slotGrid}>
-                          {hourSlots.map((slot) => (
-                            <button
-                              key={slot.time}
-                              type="button"
-                              className={`${styles.slotButton} ${slot.available ? '' : styles.slotButtonDisabled}`}
-                              disabled={!slot.available}
-                              onClick={() => handleSelectHour(slot.time)}
-                            >
-                              {slot.time}
-                            </button>
-                          ))}
+                          {enrichedHourSlots.map((slot) => (
+                              <button
+                                key={slot.time}
+                                type="button"
+                                className={`${styles.slotButton} ${!slot.available ? styles.slotButtonDisabled : ''} ${slot.promoBlocked ? styles.slotButtonPromoBlocked : ''}`}
+                                disabled={!slot.available}
+                                title={slot.promoReason}
+                                onClick={() => handleSelectHour(slot.time)}
+                              >
+                                {slot.time}
+                              </button>
+                            ))}
                         </div>
                       </>
                     ) : (
@@ -580,18 +761,19 @@ function PublicBookingPage() {
                               {selectedTable?.name} · {selectedTable?.capacity} pers.
                             </h3>
                             <div className={styles.mapSlotGrid}>
-                              {tableSlots.map((slot) => (
-                                <button
-                                  key={slot.time}
-                                  type="button"
-                                  className={`${styles.slotButton} ${slot.available ? '' : styles.slotButtonDisabled}`}
-                                  disabled={!slot.available}
-                                  onClick={() => handleSelectSlotForTable(slot.time)}
-                                >
-                                  {slot.time}
-                                  <span>{formatSlotEndTime(slot.time, durationMinutes)}</span>
-                                </button>
-                              ))}
+                              {enrichedTableSlots.map((slot) => (
+                                  <button
+                                    key={slot.time}
+                                    type="button"
+                                    className={`${styles.slotButton} ${!slot.available ? styles.slotButtonDisabled : ''} ${slot.promoBlocked ? styles.slotButtonPromoBlocked : ''}`}
+                                    disabled={!slot.available}
+                                    title={slot.promoReason}
+                                    onClick={() => handleSelectSlotForTable(slot.time)}
+                                  >
+                                    {slot.time}
+                                    <span>{formatSlotEndTime(slot.time, durationMinutes)}</span>
+                                  </button>
+                                ))}
                             </div>
                           </>
                         ) : (
@@ -623,7 +805,7 @@ function PublicBookingPage() {
           </div>
         </div>
       )}
-    </PublicBookingShell>
+    </div>
   )
 }
 

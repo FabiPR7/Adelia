@@ -4,6 +4,7 @@ import { FEATURED_PROMOTIONS, PROMO_HERO_IMAGE } from '../data/featuredPromotion
 import { fetchPublicPromotions, type PublicPromotion } from '../services/publicPromotions'
 import { PROMOTION_TYPE_LABELS } from '../types/company'
 import type { PromotionType } from '../types/company'
+import { resolvePromotionDetail, resolvePromotionHighlight } from '../utils/promotionOffer'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './DiscoveryPromotionsSection.module.css'
 
@@ -21,8 +22,8 @@ function mapPublicPromotion(promotion: PublicPromotion, index: number) {
     type: promotion.type as PromotionType,
     title: promotion.title,
     description: promotion.description,
-    detail: promotion.detail,
-    highlight: promotion.highlight,
+    detail: resolvePromotionDetail(promotion),
+    highlight: resolvePromotionHighlight(promotion, index),
     restaurantName: promotion.companyName,
     imageUrl: imageUrl
       ? optimizeCloudinaryUrl(imageUrl, CLOUDINARY_DISPLAY.photoGallery)

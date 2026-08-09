@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import ClientReservationDatePicker from '../../components/ClientReservationDatePicker'
 import {
   filterReservationsByClientEmail,
   getCompanyClients,
@@ -296,24 +297,16 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
 
               {clientReservations.length > 0 && (
                 <div className={styles.reservationFilters}>
-                  <label className={styles.filterField}>
-                    <span>Fecha</span>
-                    <select
-                      value={reservationDateFilter}
-                      onChange={(event) => {
-                        setReservationDateFilter(event.target.value)
-                        setReservationTimeFilter('')
-                        setReservationTableFilter('')
-                      }}
-                    >
-                      <option value="">Todas</option>
-                      {reservationDateOptions.map((date) => (
-                        <option key={date} value={date}>
-                          {formatDateSpanish(new Date(`${date}T12:00:00`))}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <ClientReservationDatePicker
+                    value={reservationDateFilter}
+                    onChange={(isoDate) => {
+                      setReservationDateFilter(isoDate)
+                      setReservationTimeFilter('')
+                      setReservationTableFilter('')
+                    }}
+                    reservations={clientReservations}
+                    availableDates={reservationDateOptions}
+                  />
 
                   <label className={styles.filterField}>
                     <span>Hora</span>

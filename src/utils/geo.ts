@@ -33,3 +33,37 @@ export function formatDistanceKm(distanceKm: number): string {
 
   return `${Math.round(distanceKm)} km`
 }
+
+/** Radio máximo para mostrar promociones "cerca" del usuario. */
+export const PROMO_NEARBY_MAX_KM = 35
+
+/** Tiempo estimado de desplazamiento según distancia en línea recta. */
+export function estimateTravelMinutes(distanceKm: number, mode: 'driving' | 'walking'): number {
+  const speedKmh = mode === 'driving' ? 35 : 5
+  return Math.max(1, Math.round((distanceKm / speedKmh) * 60))
+}
+
+export function formatTravelMinutes(minutes: number): string {
+  if (minutes < 60) {
+    return `${minutes} min`
+  }
+
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest > 0 ? `${hours} h ${rest} min` : `${hours} h`
+}
+
+export function buildGoogleMapsDirectionsUrl(
+  origin: GeoCoordinates,
+  destination: GeoCoordinates,
+  travelMode: 'driving' | 'walking' = 'driving',
+): string {
+  const params = new URLSearchParams({
+    api: '1',
+    origin: `${origin.lat},${origin.lng}`,
+    destination: `${destination.lat},${destination.lng}`,
+    travelmode: travelMode,
+  })
+
+  return `https://www.google.com/maps/dir/?${params.toString()}`
+}

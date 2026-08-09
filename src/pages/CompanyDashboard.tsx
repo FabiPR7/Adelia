@@ -11,7 +11,7 @@ import {
   REPORTS_SECTIONS,
   SETTINGS_SECTIONS,
   type CompanyTab,
-  type SettingsSection,
+  type CompanySettingsSection,
 } from '../types'
 import type { CompanySettingsHandle } from './company/CompanySettings'
 import CompanyReservations from './company/CompanyReservations'
@@ -21,6 +21,7 @@ import CompanyReportsClients from './company/CompanyReportsClients'
 import CompanyPromotions from './company/CompanyPromotions'
 import CompanyEmailTemplate from './company/CompanyEmailTemplate'
 import CompanyHelp from './company/CompanyHelp'
+import CompanyMenu from './company/CompanyMenu'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './CompanyDashboard.module.css'
@@ -50,11 +51,11 @@ function settingsSectionLabel(tab: CompanyTab): string {
 function CompanyDashboard() {
   const { company } = useAuth()
   const [activeTab, setActiveTab] = useState<CompanyTab>('reservations')
-  const [lastSettingsSection, setLastSettingsSection] = useState<SettingsSection>('contact')
+  const [lastSettingsSection, setLastSettingsSection] = useState<CompanySettingsSection>('contact')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [pendingTab, setPendingTab] = useState<CompanyTab | null>(null)
-  const [unsavedSection, setUnsavedSection] = useState<SettingsSection | null>(null)
+  const [unsavedSection, setUnsavedSection] = useState<CompanySettingsSection | null>(null)
   const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false)
   const [isSavingUnsaved, setIsSavingUnsaved] = useState(false)
   const settingsRef = useRef<CompanySettingsHandle>(null)
@@ -64,7 +65,7 @@ function CompanyDashboard() {
   }
 
   const completeNavigation = (tab: CompanyTab) => {
-    if (isSettingsTab(tab)) {
+    if (isSettingsTab(tab) && tab !== 'menu') {
       setLastSettingsSection(tab)
     }
 
@@ -82,7 +83,11 @@ function CompanyDashboard() {
       return
     }
 
-    if (isSettingsTab(activeTab) && settingsRef.current?.isSectionDirty(activeTab)) {
+    if (
+      activeTab !== 'menu'
+      && isSettingsTab(activeTab)
+      && settingsRef.current?.isSectionDirty(activeTab)
+    ) {
       setPendingTab(tab)
       setUnsavedSection(activeTab)
       setUnsavedDialogOpen(true)
@@ -137,10 +142,11 @@ function CompanyDashboard() {
   const logoSrc = company.logoUrl
     ? optimizeCloudinaryUrl(company.logoUrl, CLOUDINARY_DISPLAY.logo)
     : ADELIA_LOGO_URL
-  const inSettings = isSettingsTab(activeTab)
+  const inMenu = activeTab === 'menu'
+  const inSettingsEditor = isSettingsTab(activeTab) && activeTab !== 'menu'
   const inClients = isClientsTab(activeTab)
   const inReports = isReportsTab(activeTab)
-  const settingsSection = isSettingsTab(activeTab) ? activeTab : lastSettingsSection
+  const settingsSection = inSettingsEditor ? activeTab : lastSettingsSection
   const unsavedSectionLabel =
     SETTINGS_SECTIONS.find((section) => section.id === unsavedSection)?.label ?? 'Ajustes'
 
@@ -227,7 +233,7 @@ function CompanyDashboard() {
           </div>
 
           <div className={styles.navGroup}>
-            <div className={`${styles.navGroupTitle} ${inSettings ? styles.navGroupTitleActive : ''}`}>
+            <div className={`${styles.navGroupTitle} ${inSettingsEditor || inMenu ? styles.navGroupTitleActive : ''}`}>
               <span className={styles.navLabel}>Mi restaurante</span>
             </div>
 
@@ -316,7 +322,10 @@ function CompanyDashboard() {
           <div className={activeTab === 'help' ? styles.tabPanelActive : styles.tabPanelHidden}>
             <CompanyHelp />
           </div>
-          <div className={inSettings ? styles.tabPanelActive : styles.tabPanelHidden}>
+          <div className={inMenu ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyMenu companyId={company.id} />
+          </div>
+          <div className={inSettingsEditor ? styles.tabPanelActive : styles.tabPanelHidden}>
             <Suspense
               fallback={
                 <div className={styles.pageLoading}>

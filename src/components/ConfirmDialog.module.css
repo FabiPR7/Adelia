@@ -10,6 +10,10 @@
   backdrop-filter: blur(2px);
 }
 
+.overlayElevated {
+  z-index: 130;
+}
+
 .dialog {
   width: 100%;
   max-width: 420px;

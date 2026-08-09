@@ -1,0 +1,297 @@
+.panels {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.locationWrap {
+  display: flex;
+  justify-content: center;
+}
+
+.locationInner {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.38rem 0.75rem 0.38rem 0.38rem;
+}
+
+.locationMedallion {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.locationText {
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.medallionIcon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.medallionIconLg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.xpInner {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.45rem 0.7rem;
+  align-items: center;
+}
+
+.xpMedallion {
+  grid-row: span 2;
+  width: 2.65rem;
+  height: 2.65rem;
+}
+
+.xpCopy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.xpHeadline {
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.xpMeter {
+  grid-column: 1 / -1;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--strip-xp-track);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--strip-border) 40%, transparent);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.22);
+}
+
+.xpMeterFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--strip-xp-fill);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--section-accent) 55%, transparent);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.statWrap {
+  min-width: 0;
+  height: 100%;
+}
+
+.statInner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.85rem 0.35rem 0.78rem;
+  text-align: center;
+}
+
+.statMedallion {
+  width: 2.35rem;
+  height: 2.35rem;
+}
+
+.statValue {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+}
+
+.panelHeader {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.8rem;
+}
+
+.panelHeaderText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.panelMedallion {
+  width: 2.45rem;
+  height: 2.45rem;
+  flex-shrink: 0;
+}
+
+.panelHeadline {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.12;
+}
+
+.countMedallion {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.85rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.75rem;
+  background: var(--pill-number-bg);
+  border: 1.5px solid color-mix(in srgb, var(--strip-border) 70%, transparent);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.countValue {
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--pill-number-color);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.countLabel {
+  font-size: 0.46rem;
+  letter-spacing: 0.1em;
+  color: color-mix(in srgb, var(--pill-number-color) 80%, transparent);
+}
+
+.tasteGrid {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.65rem;
+}
+
+.tasteChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.12rem 0.55rem 0.12rem 0.1rem;
+}
+
+.tasteDot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: var(--section-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--section-accent) 60%, transparent);
+  flex-shrink: 0;
+}
+
+.tasteLabel {
+  font-size: 0.72rem;
+  line-height: 1.15;
+}
+
+.logrosStage {
+  position: relative;
+  z-index: 2;
+  padding: 0.65rem;
+  border-radius: 0.85rem;
+  background: rgba(0, 0, 0, 0.14);
+  border: 1px solid color-mix(in srgb, var(--strip-border) 25%, transparent);
+  box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.18);
+}
+
+.logrosGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  justify-items: center;
+}
+
+.logroItem {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.logroItem > button {
+  max-width: 5.35rem;
+  min-height: 6rem;
+}
+
+.logroItem > button > div {
+  min-height: 6rem;
+}
+
+.emptyLogros {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  padding: 0.5rem 0.25rem;
+  justify-content: center;
+  width: 100%;
+}
+
+:global(.pageLevel1) .countValue {
+  color: #4a2f20;
+  text-shadow: none;
+}
+
+:global(.pageLevel1) .countLabel {
+  color: #6b5344;
+}
+
+:global(.pageLevel1) .countMedallion {
+  background: #e8dcc8;
+  border-color: #c4956a;
+  box-shadow:
+    0 4px 12px rgba(92, 74, 58, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+:global(.pageLevel1) .logrosStage {
+  background: rgba(92, 74, 58, 0.06);
+  border-color: rgba(196, 165, 116, 0.35);
+}
+
+:global(.pageLevel1) .xpHeadline,
+:global(.pageLevel1) .statValue,
+:global(.pageLevel1) .panelHeadline,
+:global(.pageLevel1) .tasteLabel,
+:global(.pageLevel1) .locationText {
+  color: #4a2f20;
+  text-shadow: none;
+}
+
+@media (min-width: 900px) {
+  .logrosGrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .statValue {
+    font-size: 1.45rem;
+  }
+
+  .xpHeadline {
+    font-size: 1.28rem;
+  }
+}

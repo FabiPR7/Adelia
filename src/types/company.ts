@@ -29,6 +29,7 @@ export interface CompanySettingsPayload {
   description: string
   logoUrl: string
   photos: string[]
+  mainPhotoIndex: number
   videos: string[]
   characteristics: string[]
   timeSlotMinutes: number
@@ -423,6 +424,29 @@ export type ClientsSection =
 
 export type PromotionType = 'reservation_ladder' | 'time_limited' | 'attendance'
 
+export type PromotionOfferKind =
+  | 'bundle'
+  | 'discount'
+  | 'fixed_price'
+  | 'second_unit'
+  | 'free_item'
+  | 'custom'
+
+export interface PromotionProductRef {
+  nodeId: string
+  name: string
+  photoUrl: string
+}
+
+export interface PromotionOfferConfig {
+  kind: PromotionOfferKind
+  bundleGet: number | null
+  bundlePay: number | null
+  discountPercent: number | null
+  fixedPriceCents: number | null
+  customLabel: string
+}
+
 export interface CompanyPromotion {
   id: string
   companyId: string
@@ -430,9 +454,13 @@ export interface CompanyPromotion {
   title: string
   description: string
   photoUrl: string
+  offer: PromotionOfferConfig
+  productRefs: PromotionProductRef[]
   active: boolean
   requiresReservation: boolean
   requiredReservations: number | null
+  minimumSpendEnabled: boolean
+  minimumSpendCents: number | null
   activeFromTime: string
   activeToTime: string
   maxRedemptions: number | null
@@ -447,9 +475,13 @@ export interface PromotionInput {
   title: string
   description: string
   photoUrl: string
+  offer: PromotionOfferConfig
+  productIds: string[]
   active: boolean
   requiresReservation: boolean
   requiredReservations: number | null
+  minimumSpendEnabled: boolean
+  minimumSpendCents: number | null
   activeFromTime: string
   activeToTime: string
   maxRedemptions: number | null
@@ -457,15 +489,44 @@ export interface PromotionInput {
 }
 
 export const PROMOTION_TYPE_LABELS: Record<PromotionType, string> = {
-  reservation_ladder: 'Premio por reservas',
+  reservation_ladder: 'Oferta',
   time_limited: 'Tiempo limitado',
   attendance: 'Asistencia puntual',
 }
 
 export const PROMOTION_TYPE_HINTS: Record<PromotionType, string> = {
-  reservation_ladder: 'Escalable: el cliente canjea primero el premio de menos reservas.',
-  time_limited: 'Activa solo en un tramo horario y con cupos limitados.',
+  reservation_ladder: 'Ofertas escalables: el cliente canjea primero la de menos reservas o condiciones.',
+  time_limited: 'Activa solo en un tramo horario concreto.',
   attendance: 'El cliente debe presentarse en un plazo; si no viene, se libera el cupo.',
+}
+
+export const PROMOTION_OFFER_KIND_LABELS: Record<PromotionOfferKind, string> = {
+  bundle: 'X por X (ej. 2×1)',
+  discount: 'Descuento',
+  fixed_price: 'Precio fijo',
+  second_unit: '2ª unidad con descuento',
+  free_item: 'Producto de regalo',
+  custom: 'Otro / personalizado',
+}
+
+export const PROMOTION_OFFER_KIND_HINTS: Record<PromotionOfferKind, string> = {
+  bundle: 'Ej.: llevas 2 y pagas 1 → se muestra como 2×1.',
+  discount: 'Porcentaje de descuento sobre los productos seleccionados.',
+  fixed_price: 'Precio especial total para los productos de la promo.',
+  second_unit: 'Descuento en la segunda unidad (ej. 2ª al 50%).',
+  free_item: 'Regalo al pedir los productos seleccionados.',
+  custom: 'Título, descripción y foto libres como hasta ahora.',
+}
+
+export function defaultPromotionOffer(kind: PromotionOfferKind = 'custom'): PromotionOfferConfig {
+  return {
+    kind,
+    bundleGet: kind === 'bundle' ? 2 : null,
+    bundlePay: kind === 'bundle' ? 1 : null,
+    discountPercent: kind === 'discount' || kind === 'second_unit' ? 20 : null,
+    fixedPriceCents: kind === 'fixed_price' ? 1000 : null,
+    customLabel: '',
+  }
 }
 
 export function defaultPromotionInput(type: PromotionType): PromotionInput {
@@ -474,12 +535,16 @@ export function defaultPromotionInput(type: PromotionType): PromotionInput {
     title: '',
     description: '',
     photoUrl: '',
+    offer: defaultPromotionOffer('custom'),
+    productIds: [],
     active: false,
-    requiresReservation: type === 'reservation_ladder',
+    requiresReservation: false,
     requiredReservations: null,
+    minimumSpendEnabled: false,
+    minimumSpendCents: null,
     activeFromTime: '12:00',
     activeToTime: '16:00',
-    maxRedemptions: type === 'reservation_ladder' ? null : 10,
+    maxRedemptions: type === 'attendance' ? 10 : null,
     arrivalWindowMinutes: type === 'attendance' ? 30 : null,
   }
 }
@@ -497,26 +562,40 @@ export function validatePromotionInput(
     return 'La descripción es obligatoria.'
   }
 
+  const offerError = validatePromotionOfferConfig(input.offer)
+  if (offerError) {
+    return offerError
+  }
+
   if (input.type === 'reservation_ladder') {
-    if (
-      input.requiredReservations === null
-      || !Number.isFinite(input.requiredReservations)
-      || input.requiredReservations < 1
-    ) {
-      return 'Indica cuántas reservas se requieren (número positivo, mínimo 1).'
-    }
-
-    if (input.active) {
-      const conflict = existing.find(
-        (promotion) => promotion.id !== editingId
-          && promotion.active
-          && promotion.type === 'reservation_ladder'
-          && promotion.requiredReservations === input.requiredReservations,
-      )
-
-      if (conflict) {
-        return `Ya hay una promoción activa que requiere ${input.requiredReservations} reservas.`
+    if (input.requiresReservation) {
+      if (
+        input.requiredReservations === null
+        || !Number.isFinite(input.requiredReservations)
+        || input.requiredReservations < 1
+      ) {
+        return 'Indica cuántas reservas se requieren (mínimo 1).'
       }
+
+      if (input.active) {
+        const conflict = existing.find(
+          (promotion) => promotion.id !== editingId
+            && promotion.active
+            && promotion.type === 'reservation_ladder'
+            && promotion.requiresReservation
+            && promotion.requiredReservations === input.requiredReservations,
+        )
+
+        if (conflict) {
+          return `Ya hay una oferta activa que requiere ${input.requiredReservations} reservas.`
+        }
+      }
+    } else if (
+      input.requiredReservations !== null
+      && Number.isFinite(input.requiredReservations)
+      && input.requiredReservations < 0
+    ) {
+      return 'Las reservas requeridas no pueden ser negativas.'
     }
   }
 
@@ -524,19 +603,168 @@ export function validatePromotionInput(
     if (!input.activeFromTime || !input.activeToTime) {
       return 'Indica la franja horaria activa.'
     }
-
-    if (!input.maxRedemptions || input.maxRedemptions < 1) {
-      return 'Indica el máximo de canjes permitidos (mínimo 1).'
-    }
   }
 
   if (input.type === 'attendance') {
+    if (!input.maxRedemptions || input.maxRedemptions < 1) {
+      return 'Indica el máximo de canjes permitidos (mínimo 1).'
+    }
+
     if (!input.arrivalWindowMinutes || input.arrivalWindowMinutes < 1) {
       return 'Indica el tiempo máximo de llegada en minutos.'
     }
   }
 
+  if (input.minimumSpendEnabled) {
+    if (
+      input.minimumSpendCents === null
+      || !Number.isFinite(input.minimumSpendCents)
+      || input.minimumSpendCents < 0
+    ) {
+      return 'Indica un gasto mínimo válido (0 € o más).'
+    }
+  }
+
   return null
+}
+
+export function validatePromotionOfferConfig(offer: PromotionOfferConfig): string | null {
+  switch (offer.kind) {
+    case 'bundle': {
+      if (!offer.bundleGet || offer.bundleGet < 2) {
+        return 'Indica cuántas unidades lleva el cliente (mínimo 2).'
+      }
+      if (!offer.bundlePay || offer.bundlePay < 1 || offer.bundlePay >= offer.bundleGet) {
+        return 'Indica cuántas unidades paga (debe ser menor que las que lleva).'
+      }
+      return null
+    }
+    case 'discount':
+    case 'second_unit': {
+      if (
+        offer.discountPercent === null
+        || !Number.isFinite(offer.discountPercent)
+        || offer.discountPercent < 1
+        || offer.discountPercent > 100
+      ) {
+        return 'Indica un descuento entre 1 y 100%.'
+      }
+      return null
+    }
+    case 'fixed_price': {
+      if (!offer.fixedPriceCents || offer.fixedPriceCents < 1) {
+        return 'Indica un precio fijo válido.'
+      }
+      return null
+    }
+    case 'free_item':
+    case 'custom':
+      return null
+    default:
+      return null
+  }
+}
+
+export type MenuLayout = 'list' | 'grid'
+
+export type MenuNodeType = 'family' | 'product'
+
+export interface MenuCategoryAvailability {
+  enabled: boolean
+  start: string
+  end: string
+}
+
+export interface MenuTemplateConfig {
+  templateId: string
+  backgroundColor: string
+  backgroundImageUrl: string
+  backgroundImageOpacity: number
+  fontFamily: string
+  titleColor: string
+  textColor: string
+  accentColor: string
+  familyColor: string
+  subfamilyColor: string
+  priceColor: string
+  layout: MenuLayout
+  showPhotos: boolean
+  showAllergens: boolean
+  showDescriptions: boolean
+}
+
+export interface MenuBoard {
+  id: string
+  companyId: string
+  name: string
+  active: boolean
+  sortOrder: number
+  template: MenuTemplateConfig
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface MenuBoardInput {
+  name: string
+  active: boolean
+  sortOrder: number
+  template: MenuTemplateConfig
+}
+
+export interface MenuNode {
+  id: string
+  companyId: string
+  boardId: string
+  nodeType: MenuNodeType
+  parentId: string | null
+  sortOrder: number
+  name: string
+  description: string
+  allergens: string[]
+  priceCents: number | null
+  priceCurrency: string
+  photoUrl: string
+  active: boolean
+  availability: MenuCategoryAvailability
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface MenuNodeInput {
+  boardId: string
+  nodeType: MenuNodeType
+  parentId: string | null
+  sortOrder: number
+  name: string
+  description: string
+  allergens: string[]
+  priceCents: number | null
+  priceCurrency: string
+  photoUrl: string
+  active: boolean
+  availability: MenuCategoryAvailability
+}
+
+export function defaultMenuNodeInput(
+  boardId: string,
+  nodeType: MenuNodeType,
+  parentId: string | null,
+  sortOrder: number,
+): MenuNodeInput {
+  return {
+    boardId,
+    nodeType,
+    parentId,
+    sortOrder,
+    name: '',
+    description: '',
+    allergens: [],
+    priceCents: null,
+    priceCurrency: 'EUR',
+    photoUrl: '',
+    active: true,
+    availability: { enabled: false, start: '13:00', end: '16:00' },
+  }
 }
 
 export type SettingsSection =
@@ -544,6 +772,9 @@ export type SettingsSection =
   | 'profile'
   | 'reservation-settings'
   | 'tables'
+  | 'menu'
+
+export type CompanySettingsSection = Exclude<SettingsSection, 'menu'>
 
 export type ReportsSection = 'reports-reservations' | 'reports-clients'
 
@@ -564,8 +795,9 @@ export const REPORTS_SECTIONS: { id: ReportsSection; label: string; hint: string
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: string }[] = [
   { id: 'contact', label: 'Contacto', hint: 'Datos y logo' },
   { id: 'profile', label: 'Perfil', hint: 'Ficha del local' },
-  { id: 'reservation-settings', label: 'Reservas y horario', hint: 'Duración, turnos y días' },
+  { id: 'reservation-settings', label: 'Reservas y horario', hint: 'Duración y días' },
   { id: 'tables', label: 'Mesas', hint: 'Capacidad y mapa' },
+  { id: 'menu', label: 'Carta', hint: 'Productos y diseño' },
 ]
 
 export function isClientsTab(tab: CompanyTab): tab is ClientsSection {

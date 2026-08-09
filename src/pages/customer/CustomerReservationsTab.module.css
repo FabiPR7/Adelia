@@ -1,0 +1,236 @@
+.page {
+  min-height: 100%;
+  padding: 0 0 1.5rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 79, 143, 0.1), transparent 40%),
+    linear-gradient(180deg, #fff8f4 0%, var(--color-cream) 100%);
+}
+
+.loading {
+  min-height: 50vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  margin: 0 -0.85rem;
+  padding: 1.35rem 1.1rem 1.15rem;
+  color: #fff;
+  background: linear-gradient(135deg, #1f1418 0%, #4a1835 42%, #ff4f8f 100%);
+}
+
+.heroGlow {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  top: -70px;
+  right: -40px;
+  border-radius: 50%;
+  background: rgba(255, 107, 74, 0.35);
+  pointer-events: none;
+}
+
+.eyebrow {
+  position: relative;
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: rgba(255, 200, 180, 0.95);
+}
+
+.hero h1 {
+  position: relative;
+  margin: 0.3rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  line-height: 1.05;
+}
+
+.lead {
+  position: relative;
+  margin: 0.45rem 0 0;
+  max-width: 22rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.heroStats {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 1rem;
+  max-width: 16rem;
+}
+
+.heroStats div {
+  padding: 0.7rem 0.85rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.heroStats strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.heroStats span {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin: 1rem 0.85rem 0.85rem;
+  padding: 0.35rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(107, 83, 68, 0.08);
+  box-shadow: 0 10px 28px rgba(35, 28, 22, 0.06);
+}
+
+.tab,
+.tabActive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.78rem 0.85rem;
+  border: none;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tab {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.tabActive {
+  background: #fff;
+  color: #ff6b4a;
+  box-shadow: 0 10px 24px rgba(255, 79, 143, 0.16);
+}
+
+.tab span,
+.tabActive span {
+  min-width: 1.35rem;
+  padding: 0.12rem 0.38rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  background: rgba(107, 83, 68, 0.08);
+}
+
+.tabActive span {
+  background: rgba(255, 107, 74, 0.12);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0 0.85rem;
+}
+
+.empty {
+  margin: 0 0.85rem;
+  padding: 2rem 1rem;
+  border-radius: 22px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top, rgba(255, 107, 74, 0.1), transparent 55%),
+    rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(107, 83, 68, 0.08);
+  box-shadow: 0 12px 32px rgba(35, 28, 22, 0.06);
+}
+
+.emptyIcon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.empty h2 {
+  margin: 0.75rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-brown);
+}
+
+.empty p {
+  margin: 0.45rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.emptyCta {
+  display: inline-flex;
+  margin-top: 1rem;
+  padding: 0.72rem 1.15rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 12px 28px rgba(255, 79, 143, 0.26);
+}
+
+@media (min-width: 900px) {
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding-bottom: 2rem;
+  }
+
+  .hero {
+    margin: 0 1.5rem;
+    border-radius: 24px;
+    padding: 1.75rem 1.5rem 1.5rem;
+  }
+
+  .tabs {
+    margin-left: 1.5rem;
+    margin-right: 1.5rem;
+  }
+
+  .list {
+    padding: 0 1.5rem;
+  }
+
+  .empty {
+    margin-left: 1.5rem;
+    margin-right: 1.5rem;
+  }
+
+  .hero h1 {
+    font-size: 2.35rem;
+  }
+
+  .list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .list > :only-child {
+    grid-column: 1 / -1;
+  }
+}

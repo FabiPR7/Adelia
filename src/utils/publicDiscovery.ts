@@ -1,6 +1,7 @@
 import type { Company } from '../types'
 import type { PublicBookingCompany } from '../services/publicApi'
 import { isValidMapCoordinates } from './mapCoordinates'
+import { getMockReservationCount, getMockReviewRating } from './mockReviewRating'
 
 export interface PublicDiscoveryRestaurant {
   id: string
@@ -30,8 +31,11 @@ export function mapCompanyToPublicBooking(company: Company): PublicBookingCompan
     description: company.description,
     logoUrl: company.logoUrl,
     photos: company.photos ?? [],
+    mainPhotoIndex: company.mainPhotoIndex ?? 0,
     videos: company.videos ?? [],
     characteristics: company.characteristics ?? [],
+    latitude: company.latitude,
+    longitude: company.longitude,
     timeSlotMinutes: company.timeSlotMinutes,
     schedule: company.schedule,
     floorPlan: company.floorPlan,
@@ -203,4 +207,20 @@ export function collectDiscoveryZones(restaurants: PublicDiscoveryRestaurant[]):
   }
 
   return [...zones].sort((left, right) => left.localeCompare(right, 'es'))
+}
+
+export function sortRestaurantsByMockReservations(
+  restaurants: PublicDiscoveryRestaurant[],
+): PublicDiscoveryRestaurant[] {
+  return [...restaurants].sort(
+    (left, right) => getMockReservationCount(right.slug) - getMockReservationCount(left.slug),
+  )
+}
+
+export function sortRestaurantsByMockRating(
+  restaurants: PublicDiscoveryRestaurant[],
+): PublicDiscoveryRestaurant[] {
+  return [...restaurants].sort(
+    (left, right) => getMockReviewRating(right.slug) - getMockReviewRating(left.slug),
+  )
 }

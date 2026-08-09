@@ -7,7 +7,7 @@ import type {
   MissionProgress,
 } from '../types/gamification'
 import type { Reservation } from '../types'
-import { WEEKLY_BONUS_TARGET, WEEKLY_MISSION_BONUS_XP } from '../types/gamification'
+import { WEEKLY_BONUS_TARGET, WEEKLY_MISSION_BONUS_XP, CONFIRMED_RESERVATION_XP } from '../types/gamification'
 
 export interface GamificationContext {
   reservations: Reservation[]
@@ -60,7 +60,47 @@ function isDinnerHour(date: Date): boolean {
 }
 
 function attendedReservations(reservations: Reservation[]): Reservation[] {
-  return reservations.filter((reservation) => reservation.status === 'completed')
+  return reservations.filter((reservation) => reservation.status === 'confirmed')
+}
+
+export function buildVerifiedReservationCounts(
+  reservations: Reservation[],
+): Record<string, number> {
+  const counts: Record<string, number> = {}
+
+  for (const reservation of attendedReservations(reservations)) {
+    counts[reservation.companyId] = (counts[reservation.companyId] ?? 0) + 1
+  }
+
+  return counts
+}
+
+function processReservationXp(
+  state: CustomerGamificationState,
+  reservations: Reservation[],
+): CustomerGamificationState {
+  const awarded = new Set(state.awardedReservationXpIds)
+  let xpGain = 0
+  const nextAwarded = [...state.awardedReservationXpIds]
+
+  for (const reservation of attendedReservations(reservations)) {
+    if (awarded.has(reservation.id)) {
+      continue
+    }
+
+    xpGain += CONFIRMED_RESERVATION_XP
+    nextAwarded.push(reservation.id)
+  }
+
+  if (xpGain === 0) {
+    return state
+  }
+
+  return {
+    ...state,
+    xp: state.xp + xpGain,
+    awardedReservationXpIds: nextAwarded,
+  }
 }
 
 function reservationsThisWeek(reservations: Reservation[]): Reservation[] {
@@ -154,19 +194,15 @@ function evaluateMission(
         current: weekReservations.filter((reservation) => !visited.has(reservation.companyId)).length,
         completed: weekReservations.some((reservation) => !visited.has(reservation.companyId)),
       }
-    case 'en_busca_ofertas':
+    case 'en_busca_ofertas': {
+      const promoReservations = attended.filter(
+        (reservation) => context.promotionCompanyIds.has(reservation.companyId),
+      )
       return {
-        current: context.reservations.filter(
-          (reservation) =>
-            reservation.status !== 'cancelled'
-            && context.promotionCompanyIds.has(reservation.companyId),
-        ).length,
-        completed: context.reservations.some(
-          (reservation) =>
-            reservation.status !== 'cancelled'
-            && context.promotionCompanyIds.has(reservation.companyId),
-        ),
+        current: promoReservations.length,
+        completed: promoReservations.length >= 1,
       }
+    }
     case 'fiel_seguidor':
       return {
         current: state.favoritesAddedThisWeek,
@@ -212,12 +248,109 @@ function evaluateMission(
     }
     case 'debut_gastronomico':
       return { current: attended.length, completed: attended.length >= 1 }
+    case 'corazon_favorito':
+      return {
+        current: context.favoriteSlugs.length,
+        completed: context.favoriteSlugs.length >= 1,
+      }
+    case 'almuerzo_sol':
+      return {
+        current: attended.filter((reservation) => isLunchHour(reservation.startTime)).length,
+        completed: attended.some((reservation) => isLunchHour(reservation.startTime)),
+      }
+    case 'cena_especial':
+      return {
+        current: attended.filter((reservation) => isDinnerHour(reservation.startTime)).length,
+        completed: attended.some((reservation) => isDinnerHour(reservation.startTime)),
+      }
+    case 'martes_valiente':
+      return {
+        current: attended.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
+        completed: attended.some((reservation) => isWeekdaySlow(reservation.startTime)),
+      }
+    case 'mesa_para_dos':
+      return {
+        current: attended.filter((reservation) => reservation.pax >= 2).length,
+        completed: attended.some((reservation) => reservation.pax >= 2),
+      }
+    case 'reserva_relampago_logro':
+      return {
+        current: context.reservations.filter(
+          (reservation) =>
+            reservation.status !== 'cancelled'
+            && isSameDay(reservation.createdAt, reservation.startTime),
+        ).length,
+        completed: context.reservations.some(
+          (reservation) =>
+            reservation.status !== 'cancelled'
+            && isSameDay(reservation.createdAt, reservation.startTime),
+        ),
+      }
     case 'club_10_mesas':
       return { current: attended.length, completed: attended.length >= 10 }
+    case 'racha_mensual':
+      return {
+        current: monthReservations.length,
+        completed: monthReservations.length >= 3,
+      }
+    case 'cazador_ofertas': {
+      const promoCount = attended.filter(
+        (reservation) => context.promotionCompanyIds.has(reservation.companyId),
+      ).length
+      return { current: promoCount, completed: promoCount >= 3 }
+    }
+    case 'voz_barrio':
+      return { current: state.reviewsCount, completed: state.reviewsCount >= 5 }
+    case 'mesa_grande':
+      return {
+        current: attended.filter((reservation) => reservation.pax >= 5).length,
+        completed: attended.some((reservation) => reservation.pax >= 5),
+      }
+    case 'explorador_zona': {
+      const zones = uniqueZones(attended, context.restaurantZones)
+      return { current: zones, completed: zones >= 5 }
+    }
+    case 'reserva_planificada':
+      return {
+        current: context.reservations.filter(
+          (reservation) =>
+            reservation.status !== 'cancelled'
+            && daysBetween(reservation.createdAt, reservation.startTime) >= 7,
+        ).length,
+        completed: context.reservations.some(
+          (reservation) =>
+            reservation.status !== 'cancelled'
+            && daysBetween(reservation.createdAt, reservation.startTime) >= 7,
+        ),
+      }
     case 'socio_veterano':
       return { current: attended.length, completed: attended.length >= 25 }
+    case 'embajador_local': {
+      const uniqueVenues = new Set(attended.map((reservation) => reservation.companyId)).size
+      return { current: uniqueVenues, completed: uniqueVenues >= 20 }
+    }
+    case 'maestro_resenas':
+      return { current: state.reviewsCount, completed: state.reviewsCount >= 20 }
+    case 'coleccionista_premios':
+      return { current: state.redemptionsCount, completed: state.redemptionsCount >= 8 }
+    case 'maraton_gastro':
+      return { current: attended.length, completed: attended.length >= 30 }
     case 'leyenda_restaurante':
       return { current: attended.length, completed: attended.length >= 50 }
+    case 'centurion_mesas':
+      return { current: attended.length, completed: attended.length >= 100 }
+    case 'llama_eterna':
+      return { current: attended.length, completed: attended.length >= 75 }
+    case 'oraculo_sabores':
+      return { current: state.reviewsCount, completed: state.reviewsCount >= 50 }
+    case 'corona_gastro': {
+      const venues = new Set(attended.map((reservation) => reservation.companyId)).size
+      return { current: venues, completed: venues >= 40 }
+    }
+    case 'emperador_adelia': {
+      const level = getLevelForXp(state.xp).level
+      return { current: level, completed: level >= 10 }
+    }
     case 'cliente_fiel_meson':
       return { current: 0, completed: false }
     case 'primera_opinion':
@@ -241,9 +374,13 @@ function evaluateMission(
     }
     case 'ruta_internacional':
       return { current: 0, completed: false }
-    case 'infiltrado_hosteleria': {
+    case 'infiltrado_hosteleria':
+    case 'titan_hosteleria': {
       const pax = totalPax(attended)
-      return { current: pax, completed: pax >= 100 }
+      return {
+        current: pax,
+        completed: pax >= mission.target,
+      }
     }
     default:
       return { current: 0, completed: false }
@@ -322,6 +459,8 @@ export function deriveVisitedCompanyIds(reservations: Reservation[]): string[] {
   )]
 }
 
+export { buildPendingReservationCounts } from './promotionReservationProgress'
+
 export function computeWeeklyBonusProgress(weeklyProgress: MissionProgress[]): {
   completedCount: number
   bonusEarned: boolean
@@ -337,10 +476,6 @@ export function computeWeeklyBonusProgress(weeklyProgress: MissionProgress[]): {
   }
 }
 
-export function adelinasFromXp(xp: number): number {
-  return Math.floor(xp / 10)
-}
-
 const WEEKLY_BONUS_ID = 'weekly_bonus'
 
 export function processGamificationRewards(
@@ -348,8 +483,14 @@ export function processGamificationRewards(
   weeklyProgress: MissionProgress[],
   monthlyProgress: MissionProgress[],
   historicalProgress: MissionProgress[],
+  reservations: Reservation[] = [],
 ): CustomerGamificationState {
   let next = syncGamificationPeriods(state)
+  next = processReservationXp(next, reservations)
+  next = {
+    ...next,
+    redemptionsCount: Math.max(next.redemptionsCount, next.claimedPromotions.length),
+  }
   let xpGain = 0
   const completedHistorical = new Set(next.completedMissions)
   const weeklyDone = new Set(next.weeklyCompleted)
@@ -392,9 +533,13 @@ export function processGamificationRewards(
   return {
     ...next,
     xp: totalXp,
-    adelinas: adelinasFromXp(totalXp),
+    adelinas: 0,
     completedMissions: [...completedHistorical],
     weeklyCompleted: [...weeklyDone],
     monthlyCompleted: [...monthlyDone],
+    awardedReservationXpIds: next.awardedReservationXpIds,
+    claimedPromotions: next.claimedPromotions,
+    ladderBaselinesByCompany: next.ladderBaselinesByCompany,
+    activeLadderPromotionByCompany: next.activeLadderPromotionByCompany,
   }
 }

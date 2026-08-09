@@ -1,0 +1,142 @@
+.searchSection {
+  margin: 0 1rem 0.85rem;
+}
+
+.searchRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 0.45rem;
+  align-items: start;
+}
+
+.searchField {
+  display: flex;
+  min-width: 0;
+}
+
+.searchActions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+
+.searchButton {
+  flex: 0 0 auto;
+  min-height: 46px;
+  padding: 0 0.85rem;
+  border: none;
+  border-radius: 16px;
+  background: var(--color-brown);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(35, 28, 22, 0.12);
+}
+
+.filterSlot {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.filterSlot > div {
+  width: 100%;
+}
+
+.filterSlot button {
+  width: 100%;
+}
+
+.searchInput {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.72rem 0.85rem;
+  border: 1px solid rgba(107, 83, 68, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 0.875rem;
+  color: var(--color-brown);
+  box-shadow: 0 8px 24px rgba(35, 28, 22, 0.05);
+  box-sizing: border-box;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--color-brown-light);
+  box-shadow: 0 0 0 3px rgba(196, 168, 130, 0.28);
+}
+
+.locationButton,
+.locationActive {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 0.85rem;
+  border-radius: 16px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid rgba(107, 83, 68, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-brown);
+  box-shadow: 0 8px 24px rgba(35, 28, 22, 0.05);
+}
+
+.locationActive {
+  background: var(--color-brown);
+  border-color: var(--color-brown);
+  color: #fff;
+}
+
+.locationButton:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.locationMessage,
+.locationMessageError {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.locationMessage {
+  color: var(--color-text-muted);
+}
+
+.locationMessageError {
+  color: var(--color-error);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 960px) {
+  .searchSection {
+    margin-inline: 1.5rem;
+  }
+
+  .searchRow {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+    align-items: center;
+  }
+
+  .searchActions {
+    grid-column: auto;
+    flex-wrap: nowrap;
+  }
+}

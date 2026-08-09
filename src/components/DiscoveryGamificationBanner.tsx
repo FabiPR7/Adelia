@@ -96,7 +96,7 @@ function DiscoveryGamificationBanner({
         <div className={styles.heroOverlay} />
         <div className={styles.heroGlow} aria-hidden="true" />
         <div className={styles.heroContent}>
-          <span className={styles.heroBadge}>Ranking semanal · XP & Adelinas</span>
+          <span className={styles.heroBadge}>Ranking semanal · XP</span>
           <h2 id="gamification-heading">
             Compite.
             <br />
@@ -131,7 +131,6 @@ function DiscoveryGamificationBanner({
           <GamificationLevelJourney
             currentLevel={data.level}
             xp={data.state.xp}
-            adelinas={data.state.adelinas}
             levelProgress={data.levelProgress}
             xpToNext={data.xpToNext}
             celebrate={celebrations.levelJustUp || celebrations.rankJustImproved}

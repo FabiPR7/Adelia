@@ -54,35 +54,81 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidCustomerCreate() {
+      let data = request.resource.data;
+      return data.role == 'customer'
+        && data.companyId == null
+        && data.email is string
+        && data.email.size() > 0
+        && data.displayName is string
+        && data.displayName.size() > 0
+        && (data.authProvider == 'password' || data.authProvider == 'google.com')
+        && data.mustChangePassword == false
+        && data.onboardingCompleted == false
+        && data.phone is string
+        && data.phoneVerified is bool
+        && data.photoUrl is string
+        && data.favoriteSlugs is list
+        && data.foodPreferences is list
+        && data.gamification is map
+        && data.xp is int
+        && data.adelinas is int
+        && (data.homeLatitude == null || data.homeLatitude is number)
+        && (data.homeLongitude == null || data.homeLongitude is number)
+        && data.createdAt == request.time;
+    }
+
+    function customerProfileUpdateKeys() {
+      return [
+        'displayName',
+        'favoriteSlugs',
+        'phone',
+        'phoneVerified',
+        'photoUrl',
+        'homeCity',
+        'homeMunicipality',
+        'homeCountry',
+        'homePostalCode',
+        'homeLatitude',
+        'homeLongitude',
+        'foodPreferences',
+        'onboardingCompleted',
+      ];
+    }
+
+    function customerGamificationUpdateKeys() {
+      return ['gamification', 'xp', 'adelinas'];
+    }
+
     match /users/{userId} {
-      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAdmin() || (isSelf(userId) && isValidCustomerCreate());
+      allow read: if isSelf(userId) || isAdmin();
       allow update: if isAdmin() || (
-        isSignedIn()
-        && request.auth.uid == userId
+        isSelf(userId)
         && userDoc().data.role == 'company'
         && userDoc().data.mustChangePassword == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChangePassword'])
         && request.resource.data.mustChangePassword == false
       ) || (
-        isSignedIn()
-        && request.auth.uid == userId
+        isSelf(userId)
         && userDoc().data.role == 'company'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['loginName'])
         && request.resource.data.loginName is string
         && request.resource.data.loginName.size() > 0
       ) || (
-        isSignedIn()
-        && request.auth.uid == userId
+        isSelf(userId)
         && userDoc().data.role == 'customer'
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['displayName', 'favoriteSlugs'])
+          .hasOnly(customerProfileUpdateKeys())
       ) || (
-        isSignedIn()
-        && request.auth.uid == userId
+        isSelf(userId)
         && userDoc().data.role == 'customer'
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['gamification', 'xp', 'adelinas'])
+          .hasOnly(customerGamificationUpdateKeys())
       );
       allow delete: if isAdmin();
     }
@@ -130,6 +176,18 @@ service cloud.firestore {
       }
 
       match /promotions/{promotionId} {
+        allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
+        allow list: if isCompanyOwner(companyId) || isAdmin() || resource.data.active == true;
+        allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
+      }
+
+      match /menuBoards/{boardId} {
+        allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
+        allow list: if isCompanyOwner(companyId) || isAdmin() || resource.data.active == true;
+        allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
+      }
+
+      match /menuNodes/{nodeId} {
         allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
         allow list: if isCompanyOwner(companyId) || isAdmin() || resource.data.active == true;
         allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();

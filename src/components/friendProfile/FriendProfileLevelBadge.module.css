@@ -1,0 +1,329 @@
+.badgeWrap {
+  position: relative;
+  width: min(100%, 20.5rem);
+  margin-top: 0.15rem;
+}
+
+.badgeInner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.72rem 0.85rem 0.78rem 0.72rem;
+}
+
+.emblemCol {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.65rem;
+  height: 4.15rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.emblemAura {
+  position: absolute;
+  inset: -0.35rem -0.2rem 1.2rem;
+  background: var(--badge-emblem-glow);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+.emblemRing {
+  position: absolute;
+  top: 0.1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 999px;
+  border: 1.5px solid color-mix(in srgb, var(--strip-border) 65%, transparent);
+  box-shadow:
+    inset 0 0 12px color-mix(in srgb, var(--strip-border) 25%, transparent),
+    0 0 16px color-mix(in srgb, var(--strip-border) 30%, transparent);
+  pointer-events: none;
+}
+
+.emblemArt {
+  position: relative;
+  z-index: 1;
+  width: 2.65rem;
+  height: 2.65rem;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
+}
+
+.levelMedallion {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.85rem;
+  margin-top: -0.55rem;
+  padding: 0.22rem 0.45rem 0.28rem;
+  border-radius: 0.65rem;
+  background: var(--pill-number-bg);
+  border: 1.5px solid color-mix(in srgb, var(--strip-border) 70%, transparent);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.levelMedLabel {
+  font-size: 0.46rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--pill-number-color) 85%, transparent);
+  line-height: 1;
+}
+
+.levelMedNumber {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--pill-number-color);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.titleCol {
+  position: relative;
+  min-width: 0;
+  min-height: 3.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.titleArtBg {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -52%) scale(1.35);
+  width: 120%;
+  max-height: 3.4rem;
+  object-fit: contain;
+  opacity: 0.38;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.25));
+}
+
+.titleStack {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  width: 100%;
+  text-align: left;
+}
+
+.titleText {
+  font-size: clamp(0.92rem, 3.2vw, 1.05rem);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Animaciones por tier ─── */
+.animFlame :global(.epicBubbleOuter) {
+  animation: badgeFlameGlow 2.8s ease-in-out infinite;
+}
+
+.animHolo :global(.epicBubbleOuter) {
+  animation: badgeHoloBorder 5s ease-in-out infinite alternate;
+}
+
+.animPulse :global(.epicBubbleOuter) {
+  animation: badgePulseGlow 2.4s ease-in-out infinite;
+}
+
+.animDivine :global(.epicBubbleOuter) {
+  animation: badgeDivineGlow 2.2s ease-in-out infinite;
+}
+
+.animDivine .emblemArt {
+  animation: emblemFloat 3.5s ease-in-out infinite;
+}
+
+.animDivine .titleText {
+  background: linear-gradient(135deg, #fff8ef 0%, #fde68a 35%, #ffd700 55%, #fff8ef 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: divineTitleShift 4s linear infinite;
+}
+
+/* ─── Nivel 1 — pergamino cálido ─── */
+.level1 :global(.epicBubbleOuter) {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 8px 24px rgba(92, 74, 58, 0.2);
+}
+
+.level1 .titleText {
+  color: #4a2f20;
+}
+
+.level1 .emblemRing {
+  border-color: #c4956a;
+  box-shadow: inset 0 0 8px rgba(139, 105, 20, 0.2);
+}
+
+/* ─── Nivel 12 — divino supremo ─── */
+.level12 :global(.epicBubbleOuter) {
+  padding: 3px;
+  box-shadow:
+    0 0 0 1px rgba(255, 215, 0, 0.35),
+    0 0 40px rgba(255, 215, 0, 0.22),
+    0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+.level12 :global(.epicBubbleInner)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255, 215, 0, 0.12), transparent 65%);
+  pointer-events: none;
+}
+
+.level12 .levelMedallion {
+  background: linear-gradient(160deg, #422006, #1c1917);
+  border-color: #d4af37;
+  box-shadow:
+    0 0 18px rgba(255, 215, 0, 0.35),
+    inset 0 1px 0 rgba(255, 215, 0, 0.25);
+}
+
+.level12 .levelMedNumber {
+  color: #fde68a;
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.45);
+}
+
+@keyframes badgeFlameGlow {
+  0%,
+  100% {
+    filter: brightness(1);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.12),
+      0 10px 32px rgba(0, 0, 0, 0.38),
+      0 0 20px rgba(251, 191, 36, 0.2);
+  }
+  50% {
+    filter: brightness(1.08);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.18),
+      0 12px 36px rgba(0, 0, 0, 0.42),
+      0 0 32px rgba(251, 191, 36, 0.38);
+  }
+}
+
+@keyframes badgeHoloBorder {
+  from {
+    filter: hue-rotate(0deg) brightness(1);
+  }
+  to {
+    filter: hue-rotate(18deg) brightness(1.06);
+  }
+}
+
+@keyframes badgePulseGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.12),
+      0 10px 32px rgba(0, 0, 0, 0.38),
+      0 0 18px color-mix(in srgb, var(--strip-border) 30%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.2),
+      0 14px 38px rgba(0, 0, 0, 0.42),
+      0 0 36px color-mix(in srgb, var(--strip-border) 55%, transparent);
+  }
+}
+
+@keyframes badgeDivineGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 215, 0, 0.35),
+      0 0 32px rgba(255, 215, 0, 0.18),
+      0 14px 40px rgba(0, 0, 0, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 215, 0, 0.55),
+      0 0 52px rgba(255, 215, 0, 0.38),
+      0 16px 44px rgba(0, 0, 0, 0.48);
+  }
+}
+
+@keyframes emblemFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes divineTitleShift {
+  to {
+    background-position: 200% center;
+  }
+}
+
+@keyframes sparkleTwinkle {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 900px) {
+  .badgeWrap {
+    width: min(100%, 22rem);
+  }
+
+  .titleText {
+    font-size: 1.08rem;
+  }
+
+  .emblemCol {
+    width: 3.85rem;
+  }
+
+  .emblemArt {
+    width: 2.85rem;
+    height: 2.85rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animFlame :global(.epicBubbleOuter),
+  .animHolo :global(.epicBubbleOuter),
+  .animPulse :global(.epicBubbleOuter),
+  .animDivine :global(.epicBubbleOuter),
+  .animDivine .emblemArt,
+  .animDivine .titleText {
+    animation: none !important;
+  }
+
+  .animDivine .titleText {
+    color: var(--strip-name);
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+  }
+}

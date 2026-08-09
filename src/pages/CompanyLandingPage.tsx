@@ -63,7 +63,7 @@ const PROMO_SHOWCASE = [
     id: 'ladder',
     layout: 'card' as const,
     image: promoGourmet,
-    tag: 'Premio por reservas',
+    tag: 'Oferta',
     title: 'Regalos que traen clientes de vuelta',
     copy:
       'Premios escalonados: postre gratis a las 3 reservas, copa a las 5, menú especial a las 10… Alientas a repetir sin regalar a todo el mundo.',

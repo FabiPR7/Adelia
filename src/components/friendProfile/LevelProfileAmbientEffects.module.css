@@ -1,0 +1,450 @@
+.layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.layerBack {
+  z-index: 2;
+}
+
+.layerFront {
+  z-index: 6;
+}
+
+/* ─── Nivel 10: nieve ─── */
+.snowMist {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 40% at 50% 0%, rgba(186, 230, 253, 0.18), transparent 70%),
+    linear-gradient(180deg, rgba(224, 242, 254, 0.08) 0%, transparent 45%);
+}
+
+.frostVeil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 28%, transparent 72%, rgba(186, 230, 253, 0.05) 100%);
+}
+
+.snowflake {
+  position: absolute;
+  top: -8%;
+  color: rgba(255, 255, 255, 0.88);
+  filter: drop-shadow(0 0 6px rgba(186, 230, 253, 0.75));
+  animation: snowFall linear infinite;
+  will-change: transform;
+}
+
+.driftLeft {
+  animation-name: snowFallLeft;
+}
+
+.driftRight {
+  animation-name: snowFallRight;
+}
+
+@keyframes snowFall {
+  0% {
+    transform: translateY(-5%) rotate(0deg);
+  }
+  100% {
+    transform: translateY(115vh) rotate(360deg);
+  }
+}
+
+@keyframes snowFallLeft {
+  0% {
+    transform: translate(-5%, -5%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-18%, 115vh) rotate(-420deg);
+  }
+}
+
+@keyframes snowFallRight {
+  0% {
+    transform: translate(5%, -5%) rotate(0deg);
+  }
+  100% {
+    transform: translate(16%, 115vh) rotate(420deg);
+  }
+}
+
+/* ─── Nivel 11: diamantes y destellos ─── */
+.legendAura {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(232, 121, 249, 0.22), transparent 38%),
+    radial-gradient(circle at 82% 28%, rgba(250, 204, 255, 0.2), transparent 34%),
+    radial-gradient(circle at 50% 88%, rgba(192, 132, 252, 0.18), transparent 42%),
+    radial-gradient(circle at 68% 62%, rgba(244, 114, 182, 0.12), transparent 36%);
+  animation: legendAuraPulse 3.5s ease-in-out infinite;
+}
+
+.legendPrism {
+  position: absolute;
+  top: -30%;
+  left: -40%;
+  width: 80%;
+  height: 160%;
+  background: linear-gradient(
+    105deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.07) 48%,
+    rgba(240, 171, 252, 0.18) 50%,
+    rgba(255, 255, 255, 0.07) 52%,
+    transparent 58%
+  );
+  transform: rotate(8deg);
+  animation: prismSweep 5.5s ease-in-out infinite;
+}
+
+.sparkDiamond {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  filter:
+    drop-shadow(0 0 8px rgba(255, 255, 255, 1))
+    drop-shadow(0 0 18px rgba(232, 121, 249, 0.95))
+    drop-shadow(0 0 32px rgba(192, 132, 252, 0.65));
+  animation: diamondPop ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.sparkCross {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  filter:
+    drop-shadow(0 0 10px rgba(255, 255, 255, 1))
+    drop-shadow(0 0 22px rgba(244, 114, 182, 0.9));
+  animation: crossFlash ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.sparkStar {
+  position: absolute;
+  border-radius: 999px;
+  background: radial-gradient(circle, #fff 0%, #fce7f3 35%, #f0abfc 55%, transparent 72%);
+  box-shadow:
+    0 0 16px rgba(255, 255, 255, 0.95),
+    0 0 28px rgba(232, 121, 249, 0.85),
+    0 0 44px rgba(192, 132, 252, 0.45);
+  animation: starFlash ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.sparkRing {
+  position: absolute;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 0 14px rgba(255, 255, 255, 0.8),
+    0 0 26px rgba(232, 121, 249, 0.7),
+    inset 0 0 12px rgba(240, 171, 252, 0.35);
+  animation: ringBurst ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.sparkMega {
+  position: absolute;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(240, 171, 252, 0.55) 28%, transparent 68%);
+  box-shadow:
+    0 0 30px rgba(255, 255, 255, 0.75),
+    0 0 60px rgba(232, 121, 249, 0.55);
+  animation: megaFlash ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+@keyframes legendAuraPulse {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes prismSweep {
+  0%,
+  100% {
+    transform: translateX(-120%) rotate(8deg);
+    opacity: 0;
+  }
+  45% {
+    opacity: 0.85;
+  }
+  55% {
+    transform: translateX(220%) rotate(8deg);
+    opacity: 0;
+  }
+}
+
+@keyframes diamondPop {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(-24deg);
+  }
+  6% {
+    opacity: 1;
+    transform: scale(1.45) rotate(10deg);
+  }
+  14% {
+    opacity: 1;
+    transform: scale(1.15) rotate(0deg);
+  }
+  28% {
+    opacity: 0.92;
+    transform: scale(1) rotate(6deg);
+  }
+  42% {
+    opacity: 0;
+    transform: scale(0.35) rotate(18deg);
+  }
+}
+
+@keyframes crossFlash {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  7% {
+    opacity: 1;
+    transform: scale(1.5) rotate(45deg);
+  }
+  16% {
+    opacity: 0.95;
+    transform: scale(1.1) rotate(90deg);
+  }
+  30% {
+    opacity: 0;
+    transform: scale(0.2) rotate(135deg);
+  }
+}
+
+@keyframes starFlash {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  8% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+  18% {
+    opacity: 0.88;
+    transform: scale(1.05);
+  }
+  32% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+}
+
+@keyframes ringBurst {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  22% {
+    opacity: 0.75;
+    transform: scale(1.8);
+  }
+  38% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+@keyframes megaFlash {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  12% {
+    opacity: 0.95;
+    transform: scale(1.2);
+  }
+  24% {
+    opacity: 0.55;
+    transform: scale(1.45);
+  }
+  40% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+/* ─── Nivel 12: destellos divinos dorados ─── */
+.divineAura {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 215, 0, 0.16), transparent 38%),
+    radial-gradient(circle at 82% 18%, rgba(251, 146, 60, 0.14), transparent 34%),
+    radial-gradient(circle at 50% 92%, rgba(234, 88, 12, 0.12), transparent 42%),
+    radial-gradient(circle at 72% 58%, rgba(253, 224, 71, 0.1), transparent 36%);
+  animation: divineAuraPulse 3.2s ease-in-out infinite;
+}
+
+.divinePrism {
+  position: absolute;
+  top: -30%;
+  left: -40%;
+  width: 80%;
+  height: 160%;
+  background: linear-gradient(
+    105deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.05) 48%,
+    rgba(253, 224, 71, 0.14) 50%,
+    rgba(255, 255, 255, 0.05) 52%,
+    transparent 58%
+  );
+  transform: rotate(8deg);
+  animation: divinePrismSweep 6s ease-in-out infinite;
+}
+
+.divineSparkWrap {
+  position: absolute;
+  animation: divineSparkPop ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.divineMegaWrap {
+  position: absolute;
+  animation: divineMegaFlash ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.divineEmber {
+  position: absolute;
+  bottom: -4%;
+  animation: divineEmberRise linear infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes divineAuraPulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes divinePrismSweep {
+  0%,
+  100% {
+    transform: translateX(-120%) rotate(8deg);
+    opacity: 0;
+  }
+  45% {
+    opacity: 0.75;
+  }
+  55% {
+    transform: translateX(220%) rotate(8deg);
+    opacity: 0;
+  }
+}
+
+@keyframes divineSparkPop {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.15) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(1.4) rotate(18deg);
+  }
+  22% {
+    opacity: 0.88;
+    transform: scale(1.05) rotate(-8deg);
+  }
+  38% {
+    opacity: 0;
+    transform: scale(0.3) rotate(12deg);
+  }
+}
+
+@keyframes divineMegaFlash {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  14% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  28% {
+    opacity: 0.6;
+    transform: scale(1.55);
+  }
+  44% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
+@keyframes divineEmberRise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.4);
+  }
+  8% {
+    opacity: 1;
+    transform: translateY(-8vh) scale(1.15);
+  }
+  35% {
+    opacity: 0.7;
+    transform: translateY(-28vh) scale(0.9);
+  }
+  55% {
+    opacity: 0;
+    transform: translateY(-48vh) scale(0.35);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-48vh) scale(0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snowflake,
+  .sparkDiamond,
+  .sparkCross,
+  .sparkStar,
+  .sparkRing,
+  .sparkMega,
+  .legendAura,
+  .legendPrism,
+  .divineAura,
+  .divinePrism,
+  .divineSparkWrap,
+  .divineMegaWrap,
+  .divineEmber {
+    animation: none !important;
+    opacity: 0.35;
+  }
+}

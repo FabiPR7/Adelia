@@ -152,6 +152,7 @@ export function useCustomerGamification({
       weeklyProgress,
       monthlyProgress,
       historicalProgress,
+      reservations,
     )
 
     const fingerprint = JSON.stringify({
@@ -160,6 +161,11 @@ export function useCustomerGamification({
       monthly: nextState.monthlyCompleted,
       historical: nextState.completedMissions,
       visited: nextState.visitedCompanyIds,
+      awarded: nextState.awardedReservationXpIds,
+      claims: nextState.claimedPromotions.map((entry) => entry.promotionId),
+      redemptions: nextState.redemptionsCount,
+      ladderBaselines: nextState.ladderBaselinesByCompany,
+      activeLadder: nextState.activeLadderPromotionByCompany,
     })
 
     if (fingerprint === persistedRef.current) {
@@ -188,6 +194,7 @@ export function useCustomerGamification({
     weeklyProgress,
     monthlyProgress,
     historicalProgress,
+    reservations,
   ])
 
   return {

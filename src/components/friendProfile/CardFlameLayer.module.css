@@ -1,0 +1,60 @@
+.layer {
+  position: absolute;
+  z-index: 0;
+  inset: auto 0 0;
+  height: 72%;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  /* Llamas altas pero desvanecidas antes de llegar al texto */
+  mask-image: linear-gradient(to top, #000 0%, #000 28%, rgba(0, 0, 0, 0.75) 48%, transparent 72%);
+  -webkit-mask-image: linear-gradient(to top, #000 0%, #000 28%, rgba(0, 0, 0, 0.75) 48%, transparent 72%);
+}
+
+.layerCompact {
+  height: 58%;
+  mask-image: linear-gradient(to top, #000 0%, #000 24%, rgba(0, 0, 0, 0.7) 44%, transparent 68%);
+  -webkit-mask-image: linear-gradient(to top, #000 0%, #000 24%, rgba(0, 0, 0, 0.7) 44%, transparent 68%);
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0.72;
+  filter: blur(0.35px) contrast(1.15) saturate(1.1);
+}
+
+.coals {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 92%;
+  height: 22%;
+  border-radius: 50% 50% 0 0 / 85% 85% 0 0;
+  background:
+    radial-gradient(ellipse 85% 100% at 50% 100%, rgba(127, 29, 29, 0.72), rgba(69, 10, 10, 0.38) 42%, transparent 74%);
+  box-shadow:
+    0 -3px 16px rgba(251, 146, 60, 0.35),
+    inset 0 3px 10px rgba(253, 224, 71, 0.2);
+  z-index: 1;
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas {
+    display: none;
+  }
+
+  .layer::before {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 70%;
+    background:
+      radial-gradient(ellipse 70% 90% at 50% 100%, rgba(255, 180, 60, 0.22), rgba(220, 60, 10, 0.1) 45%, transparent 72%);
+  }
+}

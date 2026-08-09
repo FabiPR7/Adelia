@@ -167,21 +167,23 @@ export const MONTH_NAMES = [
   'Diciembre',
 ]
 
+import { normalizeCompanySchedule } from './schedule'
+
 export const WEEKDAY_NAMES = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
 
 export function defaultSchedule() {
-  const openDay = { open: '13:00', close: '23:00', active: true }
-  const closedDay = { open: '', close: '', active: false }
+  const openDay = { open: '13:00', close: '23:00', active: true, periods: [{ open: '13:00', close: '23:00' }] }
+  const closedDay = { open: '', close: '', active: false, periods: [{ open: '', close: '' }] }
 
-  return {
+  return normalizeCompanySchedule({
     monday: { ...openDay },
     tuesday: { ...openDay },
     wednesday: { ...closedDay },
     thursday: { ...openDay },
-    friday: { open: '13:00', close: '23:30', active: true },
-    saturday: { open: '13:00', close: '23:30', active: true },
-    sunday: { open: '13:00', close: '16:00', active: true },
-  }
+    friday: { open: '13:00', close: '23:30', active: true, periods: [{ open: '13:00', close: '23:30' }] },
+    saturday: { open: '13:00', close: '23:30', active: true, periods: [{ open: '13:00', close: '23:30' }] },
+    sunday: { open: '13:00', close: '16:00', active: true, periods: [{ open: '13:00', close: '16:00' }] },
+  })
 }
 
 export function normalizeSpanishPhoneDigits(input: string): string | null {

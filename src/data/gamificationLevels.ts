@@ -67,3 +67,21 @@ export const PROFILE_REWARDS = [
   { level: 6, reward: 'Tarjeta VIP con destellos de Adelinas' },
   { level: 7, reward: 'Tarjeta holográfica + ranking de amigos' },
 ]
+
+/** Títulos para niveles 8–12 (assets de tarjeta extendidos). */
+export const EXTENDED_LEVEL_TITLES: Record<number, string> = {
+  8: 'Gran Paladar',
+  9: 'Embajador Gourmet',
+  10: 'Titán del Menú',
+  11: 'Cliente Legendario',
+  12: 'Deidad Suprema',
+}
+
+export function getGamificationLevelTitle(level: number): string {
+  const base = GAMIFICATION_LEVELS.find((entry) => entry.level === level)
+  if (base) {
+    return base.title
+  }
+
+  return EXTENDED_LEVEL_TITLES[level] ?? `Nivel ${level}`
+}

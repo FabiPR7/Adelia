@@ -6,6 +6,8 @@ import {
   getReservationsForDate,
   getTablesByCompany,
 } from './firestore'
+import { getPublicCompanyMenuBoards, getPublicCompanyMenuNodes } from './companyMenu'
+import type { MenuBoard, MenuNode } from '../types/company'
 import { dateToIsoDate } from '../utils/helpers'
 
 export interface PublicBookingTable {
@@ -28,8 +30,11 @@ export interface PublicBookingCompany {
   description: string
   logoUrl: string
   photos: string[]
+  mainPhotoIndex: number
   videos: string[]
   characteristics: string[]
+  latitude: number | null
+  longitude: number | null
   timeSlotMinutes: number
   schedule: CompanySchedule
   floorPlan: FloorPlan
@@ -142,6 +147,31 @@ export async function createPublicReservation(
     }
 
     throw new Error(getFirestoreErrorMessage(error, 'save'))
+  }
+}
+
+export async function fetchPublicMenu(slug: string): Promise<{
+  company: PublicBookingCompany
+  boards: MenuBoard[]
+  nodes: MenuNode[]
+}> {
+  try {
+    const company = await getCompanyOrThrow(slug)
+    const [boards, nodes] = await Promise.all([
+      getPublicCompanyMenuBoards(company.id),
+      getPublicCompanyMenuNodes(company.id),
+    ])
+
+    const activeBoardIds = new Set(boards.map((board) => board.id))
+    const activeNodes = nodes.filter((node) => activeBoardIds.has(node.boardId))
+
+    return {
+      company,
+      boards,
+      nodes: activeNodes,
+    }
+  } catch (error) {
+    throw new Error(getFirestoreErrorMessage(error))
   }
 }
 

@@ -37,7 +37,7 @@ function RoleRoute({ children, role, requirePasswordChanged = false }: RoleRoute
     }
 
     if (profile.role === 'customer') {
-      return <Navigate to="/cuenta" replace />
+      return <Navigate to="/app/explorar" replace />
     }
 
     return <Navigate to="/panel" replace />

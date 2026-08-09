@@ -1,0 +1,116 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.header label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-brown);
+}
+
+.counter {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.hint,
+.empty {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.searchInput {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  font-size: 0.875rem;
+}
+
+.selectedList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.selectedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem;
+  border: 1px solid rgba(107, 83, 68, 0.18);
+  border-radius: 999px;
+  background: rgba(196, 168, 130, 0.16);
+  color: var(--color-brown);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem;
+  background: var(--color-white);
+}
+
+.group h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.productList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.productRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  cursor: pointer;
+}
+
+.productRowSelected {
+  border-color: var(--color-brown-light);
+  background: rgba(196, 168, 130, 0.12);
+}
+
+.productName {
+  font-size: 0.8125rem;
+  color: var(--color-brown);
+}
+
+.photoBadge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #2e7d6b;
+}

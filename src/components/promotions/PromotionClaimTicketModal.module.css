@@ -1,0 +1,129 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(18, 12, 24, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.ticket {
+  width: min(100%, 360px);
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fffdf8 0%, #fff5eb 100%);
+  box-shadow: 0 24px 60px rgba(35, 28, 22, 0.28);
+}
+
+.ticketHeader {
+  padding: 1.35rem 1.25rem 1rem;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 107, 74, 0.18), transparent 58%),
+    linear-gradient(145deg, #2a1238 0%, #4a2048 55%, #7c3aed 140%);
+  color: #fff;
+}
+
+.ticketEmoji {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.ticketHeader h2 {
+  margin: 0.65rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.ticketHeader p {
+  margin: 0.45rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.prizeBlock {
+  margin: 1rem 1.1rem 0;
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  text-align: center;
+  background: #fff;
+  border: 1px dashed rgba(255, 107, 74, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+}
+
+.prizeEyebrow {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.prizeValue {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-epic, var(--font-display));
+  font-size: 1.45rem;
+  line-height: 1.1;
+  color: #7c3a2e;
+}
+
+.prizeTitle {
+  margin: 0.45rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.prizeRestaurant {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.instruction {
+  margin: 0.85rem 1.1rem 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.22);
+  text-align: center;
+}
+
+.instruction strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.78rem;
+  color: #166534;
+}
+
+.instruction span {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #15803d;
+}
+
+.closeButton {
+  display: block;
+  width: calc(100% - 2.2rem);
+  margin: 1rem 1.1rem 1.1rem;
+  min-height: 2.65rem;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.28);
+}

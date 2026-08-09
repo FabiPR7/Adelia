@@ -6,7 +6,6 @@ import styles from './GamificationLevelJourney.module.css'
 interface GamificationLevelJourneyProps {
   currentLevel: GamificationLevel
   xp: number
-  adelinas: number
   levelProgress: number
   xpToNext: number | null
   celebrate?: boolean
@@ -18,7 +17,6 @@ const LEGEND_LEVEL = GAMIFICATION_LEVELS[GAMIFICATION_LEVELS.length - 1]
 function GamificationLevelJourney({
   currentLevel,
   xp,
-  adelinas,
   levelProgress: _levelProgress,
   xpToNext: _xpToNext,
   celebrate = false,
@@ -37,7 +35,7 @@ function GamificationLevelJourney({
       <div className={styles.progressBanner}>
         <span className={styles.nowBadge}>Tu ascenso · Nv. {currentLevel.level}</span>
         <strong>{currentLevel.title}</strong>
-        <span>{xp.toLocaleString('es-ES')} XP · {adelinas} Adelinas</span>
+        <span>{xp.toLocaleString('es-ES')} XP</span>
       </div>
 
       <div className={styles.journey} style={journeyStyle}>

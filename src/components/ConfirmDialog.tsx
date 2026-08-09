@@ -8,6 +8,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string
   variant?: 'default' | 'danger'
   isLoading?: boolean
+  elevated?: boolean
   onConfirm: () => void
   onCancel: () => void
 }
@@ -20,6 +21,7 @@ function ConfirmDialog({
   cancelLabel = 'Cancelar',
   variant = 'default',
   isLoading = false,
+  elevated = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -28,7 +30,11 @@ function ConfirmDialog({
   }
 
   return (
-    <div className={styles.overlay} onClick={onCancel} role="presentation">
+    <div
+      className={`${styles.overlay} ${elevated ? styles.overlayElevated : ''}`}
+      onClick={onCancel}
+      role="presentation"
+    >
       <div
         className={styles.dialog}
         onClick={(event) => event.stopPropagation()}

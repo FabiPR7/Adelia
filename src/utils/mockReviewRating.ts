@@ -20,3 +20,14 @@ export function getMockAdelinaReviewCount(slug: string): number {
 
   return 120 + (hash % 880)
 }
+
+/** Reservas totales ficticias (estable por slug) hasta exista métrica real. */
+export function getMockReservationCount(slug: string): number {
+  let hash = 0
+
+  for (let index = 0; index < slug.length; index += 1) {
+    hash = (hash * 23 + slug.charCodeAt(index)) >>> 0
+  }
+
+  return 45 + (hash % 420)
+}

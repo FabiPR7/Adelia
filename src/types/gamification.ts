@@ -14,6 +14,16 @@ export interface MissionDefinition {
   target: number
 }
 
+export interface ClaimedPromotionRecord {
+  promotionId: string
+  companyId: string
+  companyName: string
+  companySlug: string
+  title: string
+  prizeLabel: string
+  claimedAt: string
+}
+
 export interface CustomerGamificationState {
   xp: number
   adelinas: number
@@ -27,6 +37,12 @@ export interface CustomerGamificationState {
   redemptionsCount: number
   helpfulReviewVotes: number
   favoritesAddedThisWeek: number
+  awardedReservationXpIds: string[]
+  claimedPromotions: ClaimedPromotionRecord[]
+  /** Visitas confirmadas acumuladas en el momento del último canje por restaurante. */
+  ladderBaselinesByCompany: Record<string, number>
+  /** Promo de escalón activa por restaurante (solo una a la vez si hay varias). */
+  activeLadderPromotionByCompany: Record<string, string>
 }
 
 export interface MissionProgress {
@@ -47,6 +63,7 @@ export interface GamificationLevel {
 
 export const WEEKLY_MISSION_BONUS_XP = 150
 export const WEEKLY_BONUS_TARGET = 5
+export const CONFIRMED_RESERVATION_XP = 25
 
 export function defaultGamificationState(): CustomerGamificationState {
   return {
@@ -62,5 +79,9 @@ export function defaultGamificationState(): CustomerGamificationState {
     redemptionsCount: 0,
     helpfulReviewVotes: 0,
     favoritesAddedThisWeek: 0,
+    awardedReservationXpIds: [],
+    claimedPromotions: [],
+    ladderBaselinesByCompany: {},
+    activeLadderPromotionByCompany: {},
   }
 }

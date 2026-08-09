@@ -22,13 +22,20 @@ import {
 import type { Company, CompanySettingsPayload, SettingsSection, TableInput } from '../../types'
 import {
   defaultFloorPlan,
-  defaultTurns,
   SCHEDULE_DAY_KEYS,
   SCHEDULE_DAY_LABELS,
   SETTINGS_SECTIONS,
   syncFloorPlanWithTables,
 } from '../../types/company'
 import { copyTextToClipboard, defaultSchedule, getPublicBookingUrl, selectInputText, slugify } from '../../utils/helpers'
+import {
+  getDaySchedulePeriodCount,
+  getDaySchedulePeriods,
+  MAX_SCHEDULE_PERIODS,
+  normalizeCompanySchedule,
+  resizeDaySchedulePeriods,
+  updateDaySchedulePeriod,
+} from '../../utils/schedule'
 import { toGeoCoordinates } from '../../utils/mapCoordinates'
 import {
   isConfirmedCitySelection,
@@ -40,9 +47,9 @@ import {
   validateCompanyContact,
   validateCompanyProfile,
   validateCompanySchedule,
-  validateServiceTurns,
 } from '../../utils/companyValidation'
 import { downloadBookingQrCode } from '../../utils/bookingQr'
+import { normalizeMainPhotoIndex } from '../../utils/companyPhotos'
 import {
   applySectionSnapshot,
   createAllSectionSnapshots,
@@ -119,11 +126,12 @@ function companyToForm(company: Company): CompanySettingsPayload {
     description: company.description,
     logoUrl: company.logoUrl,
     photos: company.photos ?? [],
+    mainPhotoIndex: company.mainPhotoIndex ?? 0,
     videos: company.videos ?? [],
     characteristics: company.characteristics ?? [],
     timeSlotMinutes: company.timeSlotMinutes,
-    schedule: company.schedule ?? defaultSchedule(),
-    turns: company.turns?.length ? company.turns : defaultTurns(),
+    schedule: normalizeCompanySchedule(company.schedule ?? defaultSchedule()),
+    turns: company.turns ?? [],
     floorPlan: company.floorPlan ?? defaultFloorPlan(),
   }
 }
@@ -393,13 +401,6 @@ const CompanySettings = forwardRef(function CompanySettings(
 
     if (timeSlotMinutes === null) {
       setError('La duración debe ser un número entre 1 y 240 minutos.')
-      return false
-    }
-
-    const turnsError = validateServiceTurns(form.turns)
-
-    if (turnsError) {
-      setError(turnsError)
       return false
     }
 
@@ -803,11 +804,17 @@ const CompanySettings = forwardRef(function CompanySettings(
           <div className={styles.fullWidth}>
             <MediaGalleryUploader
               label="Fotos del local"
-              hint={`Máximo ${MAX_COMPANY_PHOTOS} fotos. Se suben a Cloudinary.`}
+              hint={`Máximo ${MAX_COMPANY_PHOTOS} fotos. Marca una como principal para la página de reservas.`}
               urls={form.photos}
               maxItems={MAX_COMPANY_PHOTOS}
               mediaType="image"
-              onChange={(photos) => setForm({ ...form, photos })}
+              mainPhotoIndex={form.mainPhotoIndex}
+              onMainPhotoIndexChange={(mainPhotoIndex) => setForm({ ...form, mainPhotoIndex })}
+              onChange={(photos) => setForm({
+                ...form,
+                photos,
+                mainPhotoIndex: normalizeMainPhotoIndex(form.mainPhotoIndex, photos.length),
+              })}
             />
           </div>
           <div className={styles.fullWidth}>
@@ -835,7 +842,7 @@ const CompanySettings = forwardRef(function CompanySettings(
       <section className={sectionCardClass('reservation-settings', activeSection)}>
         <header className={styles.cardHeader}>
           <h2>Reservas y horario</h2>
-          <p>Duración por reserva, turnos del servicio y días de apertura.</p>
+          <p>Duración por reserva y días de apertura.</p>
         </header>
         <label className={styles.inlineField}>
           Duración de cada reserva (minutos)
@@ -860,52 +867,26 @@ const CompanySettings = forwardRef(function CompanySettings(
           />
         </label>
 
-        <div className={styles.turns}>
-          <h3>Turnos</h3>
-          {form.turns.map((turn, index) => (
-            <div key={index} className={styles.turnRow}>
-              <input
-                value={turn.name}
-                onChange={(e) => {
-                  const turns = [...form.turns]
-                  turns[index] = { ...turn, name: e.target.value }
-                  setForm({ ...form, turns })
-                }}
-                placeholder="Nombre"
-              />
-              <input
-                type="time"
-                value={turn.start}
-                onChange={(e) => {
-                  const turns = [...form.turns]
-                  turns[index] = { ...turn, start: e.target.value }
-                  setForm({ ...form, turns })
-                }}
-              />
-              <span>—</span>
-              <input
-                type="time"
-                value={turn.end}
-                onChange={(e) => {
-                  const turns = [...form.turns]
-                  turns[index] = { ...turn, end: e.target.value }
-                  setForm({ ...form, turns })
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
         <div className={styles.scheduleBlock}>
           <h3>Horario semanal</h3>
-          <p className={styles.scheduleHint}>Indica cuándo aceptas reservas cada día.</p>
-          <div className={styles.scheduleList}>
+          <p className={styles.scheduleHint}>
+            Marca los días activos y hasta {MAX_SCHEDULE_PERIODS} tramos por día (por ejemplo,
+            12:00–16:00 y 20:00–00:00). Los tramos no pueden cruzarse.
+          </p>
+          <div className={styles.scheduleTable}>
           {SCHEDULE_DAY_KEYS.map((dayKey) => {
             const day = form.schedule[dayKey]
+            const periods = getDaySchedulePeriods(day)
+            const periodCount = getDaySchedulePeriodCount(day)
 
             return (
-              <div key={dayKey} className={styles.scheduleRow}>
-                <label className={styles.dayToggle}>
+              <div
+                key={dayKey}
+                className={`${styles.scheduleTableRow} ${
+                  periodCount > 1 ? styles.scheduleTableRowMulti : ''
+                } ${!day.active ? styles.scheduleTableRowInactive : ''}`}
+              >
+                <label className={styles.scheduleDayCell}>
                   <input
                     type="checkbox"
                     checked={day.active}
@@ -922,35 +903,78 @@ const CompanySettings = forwardRef(function CompanySettings(
                   <span className={styles.dayNameFull}>{SCHEDULE_DAY_LABELS[dayKey]}</span>
                   <span className={styles.dayNameShort}>{SCHEDULE_DAY_SHORT[dayKey]}</span>
                 </label>
-                <input
-                  type="time"
-                  disabled={!day.active}
-                  value={day.open}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      schedule: {
-                        ...form.schedule,
-                        [dayKey]: { ...day, open: e.target.value },
-                      },
-                    })
-                  }
-                />
-                <span>—</span>
-                <input
-                  type="time"
-                  disabled={!day.active}
-                  value={day.close}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      schedule: {
-                        ...form.schedule,
-                        [dayKey]: { ...day, close: e.target.value },
-                      },
-                    })
-                  }
-                />
+
+                <label className={styles.scheduleTurnsCell}>
+                  <span className={styles.scheduleTurnsLabel}>Tramos</span>
+                  <select
+                    disabled={!day.active}
+                    value={periodCount}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        schedule: {
+                          ...form.schedule,
+                          [dayKey]: resizeDaySchedulePeriods(day, Number(e.target.value)),
+                        },
+                      })
+                    }
+                  >
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                  </select>
+                </label>
+
+                <div className={styles.scheduleHoursCell}>
+                  {periods.map((period, periodIndex) => (
+                    <div key={periodIndex} className={styles.scheduleTimeRange}>
+                      {periodCount > 1 ? (
+                        <span className={styles.scheduleTimeBadge}>{periodIndex + 1}</span>
+                      ) : null}
+                      <input
+                        type="time"
+                        disabled={!day.active}
+                        value={period.open}
+                        aria-label={`Apertura turno ${periodIndex + 1}, ${SCHEDULE_DAY_LABELS[dayKey]}`}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            schedule: {
+                              ...form.schedule,
+                              [dayKey]: updateDaySchedulePeriod(
+                                day,
+                                periodIndex,
+                                'open',
+                                e.target.value,
+                              ),
+                            },
+                          })
+                        }
+                      />
+                      <span className={styles.scheduleTimeSep} aria-hidden="true">—</span>
+                      <input
+                        type="time"
+                        disabled={!day.active}
+                        value={period.close}
+                        aria-label={`Cierre turno ${periodIndex + 1}, ${SCHEDULE_DAY_LABELS[dayKey]}`}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            schedule: {
+                              ...form.schedule,
+                              [dayKey]: updateDaySchedulePeriod(
+                                day,
+                                periodIndex,
+                                'close',
+                                e.target.value,
+                              ),
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             )
           })}

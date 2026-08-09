@@ -1,0 +1,104 @@
+.bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+  padding: 0.55rem;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  animation: barIn 0.2s ease;
+}
+
+@keyframes barIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  min-height: 3.35rem;
+  padding: 0.45rem 0.35rem;
+  border-radius: 14px;
+  border: 1.5px solid transparent;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.action:hover {
+  transform: translateY(-1px);
+}
+
+.iconWrap {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+}
+
+.icon {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+}
+
+.label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.actionProfile {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: linear-gradient(180deg, #eff6ff, #dbeafe);
+  color: #1d4ed8;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.12);
+}
+
+.actionProfile .iconWrap {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.actionFavorite {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: linear-gradient(180deg, #fffbeb, #fef3c7);
+  color: #b45309;
+  box-shadow: 0 6px 14px rgba(245, 158, 11, 0.12);
+}
+
+.actionFavorite .iconWrap {
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.actionFavoriteOn {
+  border-color: rgba(234, 179, 8, 0.55);
+  background: linear-gradient(180deg, #fef08a, #fde047);
+  color: #854d0e;
+  box-shadow: 0 8px 18px rgba(234, 179, 8, 0.22);
+}
+
+.actionRemove {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: linear-gradient(180deg, #fff1f2, #ffe4e6);
+  color: #b91c1c;
+  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.1);
+}
+
+.actionRemove .iconWrap {
+  background: rgba(239, 68, 68, 0.1);
+}

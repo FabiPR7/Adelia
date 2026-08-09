@@ -16,6 +16,9 @@ interface CalendarProps {
   updateSelectionOnMonthNav?: boolean
   onMonthChange?: (date: Date) => void
   disablePastDates?: boolean
+  compact?: boolean
+  isDateDisabled?: (date: Date) => boolean
+  highlightSelection?: boolean
 }
 
 function Calendar({
@@ -25,6 +28,9 @@ function Calendar({
   updateSelectionOnMonthNav = true,
   onMonthChange,
   disablePastDates = false,
+  compact = false,
+  isDateDisabled,
+  highlightSelection = true,
 }: CalendarProps) {
   const [viewDate, setViewDate] = useState(selectedDate)
   const year = viewDate.getFullYear()
@@ -50,7 +56,7 @@ function Calendar({
   }
 
   return (
-    <section className={styles.calendar}>
+    <section className={`${styles.calendar} ${compact ? styles.compact : ''}`}>
       <header className={styles.header}>
         <button
           type="button"
@@ -88,9 +94,10 @@ function Calendar({
           }
 
           const count = reservationCounts[day.getDate()] ?? 0
-          const isSelected = isSameDay(day, selectedDate)
+          const isSelected = highlightSelection && isSameDay(day, selectedDate)
           const isToday = isSameDay(day, today)
           const isPast = disablePastDates && isPastCalendarDate(day)
+          const isDisabled = isPast || (isDateDisabled?.(day) ?? false)
 
           return (
             <button
@@ -101,15 +108,16 @@ function Calendar({
                 isSelected ? styles.selected : '',
                 isToday ? styles.today : '',
                 isPast ? styles.pastDay : '',
+                isDisabled && !isPast ? styles.unavailableDay : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
               onClick={() => {
-                if (!isPast) {
+                if (!isDisabled) {
                   onSelectDate(day)
                 }
               }}
-              disabled={isPast}
+              disabled={isDisabled}
             >
               <span className={styles.dayNumber}>{day.getDate()}</span>
               {count > 0 && (

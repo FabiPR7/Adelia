@@ -1,0 +1,68 @@
+.wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.stack {
+  display: grid;
+  grid-template: 1fr / 1fr;
+  align-items: center;
+  font-family: var(--font-epic);
+  line-height: 0.92;
+  max-width: 100%;
+}
+
+.outline,
+.fill,
+.shine {
+  grid-area: 1 / 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.outline {
+  color: transparent;
+  paint-order: stroke fill;
+  z-index: 0;
+}
+
+.fill {
+  z-index: 1;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.shine {
+  z-index: 2;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  opacity: 0.42;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 900px) {
+  .stack {
+    line-height: 0.94;
+  }
+}

@@ -2,10 +2,16 @@ import type { CustomerGamificationState } from './gamification'
 
 export type UserRole = 'admin' | 'company' | 'customer'
 
+export interface SchedulePeriod {
+  open: string
+  close: string
+}
+
 export interface DaySchedule {
   open: string
   close: string
   active: boolean
+  periods: SchedulePeriod[]
 }
 
 export interface CompanySchedule {
@@ -29,6 +35,18 @@ export interface AppUser {
   /** Firestore tiene mustChangePassword: false (ya cambió la suya). */
   mustChangePasswordCleared: boolean
   createdAt: Date
+  phone: string
+  phoneVerified: boolean
+  photoUrl: string
+  homeCity: string
+  homeMunicipality: string
+  homeCountry: string
+  homePostalCode: string
+  homeLatitude: number | null
+  homeLongitude: number | null
+  foodPreferences: string[]
+  onboardingCompleted: boolean
+  authProvider: 'password' | 'google.com'
 }
 
 export interface Company {
@@ -48,6 +66,7 @@ export interface Company {
   contactEmail: string
   logoUrl: string
   photos: string[]
+  mainPhotoIndex: number
   videos: string[]
   characteristics: string[]
   timeSlotMinutes: number
@@ -131,6 +150,7 @@ export type {
   ClientsSection,
   ReportsSection,
   SettingsSection,
+  CompanySettingsSection,
   CompanySettingsPayload,
   EmailTemplateKind,
   ReservationEmailTemplate,
@@ -144,8 +164,19 @@ export type {
   ServiceTurn,
   TableInput,
   PromotionType,
+  PromotionOfferKind,
+  PromotionOfferConfig,
+  PromotionProductRef,
   CompanyPromotion,
   PromotionInput,
+  MenuLayout,
+  MenuNodeType,
+  MenuCategoryAvailability,
+  MenuTemplateConfig,
+  MenuBoard,
+  MenuBoardInput,
+  MenuNode,
+  MenuNodeInput,
 } from './company'
 export {
   SCHEDULE_DAY_KEYS,
@@ -168,6 +199,11 @@ export {
   serializeFloorPlanForFirestore,
   PROMOTION_TYPE_LABELS,
   PROMOTION_TYPE_HINTS,
+  PROMOTION_OFFER_KIND_LABELS,
+  PROMOTION_OFFER_KIND_HINTS,
   defaultPromotionInput,
+  defaultPromotionOffer,
   validatePromotionInput,
+  validatePromotionOfferConfig,
+  defaultMenuNodeInput,
 } from './company'

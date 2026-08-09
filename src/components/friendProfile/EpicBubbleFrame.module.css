@@ -1,0 +1,464 @@
+.frameWrap {
+  position: relative;
+  width: 100%;
+}
+
+.outerFrame {
+  position: relative;
+  padding: 2px;
+  border-radius: 1.35rem;
+  background: var(--badge-frame);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 10px 32px rgba(0, 0, 0, 0.38),
+    0 0 28px color-mix(in srgb, var(--strip-border) 35%, transparent);
+}
+
+.innerPlate {
+  position: relative;
+  border-radius: calc(1.35rem - 2px);
+  background: var(--badge-inner);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.topRidge {
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sideGlint {
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cornerDecor {
+  position: absolute;
+  z-index: 2;
+  width: 1rem;
+  height: 1rem;
+  color: rgba(255, 255, 255, 0.55);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.cornerDecor[data-pos='tl'] {
+  top: 0.3rem;
+  left: 0.35rem;
+}
+
+.cornerDecor[data-pos='tr'] {
+  top: 0.3rem;
+  right: 0.35rem;
+  transform: scaleX(-1);
+}
+
+.cornerDecor[data-pos='bl'] {
+  bottom: 0.3rem;
+  left: 0.35rem;
+  transform: scaleY(-1);
+}
+
+.cornerDecor[data-pos='br'] {
+  bottom: 0.3rem;
+  right: 0.35rem;
+  transform: scale(-1);
+}
+
+.ornamentSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.shimmerPass {
+  position: absolute;
+  top: -40%;
+  left: -50%;
+  width: 45%;
+  height: 180%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  transform: rotate(16deg);
+  animation: bubbleShimmer 5.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sparkleField {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.35) 0 1px, transparent 2px),
+    radial-gradient(circle at 82% 28%, rgba(255, 215, 0, 0.45) 0 1px, transparent 2px),
+    radial-gradient(circle at 72% 78%, rgba(255, 255, 255, 0.3) 0 1px, transparent 2px),
+    radial-gradient(circle at 28% 72%, rgba(255, 215, 0, 0.35) 0 1px, transparent 2px);
+  pointer-events: none;
+  animation: sparkleTwinkle 3s ease-in-out infinite alternate;
+  z-index: 0;
+}
+
+/* ─── Variants ─── */
+.variantPill {
+  width: auto;
+  align-self: center;
+}
+
+.variantPill .outerFrame {
+  border-radius: 999px;
+}
+
+.variantPill .innerPlate {
+  border-radius: 999px;
+}
+
+.variantPill .cornerDecor {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.variantStat .outerFrame {
+  border-radius: 1.15rem;
+  height: 100%;
+}
+
+.variantStat .innerPlate {
+  border-radius: calc(1.15rem - 2px);
+  height: 100%;
+}
+
+.variantStat .cornerDecor {
+  width: 0.72rem;
+  height: 0.72rem;
+}
+
+.variantPanel .outerFrame {
+  border-radius: 1.35rem;
+}
+
+.variantPanel :global(.epicBubbleInner) {
+  padding: 0.85rem 0.9rem 0.95rem;
+}
+
+/* ─── Shared typography (used by panels + badge) ─── */
+:global(.epicEyebrow) {
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--strip-title);
+  opacity: 0.82;
+  text-shadow: var(--strip-name-shadow);
+}
+
+:global(.epicHeadline) {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--strip-name);
+  text-shadow: var(--strip-name-shadow);
+}
+
+:global(.epicTagline) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--strip-title);
+  opacity: 0.92;
+  text-shadow: var(--strip-name-shadow);
+}
+
+:global(.epicTaglineDot) {
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: var(--strip-border);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--strip-border) 55%, transparent);
+  flex-shrink: 0;
+}
+
+:global(.epicIconMedallion) {
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 0.85rem;
+  background: linear-gradient(145deg, var(--section-accent), color-mix(in srgb, var(--section-accent) 55%, #000));
+  border: 1.5px solid color-mix(in srgb, var(--strip-border) 65%, transparent);
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--section-accent) 45%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+:global(.epicIconMedallionRound) {
+  border-radius: 999px;
+}
+
+@keyframes bubbleShimmer {
+  0%,
+  100% {
+    transform: translateX(-120%) rotate(16deg);
+    opacity: 0;
+  }
+  48% {
+    opacity: 0.85;
+  }
+  58% {
+    transform: translateX(280%) rotate(16deg);
+    opacity: 0;
+  }
+}
+
+@keyframes sparkleTwinkle {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ─── Ambiente por nivel en burbujas ─── */
+.ambientSnow :global(.epicBubbleOuter)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.35) 0 1px, transparent 2px),
+    radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.28) 0 1px, transparent 2px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 35%);
+  pointer-events: none;
+}
+
+.ambientSnow :global(.epicBubbleInner) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.ambientDiamond :global(.epicBubbleOuter) {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 10px 32px rgba(0, 0, 0, 0.38),
+    0 0 40px rgba(232, 121, 249, 0.42),
+    0 0 64px rgba(192, 132, 252, 0.22);
+  animation: bubbleDiamondGlow 2.6s ease-in-out infinite;
+}
+
+.diamondField {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.diamondField::before,
+.diamondField::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.diamondField::before {
+  top: 18%;
+  left: 12%;
+  width: 0.35rem;
+  height: 0.35rem;
+  background: #fff;
+  box-shadow: 0 0 12px #fff, 0 0 22px rgba(232, 121, 249, 0.9);
+  animation: bubbleSparkA 1.8s ease-in-out infinite;
+}
+
+.diamondField::after {
+  bottom: 20%;
+  right: 10%;
+  width: 0.45rem;
+  height: 0.45rem;
+  background: radial-gradient(circle, #fff, #f0abfc);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.95), 0 0 28px rgba(232, 121, 249, 0.85);
+  animation: bubbleSparkB 2.1s ease-in-out infinite 0.6s;
+}
+
+.bubbleMiniSpark {
+  position: absolute;
+  z-index: 2;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, #fff 0%, #f0abfc 50%, transparent 72%);
+  box-shadow:
+    0 0 10px rgba(255, 255, 255, 0.95),
+    0 0 20px rgba(232, 121, 249, 0.85);
+  animation: bubbleSparkPop 2.3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.bubbleMiniSpark:nth-child(odd) {
+  width: 0.28rem;
+  height: 0.28rem;
+  animation-name: bubbleSparkPopSmall;
+}
+
+@keyframes bubbleSparkPop {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  8% {
+    opacity: 1;
+    transform: scale(2) rotate(45deg);
+  }
+  20% {
+    opacity: 0;
+    transform: scale(0.2) rotate(90deg);
+  }
+}
+
+@keyframes bubbleSparkPopSmall {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(2.4);
+  }
+  22% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+}
+
+@keyframes bubbleDiamondGlow {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.12);
+  }
+}
+
+@keyframes bubbleSparkA {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+  28% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+@keyframes bubbleSparkB {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(1.8) rotate(45deg);
+  }
+  26% {
+    opacity: 0;
+    transform: scale(0.2) rotate(90deg);
+  }
+}
+
+.contentLayer {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-width: 0;
+}
+
+.ambientFire .contentLayer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(10, 8, 7, 0.88) 0%,
+    rgba(10, 8, 7, 0.55) 32%,
+    rgba(10, 8, 7, 0.18) 52%,
+    transparent 68%
+  );
+}
+
+.ambientFire .contentLayer :global(.epicHeadline),
+.ambientFire .contentLayer :global(.epicEyebrow),
+.ambientFire .contentLayer :global(.epicTagline) {
+  text-shadow:
+    0 1px 10px rgba(0, 0, 0, 0.92),
+    0 0 3px rgba(0, 0, 0, 0.85);
+}
+
+.ambientFire :global(.epicBubbleOuter) {
+  box-shadow:
+    0 0 0 1px rgba(255, 215, 0, 0.28),
+    0 10px 32px rgba(0, 0, 0, 0.38),
+    0 0 24px rgba(249, 115, 22, 0.22);
+}
+
+.ambientFire :global(.epicBubbleInner) {
+  background: linear-gradient(165deg, rgba(22, 18, 16, 0.96) 0%, rgba(10, 8, 7, 0.94) 100%);
+}
+
+:global(.pageLevel1) .cornerDecor {
+  color: #8b6914;
+}
+
+:global(.pageLevel1) :global(.epicEyebrow),
+:global(.pageLevel1) :global(.epicHeadline),
+:global(.pageLevel1) :global(.epicTagline) {
+  text-shadow: none;
+}
+
+:global(.pageLevel1) :global(.epicHeadline) {
+  color: #4a2f20;
+}
+
+:global(.pageLevel1) :global(.epicEyebrow),
+:global(.pageLevel1) :global(.epicTagline) {
+  color: #6b5344;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmerPass,
+  .sparkleField,
+  .diamondField,
+  .bubbleMiniSpark {
+    animation: none !important;
+  }
+
+  .ambientDiamond :global(.epicBubbleOuter) {
+    animation: none !important;
+  }
+}

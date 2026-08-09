@@ -129,7 +129,7 @@ function CustomerAccountPage() {
           <p className={styles.eyebrow}>Hola, {profile?.displayName || 'foodie'}</p>
           <h1>Tu perfil Adelia</h1>
           <p className={styles.heroText}>
-            Sube de nivel con misiones, gana Adelinas y desbloquea regalos exclusivos para tu perfil.
+            Sube de nivel con misiones y desbloquea regalos exclusivos para tu perfil.
           </p>
         </section>
 
@@ -137,7 +137,6 @@ function CustomerAccountPage() {
           <GamificationLevelCard
             level={gamification.level}
             xp={gamification.state.xp}
-            adelinas={gamification.state.adelinas}
             levelProgress={gamification.levelProgress}
             xpToNext={gamification.xpToNext}
             unlockedRewards={gamification.unlockedRewards}

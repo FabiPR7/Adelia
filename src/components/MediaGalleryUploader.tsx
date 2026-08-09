@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type ChangeEvent } from 'react'
 import { uploadToCloudinary } from '../utils/cloudinaryUpload'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import { adjustMainPhotoIndexAfterRemove } from '../utils/companyPhotos'
 import styles from './MediaGalleryUploader.module.css'
 
 interface MediaGalleryUploaderProps {
@@ -9,6 +10,8 @@ interface MediaGalleryUploaderProps {
   urls: string[]
   maxItems: number
   mediaType: 'image' | 'video'
+  mainPhotoIndex?: number
+  onMainPhotoIndexChange?: (index: number) => void
   onChange: (urls: string[]) => void
 }
 
@@ -18,6 +21,8 @@ function MediaGalleryUploader({
   urls,
   maxItems,
   mediaType,
+  mainPhotoIndex = 0,
+  onMainPhotoIndexChange,
   onChange,
 }: MediaGalleryUploaderProps) {
   const inputId = useId()
@@ -64,8 +69,17 @@ function MediaGalleryUploader({
   }
 
   const handleRemove = (index: number) => {
-    onChange(urls.filter((_, itemIndex) => itemIndex !== index))
+    const nextUrls = urls.filter((_, itemIndex) => itemIndex !== index)
+    onChange(nextUrls)
+
+    if (mediaType === 'image' && onMainPhotoIndexChange) {
+      onMainPhotoIndexChange(
+        adjustMainPhotoIndexAfterRemove(mainPhotoIndex, index, nextUrls.length),
+      )
+    }
   }
+
+  const canSetMain = mediaType === 'image' && Boolean(onMainPhotoIndexChange)
 
   return (
     <div className={styles.wrapper}>
@@ -97,7 +111,10 @@ function MediaGalleryUploader({
 
       <div className={styles.grid}>
         {urls.map((url, index) => (
-          <div key={`${url}-${index}`} className={styles.item}>
+          <div
+            key={`${url}-${index}`}
+            className={`${styles.item} ${canSetMain && index === mainPhotoIndex ? styles.itemMain : ''}`}
+          >
             {mediaType === 'image' ? (
               <img
                 src={optimizeCloudinaryUrl(url, CLOUDINARY_DISPLAY.photoThumb)}
@@ -108,6 +125,17 @@ function MediaGalleryUploader({
               />
             ) : (
               <video src={url} className={styles.media} controls preload="none" />
+            )}
+            {canSetMain && (
+              <button
+                type="button"
+                className={`${styles.mainButton} ${index === mainPhotoIndex ? styles.mainButtonActive : ''}`}
+                onClick={() => onMainPhotoIndexChange?.(index)}
+                aria-label={index === mainPhotoIndex ? `Foto principal ${index + 1}` : `Marcar foto ${index + 1} como principal`}
+                aria-pressed={index === mainPhotoIndex}
+              >
+                ★
+              </button>
             )}
             <button
               type="button"

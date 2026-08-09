@@ -9,7 +9,13 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
-import type { CompanyPromotion, PromotionInput } from '../types/company'
+import type { CompanyPromotion, MenuNode, PromotionInput } from '../types/company'
+import {
+  buildPromotionProductRefs,
+  formatPromotionOfferHighlight,
+  normalizePromotionOffer,
+  normalizePromotionProductRefs,
+} from '../utils/promotionOffer'
 
 function mapPromotion(id: string, companyId: string, data: Record<string, unknown>): CompanyPromotion {
   return {
@@ -19,10 +25,16 @@ function mapPromotion(id: string, companyId: string, data: Record<string, unknow
     title: (data.title as string) ?? '',
     description: (data.description as string) ?? '',
     photoUrl: (data.photoUrl as string) ?? '',
+    offer: normalizePromotionOffer(data),
+    productRefs: normalizePromotionProductRefs(data),
     active: data.active === true,
     requiresReservation: data.requiresReservation === true,
     requiredReservations: typeof data.requiredReservations === 'number'
       ? data.requiredReservations
+      : null,
+    minimumSpendEnabled: data.minimumSpendEnabled === true,
+    minimumSpendCents: typeof data.minimumSpendCents === 'number'
+      ? data.minimumSpendCents
       : null,
     activeFromTime: (data.activeFromTime as string) ?? '',
     activeToTime: (data.activeToTime as string) ?? '',
@@ -36,16 +48,25 @@ function mapPromotion(id: string, companyId: string, data: Record<string, unknow
   }
 }
 
-function serializePromotion(companyId: string, input: PromotionInput) {
+function serializePromotion(
+  companyId: string,
+  input: PromotionInput,
+  productRefs: ReturnType<typeof buildPromotionProductRefs>,
+) {
   return {
     companyId,
     type: input.type,
     title: input.title.trim(),
     description: input.description.trim(),
     photoUrl: input.photoUrl.trim(),
+    offer: input.offer,
+    productRefs,
+    offerHighlight: formatPromotionOfferHighlight(input.offer),
     active: input.active,
     requiresReservation: input.requiresReservation,
     requiredReservations: input.requiredReservations,
+    minimumSpendEnabled: input.minimumSpendEnabled,
+    minimumSpendCents: input.minimumSpendEnabled ? input.minimumSpendCents : null,
     activeFromTime: input.activeFromTime,
     activeToTime: input.activeToTime,
     maxRedemptions: input.maxRedemptions,
@@ -68,10 +89,12 @@ export async function getCompanyPromotions(companyId: string): Promise<CompanyPr
 export async function createCompanyPromotion(
   companyId: string,
   input: PromotionInput,
+  menuProducts: MenuNode[] = [],
 ): Promise<string> {
+  const productRefs = buildPromotionProductRefs(input.productIds, menuProducts)
   const promotionsRef = collection(db, 'companies', companyId, 'promotions')
   const docRef = await addDoc(promotionsRef, {
-    ...serializePromotion(companyId, input),
+    ...serializePromotion(companyId, input, productRefs),
     currentRedemptions: 0,
     createdAt: serverTimestamp(),
   })
@@ -83,9 +106,11 @@ export async function updateCompanyPromotion(
   companyId: string,
   promotionId: string,
   input: PromotionInput,
+  menuProducts: MenuNode[] = [],
 ): Promise<void> {
+  const productRefs = buildPromotionProductRefs(input.productIds, menuProducts)
   const promotionRef = doc(db, 'companies', companyId, 'promotions', promotionId)
-  await updateDoc(promotionRef, serializePromotion(companyId, input))
+  await updateDoc(promotionRef, serializePromotion(companyId, input, productRefs))
 }
 
 export async function deleteCompanyPromotion(companyId: string, promotionId: string): Promise<void> {

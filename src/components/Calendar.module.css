@@ -126,3 +126,55 @@
 .pastDay:hover {
   background: var(--color-cream);
 }
+
+.unavailableDay {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.unavailableDay:hover {
+  background: var(--color-cream);
+}
+
+.compact {
+  padding: 0.6rem;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.compact .header {
+  margin-bottom: 0.55rem;
+}
+
+.compact .title {
+  font-size: 0.875rem;
+}
+
+.compact .navButton {
+  width: 1.55rem;
+  height: 1.55rem;
+  font-size: 1rem;
+}
+
+.compact .weekdays {
+  gap: 0.15rem;
+  margin-bottom: 0.35rem;
+}
+
+.compact .weekday {
+  font-size: 0.58rem;
+}
+
+.compact .grid {
+  gap: 0.18rem;
+}
+
+.compact .dayNumber {
+  font-size: 0.72rem;
+}
+
+.compact .dot {
+  width: 3px;
+  height: 3px;
+}

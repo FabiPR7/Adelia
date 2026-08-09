@@ -1,0 +1,306 @@
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  serverTimestamp,
+  Timestamp,
+  updateDoc,
+  where,
+  writeBatch,
+} from 'firebase/firestore'
+import { defaultMenuTemplate, normalizeMenuBackgroundImageOpacity } from '../data/menuTemplates'
+import { db } from '../config/firebase'
+import { normalizeMenuCategoryAvailability } from '../utils/menuCategoryAvailability'
+import type {
+  MenuBoard,
+  MenuBoardInput,
+  MenuNode,
+  MenuNodeInput,
+  MenuTemplateConfig,
+} from '../types/company'
+
+function mapTemplate(data: Record<string, unknown>): MenuTemplateConfig {
+  const fallback = defaultMenuTemplate()
+
+  return {
+    templateId: (data.templateId as string) ?? fallback.templateId,
+    backgroundColor: (data.backgroundColor as string) ?? fallback.backgroundColor,
+    backgroundImageUrl: (data.backgroundImageUrl as string) ?? '',
+    backgroundImageOpacity: normalizeMenuBackgroundImageOpacity(
+      data.backgroundImageOpacity ?? fallback.backgroundImageOpacity,
+    ),
+    fontFamily: (data.fontFamily as string) ?? fallback.fontFamily,
+    titleColor: (data.titleColor as string) ?? fallback.titleColor,
+    textColor: (data.textColor as string) ?? fallback.textColor,
+    accentColor: (data.accentColor as string) ?? fallback.accentColor,
+    familyColor: (data.familyColor as string) ?? (data.accentColor as string) ?? fallback.familyColor,
+    subfamilyColor: (data.subfamilyColor as string) ?? (data.textColor as string) ?? fallback.subfamilyColor,
+    priceColor: (data.priceColor as string) ?? fallback.priceColor,
+    layout: data.layout === 'grid' ? 'grid' : 'list',
+    showPhotos: data.showPhotos !== false,
+    showAllergens: data.showAllergens !== false,
+    showDescriptions: data.showDescriptions !== false,
+  }
+}
+
+function mapBoard(id: string, companyId: string, data: Record<string, unknown>): MenuBoard {
+  return {
+    id,
+    companyId,
+    name: (data.name as string) ?? '',
+    active: data.active !== false,
+    sortOrder: typeof data.sortOrder === 'number' ? data.sortOrder : 0,
+    template: mapTemplate((data.template as Record<string, unknown>) ?? {}),
+    createdAt: (data.createdAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
+    updatedAt: (data.updatedAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
+  }
+}
+
+function mapNode(id: string, companyId: string, data: Record<string, unknown>): MenuNode {
+  return {
+    id,
+    companyId,
+    boardId: (data.boardId as string) ?? '',
+    nodeType: data.nodeType === 'product' ? 'product' : 'family',
+    parentId: typeof data.parentId === 'string' ? data.parentId : null,
+    sortOrder: typeof data.sortOrder === 'number' ? data.sortOrder : 0,
+    name: (data.name as string) ?? '',
+    description: (data.description as string) ?? '',
+    allergens: Array.isArray(data.allergens) ? (data.allergens as string[]) : [],
+    priceCents: typeof data.priceCents === 'number' ? data.priceCents : null,
+    priceCurrency: typeof data.priceCurrency === 'string' && data.priceCurrency.trim()
+      ? data.priceCurrency.trim().toUpperCase()
+      : 'EUR',
+    photoUrl: (data.photoUrl as string) ?? '',
+    active: data.active !== false,
+    availability: normalizeMenuCategoryAvailability(data.availability),
+    createdAt: (data.createdAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
+    updatedAt: (data.updatedAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
+  }
+}
+
+function serializeBoard(companyId: string, input: MenuBoardInput) {
+  return {
+    companyId,
+    name: input.name.trim(),
+    active: input.active,
+    sortOrder: input.sortOrder,
+    template: input.template,
+    updatedAt: serverTimestamp(),
+  }
+}
+
+function serializeNode(companyId: string, input: MenuNodeInput) {
+  return {
+    companyId,
+    boardId: input.boardId,
+    nodeType: input.nodeType,
+    parentId: input.parentId,
+    sortOrder: input.sortOrder,
+    name: input.name.trim(),
+    description: input.description.trim(),
+    allergens: input.allergens,
+    priceCents: input.nodeType === 'product' ? input.priceCents : null,
+    priceCurrency: input.nodeType === 'product' ? input.priceCurrency : 'EUR',
+    photoUrl: input.nodeType === 'product' ? input.photoUrl.trim() : '',
+    active: input.active,
+    availability: input.nodeType === 'family'
+      ? normalizeMenuCategoryAvailability(input.availability)
+      : { enabled: false, start: '', end: '' },
+    updatedAt: serverTimestamp(),
+  }
+}
+
+export async function getCompanyMenuBoards(companyId: string): Promise<MenuBoard[]> {
+  const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
+  const snapshot = await getDocs(boardsRef)
+
+  return snapshot.docs
+    .map((boardDoc) => mapBoard(boardDoc.id, companyId, boardDoc.data() as Record<string, unknown>))
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
+}
+
+export async function getPublicCompanyMenuBoards(companyId: string): Promise<MenuBoard[]> {
+  const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
+  const boardsQuery = query(boardsRef, where('active', '==', true))
+  const snapshot = await getDocs(boardsQuery)
+
+  return snapshot.docs
+    .map((boardDoc) => mapBoard(boardDoc.id, companyId, boardDoc.data() as Record<string, unknown>))
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
+}
+
+export async function getCompanyMenuNodes(companyId: string, boardId?: string): Promise<MenuNode[]> {
+  const nodesRef = collection(db, 'companies', companyId, 'menuNodes')
+  const snapshot = await getDocs(nodesRef)
+
+  return snapshot.docs
+    .map((nodeDoc) => mapNode(nodeDoc.id, companyId, nodeDoc.data() as Record<string, unknown>))
+    .filter((node) => (boardId ? node.boardId === boardId : true))
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
+}
+
+export async function getPublicCompanyMenuNodes(companyId: string, boardId?: string): Promise<MenuNode[]> {
+  const nodesRef = collection(db, 'companies', companyId, 'menuNodes')
+  const nodesQuery = query(nodesRef, where('active', '==', true))
+  const snapshot = await getDocs(nodesQuery)
+
+  return snapshot.docs
+    .map((nodeDoc) => mapNode(nodeDoc.id, companyId, nodeDoc.data() as Record<string, unknown>))
+    .filter((node) => (boardId ? node.boardId === boardId : true))
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
+}
+
+export async function createCompanyMenuBoard(
+  companyId: string,
+  input: MenuBoardInput,
+): Promise<string> {
+  const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
+  const docRef = await addDoc(boardsRef, {
+    ...serializeBoard(companyId, input),
+    createdAt: serverTimestamp(),
+  })
+
+  return docRef.id
+}
+
+export async function updateCompanyMenuBoard(
+  companyId: string,
+  boardId: string,
+  input: MenuBoardInput,
+): Promise<void> {
+  const boardRef = doc(db, 'companies', companyId, 'menuBoards', boardId)
+  await updateDoc(boardRef, serializeBoard(companyId, input))
+}
+
+export async function setCompanyMenuBoardActive(
+  companyId: string,
+  boardId: string,
+  active: boolean,
+): Promise<void> {
+  const boardRef = doc(db, 'companies', companyId, 'menuBoards', boardId)
+  await updateDoc(boardRef, { active, updatedAt: serverTimestamp() })
+}
+
+export async function deleteCompanyMenuBoard(companyId: string, boardId: string): Promise<void> {
+  const nodes = await getCompanyMenuNodes(companyId, boardId)
+  const batch = writeBatch(db)
+
+  for (const node of nodes) {
+    batch.delete(doc(db, 'companies', companyId, 'menuNodes', node.id))
+  }
+
+  batch.delete(doc(db, 'companies', companyId, 'menuBoards', boardId))
+  await batch.commit()
+}
+
+export async function reorderCompanyMenuBoards(
+  companyId: string,
+  orderedBoardIds: string[],
+): Promise<void> {
+  const batch = writeBatch(db)
+
+  orderedBoardIds.forEach((boardId, index) => {
+    batch.update(doc(db, 'companies', companyId, 'menuBoards', boardId), {
+      sortOrder: index,
+      updatedAt: serverTimestamp(),
+    })
+  })
+
+  await batch.commit()
+}
+
+export async function createCompanyMenuNode(
+  companyId: string,
+  input: MenuNodeInput,
+): Promise<string> {
+  const nodesRef = collection(db, 'companies', companyId, 'menuNodes')
+  const docRef = await addDoc(nodesRef, {
+    ...serializeNode(companyId, input),
+    createdAt: serverTimestamp(),
+  })
+
+  return docRef.id
+}
+
+export async function updateCompanyMenuNode(
+  companyId: string,
+  nodeId: string,
+  input: MenuNodeInput,
+): Promise<void> {
+  const nodeRef = doc(db, 'companies', companyId, 'menuNodes', nodeId)
+  await updateDoc(nodeRef, serializeNode(companyId, input))
+}
+
+export async function deleteCompanyMenuNode(companyId: string, nodeId: string): Promise<void> {
+  const nodeRef = doc(db, 'companies', companyId, 'menuNodes', nodeId)
+  await deleteDoc(nodeRef)
+}
+
+export async function deleteCompanyMenuNodes(companyId: string, nodeIds: string[]): Promise<void> {
+  if (nodeIds.length === 0) {
+    return
+  }
+
+  const batch = writeBatch(db)
+
+  for (const nodeId of nodeIds) {
+    batch.delete(doc(db, 'companies', companyId, 'menuNodes', nodeId))
+  }
+
+  await batch.commit()
+}
+
+export async function createCompanyMenuNodesBatch(
+  companyId: string,
+  inputs: Array<MenuNodeInput & { id: string }>,
+): Promise<void> {
+  if (inputs.length === 0) {
+    return
+  }
+
+  const chunkSize = 400
+
+  for (let offset = 0; offset < inputs.length; offset += chunkSize) {
+    const chunk = inputs.slice(offset, offset + chunkSize)
+    const batch = writeBatch(db)
+
+    for (const input of chunk) {
+      batch.set(doc(db, 'companies', companyId, 'menuNodes', input.id), {
+        ...serializeNode(companyId, input),
+        createdAt: serverTimestamp(),
+      })
+    }
+
+    await batch.commit()
+  }
+}
+
+export async function reorderCompanyMenuNodes(
+  companyId: string,
+  updates: Array<{ nodeId: string; sortOrder: number; parentId?: string | null }>,
+): Promise<void> {
+  if (updates.length === 0) {
+    return
+  }
+
+  const batch = writeBatch(db)
+
+  for (const update of updates) {
+    const payload: Record<string, unknown> = {
+      sortOrder: update.sortOrder,
+      updatedAt: serverTimestamp(),
+    }
+
+    if (update.parentId !== undefined) {
+      payload.parentId = update.parentId
+    }
+
+    batch.update(doc(db, 'companies', companyId, 'menuNodes', update.nodeId), payload)
+  }
+
+  await batch.commit()
+}

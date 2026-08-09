@@ -1,0 +1,135 @@
+.section {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sectionHead h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--color-brown);
+}
+
+.sectionHead span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rowWrap,
+.userRowWrap {
+  scroll-margin-top: 4.5rem;
+  scroll-margin-bottom: 1rem;
+}
+
+.rowWrapActive {
+  padding: 0.2rem;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 107, 74, 0.08), rgba(124, 58, 237, 0.06));
+  border: 1px solid rgba(255, 107, 74, 0.16);
+}
+
+.rowButton {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.userRowWrap {
+  border-radius: 14px;
+}
+
+.userCard {
+  box-shadow:
+    0 0 0 1.5px rgba(255, 107, 74, 0.42),
+    0 4px 14px rgba(255, 107, 74, 0.12) !important;
+}
+
+.chaseCopy {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 16px;
+  background: linear-gradient(90deg, rgba(255, 107, 74, 0.12), rgba(124, 58, 237, 0.1));
+  border: 1px solid rgba(255, 107, 74, 0.18);
+  color: var(--color-brown);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.chaseCopy strong {
+  color: #ff6b4a;
+}
+
+.floatSelf {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: calc(var(--customer-nav-height, 4.5rem) + 0.35rem);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0.55rem 0.55rem 0.45rem;
+  border: 1px solid rgba(255, 107, 74, 0.22);
+  border-radius: 16px;
+  background: rgba(255, 252, 247, 0.96);
+  box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  text-align: left;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.floatSelfHidden {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.floatLabel {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #c2410c;
+}
+
+@media (min-width: 900px) {
+  .sectionHead h2 {
+    font-size: 1.28rem;
+  }
+}

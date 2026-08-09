@@ -143,6 +143,7 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
       longitude: null,
       description: '',
       photos: [],
+      mainPhotoIndex: 0,
       videos: [],
       characteristics: [],
       timeSlotMinutes: 120,

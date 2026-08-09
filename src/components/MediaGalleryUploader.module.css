@@ -50,6 +50,31 @@
   display: block;
 }
 
+.mainButton {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mainButtonActive {
+  background: var(--color-brown);
+  color: #fff;
+}
+
+.itemMain {
+  border-color: var(--color-brown);
+  box-shadow: 0 0 0 1px rgba(107, 83, 68, 0.25);
+}
+
 .removeButton {
   position: absolute;
   top: 0.35rem;

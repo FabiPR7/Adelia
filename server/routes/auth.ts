@@ -11,7 +11,8 @@ import {
   getPasswordResetTokenRecord,
   sendPasswordResetEmail,
 } from '../email/passwordResetEmail.ts'
-import { isValidClientEmail } from '../email/config.ts'
+import { sendCustomerVerificationEmail } from '../email/customerVerificationEmail.ts'
+import { APP_URL, isValidClientEmail } from '../email/config.ts'
 import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import { signInWithPasswordRest } from '../rest-firebase.ts'
 
@@ -194,6 +195,69 @@ router.post('/change-initial-password', async (req: Request, res: Response) => {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Error al cambiar la contraseña.'
+    res.status(500).json({ error: message })
+  }
+})
+
+router.post('/customer/send-verification-email', async (req: Request, res: Response) => {
+  try {
+    if (!canUseAdminSdk) {
+      res.status(503).json({
+        error: 'Verificación por correo no disponible en este entorno.',
+      })
+      return
+    }
+
+    const token = getBearerToken(req)
+
+    if (!token) {
+      res.status(401).json({ error: 'No autorizado.' })
+      return
+    }
+
+    const decoded = await adminAuth.verifyIdToken(token)
+    const userRecord = await adminAuth.getUser(decoded.uid)
+
+    if (userRecord.emailVerified) {
+      res.json({ success: true, alreadyVerified: true })
+      return
+    }
+
+    const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
+
+    if (!userSnap.exists || userSnap.data()?.role !== 'customer') {
+      res.status(403).json({ error: 'Esta acción solo aplica a cuentas de cliente.' })
+      return
+    }
+
+    const email = userRecord.email?.trim().toLowerCase() ?? ''
+
+    if (!isValidClientEmail(email)) {
+      res.status(400).json({ error: 'No se pudo verificar el correo de la cuenta.' })
+      return
+    }
+
+    const displayName =
+      userRecord.displayName?.trim()
+      || (userSnap.data()?.displayName as string | undefined)?.trim()
+      || 'Comensal'
+
+    const verifyUrl = await adminAuth.generateEmailVerificationLink(email, {
+      url: `${APP_URL}/cuenta/entrar?verified=1`,
+      handleCodeInApp: false,
+    })
+
+    await sendCustomerVerificationEmail({
+      to: email,
+      displayName,
+      verifyUrl,
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('customer send-verification-email error:', error)
+    const message =
+      error instanceof Error ? error.message : 'No se pudo enviar el correo de verificación.'
     res.status(500).json({ error: message })
   }
 })

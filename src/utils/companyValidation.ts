@@ -5,13 +5,17 @@ import {
   MAX_COMPANY_VIDEOS,
 } from '../data/companyCharacteristics'
 import type { CompanySchedule, CompanySettingsPayload, ServiceTurn } from '../types'
-import { SCHEDULE_DAY_LABELS, SCHEDULE_DAY_KEYS } from '../types/company'
 import { isValidMapCoordinates } from './mapCoordinates'
+import { normalizeMainPhotoIndex } from './companyPhotos'
 import {
   formatSpanishPhoneForStorage,
   isValidEmail,
   isValidSpanishPhone,
 } from './helpers'
+import {
+  normalizeCompanySchedule,
+  validateCompanyScheduleDetailed,
+} from './schedule'
 
 const ALLOWED_CHARACTERISTICS = new Set<string>(COMPANY_CHARACTERISTIC_OPTIONS)
 
@@ -266,24 +270,7 @@ export function validateServiceTurns(turns: ServiceTurn[]): string | null {
 }
 
 export function validateCompanySchedule(schedule: CompanySchedule): string | null {
-  for (const dayKey of SCHEDULE_DAY_KEYS) {
-    const day = schedule[dayKey]
-    const dayLabel = SCHEDULE_DAY_LABELS[dayKey]
-
-    if (!day.active) {
-      continue
-    }
-
-    if (!day.open || !day.close) {
-      return `Completa el horario del ${dayLabel}.`
-    }
-
-    if (day.open >= day.close) {
-      return `El horario del ${dayLabel} debe cerrar después de abrir.`
-    }
-  }
-
-  return null
+  return validateCompanyScheduleDetailed(normalizeCompanySchedule(schedule))
 }
 
 export function normalizeCompanySettingsPayload(
@@ -306,6 +293,10 @@ export function normalizeCompanySettingsPayload(
     description: payload.description.trim(),
     logoUrl: payload.logoUrl.trim(),
     photos: sanitizeMediaUrls(payload.photos, MAX_COMPANY_PHOTOS),
+    mainPhotoIndex: normalizeMainPhotoIndex(
+      payload.mainPhotoIndex,
+      sanitizeMediaUrls(payload.photos, MAX_COMPANY_PHOTOS).length,
+    ),
     videos: sanitizeMediaUrls(payload.videos, MAX_COMPANY_VIDEOS),
     characteristics: sanitizeCompanyCharacteristics(payload.characteristics),
     turns: payload.turns.map((turn) => ({
@@ -313,13 +304,13 @@ export function normalizeCompanySettingsPayload(
       start: turn.start,
       end: turn.end,
     })),
+    schedule: normalizeCompanySchedule(payload.schedule),
   }
 }
 
 export function validateCompanySettingsPayload(payload: CompanySettingsPayload): string | null {
   return (
     validateCompanyContact(payload) ??
-    validateCompanyProfile(payload) ??
-    validateServiceTurns(payload.turns)
+    validateCompanyProfile(payload)
   )
 }

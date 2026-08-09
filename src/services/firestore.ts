@@ -26,7 +26,9 @@ import type {
   TableInput,
 } from '../types'
 import { defaultGamificationState } from '../types/gamification'
-import type { CustomerGamificationState } from '../types/gamification'
+import type { CustomerGamificationState, ClaimedPromotionRecord } from '../types/gamification'
+import type { PublicPromotion } from './publicPromotions'
+import { getNextLadderPromotionId } from '../utils/promotionReservationProgress'
 import { defaultTurns, parseFloorPlan, serializeFloorPlanForFirestore } from '../types/company'
 import {
   normalizeCompanyEmailTemplates,
@@ -37,6 +39,7 @@ import {
   computeReservationCountsByMonth as computeReservationCountsByMonthUtil,
 } from '../utils/reservationSlots'
 import { combineDateAndTime, dateToIsoDate, defaultSchedule, generateUuid, isSameDay, slugToAuthEmail, slugify } from '../utils/helpers'
+import { normalizeCompanySchedule } from '../utils/schedule'
 import {
   normalizeCompanySettingsPayload,
 } from '../utils/companyValidation'
@@ -241,6 +244,20 @@ export async function getUserProfile(uid: string): Promise<AppUser | null> {
     mustChangePassword: data.mustChangePassword === true,
     mustChangePasswordCleared: data.mustChangePassword === false,
     createdAt: data.createdAt?.toDate?.() ?? new Date(),
+    phone: typeof data.phone === 'string' ? data.phone : '',
+    phoneVerified: data.phoneVerified === true,
+    photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : '',
+    homeCity: typeof data.homeCity === 'string' ? data.homeCity : '',
+    homeMunicipality: typeof data.homeMunicipality === 'string' ? data.homeMunicipality : '',
+    homeCountry: typeof data.homeCountry === 'string' ? data.homeCountry : '',
+    homePostalCode: typeof data.homePostalCode === 'string' ? data.homePostalCode : '',
+    homeLatitude: typeof data.homeLatitude === 'number' ? data.homeLatitude : null,
+    homeLongitude: typeof data.homeLongitude === 'number' ? data.homeLongitude : null,
+    foodPreferences: Array.isArray(data.foodPreferences) ? (data.foodPreferences as string[]) : [],
+    onboardingCompleted:
+      data.onboardingCompleted === true
+      || (data.onboardingCompleted == null && Boolean(data.displayName)),
+    authProvider: data.authProvider === 'google.com' ? 'google.com' : 'password',
   }
 }
 
@@ -281,7 +298,52 @@ function parseGamificationData(data: Record<string, unknown>): CustomerGamificat
     favoritesAddedThisWeek: typeof gamification.favoritesAddedThisWeek === 'number'
       ? gamification.favoritesAddedThisWeek
       : 0,
+    awardedReservationXpIds: Array.isArray(gamification.awardedReservationXpIds)
+      ? (gamification.awardedReservationXpIds as string[])
+      : [],
+    claimedPromotions: Array.isArray(gamification.claimedPromotions)
+      ? (gamification.claimedPromotions as ClaimedPromotionRecord[])
+      : [],
+    ladderBaselinesByCompany:
+      gamification.ladderBaselinesByCompany
+      && typeof gamification.ladderBaselinesByCompany === 'object'
+      && !Array.isArray(gamification.ladderBaselinesByCompany)
+        ? (gamification.ladderBaselinesByCompany as Record<string, number>)
+        : {},
+    activeLadderPromotionByCompany:
+      gamification.activeLadderPromotionByCompany
+      && typeof gamification.activeLadderPromotionByCompany === 'object'
+      && !Array.isArray(gamification.activeLadderPromotionByCompany)
+        ? (gamification.activeLadderPromotionByCompany as Record<string, string>)
+        : {},
   }
+}
+
+export async function recordPromotionClaim(
+  uid: string,
+  claim: ClaimedPromotionRecord,
+  current: CustomerGamificationState,
+  confirmedCountAtCompany: number,
+  companyLadderPromotions: PublicPromotion[],
+): Promise<CustomerGamificationState> {
+  const nextActiveId = getNextLadderPromotionId(companyLadderPromotions, claim.promotionId)
+
+  const next: CustomerGamificationState = {
+    ...current,
+    redemptionsCount: current.redemptionsCount + 1,
+    claimedPromotions: [...current.claimedPromotions, claim],
+    ladderBaselinesByCompany: {
+      ...current.ladderBaselinesByCompany,
+      [claim.companyId]: confirmedCountAtCompany,
+    },
+    activeLadderPromotionByCompany: {
+      ...current.activeLadderPromotionByCompany,
+      [claim.companyId]: nextActiveId,
+    },
+  }
+
+  await updateCustomerGamification(uid, next)
+  return next
 }
 
 export async function updateCustomerGamification(
@@ -821,6 +883,7 @@ export async function updateCompanySettings(
     description: normalizedPayload.description,
     logoUrl: normalizedPayload.logoUrl,
     photos: normalizedPayload.photos,
+    mainPhotoIndex: normalizedPayload.mainPhotoIndex,
     videos: normalizedPayload.videos,
     characteristics: normalizedPayload.characteristics,
     timeSlotMinutes: normalizedPayload.timeSlotMinutes,
@@ -917,12 +980,15 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
     contactEmail: (data.contactEmail as string) ?? '',
     logoUrl: (data.logoUrl as string) ?? '',
     photos: Array.isArray(data.photos) ? (data.photos as string[]).slice(0, 5) : [],
+    mainPhotoIndex: typeof data.mainPhotoIndex === 'number'
+      ? Math.max(0, Math.min(4, Math.trunc(data.mainPhotoIndex)))
+      : 0,
     videos: Array.isArray(data.videos) ? (data.videos as string[]).slice(0, 2) : [],
     characteristics: Array.isArray(data.characteristics)
       ? (data.characteristics as string[]).slice(0, 5)
       : [],
     timeSlotMinutes: (data.timeSlotMinutes as number) ?? 120,
-    schedule: (data.schedule as Company['schedule']) ?? defaultSchedule(),
+    schedule: normalizeCompanySchedule((data.schedule as Company['schedule']) ?? defaultSchedule()),
     turns: (data.turns as Company['turns']) ?? defaultTurns(),
     floorPlan: parseFloorPlan(data.floorPlan),
     emailTemplates: parseCompanyEmailTemplatesFromFirestore(data.emailTemplates),

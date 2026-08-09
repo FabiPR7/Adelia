@@ -42,4 +42,8 @@ export const CLOUDINARY_DISPLAY = {
   photoThumb: { width: 320 },
   photoGallery: { width: 960 },
   photoPreview: { width: 480 },
+  menuProductThumb: { width: 160, height: 120 },
+  menuProductGrid: { width: 480, height: 360 },
+  menuProductList: { width: 640, height: 480 },
+  menuProductLightbox: { width: 960 },
 } as const satisfies Record<string, CloudinaryOptimizeOptions>
