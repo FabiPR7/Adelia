@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { HISTORICAL_MISSIONS, MONTHLY_MISSIONS } from '../data/gamificationMissions'
+import { HISTORICAL_MISSIONS } from '../data/gamificationMissions'
 import { PROFILE_REWARDS } from '../data/gamificationLevels'
 import { useAuth } from '../context/AuthContext'
 import { updateCustomerGamification } from '../services/firestore'
+import { syncGamificationNotifications } from '../services/customerNotifications'
 import type { Reservation } from '../types'
 import type { CustomerGamificationState, MissionProgress } from '../types/gamification'
 import { defaultGamificationState } from '../types/gamification'
@@ -10,11 +11,13 @@ import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import {
   buildMissionProgressList,
   computeWeeklyBonusProgress,
-  deriveVisitedCompanyIds,
   getLevelForXp,
   getLevelProgress,
+  getWeekKey,
+  getWeeklyFeaturedCategory,
   getXpToNextLevel,
   processGamificationRewards,
+  rotateMonthlyMissions,
   rotateWeeklyMissions,
   type GamificationContext,
 } from '../utils/gamificationProgress'
@@ -47,6 +50,9 @@ export function useCustomerGamification({
     }
   }, [profile?.gamification])
 
+  const weekKey = getWeekKey()
+  const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+
   const context = useMemo((): GamificationContext => {
     const restaurantZones = new Map<string, string>()
     const restaurantCategories = new Map<string, string[]>()
@@ -62,10 +68,13 @@ export function useCustomerGamification({
       promotionCompanyIds,
       restaurantZones,
       restaurantCategories,
+      weeklyFeaturedCategory: getWeeklyFeaturedCategory(),
     }
-  }, [reservations, favoriteSlugs, promotionCompanyIds, restaurants])
+  }, [reservations, favoriteSlugs, promotionCompanyIds, restaurants, weekKey])
 
-  const weeklyMissions = useMemo(() => rotateWeeklyMissions(), [])
+  const weeklyMissions = useMemo(() => rotateWeeklyMissions(), [weekKey])
+  const monthlyMissions = useMemo(() => rotateMonthlyMissions(), [monthKey])
+
   const weeklyCompletedIds = useMemo(
     () => new Set(state.weeklyCompleted),
     [state.weeklyCompleted],
@@ -79,36 +88,35 @@ export function useCustomerGamification({
     [state.completedMissions],
   )
 
-  const enrichedState = useMemo(
-    (): CustomerGamificationState => ({
+  const evaluationState = useMemo((): CustomerGamificationState => {
+    const sameWeek = state.weekKey === weekKey
+
+    return {
       ...state,
-      visitedCompanyIds: [
-        ...new Set([...state.visitedCompanyIds, ...deriveVisitedCompanyIds(reservations)]),
-      ],
-    }),
-    [state, reservations],
-  )
+      favoriteSlugsAtWeekStart: sameWeek ? state.favoriteSlugsAtWeekStart : favoriteSlugs,
+    }
+  }, [state, weekKey, favoriteSlugs])
 
   const weeklyProgress = useMemo(
     () =>
       buildMissionProgressList(
         weeklyMissions,
         context,
-        enrichedState,
+        evaluationState,
         weeklyCompletedIds,
       ),
-    [weeklyMissions, context, enrichedState, weeklyCompletedIds],
+    [weeklyMissions, context, evaluationState, weeklyCompletedIds],
   )
 
   const monthlyProgress = useMemo(
     () =>
       buildMissionProgressList(
-        MONTHLY_MISSIONS,
+        monthlyMissions,
         context,
-        enrichedState,
+        evaluationState,
         monthlyCompletedIds,
       ),
-    [context, enrichedState, monthlyCompletedIds],
+    [monthlyMissions, context, evaluationState, monthlyCompletedIds],
   )
 
   const historicalProgress = useMemo(
@@ -116,10 +124,10 @@ export function useCustomerGamification({
       buildMissionProgressList(
         HISTORICAL_MISSIONS,
         context,
-        enrichedState,
+        evaluationState,
         historicalCompletedIds,
       ),
-    [context, enrichedState, historicalCompletedIds],
+    [context, evaluationState, historicalCompletedIds],
   )
 
   const weeklyBonus = useMemo(
@@ -142,17 +150,12 @@ export function useCustomerGamification({
     }
 
     const nextState = processGamificationRewards(
-      {
-        ...enrichedState,
-        favoritesAddedThisWeek: Math.max(
-          enrichedState.favoritesAddedThisWeek,
-          favoriteSlugs.length >= 3 ? 3 : favoriteSlugs.length,
-        ),
-      },
+      evaluationState,
       weeklyProgress,
       monthlyProgress,
       historicalProgress,
       reservations,
+      favoriteSlugs,
     )
 
     const fingerprint = JSON.stringify({
@@ -164,8 +167,15 @@ export function useCustomerGamification({
       awarded: nextState.awardedReservationXpIds,
       claims: nextState.claimedPromotions.map((entry) => entry.promotionId),
       redemptions: nextState.redemptionsCount,
+      reviews: nextState.reviewsCount,
+      reviewsPhoto: nextState.reviewsWithPhotoCount,
+      reviewsText: nextState.textReviewsCount,
+      reviewedReservations: nextState.reviewedReservationIds,
+      favoritesWeek: nextState.favoritesAddedThisWeek,
+      favoriteBaseline: nextState.favoriteSlugsAtWeekStart,
       ladderBaselines: nextState.ladderBaselinesByCompany,
       activeLadder: nextState.activeLadderPromotionByCompany,
+      ladderCompletions: nextState.ladderCompletionsByCompany,
     })
 
     if (fingerprint === persistedRef.current) {
@@ -176,8 +186,13 @@ export function useCustomerGamification({
     setState(nextState)
     setSyncing(true)
 
+    const beforeGamification = { ...evaluationState }
+
     void updateCustomerGamification(user.uid, nextState)
-      .then(() => refreshProfile())
+      .then(async () => {
+        await syncGamificationNotifications(beforeGamification)
+        return refreshProfile()
+      })
       .catch(() => {
         persistedRef.current = ''
       })
@@ -188,8 +203,8 @@ export function useCustomerGamification({
     enabled,
     user,
     profile?.role,
-    enrichedState,
-    favoriteSlugs.length,
+    evaluationState,
+    favoriteSlugs,
     refreshProfile,
     weeklyProgress,
     monthlyProgress,
@@ -208,6 +223,7 @@ export function useCustomerGamification({
     weeklyBonus,
     unlockedRewards,
     syncing,
+    weeklyFeaturedCategory: context.weeklyFeaturedCategory,
   }
 }
 

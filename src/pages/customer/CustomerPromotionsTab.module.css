@@ -55,6 +55,56 @@
   gap: 0.65rem;
 }
 
+.promoCardClaimed {
+  position: relative;
+  filter: grayscale(1);
+  opacity: 0.92;
+}
+
+.promoCardClaimed .promoBody {
+  --promo-body-bg: linear-gradient(180deg, #f3f4f6 0%, #fafafa 100%);
+  border-top-color: #9ca3af;
+}
+
+.promoCardClaimed .promoRestaurant,
+.promoCardClaimed .promoDetail,
+.promoCardClaimed .promoMinSpend {
+  color: #6b7280;
+}
+
+.promoCardClaimed .promoHighlight {
+  background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+  color: #4b5563;
+}
+
+.claimedStamp {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 4;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(75, 85, 99, 0.92);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: rotate(6deg);
+}
+
+.promoDescription {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: #6b7280;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .claimedCard {
   padding: 0.85rem 0.95rem;
   border-radius: 16px;
@@ -209,6 +259,11 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding-bottom: 0.15rem;
+}
+
+.compactPromoCard {
+  flex: 0 0 168px;
+  scroll-snap-align: start;
 }
 
 .activeScroller::-webkit-scrollbar {
@@ -770,6 +825,40 @@
     max-width: 560px;
     margin: 0 auto;
     padding: 1rem 1.25rem 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page {
+    max-width: min(1200px, calc(100% - 3rem));
+    margin: 0 auto;
+    padding: 1.25rem 1.75rem 2.5rem;
+  }
+
+  .viewTabs {
+    max-width: 28rem;
+  }
+
+  .activeStrip {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .compactCard {
+    flex-basis: 148px;
+  }
+
+  .promoFeed {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .promoVisualTitle {
+    font-size: 1.05rem;
+  }
+
+  .promoHighlight {
+    font-size: 0.82rem;
   }
 }
 

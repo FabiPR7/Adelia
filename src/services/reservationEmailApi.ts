@@ -1,4 +1,11 @@
+import { getIdToken } from './auth'
+
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
+
+async function buildAuthHeaders(): Promise<HeadersInit> {
+  const token = await getIdToken().catch(() => null)
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 async function notifyReservationEmail(
   reservationId: string,
@@ -12,7 +19,10 @@ async function notifyReservationEmail(
   try {
     const response = await fetch(
       `${API_BASE}/api/reservations/${encodeURIComponent(reservationId)}/${endpoint}`,
-      { method: 'POST' },
+      {
+        method: 'POST',
+        headers: await buildAuthHeaders(),
+      },
     )
 
     const data = (await response.json().catch(() => ({}))) as {
@@ -44,6 +54,40 @@ export async function notifyReservationConfirmationEmail(
   return notifyReservationEmail(reservationId, 'notify-confirmation', 'confirmación')
 }
 
+export async function notifyReservationCancelledNotification(
+  reservationId: string,
+  cancelledBy: 'client' | 'restaurant',
+): Promise<boolean> {
+  if (!reservationId) {
+    return false
+  }
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/reservations/${encodeURIComponent(reservationId)}/notify-cancelled`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await buildAuthHeaders()),
+        },
+        body: JSON.stringify({ cancelledBy }),
+      },
+    )
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string }
+      console.warn('No se pudo enviar la notificación de cancelación:', data.error ?? response.status)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.warn('No se pudo contactar con la API de cancelación:', error)
+    return false
+  }
+}
+
 export async function syncReservationClient(reservationId: string): Promise<boolean> {
   if (!reservationId) {
     return false
@@ -52,7 +96,10 @@ export async function syncReservationClient(reservationId: string): Promise<bool
   try {
     const response = await fetch(
       `${API_BASE}/api/reservations/${encodeURIComponent(reservationId)}/sync-client`,
-      { method: 'POST' },
+      {
+        method: 'POST',
+        headers: await buildAuthHeaders(),
+      },
     )
 
     const data = (await response.json().catch(() => ({}))) as {

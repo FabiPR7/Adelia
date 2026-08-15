@@ -1,0 +1,351 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(8, 6, 12, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease, background 0.45s ease;
+}
+
+.overlayVisible {
+  opacity: 1;
+  pointer-events: auto;
+  background: rgba(8, 6, 12, 0.82);
+  backdrop-filter: blur(10px);
+}
+
+.backdropGlow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 107, 74, 0.28), transparent 42%),
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.22), transparent 36%),
+    radial-gradient(circle at 82% 72%, rgba(236, 72, 153, 0.18), transparent 34%);
+  animation: backdropPulse 3.2s ease-in-out infinite;
+}
+
+.dialog {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 26rem);
+  display: grid;
+  justify-items: center;
+  gap: 0.65rem;
+  text-align: center;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.38rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #fde68a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.badgeVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.badgeIcon {
+  font-size: 1rem;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.8rem, 6vw, 2.45rem);
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 8px 28px rgba(255, 107, 74, 0.45);
+  opacity: 0;
+  transform: translateY(18px) scale(0.92);
+  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.titleVisible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.subtitle {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.45s ease 0.08s, transform 0.45s ease 0.08s;
+}
+
+.subtitleVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  margin: 0.35rem 0 0.15rem;
+  perspective: 1200px;
+}
+
+.cardScene {
+  position: relative;
+  width: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cardSceneFlipping {
+  transform: rotateY(180deg);
+}
+
+.cardOld,
+.cardNew {
+  width: 100%;
+  backface-visibility: hidden;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.cardOld {
+  transform: rotateY(0deg);
+  animation: cardFloat 2.8s ease-in-out infinite;
+}
+
+.cardNew {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  animation: cardGlow 2.4s ease-in-out infinite;
+}
+
+.burst {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin: -0.25rem;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.burstActive {
+  animation: levelBurst 0.85s ease-out forwards;
+}
+
+.ring {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 6rem;
+  height: 6rem;
+  margin: -3rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ringActive {
+  animation: levelRing 1.1s ease-out forwards;
+}
+
+.reward {
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.92rem;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.rewardVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reward strong {
+  color: #fff;
+}
+
+.cta {
+  margin-top: 0.35rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.78rem 1.45rem;
+  font: inherit;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b4a, #ff4fa3 55%, #8b5cf6);
+  box-shadow:
+    0 12px 30px rgba(255, 79, 163, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(12px) scale(0.96);
+  transition: opacity 0.45s ease, transform 0.45s ease, box-shadow 0.2s ease;
+}
+
+.ctaVisible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.cta:hover:not(:disabled) {
+  box-shadow:
+    0 16px 36px rgba(255, 79, 163, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+}
+
+.cta:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confettiPiece {
+  position: absolute;
+  top: -10%;
+  left: calc((var(--i) * 4.3%) + 2%);
+  width: 0.55rem;
+  height: 0.9rem;
+  border-radius: 2px;
+  opacity: 0;
+  background: hsl(calc(var(--i) * 19deg) 88% 62%);
+  animation: confettiFall 2.8s ease-in forwards;
+  animation-delay: calc(var(--i) * 0.05s);
+}
+
+@keyframes backdropPulse {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes cardFloat {
+  0%,
+  100% {
+    transform: translateY(0) rotateY(0deg);
+  }
+
+  50% {
+    transform: translateY(-6px) rotateY(0deg);
+  }
+}
+
+@keyframes cardGlow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgba(255, 107, 74, 0));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 18px rgba(255, 107, 74, 0.45));
+  }
+}
+
+@keyframes levelBurst {
+  0% {
+    opacity: 0.95;
+    box-shadow:
+      0 0 0 0 rgba(255, 255, 255, 0.95),
+      0 0 0 0 rgba(255, 107, 74, 0.55),
+      0 0 0 0 rgba(139, 92, 246, 0.35);
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0),
+      0 0 0 120px rgba(255, 107, 74, 0),
+      0 0 0 220px rgba(139, 92, 246, 0);
+  }
+}
+
+@keyframes levelRing {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.35);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
+@keyframes confettiFall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(calc((var(--i) - 12) * 4px), 110vh, 0) rotate(540deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardOld,
+  .cardNew,
+  .backdropGlow,
+  .confettiPiece,
+  .burstActive,
+  .ringActive {
+    animation: none;
+  }
+
+  .cardScene {
+    transition: none;
+  }
+
+  .cardSceneFlipping {
+    transform: none;
+  }
+
+  .cardOld {
+    display: none;
+  }
+
+  .cardNew {
+    position: static;
+    transform: none;
+  }
+}

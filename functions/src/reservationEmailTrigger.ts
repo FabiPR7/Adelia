@@ -1,4 +1,3 @@
-import { defineSecret } from 'firebase-functions/params'
 import {
   onDocumentCreated,
   onDocumentUpdated,
@@ -12,14 +11,15 @@ import {
 } from '../server/email/processReservationEmail.ts'
 import { upsertCompanyClientFromReservation } from '../server/clients/upsertCompanyClient.ts'
 import { adminDb } from '../server/firebase-admin.ts'
-
-export const resendApiKeySecret = defineSecret('RESEND_API_KEY')
+import {
+  notifyReservationCancelled,
+  notifyReservationConfirmed,
+} from '../server/notifications/reservationEvents.ts'
 
 const triggerOptions = {
   document: 'reservations/{reservationId}',
   database: 'adelia',
   region: 'europe-southwest1',
-  secrets: [resendApiKeySecret],
 } as const
 
 function resolveResendApiKey(): string | undefined {
@@ -60,12 +60,27 @@ export const onReservationUpdatedSendEmail = onDocumentUpdated(
   async (event) => {
     const before = event.data?.before.data()
     const after = event.data?.after.data()
+    const reservationId = event.params.reservationId
+
+    if (before && after) {
+      try {
+        if (before.status !== 'confirmed' && after.status === 'confirmed') {
+          await notifyReservationConfirmed(reservationId, after)
+        }
+
+        if (before.status !== 'cancelled' && after.status === 'cancelled') {
+          const cancelledBy = after.cancelledBy === 'client' ? 'client' : 'restaurant'
+          await notifyReservationCancelled(reservationId, after, cancelledBy)
+        }
+      } catch (notificationError) {
+        console.error(`Notification side-effects failed for reservation ${reservationId}:`, notificationError)
+      }
+    }
 
     if (!shouldSendConfirmationOnUpdate(before, after)) {
       return
     }
 
-    const reservationId = event.params.reservationId
     const apiKey = resolveResendApiKey()
 
     try {

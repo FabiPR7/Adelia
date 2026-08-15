@@ -1,14 +1,20 @@
 import type { CompanySchedule, FloorPlan, Reservation } from '../types'
+import type {
+  ReviewMediaItem,
+  ReviewTaggedProduct,
+  ReviewTaggedPromotion,
+} from '../types/review'
 import {
-  createPublicReservation as createPublicReservationInFirestore,
   getCompanyBySlug,
   getFirestoreErrorMessage,
-  getReservationsForDate,
   getTablesByCompany,
 } from './firestore'
 import { getPublicCompanyMenuBoards, getPublicCompanyMenuNodes } from './companyMenu'
 import type { MenuBoard, MenuNode } from '../types/company'
 import { dateToIsoDate } from '../utils/helpers'
+import { getIdToken } from './auth'
+
+const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 export interface PublicBookingTable {
   id: string
@@ -38,6 +44,42 @@ export interface PublicBookingCompany {
   timeSlotMinutes: number
   schedule: CompanySchedule
   floorPlan: FloorPlan
+  reviewCount: number
+  reviewRatingSum: number
+  reviewAdelinas: number
+  depositMinPax: number | null
+  depositPerGuestCents: number | null
+  depositEnabled: boolean
+  depositCancellationHours: number | null
+  stripeAccountId: string | null
+  stripeChargesEnabled: boolean
+  stripeDetailsSubmitted: boolean
+}
+
+export interface PublicCompanyReview {
+  id: string
+  customerName: string
+  rating: number
+  comment: string
+  hasPhoto: boolean
+  mediaItems: ReviewMediaItem[]
+  taggedProducts: ReviewTaggedProduct[]
+  taggedPromotions: ReviewTaggedPromotion[]
+  createdAt: string
+  ownerReply?: {
+    text: string
+    createdAt: string
+    updatedAt?: string
+  } | null
+}
+
+export interface PublicReviewsResponse {
+  stats: {
+    reviewCount: number
+    reviewRatingSum: number
+    averageRating: number
+  }
+  reviews: PublicCompanyReview[]
 }
 
 export interface PublicAvailabilityReservation {
@@ -57,6 +99,8 @@ export interface PublicBookingPayload {
   clientPhone: string
   pax: number
   notes: string
+  promotionId?: string
+  depositPaymentIntentId?: string
 }
 
 async function getCompanyOrThrow(slug: string) {
@@ -95,59 +139,68 @@ export async function fetchPublicAvailability(
   slug: string,
   date: Date,
 ): Promise<PublicAvailabilityReservation[]> {
-  try {
-    const company = await getCompanyOrThrow(slug)
-    const reservations = await getReservationsForDate(company.id, date)
+  const dateParam = dateToIsoDate(date)
+  const response = await fetch(
+    `${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/availability?date=${encodeURIComponent(dateParam)}`,
+  )
 
-    return reservations.map((reservation) => ({
-      id: reservation.id,
-      tableId: reservation.tableId,
-      startTime: reservation.startTime.toISOString(),
-      endTime: reservation.endTime.toISOString(),
-      status: reservation.status,
-    }))
-  } catch (error) {
-    throw new Error(getFirestoreErrorMessage(error))
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(payload.error ?? 'No se pudo cargar la disponibilidad.')
   }
+
+  const payload = (await response.json()) as { reservations?: PublicAvailabilityReservation[] }
+  return payload.reservations ?? []
 }
 
 export async function createPublicReservation(
   slug: string,
   payload: PublicBookingPayload,
 ): Promise<{ id: string; message: string }> {
-  try {
-    const company = await getCompanyOrThrow(slug)
-    const date = parseBookingDate(payload.date)
-    const dayReservations = await getReservationsForDate(company.id, date)
+  const token = await getIdToken().catch(() => null)
 
-    const created = await createPublicReservationInFirestore(
-      company.id,
-      date,
-      {
-        clientName: payload.clientName,
-        clientEmail: payload.clientEmail,
-        clientPhone: payload.clientPhone,
-        pax: payload.pax,
-        tableId: payload.tableId,
-        time: payload.time,
-        notes: payload.notes,
+  const response = await fetch(
+    `${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/reservations`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      company.timeSlotMinutes,
-      company.schedule,
-      dayReservations,
-    )
+      body: JSON.stringify({
+        ...payload,
+        clientEmail: payload.clientEmail.trim().toLowerCase(),
+      }),
+    },
+  )
 
-    return {
-      id: created.id,
-      message: 'Hemos recibido tu reserva.',
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message.trim()) {
-      throw error
-    }
-
-    throw new Error(getFirestoreErrorMessage(error, 'save'))
+  const data = (await response.json().catch(() => ({}))) as {
+    id?: string
+    message?: string
+    error?: string
   }
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo crear la reserva.')
+  }
+
+  return {
+    id: data.id ?? '',
+    message: data.message ?? 'Hemos recibido tu reserva.',
+  }
+}
+
+export async function fetchPublicReviews(slug: string): Promise<PublicReviewsResponse> {
+  const response = await fetch(
+    `${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/reviews`,
+  )
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(payload.error ?? 'No se pudieron cargar las reseñas.')
+  }
+
+  return response.json() as Promise<PublicReviewsResponse>
 }
 
 export async function fetchPublicMenu(slug: string): Promise<{
@@ -175,29 +228,6 @@ export async function fetchPublicMenu(slug: string): Promise<{
   }
 }
 
-function parseBookingDate(value: string): Date {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
-
-  if (!match) {
-    throw new Error('Fecha inválida.')
-  }
-
-  const year = Number(match[1])
-  const month = Number(match[2]) - 1
-  const day = Number(match[3])
-  const date = new Date(year, month, day)
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month ||
-    date.getDate() !== day
-  ) {
-    throw new Error('Fecha inválida.')
-  }
-
-  return date
-}
-
 export function availabilityToReservations(items: PublicAvailabilityReservation[]): Reservation[] {
   return items.map((item) => ({
     id: item.id,
@@ -218,20 +248,55 @@ export function availabilityToReservations(items: PublicAvailabilityReservation[
 
 export { dateToIsoDate }
 
-const API_BASE = import.meta.env.VITE_API_URL ?? ''
+export interface PublicCancelPreview {
+  companyName: string
+  clientName: string
+  pax: number | null
+  startTime: string | null
+  status: string
+  alreadyCancelled: boolean
+  depositAmountCents: number | null
+  depositCancellationHours: number | null
+  hasAuthorizedDeposit: boolean
+  willChargeDeposit: boolean
+}
 
-export async function cancelPublicReservation(token: string): Promise<string> {
+export interface PublicCancelResult {
+  message: string
+  depositOutcome: 'none' | 'captured' | 'released'
+  depositCharged: boolean
+}
+
+export async function fetchPublicCancelPreview(token: string): Promise<PublicCancelPreview> {
+  const response = await fetch(
+    `${API_BASE}/api/public/booking/cancel/preview?token=${encodeURIComponent(token)}`,
+  )
+
+  const data = (await response.json().catch(() => ({}))) as PublicCancelPreview & { error?: string }
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cargar la información de cancelación.')
+  }
+
+  return data
+}
+
+export async function cancelPublicReservation(token: string): Promise<PublicCancelResult> {
   const response = await fetch(`${API_BASE}/api/public/booking/cancel`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),
   })
 
-  const data = (await response.json().catch(() => ({}))) as { message?: string; error?: string }
+  const data = (await response.json().catch(() => ({}))) as PublicCancelResult & { error?: string }
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo cancelar la reserva.')
   }
 
-  return data.message ?? 'Tu reserva ha sido cancelada correctamente.'
+  return {
+    message: data.message ?? 'Tu reserva ha sido cancelada correctamente.',
+    depositOutcome: data.depositOutcome ?? 'none',
+    depositCharged: data.depositCharged === true,
+  }
 }

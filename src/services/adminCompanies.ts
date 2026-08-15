@@ -17,6 +17,7 @@ import type {
   UpdateCompanyPayload,
 } from '../types'
 import { defaultTurns, parseFloorPlan, defaultCompanyEmailTemplates } from '../types/company'
+import { defaultCompanyQrBranding } from '../utils/qrBranding'
 import { defaultSchedule, slugify, slugToAuthEmail } from '../utils/helpers'
 import { syncCompanyLoginIndex } from './firestore'
 
@@ -147,10 +148,22 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
       videos: [],
       characteristics: [],
       timeSlotMinutes: 120,
+      depositMinPax: null,
+      depositPerGuestCents: null,
+      depositEnabled: false,
+      depositCancellationHours: null,
       schedule: defaultSchedule(),
       turns: defaultTurns(),
       floorPlan: parseFloorPlan(undefined),
       emailTemplates: defaultCompanyEmailTemplates(),
+      qrBranding: defaultCompanyQrBranding(),
+      reviewCount: 0,
+      reviewRatingSum: 0,
+      reviewAdelinas: 0,
+      stripeAccountId: null,
+      stripeChargesEnabled: false,
+      stripePayoutsEnabled: false,
+      stripeDetailsSubmitted: false,
       createdAt: new Date(),
     },
     loginName: name,

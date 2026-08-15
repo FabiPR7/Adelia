@@ -1,4 +1,5 @@
-import { Suspense, lazy, useRef, useState } from 'react'
+import { Suspense, lazy, useRef, useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import { useAuth } from '../context/AuthContext'
@@ -18,7 +19,9 @@ import CompanyReservations from './company/CompanyReservations'
 import CompanyClients from './company/CompanyClients'
 import CompanyReportsReservations from './company/CompanyReportsReservations'
 import CompanyReportsClients from './company/CompanyReportsClients'
+import CompanyReportsProducts from './company/CompanyReportsProducts'
 import CompanyPromotions from './company/CompanyPromotions'
+import CompanyReviews from './company/CompanyReviews'
 import CompanyEmailTemplate from './company/CompanyEmailTemplate'
 import CompanyHelp from './company/CompanyHelp'
 import CompanyMenu from './company/CompanyMenu'
@@ -50,6 +53,7 @@ function settingsSectionLabel(tab: CompanyTab): string {
 
 function CompanyDashboard() {
   const { company } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<CompanyTab>('reservations')
   const [lastSettingsSection, setLastSettingsSection] = useState<CompanySettingsSection>('contact')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -59,6 +63,21 @@ function CompanyDashboard() {
   const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false)
   const [isSavingUnsaved, setIsSavingUnsaved] = useState(false)
   const settingsRef = useRef<CompanySettingsHandle>(null)
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+
+    if (tab === 'reservation-settings') {
+      setActiveTab('reservation-settings')
+      setLastSettingsSection('reservation-settings')
+    }
+
+    if (searchParams.get('stripe')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('stripe')
+      setSearchParams(next, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const handleLogout = async () => {
     await logout()
@@ -307,6 +326,9 @@ function CompanyDashboard() {
           <div className={activeTab === 'clients-promotions' ? styles.tabPanelActive : styles.tabPanelHidden}>
             <CompanyPromotions companyId={company.id} />
           </div>
+          <div className={activeTab === 'clients-reviews' ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyReviews companyId={company.id} />
+          </div>
           <div className={activeTab === 'clients-email-received' ? styles.tabPanelActive : styles.tabPanelHidden}>
             <CompanyEmailTemplate kind="received" />
           </div>
@@ -318,6 +340,9 @@ function CompanyDashboard() {
           </div>
           <div className={activeTab === 'reports-clients' ? styles.tabPanelActive : styles.tabPanelHidden}>
             <CompanyReportsClients companyId={company.id} />
+          </div>
+          <div className={activeTab === 'reports-products' ? styles.tabPanelActive : styles.tabPanelHidden}>
+            <CompanyReportsProducts companyId={company.id} />
           </div>
           <div className={activeTab === 'help' ? styles.tabPanelActive : styles.tabPanelHidden}>
             <CompanyHelp />

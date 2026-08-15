@@ -54,3 +54,19 @@
   background: var(--color-brown);
   color: var(--color-white);
 }
+
+@media (min-width: 1024px) {
+  .toolbar {
+    max-width: min(960px, 92vw);
+    margin: 0 auto;
+    width: 100%;
+    padding: 0.85rem 2rem;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+
+  .page {
+    background:
+      radial-gradient(circle at 100% 0%, rgba(196, 168, 130, 0.1), transparent 30%),
+      var(--color-cream);
+  }
+}

@@ -70,10 +70,22 @@ export interface Company {
   videos: string[]
   characteristics: string[]
   timeSlotMinutes: number
+  depositMinPax: number | null
+  depositPerGuestCents: number | null
+  depositEnabled: boolean
+  depositCancellationHours: number | null
   schedule: CompanySchedule
   turns: import('./company').ServiceTurn[]
   floorPlan: import('./company').FloorPlan
   emailTemplates: import('./company').CompanyEmailTemplates
+  qrBranding: import('./company').CompanyQrBranding
+  reviewCount: number
+  reviewRatingSum: number
+  reviewAdelinas: number
+  stripeAccountId: string | null
+  stripeChargesEnabled: boolean
+  stripePayoutsEnabled: boolean
+  stripeDetailsSubmitted: boolean
   createdAt: Date
 }
 
@@ -83,6 +95,27 @@ export interface AdminCompany extends Company {
 }
 
 export type ReservationStatus = 'confirmed' | 'cancelled' | 'completed'
+
+export type ReservationDepositStatus = 'authorized' | 'captured' | 'released' | 'failed'
+
+/** Si la visita cuenta hacia promos con gasto mínimo (lo valida el restaurante al confirmar). */
+export type PromotionVisitStatus = 'pending' | 'eligible' | 'not_eligible' | 'n/a'
+
+export interface ReservationMinSpendLineItem {
+  nodeId: string
+  name: string
+  quantity: number
+  unitPriceCents: number
+  lineTotalCents: number
+}
+
+export interface ReservationMinSpendVerification {
+  mode: 'total' | 'products'
+  totalCents: number
+  lineItems: ReservationMinSpendLineItem[]
+  verifiedAt: Date
+  meetsMinimumSpend: boolean
+}
 
 export interface CompanyClient {
   id: string
@@ -110,6 +143,13 @@ export interface Reservation {
   status: ReservationStatus
   cancelToken: string
   createdAt: Date
+  promotionId?: string | null
+  minimumSpendCents?: number | null
+  promotionVisitStatus?: PromotionVisitStatus
+  minSpendVerification?: ReservationMinSpendVerification
+  depositAmountCents?: number | null
+  depositPaymentIntentId?: string | null
+  depositStatus?: ReservationDepositStatus | null
 }
 
 export interface ReservationFormData {
@@ -164,6 +204,8 @@ export type {
   ServiceTurn,
   TableInput,
   PromotionType,
+  PromotionPinRotation,
+  PromotionPinSettings,
   PromotionOfferKind,
   PromotionOfferConfig,
   PromotionProductRef,

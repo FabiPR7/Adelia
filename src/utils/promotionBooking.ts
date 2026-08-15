@@ -1,4 +1,6 @@
 import type { PublicPromotion } from '../services/publicPromotions'
+import type { AppUser } from '../types'
+import type { User } from 'firebase/auth'
 
 function timeToMinutes(time: string): number {
   const [hours, minutes] = time.split(':').map(Number)
@@ -18,6 +20,13 @@ export function isSlotWithinPromoWindow(
 
 export function isPromoTimeConstrained(promotion: PublicPromotion): boolean {
   return promotion.type === 'time_limited' || promotion.type === 'attendance'
+}
+
+export function canRedeemPromotionAsCustomer(
+  user: User | null | undefined,
+  profile: AppUser | null | undefined,
+): boolean {
+  return Boolean(user && profile?.role === 'customer')
 }
 
 export function buildPromotionBookingHref(

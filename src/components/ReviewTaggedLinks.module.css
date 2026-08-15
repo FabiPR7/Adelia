@@ -1,0 +1,35 @@
+.wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.tagLink,
+.tagLabel {
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+
+.tagLink:hover {
+  text-decoration: underline;
+}
+
+.removeTag {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}

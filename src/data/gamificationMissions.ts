@@ -113,7 +113,7 @@ export const WEEKLY_MISSIONS: MissionDefinition[] = [
   },
 ]
 
-export const MONTHLY_MISSIONS: MissionDefinition[] = [
+export const MONTHLY_MISSION_POOL: MissionDefinition[] = [
   {
     id: 'ruta_gastronomica',
     name: 'Ruta Gastronómica de Adelia',
@@ -161,7 +161,65 @@ export const MONTHLY_MISSIONS: MissionDefinition[] = [
     icon: '🌗',
     target: 2,
   },
+  {
+    id: 'maraton_mensual',
+    name: 'Maratón Mensual',
+    xp: 320,
+    cadence: 'monthly',
+    description: 'Completa 6 reservas asistidas en el mes',
+    icon: '🏃',
+    target: 6,
+  },
+  {
+    id: 'grupo_grande_mes',
+    name: 'Mesa Grande del Mes',
+    xp: 220,
+    cadence: 'monthly',
+    description: 'Reserva para 4 o más personas',
+    icon: '👨‍👩‍👧‍👦',
+    target: 1,
+  },
+  {
+    id: 'promo_doble_mes',
+    name: 'Doble Promo',
+    xp: 280,
+    cadence: 'monthly',
+    category: 'rewards',
+    description: 'Reserva 2 veces en locales con oferta activa',
+    icon: '🏷️',
+    target: 2,
+  },
+  {
+    id: 'finde_gourmet_mes',
+    name: 'Finde Gourmet',
+    xp: 260,
+    cadence: 'monthly',
+    description: 'Completa 2 reservas en fin de semana',
+    icon: '🥂',
+    target: 2,
+  },
+  {
+    id: 'valle_laboral_mes',
+    name: 'Valle Laboral',
+    xp: 240,
+    cadence: 'monthly',
+    description: 'Reserva 2 veces de lunes a jueves',
+    icon: '🤝',
+    target: 2,
+  },
+  {
+    id: 'descubridor_mes',
+    name: 'Descubridor del Mes',
+    xp: 300,
+    cadence: 'monthly',
+    description: 'Visita 2 restaurantes nuevos este mes',
+    icon: '🧭',
+    target: 2,
+  },
 ]
+
+/** @deprecated Usar rotateMonthlyMissions() para obtener las misiones activas del mes. */
+export const MONTHLY_MISSIONS = MONTHLY_MISSION_POOL
 
 export const HISTORICAL_MISSIONS: MissionDefinition[] = [
   { id: 'debut_gastronomico', name: 'Debut Gastronómico', xp: 150, cadence: 'historical', category: 'loyalty', description: 'Completa tu primera reserva asistida', icon: '🎉', target: 1 },
@@ -199,5 +257,5 @@ export const HISTORICAL_MISSIONS: MissionDefinition[] = [
   { id: 'llama_eterna', name: 'Llama Eterna', xp: 2200, cadence: 'historical', category: 'loyalty', description: 'Completa 75 reservas asistidas', icon: '🔥', target: 75 },
   { id: 'corona_gastro', name: 'Corona Gastro', xp: 2800, cadence: 'historical', category: 'exploration', description: 'Visita 40 restaurantes distintos', icon: '👑', target: 40 },
   { id: 'titan_hosteleria', name: 'Titán Hostelería', xp: 2500, cadence: 'historical', category: 'exploration', description: '200 comensales en tus reservas en total', icon: '🌋', target: 200 },
-  { id: 'emperador_adelia', name: 'Emperador Adelia', xp: 3000, cadence: 'historical', category: 'loyalty', description: 'Alcanza el nivel 10 de foodie', icon: '🦁', target: 10 },
+  { id: 'emperador_adelia', name: 'Emperador Adelia', xp: 3000, cadence: 'historical', category: 'loyalty', description: 'Alcanza el nivel 7 de foodie', icon: '🦁', target: 7 },
 ]

@@ -37,6 +37,10 @@ export function createSectionSnapshot(
       return JSON.stringify({
         timeSlotMinutes: form.timeSlotMinutes,
         timeSlotMinutesInput,
+        depositEnabled: form.depositEnabled,
+        depositMinPax: form.depositMinPax,
+        depositPerGuestCents: form.depositPerGuestCents,
+        depositCancellationHours: form.depositCancellationHours,
         turns: form.turns,
         schedule: form.schedule,
       })
@@ -115,6 +119,10 @@ export function applySectionSnapshot(
         form: {
           ...form,
           timeSlotMinutes: parsed.timeSlotMinutes as number,
+          depositEnabled: parsed.depositEnabled === true,
+          depositMinPax: (parsed.depositMinPax as number | null | undefined) ?? null,
+          depositPerGuestCents: (parsed.depositPerGuestCents as number | null | undefined) ?? null,
+          depositCancellationHours: (parsed.depositCancellationHours as number | null | undefined) ?? null,
           turns: parsed.turns as CompanySettingsPayload['turns'],
           schedule: parsed.schedule as CompanySettingsPayload['schedule'],
         },

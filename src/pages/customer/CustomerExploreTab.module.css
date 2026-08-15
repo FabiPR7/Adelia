@@ -125,3 +125,28 @@
     padding: 0 1.5rem;
   }
 }
+
+@media (min-width: 1024px) {
+  .page {
+    max-width: min(1200px, calc(100% - 3rem));
+    padding-bottom: 2rem;
+  }
+
+  .header {
+    padding: 1.75rem 2rem 0.65rem;
+  }
+
+  .header h1 {
+    font-size: 2.25rem;
+  }
+
+  .spotlightSection {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 0 2rem;
+    gap: 1rem;
+  }
+
+  .carouselHeader {
+    padding: 0 2rem;
+  }
+}

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import AdelinaCoin from './AdelinaCoin'
-import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
+import DiscoveryRatingBadge from './DiscoveryRatingBadge'
+import {
+  formatDiscoveryRatingBadge,
+  type PublicDiscoveryRestaurant,
+} from '../utils/publicDiscovery'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
-import { getMockAdelinaReviewCount, getMockReviewRating, getMockReservationCount } from '../utils/mockReviewRating'
 import styles from './RotatingRestaurantSpotlight.module.css'
 
 export type SpotlightMetric = 'reservations' | 'rating'
@@ -21,7 +23,7 @@ function RotatingRestaurantSpotlight({
   title,
   subtitle,
   restaurants,
-  metric,
+  metric: _metric,
   intervalMs = 3000,
   onOpenRestaurant,
 }: RotatingRestaurantSpotlightProps) {
@@ -54,9 +56,7 @@ function RotatingRestaurantSpotlight({
   const imageUrl = restaurant.photoUrl
     ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoGallery)
     : ''
-  const rating = getMockReviewRating(restaurant.slug)
-  const reviewCount = getMockAdelinaReviewCount(restaurant.slug)
-  const reservationCount = getMockReservationCount(restaurant.slug)
+  const ratingBadge = formatDiscoveryRatingBadge(restaurant)
 
   return (
     <article className={styles.card}>
@@ -91,28 +91,10 @@ function RotatingRestaurantSpotlight({
           <p>{restaurant.municipality || restaurant.location}</p>
 
           <div className={styles.stats}>
-            {metric === 'reservations' ? (
-              <>
-                <span className={styles.statHighlight}>
-                  <strong>{reservationCount.toLocaleString('es-ES')}</strong>
-                  reservas
-                </span>
-                <span>
-                  <AdelinaCoin size="sm" variant="review" alt="" />
-                  {rating.toFixed(1)} · {reviewCount} reseñas
-                </span>
-              </>
+            {ratingBadge ? (
+              <DiscoveryRatingBadge rating={ratingBadge} className={styles.statHighlight} />
             ) : (
-              <>
-                <span className={styles.statHighlight}>
-                  <AdelinaCoin size="sm" variant="review" alt="" />
-                  <strong>{rating.toFixed(1)}</strong>
-                  puntuación
-                </span>
-                <span>
-                  {reviewCount.toLocaleString('es-ES')} reseñas · {reservationCount} reservas
-                </span>
-              </>
+              <span className={styles.statMuted}>Sin reseñas aún</span>
             )}
           </div>
 

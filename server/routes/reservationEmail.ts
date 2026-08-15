@@ -5,6 +5,12 @@ import {
   processReservationReceivedEmail,
 } from '../email/processReservationEmail.ts'
 import { adminDb } from '../firebase-admin.ts'
+import {
+  notifyReservationCancelled,
+  notifyReservationConfirmed,
+  notifyReservationReceived,
+} from '../notifications/reservationEvents.ts'
+import { canManageReservationNotifications } from '../notifications/reservationAccess.ts'
 
 const router = Router()
 
@@ -23,6 +29,13 @@ router.post('/:reservationId/sync-client', async (req: Request, res: Response) =
 
     if (!reservationSnap.exists) {
       res.status(404).json({ error: 'Reserva no encontrada.' })
+      return
+    }
+
+    const reservationData = reservationSnap.data()!
+    const allowed = await canManageReservationNotifications(req, reservationData)
+    if (!allowed) {
+      res.status(403).json({ error: 'No autorizado.' })
       return
     }
 
@@ -53,12 +66,24 @@ router.post('/:reservationId/notify-received', async (req: Request, res: Respons
     }
 
     const reservationData = reservationSnap.data()!
+    const allowed = await canManageReservationNotifications(req, reservationData)
+    if (!allowed) {
+      res.status(403).json({ error: 'No autorizado.' })
+      return
+    }
+
     await syncClientForReservation(reservationId, reservationData)
 
     const sent = await processReservationReceivedEmail(
       reservationId,
       reservationData,
     )
+
+    try {
+      await notifyReservationReceived(reservationId, reservationData)
+    } catch (notificationError) {
+      console.error('Reservation received notification error:', notificationError)
+    }
 
     res.json({
       sent,
@@ -80,10 +105,24 @@ router.post('/:reservationId/notify-confirmation', async (req: Request, res: Res
       return
     }
 
+    const reservationData = reservationSnap.data()!
+
+    const allowed = await canManageReservationNotifications(req, reservationData)
+    if (!allowed) {
+      res.status(403).json({ error: 'No autorizado.' })
+      return
+    }
+
     const sent = await processReservationConfirmationEmail(
       reservationId,
-      reservationSnap.data()!,
+      reservationData,
     )
+
+    try {
+      await notifyReservationConfirmed(reservationId, reservationData)
+    } catch (notificationError) {
+      console.error('Reservation confirmation notification error:', notificationError)
+    }
 
     res.json({
       sent,
@@ -92,6 +131,38 @@ router.post('/:reservationId/notify-confirmation', async (req: Request, res: Res
   } catch (error) {
     console.error('Reservation notify email error:', error)
     res.status(500).json({ error: 'No se pudo enviar el correo de confirmación.' })
+  }
+})
+
+router.post('/:reservationId/notify-cancelled', async (req: Request, res: Response) => {
+  try {
+    const { reservationId } = req.params
+    const reservationSnap = await adminDb.collection('reservations').doc(reservationId).get()
+
+    if (!reservationSnap.exists) {
+      res.status(404).json({ error: 'Reserva no encontrada.' })
+      return
+    }
+
+    const cancelledBy = req.body?.cancelledBy === 'restaurant' ? 'restaurant' : 'client'
+    const reservationData = reservationSnap.data()!
+
+    const allowed = await canManageReservationNotifications(req, reservationData)
+    if (!allowed) {
+      res.status(403).json({ error: 'No autorizado.' })
+      return
+    }
+
+    try {
+      await notifyReservationCancelled(reservationId, reservationData, cancelledBy)
+    } catch (notificationError) {
+      console.error('Reservation cancel notification error:', notificationError)
+    }
+
+    res.json({ ok: true })
+  } catch (error) {
+    console.error('Reservation notify cancelled error:', error)
+    res.status(500).json({ error: 'No se pudo enviar la notificación de cancelación.' })
   }
 })
 

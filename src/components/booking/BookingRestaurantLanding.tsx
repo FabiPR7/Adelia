@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react'
 import { Link } from 'react-router-dom'
+import PublicRestaurantReviews from './PublicRestaurantReviews'
 import RestaurantRouteMapModal from './RestaurantRouteMapModal'
 import type { PublicBookingCompany } from '../../services/publicApi'
 import { getCompanyMainPhotoUrl } from '../../utils/companyPhotos'
@@ -13,6 +14,7 @@ interface BookingRestaurantLandingProps {
   menuHref: string
   promotionsHref: string
   backHref?: string | null
+  backLabel?: string
   onReserve: () => void
 }
 
@@ -145,7 +147,8 @@ export default function BookingRestaurantLanding({
   company,
   menuHref,
   promotionsHref,
-  backHref = null,
+  backHref = '/',
+  backLabel = '← Menú principal',
   onReserve,
 }: BookingRestaurantLandingProps) {
   const [routeMapOpen, setRouteMapOpen] = useState(false)
@@ -177,7 +180,7 @@ export default function BookingRestaurantLanding({
       <section className={styles.hero} aria-label="Foto principal del restaurante">
         {backHref ? (
           <Link to={backHref} className={styles.backButton}>
-            ← Volver
+            {backLabel}
           </Link>
         ) : null}
 
@@ -328,6 +331,11 @@ export default function BookingRestaurantLanding({
           </section>
         </div>
       </div>
+
+      <PublicRestaurantReviews
+        companySlug={company.slug}
+        companyName={company.name}
+      />
     </div>
   )
 }

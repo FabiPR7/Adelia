@@ -4,6 +4,7 @@ import { FEATURED_PROMOTIONS, PROMO_HERO_IMAGE } from '../data/featuredPromotion
 import { fetchPublicPromotions, type PublicPromotion } from '../services/publicPromotions'
 import { PROMOTION_TYPE_LABELS } from '../types/company'
 import type { PromotionType } from '../types/company'
+import { buildPromotionBookingHref } from '../utils/promotionBooking'
 import { resolvePromotionDetail, resolvePromotionHighlight } from '../utils/promotionOffer'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './DiscoveryPromotionsSection.module.css'
@@ -97,7 +98,10 @@ function DiscoveryPromotionsSection() {
                 <p className={styles.description}>{promotion.description}</p>
                 <span className={styles.detailChip}>{promotion.detail}</span>
                 {'slug' in promotion && promotion.slug && (
-                  <Link to={`/reservar/${promotion.slug}`} className={styles.cardLink}>
+                  <Link
+                    to={buildPromotionBookingHref(promotion.slug, promotion.id)}
+                    className={styles.cardLink}
+                  >
                     Reservar y canjear
                   </Link>
                 )}

@@ -57,10 +57,24 @@ export function useGamificationCelebrations({
       bootstrappedRef.current = true
       lastXpRef.current = xp
 
-      if (!snapshot) {
+      if (snapshot && xp > snapshot.xp) {
+        const events = buildCelebrationEvents(snapshot, userName, xp, level, levelTitle)
+          .filter((event) => event.kind !== 'level_up')
+
+        if (events.some((event) => event.kind === 'rank_up')) {
+          setRankJustImproved(true)
+          window.setTimeout(() => setRankJustImproved(false), 4500)
+        }
+
+        if (events.length > 0) {
+          setQueue(events)
+        }
+      } else if (!snapshot) {
         writeGamificationSnapshot(userId, nextSnapshot)
+        return
       }
 
+      writeGamificationSnapshot(userId, nextSnapshot)
       return
     }
 
@@ -72,13 +86,8 @@ export function useGamificationCelebrations({
         window.setTimeout(() => setRankJustImproved(false), 4500)
       }
 
-      if (events.some((event) => event.kind === 'level_up')) {
-        setLevelJustUp(true)
-        window.setTimeout(() => setLevelJustUp(false), 4500)
-      }
-
       if (events.length > 0) {
-        setQueue((current) => [...current, ...events])
+        setQueue((current) => [...current, ...events.filter((event) => event.kind !== 'level_up')])
       }
     }
 

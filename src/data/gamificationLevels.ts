@@ -85,3 +85,23 @@ export function getGamificationLevelTitle(level: number): string {
 
   return EXTENDED_LEVEL_TITLES[level] ?? `Nivel ${level}`
 }
+
+export function getGamificationLevelByNumber(level: number): GamificationLevel {
+  const base = GAMIFICATION_LEVELS.find((entry) => entry.level === level)
+  if (base) {
+    return base
+  }
+
+  const fallback = GAMIFICATION_LEVELS[GAMIFICATION_LEVELS.length - 1]
+  return {
+    ...fallback,
+    level,
+    title: getGamificationLevelTitle(level),
+    minXp: fallback.minXp,
+    maxXp: null,
+  }
+}
+
+export function getProfileRewardForLevel(level: number): string | null {
+  return PROFILE_REWARDS.find((reward) => reward.level === level)?.reward ?? null
+}

@@ -1,36 +1,46 @@
-import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
-import PromotionClaimTicketModal from '../../components/promotions/PromotionClaimTicketModal'
-import PromotionPhotoCollage from '../../components/promotions/PromotionPhotoCollage'
+import PromotionClaimFlowModal from '../../components/promotions/PromotionClaimFlowModal'
+import PromotionLadderMapModal, {
+  type LadderRestaurantGroup,
+} from '../../components/promotions/PromotionLadderMapModal'
+import LadderRestaurantPromoCard from '../../components/promotions/LadderRestaurantPromoCard'
+import PromotionOfferCard from '../../components/promotions/PromotionOfferCard'
+import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
+import { getPublicCompanyMenuNodes } from '../../services/companyMenu'
+import { getCustomerReservations } from '../../services/firestore'
 import { fetchPublicPromotions, type PublicPromotion } from '../../services/publicPromotions'
-import { PROMOTION_TYPE_LABELS } from '../../types/company'
 import type { ClaimedPromotionRecord } from '../../types/gamification'
-import { resolvePromotionDetail, resolvePromotionHighlight, resolvePromotionMinimumSpend } from '../../utils/promotionOffer'
+import type { Reservation } from '../../types'
+import type { MenuNode } from '../../types/company'
+import type { VerifyMinimumSpendResult } from '../../services/minimumSpendApi'
+import {
+  findTimeLimitedReservationForStrip,
+  findReservationForActivasFeed,
+  getTimeLimitedPromotionPresentation,
+  isTimeLimitedPromotionVisitComplete,
+} from '../../utils/reservationPromotionEligibility'
 import {
   DEMO_PREVIEW_COORDS,
   mergeDemoPromotions,
 } from '../../data/demoNearbyPromotions'
-import { haversineDistanceKm, formatDistanceKm, PROMO_NEARBY_MAX_KM } from '../../utils/geo'
+import { haversineDistanceKm, PROMO_NEARBY_MAX_KM } from '../../utils/geo'
 import { requestUserLocation } from '../../utils/requestUserLocation'
 import {
-  getReservationProgress,
-  isPromotionAwaitingConfirmation,
-  isPromotionClaimable,
-  isPromotionInProgress,
+  getActiveLadderPromotionSummary,
+  isLadderRestaurantActive,
+} from '../../utils/promotionLadderStatus'
+import {
   isActiveStripPromotion,
   comparePromotionPriority,
   buildCompanyLadderPromotionsMap,
   persistClaimedPromotionId,
-  remainingReservations,
+  sortCompanyLadderPromotions,
   type CompanyLadderRuntime,
 } from '../../utils/promotionReservationProgress'
-import { buildPromotionBookingHref } from '../../utils/promotionBooking'
 import styles from './CustomerPromotionsTab.module.css'
 
-const ACCENTS = ['coral', 'gold', 'magenta', 'sunset'] as const
-type PromoAccent = (typeof ACCENTS)[number]
 type PromoView = 'activas' | 'reclamadas'
 
 type PromoEntry = {
@@ -38,77 +48,113 @@ type PromoEntry = {
   distanceKm: number | null
 }
 
-function promoTypeLabel(type: PublicPromotion['type']): string {
-  return PROMOTION_TYPE_LABELS[type as keyof typeof PROMOTION_TYPE_LABELS] ?? type
-}
+function buildNearbyLadderRestaurantGroups(
+  nearbyPromotions: PromoEntry[],
+  companyLadderMap: Map<string, PublicPromotion[]>,
+): LadderRestaurantGroup[] {
+  const groups = new Map<string, LadderRestaurantGroup>()
 
-function accentForIndex(index: number): PromoAccent {
-  return ACCENTS[index % ACCENTS.length]
-}
+  for (const { promotion, distanceKm } of nearbyPromotions) {
+    if (promotion.type !== 'reservation_ladder') {
+      continue
+    }
 
-function highlightLabel(promotion: PublicPromotion, index: number): string {
-  return resolvePromotionHighlight(promotion, index)
-}
+    const ladderPromotions = sortCompanyLadderPromotions(
+      companyLadderMap.get(promotion.companyId) ?? [],
+    )
 
-function detailLabel(promotion: PublicPromotion): string {
-  const detail = resolvePromotionDetail(promotion)
-  if (detail) {
-    return detail
+    if (ladderPromotions.length === 0) {
+      continue
+    }
+
+    const existing = groups.get(promotion.companyId)
+    if (existing) {
+      if (
+        distanceKm != null
+        && (existing.distanceKm == null || distanceKm < existing.distanceKm)
+      ) {
+        existing.distanceKm = distanceKm
+      }
+      continue
+    }
+
+    groups.set(promotion.companyId, {
+      companyId: promotion.companyId,
+      companyName: promotion.companyName,
+      companySlug: promotion.companySlug,
+      companyPhotoUrl: promotion.companyPhotoUrl,
+      distanceKm,
+      ladderPromotions,
+    })
   }
 
-  return promoTypeLabel(promotion.type)
+  return [...groups.values()]
 }
 
-function formatClaimDate(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) {
-    return ''
-  }
-
-  return date.toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-function isActiveStripEntry(
-  promotion: PublicPromotion,
+function compareLadderRestaurantPriority(
+  left: LadderRestaurantGroup,
+  right: LadderRestaurantGroup,
   confirmedCounts: Record<string, number>,
   pendingCounts: Record<string, number>,
   ladderRuntime: CompanyLadderRuntime,
-  companyLadderPromotions: PublicPromotion[],
-): boolean {
-  return isActiveStripPromotion(
-    promotion,
+  claimedPromotions: ClaimedPromotionRecord[],
+): number {
+  const leftSummary = getActiveLadderPromotionSummary(
+    left.ladderPromotions,
     confirmedCounts,
     pendingCounts,
     ladderRuntime,
-    companyLadderPromotions,
+    claimedPromotions,
+  )
+  const rightSummary = getActiveLadderPromotionSummary(
+    right.ladderPromotions,
+    confirmedCounts,
+    pendingCounts,
+    ladderRuntime,
+    claimedPromotions,
+  )
+
+  const leftPromotion = leftSummary?.promotion ?? left.ladderPromotions[0]
+  const rightPromotion = rightSummary?.promotion ?? right.ladderPromotions[0]
+
+  return comparePromotionPriority(
+    leftPromotion,
+    rightPromotion,
+    confirmedCounts,
+    pendingCounts,
+    ladderRuntime,
+    left.ladderPromotions,
+    right.ladderPromotions,
+    left.distanceKm,
+    right.distanceKm,
   )
 }
 
 function promotionFromClaim(claim: ClaimedPromotionRecord): PublicPromotion {
+  const promotionType = claim.promotionType ?? 'reservation_ladder'
+
   return {
     id: claim.promotionId,
     companyId: claim.companyId,
     companyName: claim.companyName,
     companySlug: claim.companySlug,
-    companyPhotoUrl: '',
+    companyPhotoUrl: claim.companyPhotoUrl ?? '',
     companyLatitude: null,
     companyLongitude: null,
-    type: 'reservation_ladder',
+    type: promotionType,
     title: claim.title,
-    description: '',
-    photoUrl: '',
-    offer: {
-      kind: 'custom',
-      bundleGet: null,
-      bundlePay: null,
-      discountPercent: null,
-      fixedPriceCents: null,
-      customLabel: claim.prizeLabel,
-    },
+    description: claim.description ?? '',
+    photoUrl: claim.photoUrl ?? claim.companyPhotoUrl ?? '',
+    offer: promotionType === 'reservation_ladder'
+      ? {
+          kind: 'custom',
+          bundleGet: null,
+          bundlePay: null,
+          discountPercent: null,
+          fixedPriceCents: null,
+          customLabel: claim.prizeLabel,
+        }
+      : null,
     productRefs: [],
     requiredReservations: null,
     activeFromTime: '',
@@ -116,216 +162,52 @@ function promotionFromClaim(claim: ClaimedPromotionRecord): PublicPromotion {
     arrivalWindowMinutes: null,
     maxRedemptions: null,
     currentRedemptions: 0,
-    detail: '',
+    detail: claim.detail ?? '',
     highlight: claim.prizeLabel,
   }
 }
 
-function CompactPromoCard({
+function RegularPromoCard({
   entry,
   index,
-  confirmedCounts,
-  pendingCounts,
-  ladderRuntime,
-  companyLadderPromotions,
-  onClaim,
+  claimed = false,
+  claimedAt,
+  reservation = null,
+  compact = false,
+  onVerify,
 }: {
   entry: PromoEntry
   index: number
-  confirmedCounts: Record<string, number>
-  pendingCounts: Record<string, number>
-  ladderRuntime: CompanyLadderRuntime
-  companyLadderPromotions: PublicPromotion[]
-  onClaim: (promotion: PublicPromotion) => void
+  claimed?: boolean
+  claimedAt?: string
+  reservation?: Reservation | null
+  compact?: boolean
+  onVerify?: (reservation: Reservation) => void
 }) {
-  const { promotion, distanceKm } = entry
-  const awaiting = isPromotionAwaitingConfirmation(
-    promotion,
-    pendingCounts,
-    companyLadderPromotions,
-    ladderRuntime.activeLadderPromotionByCompany,
-  )
-  const inProgress = isPromotionInProgress(
-    promotion,
-    confirmedCounts,
-    pendingCounts,
-    ladderRuntime,
-    companyLadderPromotions,
-  )
-  const claimable = isPromotionClaimable(
-    promotion,
-    confirmedCounts,
-    ladderRuntime,
-    companyLadderPromotions,
-  )
-  const { current, required } = getReservationProgress(
-    promotion,
-    confirmedCounts,
-    ladderRuntime,
-  )
-  const remaining = remainingReservations(promotion, confirmedCounts, ladderRuntime)
-  const percent = required > 0 ? Math.min(100, Math.round((current / required) * 100)) : 0
-  const minSpendLabel = resolvePromotionMinimumSpend(promotion)
-  const accent = accentForIndex(index)
-  const productRefs = promotion.productRefs ?? []
-  const hasVisual = productRefs.some((ref) => ref.photoUrl.trim())
-    || Boolean(promotion.photoUrl?.trim())
-    || Boolean(promotion.companyPhotoUrl?.trim())
+  const reservationStatusLine = entry.promotion.type === 'time_limited' && reservation
+    ? getTimeLimitedPromotionPresentation(reservation, {
+      type: entry.promotion.type,
+      title: entry.promotion.title,
+    })
+    : null
 
   return (
-    <article className={`${styles.compactCard} ${styles[`accent_${accent}`]}`}>
-      <Link
-        to={buildPromotionBookingHref(promotion.companySlug, promotion.id, { fromPromotions: true })}
-        className={styles.compactLink}
-      >
-        <div className={styles.compactVisual}>
-          {hasVisual ? (
-            <PromotionPhotoCollage
-              productRefs={productRefs}
-              fallbackPhotoUrl={promotion.photoUrl || promotion.companyPhotoUrl}
-              size="card"
-              className={styles.compactVisualCollage}
-              alt={promotion.title}
-            />
-          ) : (
-            <div className={styles.compactFallback} aria-hidden="true">🎁</div>
-          )}
-          <div className={styles.promoOverlay} aria-hidden="true" />
-          <span className={styles.compactHighlight}>{highlightLabel(promotion, index)}</span>
-          {awaiting || inProgress ? <span className={styles.compactTag}>A medias</span> : null}
-          <h3 className={styles.compactTitle}>{promotion.title}</h3>
-        </div>
-
-        <div className={styles.compactBody}>
-          <p className={styles.compactRestaurant}>{promotion.companyName}</p>
-
-          {awaiting ? (
-            <>
-              <p className={styles.pendingCopy}>
-                Espera a que el restaurante confirme tu asistencia
-              </p>
-              <div className={styles.progressBar} aria-hidden="true">
-                <span className={styles.progressBarPending} style={{ width: `${Math.max(percent, 12)}%` }} />
-              </div>
-            </>
-          ) : inProgress ? (
-            <>
-              <p className={styles.compactRemaining}>
-                Te {remaining === 1 ? 'falta' : 'faltan'} <strong>{remaining}</strong>
-              </p>
-              <div className={styles.progressBar} aria-hidden="true">
-                <span style={{ width: `${percent}%` }} />
-              </div>
-              <p className={styles.progressCopy}>{current}/{required}</p>
-            </>
-          ) : null}
-
-          {distanceKm != null && !claimable ? (
-            <span className={styles.compactDistance}>{formatDistanceKm(distanceKm)}</span>
-          ) : null}
-          {minSpendLabel ? (
-            <span className={styles.compactMinSpend}>{minSpendLabel}</span>
-          ) : null}
-        </div>
-      </Link>
-
-      {claimable ? (
-        <button
-          type="button"
-          className={styles.claimButton}
-          onClick={() => onClaim(promotion)}
-        >
-          Reclamar
-        </button>
-      ) : null}
-    </article>
-  )
-}
-
-function RegularPromoCard({ entry, index }: { entry: PromoEntry; index: number }) {
-  const { promotion, distanceKm } = entry
-  const accent = accentForIndex(index)
-  const minSpendLabel = resolvePromotionMinimumSpend(promotion)
-  const productRefs = promotion.productRefs ?? []
-  const hasVisual = productRefs.some((ref) => ref.photoUrl.trim())
-    || Boolean(promotion.photoUrl?.trim())
-    || Boolean(promotion.companyPhotoUrl?.trim())
-
-  return (
-    <article className={`${styles.promoCard} ${styles[`accent_${accent}`]}`}>
-      <Link
-        to={buildPromotionBookingHref(promotion.companySlug, promotion.id, { fromPromotions: true })}
-        className={styles.promoLink}
-      >
-        <div className={styles.promoVisual}>
-          {hasVisual ? (
-            <PromotionPhotoCollage
-              productRefs={productRefs}
-              fallbackPhotoUrl={promotion.photoUrl || promotion.companyPhotoUrl}
-              size="card"
-              className={styles.promoVisualCollage}
-              alt={promotion.title}
-            />
-          ) : (
-            <div className={styles.imageFallback} aria-hidden="true">🎁</div>
-          )}
-          <div className={styles.promoShine} aria-hidden="true" />
-          <div className={styles.promoOverlay} aria-hidden="true" />
-          <span className={styles.promoHighlight}>{highlightLabel(promotion, index)}</span>
-          <div className={styles.promoVisualTags}>
-            {distanceKm != null ? (
-              <span className={styles.tagDistance}>{formatDistanceKm(distanceKm)}</span>
-            ) : null}
-          </div>
-          <h3 className={styles.promoVisualTitle}>{promotion.title}</h3>
-        </div>
-
-        <div className={styles.promoBody}>
-          <p className={styles.promoRestaurant}>{promotion.companyName}</p>
-          <div className={styles.promoMeta}>
-            <div className={styles.promoMetaChips}>
-              <span className={styles.promoDetail}>{detailLabel(promotion)}</span>
-              {minSpendLabel ? (
-                <span className={styles.promoMinSpend}>{minSpendLabel}</span>
-              ) : null}
-            </div>
-            <span className={styles.promoArrow} aria-hidden="true">→</span>
-          </div>
-        </div>
-      </Link>
-    </article>
-  )
-}
-
-function ClaimedPromoCard({
-  claim,
-  onViewTicket,
-}: {
-  claim: ClaimedPromotionRecord
-  onViewTicket: (claim: ClaimedPromotionRecord) => void
-}) {
-  return (
-    <article className={styles.claimedCard}>
-      <div className={styles.claimedHeader}>
-        <span className={styles.claimedPrize}>{claim.prizeLabel}</span>
-        <span className={styles.claimedDate}>{formatClaimDate(claim.claimedAt)}</span>
-      </div>
-      <h3 className={styles.claimedTitle}>{claim.title}</h3>
-      <p className={styles.claimedRestaurant}>{claim.companyName}</p>
-      <div className={styles.claimedActions}>
-        <Link to={`/reservar/${claim.companySlug}`} state={{ from: 'promociones' }} className={styles.claimedLink}>
-          Ver restaurante
-        </Link>
-        <button type="button" className={styles.claimedTicketButton} onClick={() => onViewTicket(claim)}>
-          Ver ticket
-        </button>
-      </div>
-    </article>
+    <PromotionOfferCard
+      promotion={entry.promotion}
+      index={index}
+      distanceKm={entry.distanceKm}
+      claimed={claimed}
+      claimedAt={claimedAt}
+      reservationStatusLine={reservationStatusLine}
+      linkedReservation={reservation}
+      onVerify={reservation && onVerify ? () => onVerify(reservation) : undefined}
+      className={compact ? styles.compactPromoCard : ''}
+    />
   )
 }
 
 function CustomerPromotionsTab() {
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const {
     loading: gamificationLoading,
     verifiedReservationCounts,
@@ -333,17 +215,113 @@ function CustomerPromotionsTab() {
     ladderRuntime,
     claimedPromotions,
     claimPromotion,
+    claimTimeLimitedPromotion,
     refreshGamificationData,
   } = useCustomerGamificationContext()
 
   const [promotions, setPromotions] = useState<PublicPromotion[]>([])
   const [view, setView] = useState<PromoView>('activas')
-  const [claimTicket, setClaimTicket] = useState<PublicPromotion | null>(null)
+  const [claimFlowPromotion, setClaimFlowPromotion] = useState<PublicPromotion | null>(null)
+  const [ladderMapGroup, setLadderMapGroup] = useState<LadderRestaurantGroup | null>(null)
   const [loadingPromos, setLoadingPromos] = useState(true)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [usingDemoLocation, setUsingDemoLocation] = useState(false)
+  const [customerReservations, setCustomerReservations] = useState<Reservation[]>([])
+  const [verifyReservation, setVerifyReservation] = useState<Reservation | null>(null)
+  const [verifyMenuNodes, setVerifyMenuNodes] = useState<MenuNode[]>([])
+  const [verifyMenuLoading, setVerifyMenuLoading] = useState(false)
 
   const userClaimKey = profile?.email ?? user?.uid ?? ''
+
+  const claimedReservationIds = useMemo(
+    () => new Set(
+      claimedPromotions
+        .map((claim) => claim.reservationId)
+        .filter((reservationId): reservationId is string => Boolean(reservationId)),
+    ),
+    [claimedPromotions],
+  )
+
+  useEffect(() => {
+    if (!profile?.email) {
+      setCustomerReservations([])
+      return
+    }
+
+    let cancelled = false
+
+    void getCustomerReservations(profile.email)
+      .then((rows) => {
+        if (!cancelled) {
+          setCustomerReservations(rows)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCustomerReservations([])
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.email])
+
+  useEffect(() => {
+    if (!user || !profile || promotions.length === 0 || customerReservations.length === 0) {
+      return
+    }
+
+    for (const reservation of customerReservations) {
+      if (!reservation.promotionId || !isTimeLimitedPromotionVisitComplete(reservation)) {
+        continue
+      }
+
+      if (claimedReservationIds.has(reservation.id)) {
+        continue
+      }
+
+      const promotion = promotions.find((row) => row.id === reservation.promotionId)
+      if (!promotion || promotion.type !== 'time_limited') {
+        continue
+      }
+
+      void claimTimeLimitedPromotion(promotion, reservation.id)
+    }
+  }, [
+    user,
+    profile,
+    promotions,
+    customerReservations,
+    claimedReservationIds,
+    claimTimeLimitedPromotion,
+  ])
+
+  useEffect(() => {
+    if (!verifyReservation) {
+      setVerifyMenuNodes([])
+      return
+    }
+
+    let cancelled = false
+    setVerifyMenuLoading(true)
+
+    void getPublicCompanyMenuNodes(verifyReservation.companyId)
+      .then((nodes) => {
+        if (!cancelled) {
+          setVerifyMenuNodes(nodes)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setVerifyMenuLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [verifyReservation])
 
   useEffect(() => {
     void refreshGamificationData()
@@ -423,51 +401,60 @@ function CustomerPromotionsTab() {
     [promotions],
   )
 
-  const activeStripPromotions = useMemo(() => {
-    const active = nearbyPromotions.filter(({ promotion }) => {
-      const companyLadder = companyLadderMap.get(promotion.companyId) ?? []
+  const ladderRestaurantGroups = useMemo(
+    () => buildNearbyLadderRestaurantGroups(nearbyPromotions, companyLadderMap),
+    [nearbyPromotions, companyLadderMap],
+  )
 
-      return isActiveStripEntry(
-        promotion,
+  const activeLadderRestaurants = useMemo(() => {
+    const active = ladderRestaurantGroups.filter((group) =>
+      isLadderRestaurantActive(
+        group.ladderPromotions,
         verifiedReservationCounts,
         pendingReservationCounts,
         ladderRuntime,
-        companyLadder,
-      )
-    })
+        claimedPromotions,
+      ),
+    )
 
-    active.sort((left, right) => {
-      const leftLadder = companyLadderMap.get(left.promotion.companyId) ?? []
-      const rightLadder = companyLadderMap.get(right.promotion.companyId) ?? []
-
-      return comparePromotionPriority(
-        left.promotion,
-        right.promotion,
+    active.sort((left, right) =>
+      compareLadderRestaurantPriority(
+        left,
+        right,
         verifiedReservationCounts,
         pendingReservationCounts,
         ladderRuntime,
-        leftLadder,
-        rightLadder,
-        left.distanceKm,
-        right.distanceKm,
-      )
-    })
+        claimedPromotions,
+      ),
+    )
 
     return active
   }, [
-    nearbyPromotions,
+    ladderRestaurantGroups,
     verifiedReservationCounts,
     pendingReservationCounts,
     ladderRuntime,
-    companyLadderMap,
+    claimedPromotions,
   ])
+
+  const idleLadderRestaurants = useMemo(() => {
+    const activeIds = new Set(activeLadderRestaurants.map((group) => group.companyId))
+
+    return ladderRestaurantGroups
+      .filter((group) => !activeIds.has(group.companyId))
+      .sort((left, right) => (left.distanceKm ?? 0) - (right.distanceKm ?? 0))
+  }, [ladderRestaurantGroups, activeLadderRestaurants])
 
   const regularPromotions = useMemo(
     () =>
       nearbyPromotions.filter(({ promotion }) => {
+        if (promotion.type === 'reservation_ladder') {
+          return false
+        }
+
         const companyLadder = companyLadderMap.get(promotion.companyId) ?? []
 
-        return !isActiveStripEntry(
+        return !isActiveStripPromotion(
           promotion,
           verifiedReservationCounts,
           pendingReservationCounts,
@@ -484,6 +471,22 @@ function CustomerPromotionsTab() {
     ],
   )
 
+  const inProgressTimeLimitedPromotions = useMemo(
+    () =>
+      regularPromotions.filter(
+        ({ promotion }) =>
+          promotion.type === 'time_limited'
+          && findTimeLimitedReservationForStrip(customerReservations, promotion.id) != null,
+      ),
+    [regularPromotions, customerReservations],
+  )
+
+  const idleRegularPromotions = useMemo(() => {
+    const inProgressIds = new Set(inProgressTimeLimitedPromotions.map((entry) => entry.promotion.id))
+
+    return regularPromotions.filter((entry) => !inProgressIds.has(entry.promotion.id))
+  }, [regularPromotions, inProgressTimeLimitedPromotions])
+
   const sortedClaims = useMemo(
     () =>
       [...claimedPromotions].sort(
@@ -492,21 +495,63 @@ function CustomerPromotionsTab() {
     [claimedPromotions],
   )
 
-  const handleClaim = async (promotion: PublicPromotion) => {
+  const handleClaimRequest = (promotion: PublicPromotion) => {
+    setClaimFlowPromotion(promotion)
+  }
+
+  const handleClaimConfirmed = async (promotion: PublicPromotion) => {
     if (userClaimKey) {
       persistClaimedPromotionId(userClaimKey, promotion.id)
     }
 
     const companyLadder = companyLadderMap.get(promotion.companyId) ?? [promotion]
     await claimPromotion(promotion, companyLadder)
-    setClaimTicket(promotion)
+    setView('reclamadas')
+    setLadderMapGroup(null)
   }
+
+  const handleClaimFlowClose = () => {
+    setClaimFlowPromotion(null)
+  }
+
+  const handleVerifiedMinimumSpend = (
+    reservationId: string,
+    result: VerifyMinimumSpendResult,
+  ) => {
+    setCustomerReservations((current) =>
+      current.map((reservation) =>
+        reservation.id === reservationId
+          ? {
+              ...reservation,
+              promotionVisitStatus: result.promotionVisitStatus,
+              minSpendVerification: result.minSpendVerification,
+            }
+          : reservation,
+      ),
+    )
+
+    if (!result.meetsMinimumSpend) {
+      return
+    }
+
+    void refreshProfile().then(() => refreshGamificationData({ silent: true }))
+  }
+
+  const verifyRestaurantName = verifyReservation
+    ? promotions.find((promotion) => promotion.companyId === verifyReservation.companyId)?.companyName
+      ?? 'Restaurante'
+    : ''
 
   const loading = loadingPromos || gamificationLoading
 
-  if (loading) {
+  if (loading && !claimFlowPromotion && !ladderMapGroup) {
     return <div className={styles.loading}>Cargando promociones…</div>
   }
+
+  const hasActiveContent = activeLadderRestaurants.length > 0
+    || inProgressTimeLimitedPromotions.length > 0
+    || idleLadderRestaurants.length > 0
+    || idleRegularPromotions.length > 0
 
   return (
     <div className={styles.page}>
@@ -539,14 +584,24 @@ function CustomerPromotionsTab() {
             <p className={styles.emptyHint}>Completa las reservas necesarias y pulsa Reclamar.</p>
           </div>
         ) : (
-          <div className={styles.claimedList}>
-            {sortedClaims.map((claim) => (
-              <ClaimedPromoCard
-                key={`${claim.promotionId}-${claim.claimedAt}`}
-                claim={claim}
-                onViewTicket={() => setClaimTicket(promotionFromClaim(claim))}
-              />
-            ))}
+          <div className={styles.promoFeed}>
+            {sortedClaims.map((claim, index) => {
+              const livePromotion = promotions.find((promotion) => promotion.id === claim.promotionId)
+              const entry: PromoEntry = {
+                promotion: livePromotion ?? promotionFromClaim(claim),
+                distanceKm: null,
+              }
+
+              return (
+                <RegularPromoCard
+                  key={`${claim.promotionId}-${claim.claimedAt}`}
+                  entry={entry}
+                  index={index}
+                  claimed
+                  claimedAt={claim.claimedAt}
+                />
+              )
+            })}
           </div>
         )
       ) : (
@@ -562,39 +617,76 @@ function CustomerPromotionsTab() {
               <h2>Activa tu ubicación</h2>
               <p>Solo te mostramos promos de restaurantes cerca de ti — nada de ofertas en otra ciudad.</p>
             </div>
-          ) : nearbyPromotions.length === 0 ? (
+          ) : !hasActiveContent ? (
             <div className={styles.empty}>
               <p>No hay ofertas cerca tuyo.</p>
             </div>
           ) : (
             <>
-              {activeStripPromotions.length > 0 ? (
-                <section className={styles.activeStrip} aria-label="Ofertas a medias">
+              {(activeLadderRestaurants.length > 0 || inProgressTimeLimitedPromotions.length > 0) ? (
+                <section className={styles.activeStrip} aria-label="Promociones en curso">
                   <div className={styles.activeScroller}>
-                    {activeStripPromotions.map((entry, index) => (
-                      <CompactPromoCard
-                        key={entry.promotion.id}
-                        entry={entry}
-                        index={index}
+                    {activeLadderRestaurants.map((group) => (
+                      <LadderRestaurantPromoCard
+                        key={group.companyId}
+                        group={group}
+                        variant="compact"
                         confirmedCounts={verifiedReservationCounts}
                         pendingCounts={pendingReservationCounts}
                         ladderRuntime={ladderRuntime}
-                        companyLadderPromotions={companyLadderMap.get(entry.promotion.companyId) ?? []}
-                        onClaim={handleClaim}
+                        claimedPromotions={claimedPromotions}
+                        onOpenMap={setLadderMapGroup}
+                      />
+                    ))}
+                    {inProgressTimeLimitedPromotions.map((entry, index) => (
+                      <RegularPromoCard
+                        key={entry.promotion.id}
+                        entry={entry}
+                        index={index}
+                        compact
+                        reservation={findTimeLimitedReservationForStrip(
+                          customerReservations,
+                          entry.promotion.id,
+                        )}
+                        onVerify={setVerifyReservation}
                       />
                     ))}
                   </div>
                 </section>
               ) : null}
 
-              {activeStripPromotions.length > 0 && regularPromotions.length > 0 ? (
-                <div className={styles.sectionDivider} aria-hidden="true" />
-              ) : null}
+              {((activeLadderRestaurants.length > 0 || inProgressTimeLimitedPromotions.length > 0)
+                && (idleLadderRestaurants.length > 0 || idleRegularPromotions.length > 0))
+                || (idleLadderRestaurants.length > 0 && idleRegularPromotions.length > 0) ? (
+                  <div className={styles.sectionDivider} aria-hidden="true" />
+                ) : null}
 
-              {regularPromotions.length > 0 ? (
+              {idleLadderRestaurants.length > 0 || idleRegularPromotions.length > 0 ? (
                 <div className={styles.promoFeed}>
-                  {regularPromotions.map((entry, index) => (
-                    <RegularPromoCard key={entry.promotion.id} entry={entry} index={index} />
+                  {idleLadderRestaurants.map((group) => (
+                    <LadderRestaurantPromoCard
+                      key={group.companyId}
+                      group={group}
+                      variant="full"
+                      confirmedCounts={verifiedReservationCounts}
+                      pendingCounts={pendingReservationCounts}
+                      ladderRuntime={ladderRuntime}
+                      claimedPromotions={claimedPromotions}
+                      onOpenMap={setLadderMapGroup}
+                    />
+                  ))}
+                  {idleRegularPromotions.map((entry, index) => (
+                    <RegularPromoCard
+                      key={entry.promotion.id}
+                      entry={entry}
+                      index={index}
+                      reservation={findReservationForActivasFeed(
+                        customerReservations,
+                        entry.promotion.id,
+                        claimedReservationIds,
+                      )}
+                      onVerify={setVerifyReservation}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -603,9 +695,34 @@ function CustomerPromotionsTab() {
         </>
       )}
 
-      <PromotionClaimTicketModal
-        promotion={claimTicket}
-        onClose={() => setClaimTicket(null)}
+      <PromotionLadderMapModal
+        group={ladderMapGroup}
+        confirmedCounts={verifiedReservationCounts}
+        pendingCounts={pendingReservationCounts}
+        ladderRuntime={ladderRuntime}
+        claimedPromotions={claimedPromotions}
+        onClose={() => setLadderMapGroup(null)}
+        onClaim={handleClaimRequest}
+      />
+
+      <PromotionClaimFlowModal
+        promotion={claimFlowPromotion}
+        onClose={handleClaimFlowClose}
+        onClaimed={handleClaimConfirmed}
+      />
+
+      <MinimumSpendVerificationModal
+        reservation={verifyReservation}
+        restaurantName={verifyRestaurantName}
+        promotion={
+          verifyReservation?.promotionId
+            ? promotions.find((promotion) => promotion.id === verifyReservation.promotionId) ?? null
+            : null
+        }
+        menuNodes={verifyMenuNodes}
+        menuLoading={verifyMenuLoading}
+        onClose={() => setVerifyReservation(null)}
+        onVerified={handleVerifiedMinimumSpend}
       />
     </div>
   )

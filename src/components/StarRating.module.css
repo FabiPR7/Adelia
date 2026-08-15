@@ -1,0 +1,123 @@
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.star {
+  position: relative;
+  display: inline-block;
+  line-height: 1;
+}
+
+.star.sm {
+  font-size: 0.85rem;
+}
+
+.star.md {
+  font-size: 1rem;
+}
+
+.star.lg {
+  font-size: 1.65rem;
+}
+
+.starEmpty,
+.starFill {
+  display: block;
+}
+
+.starEmpty {
+  color: rgba(107, 83, 68, 0.18);
+}
+
+.starFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  overflow: hidden;
+  color: #d4a017;
+  white-space: nowrap;
+}
+
+.inputWrap {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.inputStars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.starPair {
+  position: relative;
+  display: inline-flex;
+  width: 1.65rem;
+  height: 1.65rem;
+}
+
+.halfButton {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  width: 50%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.halfLeft {
+  left: 0;
+}
+
+.halfRight {
+  right: 0;
+}
+
+.halfButton:disabled {
+  cursor: not-allowed;
+}
+
+.starButton {
+  width: 1.65rem;
+  height: 1.65rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(107, 83, 68, 0.08);
+  color: rgba(107, 83, 68, 0.28);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.starButtonActive {
+  background: rgba(212, 160, 23, 0.16);
+  color: #d4a017;
+}
+
+.starButton:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
+.starButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.inputValue {
+  margin: 0;
+  color: #6b5344;
+  font-size: 0.92rem;
+}
+
+.inputValue strong {
+  font-size: 1.15rem;
+  color: #4b3d33;
+}
+
+.inputValue span {
+  margin-left: 0.15rem;
+  color: #8a7a6e;
+}

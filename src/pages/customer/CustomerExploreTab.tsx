@@ -12,8 +12,8 @@ import {
   filterDiscoveryRestaurants,
   restaurantHasMapPin,
   sortRestaurantsByDistance,
-  sortRestaurantsByMockRating,
-  sortRestaurantsByMockReservations,
+  sortRestaurantsByReviewAdelinas,
+  sortRestaurantsByReviewRating,
   splitRestaurantsForCarousels,
   type PublicDiscoveryRestaurant,
 } from '../../utils/publicDiscovery'
@@ -105,12 +105,12 @@ function CustomerExploreTab() {
   )
 
   const mostReserved = useMemo(
-    () => sortRestaurantsByMockReservations(filteredRestaurants).slice(0, 8),
+    () => sortRestaurantsByReviewAdelinas(filteredRestaurants).slice(0, 8),
     [filteredRestaurants],
   )
 
   const topRated = useMemo(
-    () => sortRestaurantsByMockRating(filteredRestaurants).slice(0, 8),
+    () => sortRestaurantsByReviewRating(filteredRestaurants).slice(0, 8),
     [filteredRestaurants],
   )
 
@@ -233,7 +233,7 @@ function CustomerExploreTab() {
             <section className={styles.spotlightSection}>
               <RotatingRestaurantSpotlight
                 title="Trending"
-                subtitle="Los más reservados"
+                subtitle="Más Adelinas"
                 restaurants={mostReserved}
                 metric="reservations"
                 onOpenRestaurant={setPreviewRestaurant}

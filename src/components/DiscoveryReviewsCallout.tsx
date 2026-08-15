@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import AdelinaCoin from './AdelinaCoin'
+import DiscoveryRatingBadge from './DiscoveryRatingBadge'
 import styles from './DiscoveryReviewsCallout.module.css'
 
 export interface FeaturedReviewSpotlight {
@@ -15,10 +16,12 @@ interface DiscoveryReviewsCalloutProps {
 }
 
 function DiscoveryReviewsCallout({ isCustomer, spotlight }: DiscoveryReviewsCalloutProps) {
-  const ratingLabel = spotlight ? spotlight.reviewRating.toFixed(1) : '4.3'
-  const adelinasLabel = spotlight
-    ? spotlight.adelinaCount.toLocaleString('es-ES')
-    : '847'
+  const ratingBadge = spotlight && spotlight.reviewRating > 0
+    ? spotlight.reviewRating.toLocaleString('es-ES', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1,
+      })
+    : null
 
   return (
     <section className={styles.arena} aria-labelledby="reviews-callout-heading">
@@ -52,16 +55,11 @@ function DiscoveryReviewsCallout({ isCustomer, spotlight }: DiscoveryReviewsCall
                 <span className={styles.rankPulse}>En vivo</span>
               </div>
               <strong className={styles.spotlightName}>{spotlight.name}</strong>
-              <div className={styles.spotlightStats}>
-                <span>
-                  <AdelinaCoin size="sm" variant="review" alt="" />
-                  {adelinasLabel} Adelinas
-                </span>
-                <span className={styles.ratingChip}>
-                  <AdelinaCoin size="sm" variant="review" alt="" />
-                  {ratingLabel}
-                </span>
-              </div>
+              {ratingBadge ? (
+                <div className={styles.spotlightStats}>
+                  <DiscoveryRatingBadge rating={ratingBadge} className={styles.ratingChip} />
+                </div>
+              ) : null}
               <p className={styles.spotlightHint}>
                 {spotlight.isFavorite
                   ? 'Tu voto puede hacerlo subir esta semana.'
@@ -92,15 +90,11 @@ function DiscoveryReviewsCallout({ isCustomer, spotlight }: DiscoveryReviewsCall
           <div className={styles.coinHalo} />
           <div className={styles.coinPedestal} />
           <AdelinaCoin size="xl" variant="review" alt="" className={styles.heroCoin} />
-          <div className={styles.floatStatLeft}>
-            <span className={styles.floatLabel}>Adelinas</span>
-            <strong>{adelinasLabel}</strong>
-          </div>
-          <div className={styles.floatStatRight}>
-            <span className={styles.floatLabel}>Nota media</span>
-            <strong>{ratingLabel}</strong>
-          </div>
-          <div className={styles.vsBadge}>VS</div>
+          {ratingBadge ? (
+            <div className={styles.floatStatRight}>
+              <DiscoveryRatingBadge rating={ratingBadge} />
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

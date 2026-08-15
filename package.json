@@ -18,6 +18,7 @@
     "cleanup-demo": "node scripts/cleanup-demo.mjs",
     "backfill-password-flags": "node scripts/backfill-must-change-password.mjs",
     "seed-carol": "node scripts/seed-carol-demo.mjs",
+    "link-stripe-carol": "node scripts/link-company-stripe.mjs carol",
     "convert-assets": "node scripts/convert-to-webp.mjs"
   },
   "devDependencies": {
@@ -35,6 +36,8 @@
     "vite": "^8.2.0"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^6.8.1",
+    "@stripe/stripe-js": "^9.13.0",
     "@tailwindcss/vite": "^4.3.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -48,6 +51,7 @@
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
     "resend": "^6.18.1",
+    "stripe": "^22.5.0",
     "tailwindcss": "^4.3.3",
     "xlsx": "^0.18.5"
   }

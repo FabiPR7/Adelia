@@ -334,6 +334,22 @@
   color: #c0392b;
 }
 
+.productsCell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-width: 280px;
+}
+
+.productTag {
+  display: inline-flex;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: rgba(46, 125, 107, 0.1);
+  color: #2e7d6b;
+}
+
 @media (max-width: 960px) {
   .chartsGrid {
     grid-template-columns: 1fr;

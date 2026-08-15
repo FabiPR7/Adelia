@@ -4,11 +4,17 @@ import companiesRouter from './routes/companies.ts'
 import authRouter from './routes/auth.ts'
 import companyEmailRouter from './routes/companyEmail.ts'
 import companyReservationsRouter from './routes/companyReservations.ts'
+import companyStripeRouter from './routes/companyStripe.ts'
 import publicBookingRouter from './routes/public.ts'
 import publicPromotionsRouter from './routes/publicPromotions.ts'
 import citiesRouter from './routes/cities.ts'
 import geocodeRouter from './routes/geocode.ts'
+import reservationMinSpendRouter from './routes/reservationMinSpend.ts'
+import reservationDepositRouter from './routes/reservationDeposit.ts'
 import reservationEmailRouter from './routes/reservationEmail.ts'
+import customerNotificationsRouter from './routes/customerNotifications.ts'
+import customerFriendsRouter from './routes/customerFriends.ts'
+import { handleStripeWebhook } from './routes/stripeWebhook.ts'
 import { adminAuth, adminDb, canUseAdminSdk } from './firebase-admin.ts'
 import { getUserRoleWithRest, verifyIdTokenWithRest } from './rest-firebase.ts'
 
@@ -16,6 +22,15 @@ export function createApp() {
   const app = express()
 
   app.use(cors({ origin: true }))
+
+  app.post(
+    '/api/stripe/webhook',
+    express.raw({ type: 'application/json' }),
+    (req, res) => {
+      void handleStripeWebhook(req, res)
+    },
+  )
+
   app.use(express.json())
 
   async function verifyAdmin(
@@ -72,11 +87,16 @@ export function createApp() {
   app.use('/api/auth', authRouter)
   app.use('/api/company', companyReservationsRouter)
   app.use('/api/company', companyEmailRouter)
+  app.use('/api/company', companyStripeRouter)
+  app.use('/api/company', reservationDepositRouter)
   app.use('/api/reservations', reservationEmailRouter)
   app.use('/api/public/booking', publicBookingRouter)
   app.use('/api/public/promotions', publicPromotionsRouter)
+  app.use('/api/public/reservations', reservationMinSpendRouter)
   app.use('/api/public/cities', citiesRouter)
   app.use('/api/public/geocode', geocodeRouter)
+  app.use('/api/customer/notifications', customerNotificationsRouter)
+  app.use('/api/customer/friends', customerFriendsRouter)
 
   app.use(
     (

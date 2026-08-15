@@ -4,16 +4,6 @@
   width: clamp(148px, 42vw, 188px);
 }
 
-.openButton {
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-  color: inherit;
-}
-
 .imageWrap {
   position: relative;
   aspect-ratio: 1;
@@ -27,6 +17,16 @@
   box-shadow: 0 10px 28px rgba(35, 28, 22, 0.14);
 }
 
+.openButton {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
 .imageFallback {
   position: absolute;
   inset: 0;
@@ -37,19 +37,18 @@
   font-size: 2.5rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.88);
-}
-
-.topOverlay,
-.bottomOverlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  padding: 0.65rem 0.7rem;
+  pointer-events: none;
 }
 
 .topOverlay {
+  position: absolute;
   top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  padding: 0.65rem 0.7rem;
   background: linear-gradient(to bottom, rgba(20, 16, 12, 0.78), transparent);
+  pointer-events: none;
 }
 
 .topOverlay h3 {
@@ -64,9 +63,25 @@
   overflow: hidden;
 }
 
-.bottomOverlay {
-  bottom: 2.65rem;
-  background: linear-gradient(to top, rgba(20, 16, 12, 0.82), transparent);
+.footerOverlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 2.75rem 0.55rem 0.55rem;
+  background: linear-gradient(
+    to top,
+    rgba(12, 10, 8, 0.94) 0%,
+    rgba(12, 10, 8, 0.78) 28%,
+    rgba(12, 10, 8, 0.42) 56%,
+    rgba(12, 10, 8, 0.12) 78%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .tags {
@@ -93,7 +108,7 @@
   position: absolute;
   top: 0.55rem;
   right: 0.55rem;
-  z-index: 1;
+  z-index: 4;
   display: inline-flex;
   align-items: center;
   gap: 0.22rem;
@@ -106,6 +121,7 @@
   font-size: 0.6875rem;
   font-weight: 800;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
 }
 
 .reviewBadge span:last-child {
@@ -116,7 +132,7 @@
   position: absolute;
   top: 2.45rem;
   right: 0.55rem;
-  z-index: 1;
+  z-index: 4;
   display: inline-flex;
   padding: 0.18rem 0.42rem;
   border-radius: 999px;
@@ -125,17 +141,16 @@
   font-size: 0.625rem;
   font-weight: 800;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
 }
 
 .reserveButton {
-  position: absolute;
-  left: 0.45rem;
-  right: 0.45rem;
-  bottom: 0.45rem;
-  z-index: 2;
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   padding: 0.42rem 0.55rem;
   border-radius: 999px;
   background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
@@ -146,6 +161,7 @@
   letter-spacing: 0.02em;
   box-shadow: 0 8px 22px rgba(255, 79, 143, 0.38);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
+  pointer-events: auto;
 }
 
 .reserveButton:hover {
@@ -154,7 +170,7 @@
 }
 
 @media (hover: hover) {
-  .openButton:hover .imageWrap {
+  .card:hover .imageWrap {
     transform: translateY(-2px);
     box-shadow: 0 14px 32px rgba(35, 28, 22, 0.18);
   }

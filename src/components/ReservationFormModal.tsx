@@ -8,6 +8,10 @@ import type {
 } from '../types'
 import { dateToTimeInput, isReservationStartInPast } from '../utils/helpers'
 import {
+  buildDepositCancelConfirmCopy,
+  reservationHasAuthorizedDeposit,
+} from '../utils/reservationDeposit'
+import {
   formatSlotEndTime,
   generateSlotTimes,
   getDaySchedule,
@@ -27,8 +31,9 @@ interface ReservationFormModalProps {
   dayReservations: Reservation[]
   reservation?: Reservation | null
   isSaving: boolean
+  depositCancellationHours?: number | null
   onClose: () => void
-  onSubmit: (form: ReservationFormData) => Promise<void>
+  onSubmit: (form: ReservationFormData) => Promise<boolean | void>
 }
 
 type PickerMode = 'table' | 'time'
@@ -58,6 +63,7 @@ function ReservationFormModal({
   dayReservations,
   reservation,
   isSaving,
+  depositCancellationHours = null,
   onClose,
   onSubmit,
 }: ReservationFormModalProps) {
@@ -273,8 +279,10 @@ function ReservationFormModal({
     }
 
     try {
-      await onSubmit(form)
-      onClose()
+      const shouldClose = await onSubmit(form)
+      if (shouldClose !== false) {
+        onClose()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar la reserva.')
     }
@@ -289,6 +297,14 @@ function ReservationFormModal({
     day: 'numeric',
     month: 'long',
   }).format(selectedDate)
+
+  const depositCancelWarning = reservation
+    && isEditing
+    && form.status === 'cancelled'
+    && reservation.status !== 'cancelled'
+    && reservationHasAuthorizedDeposit(reservation)
+    ? buildDepositCancelConfirmCopy(reservation, depositCancellationHours).message
+    : null
 
   const renderTableTiles = (
     options: { tableId: string; available: boolean }[],
@@ -439,6 +455,9 @@ function ReservationFormModal({
                 </label>
               )}
             </div>
+            {depositCancelWarning ? (
+              <p className={styles.depositWarning}>{depositCancelWarning}</p>
+            ) : null}
             <p className={styles.durationHint}>
               Turnos cada {durationMinutes} min · reserva de {durationMinutes} min
               {!daySchedule.active && ' · Restaurante cerrado este día'}

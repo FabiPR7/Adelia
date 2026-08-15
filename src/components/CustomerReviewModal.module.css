@@ -1,0 +1,207 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(20, 16, 14, 0.52);
+  backdrop-filter: blur(4px);
+}
+
+.dialog {
+  width: min(100%, 32rem);
+  max-height: min(92vh, 48rem);
+  overflow: auto;
+  padding: 1.5rem;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(35, 28, 22, 0.18);
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+}
+
+.message {
+  margin: 0 0 1rem;
+  color: #6b5344;
+  line-height: 1.5;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+  font-weight: 600;
+}
+
+.field textarea,
+.commentInput {
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(107, 83, 68, 0.18);
+  border-radius: 12px;
+  resize: vertical;
+  font: inherit;
+}
+
+.commentBlock {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.commentHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-weight: 600;
+}
+
+.tagActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.tagActionButton {
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  background: rgba(37, 99, 235, 0.06);
+  color: #2563eb;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.catalogHint {
+  margin: 0;
+  color: #8a7568;
+  font-size: 0.85rem;
+}
+
+.existingMediaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.45rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.existingMediaPreview {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  color: #4b3d33;
+}
+
+.error {
+  margin: 0 0 0.75rem;
+  color: #c0392b;
+  font-size: 0.92rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.primaryButton,
+.secondaryButton {
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1.1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #ff6b4a, #ff4fa3);
+  color: #fff;
+}
+
+.secondaryButton {
+  background: rgba(107, 83, 68, 0.08);
+  color: #4b3d33;
+}
+
+.dangerButton {
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1.1rem;
+  font: inherit;
+  cursor: pointer;
+  background: rgba(192, 57, 43, 0.12);
+  color: #c0392b;
+}
+
+.existingReview {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: rgba(107, 83, 68, 0.08);
+}
+
+.existingRating {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+  color: #4b3d33;
+}
+
+.existingRatingLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #8a7568;
+}
+
+.existingComment {
+  margin: 0;
+  line-height: 1.5;
+  color: #4b3d33;
+  white-space: pre-wrap;
+}
+
+.existingTag {
+  display: inline-flex;
+  margin-top: 0.65rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(46, 125, 107, 0.12);
+  color: #2e7d6b;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.managePrompt {
+  margin: 0 0 1rem;
+  color: #6b5344;
+  font-weight: 600;
+}
+
+.tagActionButton:disabled,
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.dangerButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

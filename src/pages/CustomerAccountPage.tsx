@@ -215,7 +215,7 @@ function CustomerAccountPage() {
             <div className={styles.favoritesGrid}>
               {favoriteRestaurants.map((restaurant) => (
                 <article key={restaurant.id} className={styles.favoriteCard}>
-                  <Link to={`/reservar/${restaurant.slug}/restaurante`}>
+                  <Link to={`/reservar/${restaurant.slug}`}>
                     <h3>{restaurant.name}</h3>
                     <p>{restaurant.municipality || restaurant.location}</p>
                   </Link>

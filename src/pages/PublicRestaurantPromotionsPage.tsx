@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import PromotionPhotoCollage from '../components/promotions/PromotionPhotoCollage'
 import { mergeDemoPromotions } from '../data/demoNearbyPromotions'
 import { fetchPublicBookingPage } from '../services/publicApi'
@@ -10,6 +10,8 @@ import styles from './PublicRestaurantPromotionsPage.module.css'
 
 function PublicRestaurantPromotionsPage() {
   const { slug = '' } = useParams()
+  const [searchParams] = useSearchParams()
+  const highlightPromoId = searchParams.get('promo')
   const reserveHref = `/reservar/${slug}`
   const [companyName, setCompanyName] = useState('')
   const [promotions, setPromotions] = useState<PublicPromotion[]>([])
@@ -52,6 +54,19 @@ function PublicRestaurantPromotionsPage() {
       cancelled = true
     }
   }, [slug])
+
+  useEffect(() => {
+    if (!highlightPromoId || loading) {
+      return
+    }
+
+    const element = document.getElementById(`promo-${highlightPromoId}`)
+    if (!element) {
+      return
+    }
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlightPromoId, loading, promotions])
 
   if (loading) {
     return (
@@ -98,7 +113,7 @@ function PublicRestaurantPromotionsPage() {
               const minSpendLabel = resolvePromotionMinimumSpend(promotion)
 
               return (
-                <li key={promotion.id}>
+                <li key={promotion.id} id={`promo-${promotion.id}`} className={highlightPromoId === promotion.id ? styles.highlightedPromo : undefined}>
                   <Link
                     to={buildPromotionBookingHref(slug, promotion.id)}
                     className={styles.cardLink}

@@ -1,0 +1,16 @@
+.body {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.inlineTag,
+.inlineTagStatic {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.inlineTag:hover {
+  color: #93c5fd;
+}

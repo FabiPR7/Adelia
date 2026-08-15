@@ -1,0 +1,55 @@
+.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.5rem 0;
+}
+
+.donut {
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+}
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex: 1;
+  min-width: 160px;
+}
+
+.legend li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b5344;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legendLabel {
+  color: #8a7a6e;
+}
+
+.legendValue {
+  font-weight: 600;
+  color: #6b5344;
+}
+
+.legendValue em {
+  font-style: normal;
+  font-weight: 500;
+  color: #8a7a6e;
+  margin-left: 0.35rem;
+}

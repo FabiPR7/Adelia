@@ -1,0 +1,10 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  line-height: 1;
+}
+
+.badge span {
+  font-weight: 700;
+}

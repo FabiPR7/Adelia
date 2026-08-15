@@ -33,6 +33,13 @@ export interface CompanySettingsPayload {
   videos: string[]
   characteristics: string[]
   timeSlotMinutes: number
+  /** A partir de este número de comensales se pedirá fianza (null = desactivado). */
+  depositMinPax: number | null
+  /** Importe de fianza por comensal en céntimos (null = desactivado). */
+  depositPerGuestCents: number | null
+  depositEnabled: boolean
+  /** Horas antes de la reserva para cancelar sin que se cobre la fianza. */
+  depositCancellationHours: number | null
   schedule: CompanySchedule
   turns: ServiceTurn[]
   floorPlan: FloorPlan
@@ -421,8 +428,19 @@ export type ClientsSection =
   | 'clients-email-received'
   | 'clients-email-confirmation'
   | 'clients-promotions'
+  | 'clients-reviews'
 
 export type PromotionType = 'reservation_ladder' | 'time_limited' | 'attendance'
+
+export type PromotionPinRotation = 'daily' | 'weekly' | 'monthly' | 'manual'
+
+export interface PromotionPinSettings {
+  code: string
+  rotation: PromotionPinRotation
+  nextRotationAt: Date | null
+  lastRotatedAt: Date | null
+  updatedAt: Date
+}
 
 export type PromotionOfferKind =
   | 'bundle'
@@ -776,13 +794,14 @@ export type SettingsSection =
 
 export type CompanySettingsSection = Exclude<SettingsSection, 'menu'>
 
-export type ReportsSection = 'reports-reservations' | 'reports-clients'
+export type ReportsSection = 'reports-reservations' | 'reports-clients' | 'reports-products'
 
 export type CompanyTab = 'reservations' | ClientsSection | ReportsSection | 'help' | SettingsSection
 
 export const CLIENTS_SECTIONS: { id: ClientsSection; label: string; hint: string }[] = [
   { id: 'clients-reservations', label: 'Reservas', hint: 'Historial por cliente' },
   { id: 'clients-promotions', label: 'Promociones', hint: 'Premios y cupos limitados' },
+  { id: 'clients-reviews', label: 'Reseñas', hint: 'Opiniones y puntuación' },
   { id: 'clients-email-received', label: 'Reserva recibida', hint: 'Correo al solicitar' },
   { id: 'clients-email-confirmation', label: 'Confirmación', hint: 'Correo al confirmar' },
 ]
@@ -790,6 +809,7 @@ export const CLIENTS_SECTIONS: { id: ClientsSection; label: string; hint: string
 export const REPORTS_SECTIONS: { id: ReportsSection; label: string; hint: string }[] = [
   { id: 'reports-reservations', label: 'Reservas', hint: 'KPIs, gráficos y listado' },
   { id: 'reports-clients', label: 'Clientes', hint: 'Informes de clientes' },
+  { id: 'reports-products', label: 'Productos', hint: 'Consumo verificado en promos' },
 ]
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: string }[] = [
@@ -803,12 +823,13 @@ export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: stri
 export function isClientsTab(tab: CompanyTab): tab is ClientsSection {
   return tab === 'clients-reservations'
     || tab === 'clients-promotions'
+    || tab === 'clients-reviews'
     || tab === 'clients-email-received'
     || tab === 'clients-email-confirmation'
 }
 
 export function isReportsTab(tab: CompanyTab): tab is ReportsSection {
-  return tab === 'reports-reservations' || tab === 'reports-clients'
+  return tab === 'reports-reservations' || tab === 'reports-clients' || tab === 'reports-products'
 }
 
 export function isSettingsTab(tab: CompanyTab): tab is SettingsSection {
@@ -843,4 +864,22 @@ export function defaultTurns(): ServiceTurn[] {
     { name: 'Comida', start: '13:00', end: '16:00' },
     { name: 'Cena', start: '20:00', end: '23:00' },
   ]
+}
+
+export type QrLogoMode = 'adelia' | 'restaurant' | 'none'
+
+export type QrBrandingKind = 'booking' | 'menu'
+
+export interface QrBrandingConfig {
+  logoMode: QrLogoMode
+  title: string
+  subtitle: string
+  showTitle: boolean
+  showSubtitle: boolean
+  darkColor: string
+}
+
+export interface CompanyQrBranding {
+  booking: QrBrandingConfig
+  menu: QrBrandingConfig
 }

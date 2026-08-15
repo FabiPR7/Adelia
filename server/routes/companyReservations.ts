@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { processReservationReceivedEmail } from '../email/processReservationEmail.ts'
 import { upsertCompanyClientFromReservation } from '../clients/upsertCompanyClient.ts'
 import { adminAuth, adminDb } from '../firebase-admin.ts'
+import { notifyReservationReceived } from '../notifications/reservationEvents.ts'
 import {
   assertReservationSlotValid,
   isSameDay,
@@ -171,7 +172,7 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
     const endTime = new Date(startTime.getTime() + timeSlotMinutes * 60000)
 
     const reservationStatus = status === 'cancelled' ? 'cancelled' : 'completed'
-    const email = typeof clientEmail === 'string' ? clientEmail.trim() : ''
+    const email = typeof clientEmail === 'string' ? clientEmail.trim().toLowerCase() : ''
     const phone = typeof clientPhone === 'string' ? clientPhone.trim() : ''
 
     const reservationData = {
@@ -202,6 +203,12 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
         await processReservationReceivedEmail(reservationRef.id, reservationData)
       } catch (emailError) {
         console.error('Company reservation received email error:', emailError)
+      }
+
+      try {
+        await notifyReservationReceived(reservationRef.id, reservationData)
+      } catch (notificationError) {
+        console.error('Company reservation received notification error:', notificationError)
       }
     }
 

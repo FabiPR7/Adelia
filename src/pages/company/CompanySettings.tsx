@@ -47,8 +47,17 @@ import {
   validateCompanyContact,
   validateCompanyProfile,
   validateCompanySchedule,
+  validateReservationDepositSettings,
 } from '../../utils/companyValidation'
 import { downloadBookingQrCode } from '../../utils/bookingQr'
+import {
+  DEFAULT_DEPOSIT_CANCELLATION_HOURS,
+  formatDepositCancellationPolicy,
+} from '../../utils/reservationDeposit'
+import { resolveBrandedQrOptions } from '../../utils/qrBranding'
+import QrCustomizerModal from '../../components/QrCustomizerModal'
+import CompanyStripeConnectPanel from './CompanyStripeConnectPanel'
+import type { CompanyStripeStatus } from '../../services/companyStripe'
 import { normalizeMainPhotoIndex } from '../../utils/companyPhotos'
 import {
   applySectionSnapshot,
@@ -130,6 +139,10 @@ function companyToForm(company: Company): CompanySettingsPayload {
     videos: company.videos ?? [],
     characteristics: company.characteristics ?? [],
     timeSlotMinutes: company.timeSlotMinutes,
+    depositMinPax: company.depositMinPax ?? null,
+    depositPerGuestCents: company.depositPerGuestCents ?? null,
+    depositEnabled: company.depositEnabled ?? Boolean(company.depositMinPax && company.depositMinPax > 0),
+    depositCancellationHours: company.depositCancellationHours ?? null,
     schedule: normalizeCompanySchedule(company.schedule ?? defaultSchedule()),
     turns: company.turns ?? [],
     floorPlan: company.floorPlan ?? defaultFloorPlan(),
@@ -160,7 +173,10 @@ const CompanySettings = forwardRef(function CompanySettings(
   const [linkCopied, setLinkCopied] = useState(false)
   const clientLinkInputRef = useRef<HTMLInputElement>(null)
   const [isDownloadingQr, setIsDownloadingQr] = useState(false)
+  const [qrCustomizerOpen, setQrCustomizerOpen] = useState(false)
   const [timeSlotMinutesInput, setTimeSlotMinutesInput] = useState('')
+  const [stripeStatus, setStripeStatus] = useState<CompanyStripeStatus | null>(null)
+  const [stripeStatusLoading, setStripeStatusLoading] = useState(true)
   const [selectedMunicipality, setSelectedMunicipality] = useState<CitySuggestion | null>(null)
   const [savedSnapshots, setSavedSnapshots] = useState<Record<SettingsSection, string> | null>(
     null,
@@ -174,6 +190,9 @@ const CompanySettings = forwardRef(function CompanySettings(
 
     return { form, tables, timeSlotMinutesInput }
   }, [form, tables, timeSlotMinutesInput])
+
+  const stripeReadyForDeposits = stripeStatus?.readyForDeposits === true
+  const canEnableDeposits = stripeReadyForDeposits && !stripeStatusLoading
 
   const markSectionSaved = (section: SettingsSection, state: SettingsEditorState) => {
     setSavedSnapshots((current) => ({
@@ -305,6 +324,14 @@ const CompanySettings = forwardRef(function CompanySettings(
     }
   }, [company])
 
+  const qrBrandingContext = useMemo(
+    () => ({
+      companyName: form?.name.trim() || company?.name || '',
+      companyLogoUrl: form?.logoUrl.trim() || company?.logoUrl || '',
+    }),
+    [form?.name, form?.logoUrl, company?.name, company?.logoUrl],
+  )
+
   if (!company || !form) {
     return <p className={styles.loading}>Cargando configuración…</p>
   }
@@ -411,7 +438,28 @@ const CompanySettings = forwardRef(function CompanySettings(
       return false
     }
 
-    const reservationSettings = normalizeCompanySettingsPayload({ ...form, timeSlotMinutes })
+    const depositError = validateReservationDepositSettings(
+      form.depositEnabled,
+      form.depositMinPax,
+      form.depositPerGuestCents,
+      form.depositCancellationHours,
+    )
+
+    if (depositError) {
+      setError(depositError)
+      return false
+    }
+
+    if (form.depositEnabled && !stripeReadyForDeposits) {
+      setError('Completa la conexión con Stripe antes de activar las fianzas.')
+      return false
+    }
+
+    const reservationSettings = normalizeCompanySettingsPayload({
+      ...form,
+      timeSlotMinutes,
+      depositEnabled: form.depositEnabled && stripeReadyForDeposits,
+    })
     const savedTimeSlotInput = String(timeSlotMinutes)
 
     setSavingSection('reservation-settings')
@@ -596,7 +644,7 @@ const CompanySettings = forwardRef(function CompanySettings(
     tables: handleSaveTables,
   }
 
-  const clientBookingUrl = getPublicBookingUrl(company.slug)
+  const clientBookingUrl = company ? getPublicBookingUrl(company.slug) : ''
 
   const handleCopyClientLink = async () => {
     setError(null)
@@ -615,12 +663,17 @@ const CompanySettings = forwardRef(function CompanySettings(
   }
 
   const handleDownloadClientQr = async () => {
+    if (!company) {
+      return
+    }
+
     setIsDownloadingQr(true)
     setError(null)
 
     try {
       const filename = `qr-reservas-${slugify(company.slug || company.name)}.png`
-      await downloadBookingQrCode(clientBookingUrl, filename)
+      const renderOptions = resolveBrandedQrOptions(company.qrBranding.booking, 'booking', qrBrandingContext)
+      await downloadBookingQrCode(clientBookingUrl, filename, renderOptions)
     } catch {
       setError('No se pudo generar el código QR.')
     } finally {
@@ -705,6 +758,13 @@ const CompanySettings = forwardRef(function CompanySettings(
               <div className={styles.clientLinkActions}>
                 <button type="button" className={styles.copyLinkButton} onClick={() => void handleCopyClientLink()}>
                   {linkCopied ? 'Copiado' : 'Copiar'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.customizeQrButton}
+                  onClick={() => setQrCustomizerOpen(true)}
+                >
+                  Personalizar QR
                 </button>
                 <button
                   type="button"
@@ -842,7 +902,7 @@ const CompanySettings = forwardRef(function CompanySettings(
       <section className={sectionCardClass('reservation-settings', activeSection)}>
         <header className={styles.cardHeader}>
           <h2>Reservas y horario</h2>
-          <p>Duración por reserva y días de apertura.</p>
+          <p>Duración por reserva, fianza por comensales y días de apertura.</p>
         </header>
         <label className={styles.inlineField}>
           Duración de cada reserva (minutos)
@@ -866,6 +926,190 @@ const CompanySettings = forwardRef(function CompanySettings(
             placeholder="120"
           />
         </label>
+
+        <div className={styles.depositBlock}>
+          <header className={styles.depositBlockHeader}>
+            <h3>Fianzas con Stripe</h3>
+            <p className={styles.scheduleHint}>
+              Conecta Stripe y, cuando esté listo, activa las fianzas por reserva. Solo se cobrarán
+              si el cliente cancela o no confirma su asistencia.
+            </p>
+          </header>
+
+          {company ? (
+            <CompanyStripeConnectPanel
+              companyId={company.id}
+              autoRefresh={activeSection === 'reservation-settings'}
+              onStatusChange={(status, loading) => {
+                setStripeStatus(status)
+                setStripeStatusLoading(loading)
+              }}
+            />
+          ) : null}
+
+          <div className={styles.depositSettings}>
+            <div className={styles.depositSettingsHeader}>
+              <div>
+                <h4>Fianza por reserva</h4>
+                {!canEnableDeposits ? (
+                  <p className={styles.depositLockedHint}>
+                    {stripeStatusLoading
+                      ? 'Comprobando estado de Stripe…'
+                      : 'Completa la conexión con Stripe para poder activar las fianzas.'}
+                  </p>
+                ) : (
+                  <p className={styles.scheduleHint}>
+                    Si una reserva alcanza el número mínimo de comensales, se pedirá fianza por
+                    persona.
+                  </p>
+                )}
+              </div>
+              <label
+                className={`${styles.depositSwitchInline} ${
+                  !canEnableDeposits ? styles.depositSwitchInlineDisabled : ''
+                }`}
+                title={
+                  canEnableDeposits
+                    ? undefined
+                    : 'Completa la conexión con Stripe para activar fianzas'
+                }
+              >
+                <span className={styles.depositSwitchText}>Activar fianzas</span>
+                <span className={styles.depositSwitch}>
+                  <input
+                    type="checkbox"
+                    className={styles.depositSwitchInput}
+                    checked={form.depositEnabled && canEnableDeposits}
+                    disabled={!canEnableDeposits}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        depositEnabled: event.target.checked,
+                        depositCancellationHours: event.target.checked
+                          ? (form.depositCancellationHours ?? DEFAULT_DEPOSIT_CANCELLATION_HOURS)
+                          : form.depositCancellationHours,
+                      })
+                    }
+                  />
+                  <span className={styles.depositSwitchSlider} aria-hidden="true" />
+                </span>
+              </label>
+            </div>
+
+            {form.depositEnabled && canEnableDeposits ? (
+              <>
+                <div className={styles.depositRow}>
+                  <label className={styles.depositField}>
+                    Comensales desde los que se pide fianza
+                    <input
+                      type="number"
+                      min={0}
+                      max={500}
+                      value={form.depositMinPax ?? ''}
+                      onChange={(event) => {
+                        const raw = event.target.value.trim()
+
+                        if (!raw) {
+                          setForm({
+                            ...form,
+                            depositMinPax: null,
+                          })
+                          return
+                        }
+
+                        const parsed = Math.min(500, Math.max(0, Number(raw)))
+
+                        setForm({
+                          ...form,
+                          depositMinPax: parsed > 0 ? Math.trunc(parsed) : null,
+                        })
+                      }}
+                      placeholder="Ej. 15"
+                    />
+                  </label>
+                  <label className={styles.depositField}>
+                    Fianza por comensal (€)
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={
+                        form.depositPerGuestCents != null
+                          ? (form.depositPerGuestCents / 100).toFixed(2).replace('.', ',')
+                          : ''
+                      }
+                      onChange={(event) => {
+                        const normalized = event.target.value.trim().replace(',', '.')
+
+                        if (!normalized) {
+                          setForm({ ...form, depositPerGuestCents: null })
+                          return
+                        }
+
+                        const euros = Number(normalized)
+
+                        if (!Number.isFinite(euros) || euros < 0) {
+                          return
+                        }
+
+                        setForm({
+                          ...form,
+                          depositPerGuestCents: Math.min(500_00, Math.round(euros * 100)),
+                        })
+                      }}
+                      placeholder="Ej. 10,00"
+                    />
+                  </label>
+                  <label className={styles.depositField}>
+                    Cancelación sin cargo (horas antes)
+                    <input
+                      type="number"
+                      min={1}
+                      max={720}
+                      value={form.depositCancellationHours ?? ''}
+                      onChange={(event) => {
+                        const raw = event.target.value.trim()
+
+                        if (!raw) {
+                          setForm({ ...form, depositCancellationHours: null })
+                          return
+                        }
+
+                        const parsed = Math.min(720, Math.max(1, Number(raw)))
+
+                        setForm({
+                          ...form,
+                          depositCancellationHours: Number.isFinite(parsed)
+                            ? Math.trunc(parsed)
+                            : null,
+                        })
+                      }}
+                      placeholder="Ej. 12"
+                    />
+                  </label>
+                </div>
+                {form.depositMinPax && form.depositPerGuestCents ? (
+                  <p className={styles.depositPreview}>
+                    Ejemplo: una reserva de {form.depositMinPax + 5} comensales pediría{' '}
+                    <strong>
+                      {((form.depositPerGuestCents * (form.depositMinPax + 5)) / 100)
+                        .toFixed(2)
+                        .replace('.', ',')}{' '}
+                      €
+                    </strong>{' '}
+                    de fianza ({((form.depositPerGuestCents) / 100).toFixed(2).replace('.', ',')}{' '}
+                    € × {form.depositMinPax + 5} comensales).
+                    {form.depositCancellationHours ? (
+                      <>
+                        {' '}
+                        {formatDepositCancellationPolicy(form.depositCancellationHours)}
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        </div>
 
         <div className={styles.scheduleBlock}>
           <h3>Horario semanal</h3>
@@ -1138,6 +1382,18 @@ const CompanySettings = forwardRef(function CompanySettings(
           </div>
         </div>
       </section>
+
+      <QrCustomizerModal
+        isOpen={qrCustomizerOpen}
+        kind="booking"
+        url={clientBookingUrl}
+        filename={`qr-reservas-${slugify(company.slug || company.name)}.png`}
+        companyId={company.id}
+        context={qrBrandingContext}
+        initialConfig={company.qrBranding.booking}
+        onClose={() => setQrCustomizerOpen(false)}
+        onSaved={() => void refreshCompany()}
+      />
     </div>
   )
 })

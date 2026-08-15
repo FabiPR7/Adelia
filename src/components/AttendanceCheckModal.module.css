@@ -60,7 +60,7 @@
 .tableHead,
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.9fr) 56px minmax(140px, 1fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.9fr) 56px minmax(180px, 1.2fr);
   gap: 0.65rem;
   align-items: center;
 }
@@ -149,6 +149,22 @@
 
 .resultNo {
   color: #b02a37;
+}
+
+.minSpendHint {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.verificationHint {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #1a6b3f;
 }
 
 .empty {

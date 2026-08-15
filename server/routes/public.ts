@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { processReservationReceivedEmail } from '../email/processReservationEmail.ts'
 import { upsertCompanyClientFromReservation } from '../clients/upsertCompanyClient.ts'
 import { isValidClientEmail } from '../email/config.ts'
-import { adminDb } from '../firebase-admin.ts'
+import { adminAuth, adminDb } from '../firebase-admin.ts'
 import {
   assertReservationSlotValid,
   isSameDay,
@@ -12,8 +12,53 @@ import {
   assertReservationStartInFuture,
 } from '../reservationSlots.ts'
 import { defaultSchedule } from '../utils.ts'
+import {
+  computeDepositAmountCents,
+  createDepositPaymentIntent,
+  verifyDepositPaymentIntent,
+  previewDepositCancellation,
+  processReservationDepositOnCancel,
+  type DepositCancelOutcome,
+} from '../stripe/deposits.ts'
+import { notifyReservationCancelled, notifyReservationReceived } from '../notifications/reservationEvents.ts'
 
 const router = Router()
+
+async function findReservationByCancelToken(token: string) {
+  const snapshot = await adminDb
+    .collection('reservations')
+    .where('cancelToken', '==', token)
+    .limit(1)
+    .get()
+
+  if (snapshot.empty) {
+    return null
+  }
+
+  const doc = snapshot.docs[0]
+  return {
+    ref: doc.ref,
+    id: doc.id,
+    data: doc.data(),
+  }
+}
+
+function buildPublicCancelSuccessMessage(
+  depositOutcome: DepositCancelOutcome,
+  depositAmountCents: number | null,
+): string {
+  if (depositOutcome === 'captured' && depositAmountCents) {
+    const amountLabel = (depositAmountCents / 100).toFixed(2).replace('.', ',')
+    return `Tu reserva ha sido cancelada correctamente. Se ha cobrado la fianza de ${amountLabel} € en tu tarjeta.`
+  }
+
+  if (depositOutcome === 'released' && depositAmountCents) {
+    const amountLabel = (depositAmountCents / 100).toFixed(2).replace('.', ',')
+    return `Tu reserva ha sido cancelada correctamente. La fianza de ${amountLabel} € no se ha cobrado.`
+  }
+
+  return 'Tu reserva ha sido cancelada correctamente.'
+}
 
 function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
   return {
@@ -43,6 +88,258 @@ async function getCompanyBySlug(slug: string) {
   const docSnap = snapshot.docs[0]
   return mapPublicCompany(docSnap.id, docSnap.data())
 }
+
+async function getCompanyRecordBySlug(slug: string) {
+  const snapshot = await adminDb
+    .collection('companies')
+    .where('slug', '==', slug)
+    .limit(1)
+    .get()
+
+  if (snapshot.empty) {
+    return null
+  }
+
+  const docSnap = snapshot.docs[0]
+  return {
+    id: docSnap.id,
+    data: docSnap.data(),
+    public: mapPublicCompany(docSnap.id, docSnap.data()),
+  }
+}
+
+function mapReviewMediaItems(value: unknown) {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') {
+      return []
+    }
+
+    const record = item as Record<string, unknown>
+    const url = typeof record.url === 'string' ? record.url.trim() : ''
+    const type = record.type === 'video' ? 'video' : record.type === 'image' ? 'image' : null
+
+    if (!url || !type) {
+      return []
+    }
+
+    return [{ url, type }]
+  })
+}
+
+function mapReviewTaggedProducts(value: unknown) {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') {
+      return []
+    }
+
+    const record = item as Record<string, unknown>
+    const nodeId = typeof record.nodeId === 'string' ? record.nodeId : ''
+    const boardId = typeof record.boardId === 'string' ? record.boardId : ''
+    const name = typeof record.name === 'string' ? record.name.trim() : ''
+
+    if (!nodeId || !boardId || !name) {
+      return []
+    }
+
+    return [{ nodeId, boardId, name }]
+  })
+}
+
+function mapReviewTaggedPromotions(value: unknown) {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') {
+      return []
+    }
+
+    const record = item as Record<string, unknown>
+    const promotionId = typeof record.promotionId === 'string' ? record.promotionId : ''
+    const name = typeof record.name === 'string' ? record.name.trim() : ''
+
+    if (!promotionId || !name) {
+      return []
+    }
+
+    return [{ promotionId, name }]
+  })
+}
+
+function mapOwnerReply(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  const text = typeof record.text === 'string' ? record.text.trim() : ''
+  const createdAt = (record.createdAt as Timestamp | undefined)?.toDate?.()
+  const updatedAt = (record.updatedAt as Timestamp | undefined)?.toDate?.()
+
+  if (!text || !createdAt) {
+    return null
+  }
+
+  return {
+    text,
+    createdAt: createdAt.toISOString(),
+    updatedAt: updatedAt?.toISOString(),
+  }
+}
+
+function mapPublicReview(id: string, data: FirebaseFirestore.DocumentData) {
+  const rating = typeof data.rating === 'number' ? data.rating : null
+  const comment = typeof data.comment === 'string' ? data.comment : ''
+  const createdAt = (data.createdAt as Timestamp | undefined)?.toDate?.()
+  const mediaItems = mapReviewMediaItems(data.mediaItems)
+  const legacyHasPhoto = data.hasPhoto === true
+  const hasPhoto = legacyHasPhoto || mediaItems.some((item) => item.type === 'image')
+
+  if (rating == null || !createdAt) {
+    return null
+  }
+
+  return {
+    id,
+    customerName: typeof data.customerName === 'string' ? data.customerName : '',
+    rating,
+    comment,
+    hasPhoto,
+    mediaItems,
+    taggedProducts: mapReviewTaggedProducts(data.taggedProducts),
+    taggedPromotions: mapReviewTaggedPromotions(data.taggedPromotions),
+    createdAt: createdAt.toISOString(),
+    ownerReply: mapOwnerReply(data.ownerReply),
+  }
+}
+
+router.post('/:slug/deposit-intent', async (req: Request, res: Response) => {
+  try {
+    const record = await getCompanyRecordBySlug(req.params.slug)
+
+    if (!record) {
+      res.status(404).json({ error: 'Restaurante no encontrado.' })
+      return
+    }
+
+    const pax = Number(req.body?.pax)
+
+    if (!Number.isFinite(pax) || pax < 1) {
+      res.status(400).json({ error: 'Indica el número de comensales.' })
+      return
+    }
+
+    const depositMinPax = typeof record.data.depositMinPax === 'number'
+      ? record.data.depositMinPax
+      : null
+    const depositPerGuestCents = typeof record.data.depositPerGuestCents === 'number'
+      ? record.data.depositPerGuestCents
+      : null
+    const depositEnabled = record.data.depositEnabled === true
+      || (typeof depositMinPax === 'number' && depositMinPax > 0)
+    const stripeAccountId = typeof record.data.stripeAccountId === 'string'
+      ? record.data.stripeAccountId
+      : null
+    const stripeChargesEnabled = record.data.stripeChargesEnabled === true
+
+    const amountCents = depositEnabled
+      ? computeDepositAmountCents(pax, depositMinPax, depositPerGuestCents)
+      : 0
+
+    if (amountCents <= 0) {
+      res.json({ required: false, amountCents: 0 })
+      return
+    }
+
+    if (!stripeAccountId || !stripeChargesEnabled) {
+      res.status(409).json({
+        error: 'Este restaurante aún no puede cobrar fianzas. Contacta con el local.',
+      })
+      return
+    }
+
+    const payment = await createDepositPaymentIntent({
+      connectedAccountId: stripeAccountId,
+      amountCents,
+      companyId: record.id,
+      slug: req.params.slug,
+      pax,
+    })
+
+    res.json({
+      required: true,
+      amountCents,
+      depositMinPax,
+      depositPerGuestCents,
+      stripeAccountId,
+      clientSecret: payment.clientSecret,
+      paymentIntentId: payment.paymentIntentId,
+    })
+  } catch (error) {
+    console.error('Public deposit intent error:', error)
+    res.status(500).json({ error: 'No se pudo preparar la fianza.' })
+  }
+})
+
+router.get('/:slug/reviews', async (req: Request, res: Response) => {
+  try {
+    const companySnap = await adminDb
+      .collection('companies')
+      .where('slug', '==', req.params.slug)
+      .limit(1)
+      .get()
+
+    if (companySnap.empty) {
+      res.status(404).json({ error: 'Restaurante no encontrado.' })
+      return
+    }
+
+    const companyDoc = companySnap.docs[0]
+    const companyData = companyDoc.data()
+    const reviewCount = typeof companyData.reviewCount === 'number' ? companyData.reviewCount : 0
+    const reviewRatingSum = typeof companyData.reviewRatingSum === 'number'
+      ? companyData.reviewRatingSum
+      : 0
+
+    const reviewsSnapshot = await adminDb
+      .collection('companies')
+      .doc(companyDoc.id)
+      .collection('reviews')
+      .get()
+
+    const reviews = reviewsSnapshot.docs
+      .map((item) => mapPublicReview(item.id, item.data()))
+      .filter((review): review is NonNullable<typeof review> => review !== null)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+
+    const count = reviews.length > 0 ? reviews.length : reviewCount
+    const ratingSum = reviews.length > 0
+      ? reviews.reduce((sum, review) => sum + review.rating, 0)
+      : reviewRatingSum
+    const averageRating = count > 0 ? Math.round((ratingSum / count) * 10) / 10 : 0
+
+    res.json({
+      stats: {
+        reviewCount: count,
+        reviewRatingSum: ratingSum,
+        averageRating,
+      },
+      reviews,
+    })
+  } catch (error) {
+    console.error('Public reviews load error:', error)
+    res.status(500).json({ error: 'No se pudieron cargar las reseñas.' })
+  }
+})
 
 router.get('/:slug', async (req: Request, res: Response) => {
   try {
@@ -129,12 +426,14 @@ router.get('/:slug/availability', async (req: Request, res: Response) => {
 
 router.post('/:slug/reservations', async (req: Request, res: Response) => {
   try {
-    const company = await getCompanyBySlug(req.params.slug)
+    const record = await getCompanyRecordBySlug(req.params.slug)
 
-    if (!company) {
+    if (!record) {
       res.status(404).json({ error: 'Restaurante no encontrado.' })
       return
     }
+
+    const company = record.public
 
     const {
       date: dateParam,
@@ -145,6 +444,8 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       clientPhone = '',
       pax,
       notes = '',
+      promotionId: promotionIdRaw,
+      depositPaymentIntentId: depositPaymentIntentIdRaw,
     } = req.body as Record<string, unknown>
 
     if (typeof clientName !== 'string' || !clientName.trim()) {
@@ -152,7 +453,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       return
     }
 
-    const email = typeof clientEmail === 'string' ? clientEmail.trim() : ''
+    const email = typeof clientEmail === 'string' ? clientEmail.trim().toLowerCase() : ''
     const phone = typeof clientPhone === 'string' ? clientPhone.trim() : ''
 
     if (!isValidClientEmail(email)) {
@@ -257,7 +558,43 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
     startTime.setHours(hours, minutes, 0, 0)
     const endTime = new Date(startTime.getTime() + company.timeSlotMinutes * 60000)
 
-    const reservationData = {
+    let promotionId: string | null = null
+    let minimumSpendCents: number | null = null
+    let promotionVisitStatus: 'pending' | 'n/a' | undefined
+
+    if (typeof promotionIdRaw === 'string' && promotionIdRaw.trim()) {
+      const promoSnap = await adminDb
+        .collection('companies')
+        .doc(company.id)
+        .collection('promotions')
+        .doc(promotionIdRaw.trim())
+        .get()
+
+      if (!promoSnap.exists) {
+        res.status(400).json({ error: 'La promoción indicada no existe.' })
+        return
+      }
+
+      const promoData = promoSnap.data()!
+
+      if (promoData.active !== true) {
+        res.status(400).json({ error: 'Esta promoción ya no está activa.' })
+        return
+      }
+
+      promotionId = promoSnap.id
+
+      if (
+        promoData.minimumSpendEnabled === true
+        && typeof promoData.minimumSpendCents === 'number'
+        && promoData.minimumSpendCents > 0
+      ) {
+        minimumSpendCents = promoData.minimumSpendCents
+        promotionVisitStatus = 'pending'
+      }
+    }
+
+    const reservationData: Record<string, unknown> = {
       companyId: company.id,
       tableId,
       clientName: clientName.trim(),
@@ -270,6 +607,83 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       status: 'completed',
       cancelToken: randomUUID(),
       createdAt: Timestamp.now(),
+    }
+
+    if (promotionId) {
+      reservationData.promotionId = promotionId
+    }
+
+    if (minimumSpendCents !== null) {
+      reservationData.minimumSpendCents = minimumSpendCents
+    }
+
+    if (promotionVisitStatus) {
+      reservationData.promotionVisitStatus = promotionVisitStatus
+    }
+
+    const authHeader = req.headers.authorization
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.slice(7)
+        const decoded = await adminAuth.verifyIdToken(token)
+        const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
+        if (userSnap.exists && userSnap.data()?.role === 'customer') {
+          reservationData.customerUid = decoded.uid
+        }
+      } catch {
+        // Reserva anónima o token inválido: continuar sin customerUid.
+      }
+    }
+
+    const depositMinPax = typeof record.data.depositMinPax === 'number'
+      ? record.data.depositMinPax
+      : null
+    const depositPerGuestCents = typeof record.data.depositPerGuestCents === 'number'
+      ? record.data.depositPerGuestCents
+      : null
+    const depositEnabled = record.data.depositEnabled === true
+      || (typeof depositMinPax === 'number' && depositMinPax > 0)
+    const stripeAccountId = typeof record.data.stripeAccountId === 'string'
+      ? record.data.stripeAccountId
+      : null
+    const depositAmountCents = depositEnabled
+      ? computeDepositAmountCents(
+        guestCount,
+        depositMinPax,
+        depositPerGuestCents,
+      )
+      : 0
+
+    if (depositAmountCents > 0) {
+      const depositPaymentIntentId = typeof depositPaymentIntentIdRaw === 'string'
+        ? depositPaymentIntentIdRaw.trim()
+        : ''
+
+      if (!depositPaymentIntentId || !stripeAccountId) {
+        res.status(400).json({ error: 'Debes autorizar la fianza antes de confirmar la reserva.' })
+        return
+      }
+
+      try {
+        await verifyDepositPaymentIntent({
+          paymentIntentId: depositPaymentIntentId,
+          connectedAccountId: stripeAccountId,
+          expectedAmountCents: depositAmountCents,
+          companyId: record.id,
+        })
+      } catch (depositError) {
+        console.error('Public reservation deposit verification error:', depositError)
+        res.status(400).json({
+          error: depositError instanceof Error
+            ? depositError.message
+            : 'No se pudo verificar la fianza.',
+        })
+        return
+      }
+
+      reservationData.depositAmountCents = depositAmountCents
+      reservationData.depositPaymentIntentId = depositPaymentIntentId
+      reservationData.depositStatus = 'authorized'
     }
 
     const reservationRef = await adminDb.collection('reservations').add(reservationData)
@@ -286,6 +700,12 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       console.error('Public reservation received email error:', emailError)
     }
 
+    try {
+      await notifyReservationReceived(reservationRef.id, reservationData)
+    } catch (notificationError) {
+      console.error('Public reservation received notification error:', notificationError)
+    }
+
     res.status(201).json({
       id: reservationRef.id,
       message: 'Hemos recibido tu reserva.',
@@ -293,6 +713,63 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Public reservation error:', error)
     res.status(500).json({ error: 'No se pudo crear la reserva.' })
+  }
+})
+
+router.get('/cancel/preview', async (req: Request, res: Response) => {
+  try {
+    const token = typeof req.query.token === 'string' ? req.query.token.trim() : ''
+
+    if (!token) {
+      res.status(400).json({ error: 'Enlace de cancelación no válido.' })
+      return
+    }
+
+    const reservationRecord = await findReservationByCancelToken(token)
+
+    if (!reservationRecord) {
+      res.status(404).json({ error: 'No encontramos ninguna reserva con este enlace.' })
+      return
+    }
+
+    const reservation = reservationRecord.data
+    const companyId = typeof reservation.companyId === 'string' ? reservation.companyId : null
+    let companyName = ''
+    let depositCancellationHours: number | null = null
+
+    if (companyId) {
+      const companySnap = await adminDb.collection('companies').doc(companyId).get()
+      const companyData = companySnap.data()
+      companyName = typeof companyData?.name === 'string' ? companyData.name : ''
+      depositCancellationHours = typeof companyData?.depositCancellationHours === 'number'
+        ? companyData.depositCancellationHours
+        : null
+    }
+
+    const startTimeValue = reservation.startTime as { toDate?: () => Date } | undefined
+    const startTime = startTimeValue && typeof startTimeValue.toDate === 'function'
+      ? startTimeValue.toDate().toISOString()
+      : null
+    const depositPreview = previewDepositCancellation({
+      reservation,
+      depositCancellationHours,
+    })
+
+    res.json({
+      companyName,
+      clientName: typeof reservation.clientName === 'string' ? reservation.clientName : '',
+      pax: typeof reservation.pax === 'number' ? reservation.pax : null,
+      startTime,
+      status: typeof reservation.status === 'string' ? reservation.status : 'completed',
+      alreadyCancelled: reservation.status === 'cancelled',
+      depositAmountCents: depositPreview.depositAmountCents,
+      depositCancellationHours,
+      hasAuthorizedDeposit: depositPreview.hasAuthorizedDeposit,
+      willChargeDeposit: depositPreview.willCaptureDeposit,
+    })
+  } catch (error) {
+    console.error('Public reservation cancel preview error:', error)
+    res.status(500).json({ error: 'No se pudo cargar la información de cancelación.' })
   }
 })
 
@@ -305,34 +782,70 @@ router.post('/cancel', async (req: Request, res: Response) => {
       return
     }
 
-    const snapshot = await adminDb
-      .collection('reservations')
-      .where('cancelToken', '==', token)
-      .limit(1)
-      .get()
+    const reservationRecord = await findReservationByCancelToken(token)
 
-    if (snapshot.empty) {
+    if (!reservationRecord) {
       res.status(404).json({ error: 'No encontramos ninguna reserva con este enlace.' })
       return
     }
 
-    const reservationRef = snapshot.docs[0].ref
-    const reservation = snapshot.docs[0].data()
+    const reservationRef = reservationRecord.ref
+    const reservation = reservationRecord.data
 
     if (reservation.status === 'cancelled') {
       res.status(409).json({ error: 'Esta reserva ya estaba cancelada.' })
       return
     }
 
+    let depositOutcome: DepositCancelOutcome = 'none'
+    let depositAmountCents: number | null = typeof reservation.depositAmountCents === 'number'
+      ? reservation.depositAmountCents
+      : null
+
+    if (typeof reservation.companyId === 'string') {
+      const companySnap = await adminDb.collection('companies').doc(reservation.companyId).get()
+      const companyData = companySnap.data()
+      const stripeAccountId = companyData?.stripeAccountId as string | undefined
+      const depositCancellationHours = typeof companyData?.depositCancellationHours === 'number'
+        ? companyData.depositCancellationHours
+        : null
+
+      depositOutcome = await processReservationDepositOnCancel({
+        reservationId: reservationRecord.id,
+        reservation,
+        stripeAccountId,
+        depositCancellationHours,
+      })
+    }
+
     await reservationRef.update({
       status: 'cancelled',
+      cancelledBy: 'client',
       updatedAt: Timestamp.now(),
     })
 
-    res.json({ message: 'Tu reserva ha sido cancelada correctamente.' })
+    try {
+      await notifyReservationCancelled(
+        reservationRecord.id,
+        { ...reservation, status: 'cancelled', cancelledBy: 'client' },
+        'client',
+      )
+    } catch (notificationError) {
+      console.error('Cancel notification error:', notificationError)
+    }
+
+    res.json({
+      message: buildPublicCancelSuccessMessage(depositOutcome, depositAmountCents),
+      depositOutcome,
+      depositCharged: depositOutcome === 'captured',
+    })
   } catch (error) {
     console.error('Public reservation cancel error:', error)
-    res.status(500).json({ error: 'No se pudo cancelar la reserva.' })
+    res.status(500).json({
+      error: error instanceof Error
+        ? error.message
+        : 'No se pudo cancelar la reserva.',
+    })
   }
 })
 

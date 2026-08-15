@@ -200,45 +200,47 @@ function ReservationList({
               return (
                 <li
                   key={reservation.id}
-                  className={`${styles.row} ${isCancelled ? styles.rowCancelled : ''}`}
+                  className={`${styles.rowGroup} ${isCancelled ? styles.rowGroupCancelled : ''}`}
                 >
-                  <span className={styles.cellTime}>
-                    {formatTimeSpanish(reservation.startTime)}
-                    <small>{formatTimeSpanish(reservation.endTime)}</small>
-                  </span>
-                  <div className={styles.mobileBody}>
-                    <div className={styles.mobileLine1}>
-                      <span className={styles.cellClient}>{reservation.clientName}</span>
-                      <span className={`${styles.status} ${styles[reservation.status]}`}>
-                        {STATUS_LABELS[reservation.status]}
-                      </span>
+                  <div className={`${styles.row} ${isCancelled ? styles.rowCancelled : ''}`}>
+                    <span className={styles.cellTime}>
+                      {formatTimeSpanish(reservation.startTime)}
+                      <small>{formatTimeSpanish(reservation.endTime)}</small>
+                    </span>
+                    <div className={styles.mobileBody}>
+                      <div className={styles.mobileLine1}>
+                        <span className={styles.cellClient}>{reservation.clientName}</span>
+                        <span className={`${styles.status} ${styles[reservation.status]}`}>
+                          {STATUS_LABELS[reservation.status]}
+                        </span>
+                      </div>
+                      <div className={styles.mobileLine2}>
+                        <span className={styles.cellTable}>{table?.name ?? '—'}</span>
+                        <span className={styles.cellPax}>{reservation.pax} pax</span>
+                        <span className={styles.cellContact}>
+                          {reservation.clientPhone || reservation.clientEmail || '—'}
+                        </span>
+                      </div>
                     </div>
-                    <div className={styles.mobileLine2}>
-                      <span className={styles.cellTable}>{table?.name ?? '—'}</span>
-                      <span className={styles.cellPax}>{reservation.pax} pax</span>
-                      <span className={styles.cellContact}>
-                        {reservation.clientPhone || reservation.clientEmail || '—'}
-                      </span>
-                    </div>
+                    <span className={styles.cellActions}>
+                      <button
+                        type="button"
+                        className={styles.iconButton}
+                        onClick={() => onEdit(reservation)}
+                        aria-label={`Editar reserva de ${reservation.clientName}`}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.iconButton} ${styles.iconButtonDanger}`}
+                        onClick={() => onDelete(reservation)}
+                        aria-label={`Eliminar reserva de ${reservation.clientName}`}
+                      >
+                        🗑
+                      </button>
+                    </span>
                   </div>
-                  <span className={styles.cellActions}>
-                    <button
-                      type="button"
-                      className={styles.iconButton}
-                      onClick={() => onEdit(reservation)}
-                      aria-label={`Editar reserva de ${reservation.clientName}`}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                      onClick={() => onDelete(reservation)}
-                      aria-label={`Eliminar reserva de ${reservation.clientName}`}
-                    >
-                      🗑
-                    </button>
-                  </span>
                 </li>
               )
             })}

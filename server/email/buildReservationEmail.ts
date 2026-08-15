@@ -33,6 +33,9 @@ export interface ReservationEmailBuildData {
   tableName: string
   notes?: string
   cancelToken?: string
+  depositAmountCents?: number | null
+  depositPerGuestCents?: number | null
+  depositCancellationHours?: number | null
   template?: ReservationEmailTemplate
 }
 
@@ -187,6 +190,36 @@ function buildPromotionBlock(template: ReservationEmailTemplate, placeholders: R
   </table>`
 }
 
+function formatDepositAuthorizationSummary(
+  pax: number,
+  perGuestCents: number,
+  cancellationHours: number | null | undefined,
+): string {
+  const perGuestLabel = `${(perGuestCents / 100).toFixed(2).replace('.', ',')} €`
+  const guestLabel = pax === 1 ? '1 comensal' : `${pax} comensales`
+  const hours = typeof cancellationHours === 'number' && cancellationHours > 0
+    ? cancellationHours
+    : 24
+  const hoursLabel = hours === 1 ? '1 hora' : `${hours} horas`
+
+  return `Para ${guestLabel} has asegurado una fianza de ${perGuestLabel} por comensal. No la perderás si asistes a la reserva ni si cancelas con al menos ${hoursLabel} de antelación.`
+}
+
+function buildDepositBlock(data: ReservationEmailBuildData): string {
+  if (!data.depositAmountCents || data.depositAmountCents <= 0) {
+    return ''
+  }
+
+  return paragraphHtml(
+    escapeHtml(formatDepositAuthorizationSummary(
+      data.pax,
+      data.depositPerGuestCents ?? Math.round((data.depositAmountCents ?? 0) / Math.max(data.pax, 1)),
+      data.depositCancellationHours,
+    )),
+    { margin: '16px 0 0', size: '14px', color: '#5c4a3a' },
+  )
+}
+
 function buildActionsBlock(data: ReservationEmailBuildData, template: ReservationEmailTemplate) {
   const blocks: string[] = []
 
@@ -308,6 +341,7 @@ export function buildReservationEmailHtml(
               ${paragraphHtml(preDetails, { margin: '0 0 16px', size: '15px' })}
               ${promotionBlock}
               ${detailsBlock}
+              ${buildDepositBlock(data)}
               ${paragraphHtml(closing, { margin: '24px 0 0', color: '#6b7280', size: '14px' })}
               ${actionsBlock}
             </td>
@@ -376,6 +410,14 @@ export function buildReservationEmailText(data: ReservationEmailBuildData): stri
   }
   if (template.showNotes && data.notes?.trim()) {
     lines.push(`Notas: ${data.notes.trim()}`)
+  }
+
+  if (data.depositAmountCents && data.depositAmountCents > 0) {
+    lines.push('', formatDepositAuthorizationSummary(
+      data.pax,
+      data.depositPerGuestCents ?? Math.round((data.depositAmountCents ?? 0) / Math.max(data.pax, 1)),
+      data.depositCancellationHours,
+    ))
   }
 
   lines.push('', applyTemplatePlaceholders(template.closingMessage, placeholders))

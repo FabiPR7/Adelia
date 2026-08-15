@@ -262,6 +262,13 @@
   margin-bottom: 0.85rem;
 }
 
+.toolbarDivider {
+  width: 1px;
+  height: 1.4rem;
+  background: rgba(107, 83, 68, 0.16);
+  margin: 0 0.1rem;
+}
+
 .toolbarHint {
   margin-left: auto;
   font-size: 0.68rem;

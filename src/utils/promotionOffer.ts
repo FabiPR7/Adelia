@@ -218,6 +218,18 @@ export function resolvePromotionMinimumSpend(promotion: PromotionDisplayFields):
   return formatMinimumSpendLabel(promotion.minimumSpendCents)
 }
 
+export function formatPromotionMinimumSpendBookingNote(
+  promotion: PromotionDisplayFields,
+): string | null {
+  const label = resolvePromotionMinimumSpend(promotion)
+  if (!label) {
+    return null
+  }
+
+  const amount = label.replace(/^Gasto mínimo:\s*/, '')
+  return `Gasto mínimo de ${amount} si quieres la promoción`
+}
+
 export function formatPromotionOfferSummary(offer: PromotionOfferConfig): string {
   switch (offer.kind) {
     case 'bundle':

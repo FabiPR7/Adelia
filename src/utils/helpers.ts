@@ -38,6 +38,16 @@ export function getPublicBookingUrl(slug: string): string {
   return path
 }
 
+export function getPublicMenuBoardUrl(slug: string, boardId: string): string {
+  const path = `/reservar/${encodeURIComponent(slug)}/carta/${encodeURIComponent(boardId)}`
+
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${path}`
+  }
+
+  return path
+}
+
 export function slugify(value: string): string {
   return value
     .trim()

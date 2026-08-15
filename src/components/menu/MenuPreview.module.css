@@ -34,6 +34,13 @@
   padding: 1.35rem 1rem 2rem;
 }
 
+@media (min-width: 1024px) {
+  .previewFullscreen .previewInner {
+    max-width: min(960px, 92vw);
+    padding: 1.75rem 2rem 2.75rem;
+  }
+}
+
 .bgImage {
   position: absolute;
   inset: 0;
@@ -344,6 +351,13 @@
   margin-bottom: 0.65rem;
   padding-bottom: 0.55rem;
   border-bottom: 1px solid color-mix(in srgb, var(--menu-text) 14%, transparent);
+}
+
+.productHighlighted {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 12px;
+  scroll-margin-top: 5rem;
 }
 
 .layoutList .productCard {

@@ -11,12 +11,14 @@ import {
   getCompanyPromotions,
   updateCompanyPromotion,
 } from '../../services/promotions'
+import { getPromotionPinSettings, savePromotionPinSettings } from '../../services/promotionPin'
 import { getFirestoreErrorMessage } from '../../services/firestore'
 import type {
   CompanyPromotion,
   MenuNode,
   PromotionInput,
   PromotionOfferKind,
+  PromotionPinRotation,
   PromotionType,
 } from '../../types'
 import {
@@ -33,6 +35,13 @@ import {
   formatPromotionOfferSummary,
   suggestPromotionTitle,
 } from '../../utils/promotionOffer'
+import {
+  formatPromotionPinRotationHint,
+  generatePromotionPinCode,
+  normalizePromotionPinCode,
+  PROMOTION_PIN_ROTATION_LABELS,
+  validatePromotionPinCode,
+} from '../../utils/promotionPin'
 import styles from './CompanyPromotions.module.css'
 
 interface CompanyPromotionsProps {
@@ -41,6 +50,7 @@ interface CompanyPromotionsProps {
 
 const PROMOTION_TYPES: PromotionType[] = ['reservation_ladder', 'time_limited', 'attendance']
 const PROMOTION_OFFER_KINDS = Object.keys(PROMOTION_OFFER_KIND_LABELS) as PromotionOfferKind[]
+const PIN_ROTATIONS: PromotionPinRotation[] = ['daily', 'weekly', 'monthly', 'manual']
 
 function promotionToInput(promotion: CompanyPromotion): PromotionInput {
   return {
@@ -111,6 +121,13 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
   const [error, setError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CompanyPromotion | null>(null)
+  const [pinCode, setPinCode] = useState('')
+  const [pinRotation, setPinRotation] = useState<PromotionPinRotation>('manual')
+  const [pinNextRotationAt, setPinNextRotationAt] = useState<Date | null>(null)
+  const [pinLoading, setPinLoading] = useState(true)
+  const [pinSaving, setPinSaving] = useState(false)
+  const [pinError, setPinError] = useState<string | null>(null)
+  const [pinSavedMessage, setPinSavedMessage] = useState<string | null>(null)
 
   const loadPromotions = useCallback(async () => {
     setLoading(true)
@@ -154,6 +171,22 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
     }
   }, [companyId])
 
+  const loadPromotionPin = useCallback(async () => {
+    setPinLoading(true)
+    setPinError(null)
+
+    try {
+      const settings = await getPromotionPinSettings(companyId)
+      setPinCode(settings.code)
+      setPinRotation(settings.rotation)
+      setPinNextRotationAt(settings.nextRotationAt)
+    } catch (err) {
+      setPinError(getFirestoreErrorMessage(err, 'load'))
+    } finally {
+      setPinLoading(false)
+    }
+  }, [companyId])
+
   useEffect(() => {
     if (!user || profile?.companyId !== companyId) {
       return
@@ -169,6 +202,14 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
 
     void loadPromotions()
   }, [user, profile?.companyId, companyId, loadPromotions])
+
+  useEffect(() => {
+    if (!user || profile?.companyId !== companyId) {
+      return
+    }
+
+    void loadPromotionPin()
+  }, [user, profile?.companyId, companyId, loadPromotionPin])
 
   const filteredPromotions = useMemo(
     () => promotions
@@ -233,6 +274,36 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
     }
   }
 
+  const handleSavePin = async (regenerate = false) => {
+    if (!regenerate) {
+      const validationError = validatePromotionPinCode(pinCode)
+      if (validationError) {
+        setPinError(validationError)
+        return
+      }
+    }
+
+    setPinSaving(true)
+    setPinError(null)
+    setPinSavedMessage(null)
+
+    try {
+      const settings = await savePromotionPinSettings(
+        companyId,
+        { code: pinCode, rotation: pinRotation },
+        { regenerate },
+      )
+      setPinCode(settings.code)
+      setPinRotation(settings.rotation)
+      setPinNextRotationAt(settings.nextRotationAt)
+      setPinSavedMessage(regenerate ? 'Código aleatorio guardado.' : 'Código guardado.')
+    } catch (err) {
+      setPinError(err instanceof Error ? err.message : getFirestoreErrorMessage(err, 'save'))
+    } finally {
+      setPinSaving(false)
+    }
+  }
+
   const handleDelete = async () => {
     if (!deleteTarget) {
       return
@@ -262,6 +333,88 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
           asistencia puntual. Más adelante los clientes podrán canjearlas desde su zona de usuario.
         </p>
       </header>
+
+      <section className={styles.pinPanel} aria-labelledby="promotion-pin-title">
+        <div className={styles.pinPanelHead}>
+          <div>
+            <h3 id="promotion-pin-title">Código de canje</h3>
+            <p>
+              Los clientes usarán este PIN para validar promociones. Más adelante lo pediremos en su zona de usuario.
+            </p>
+          </div>
+        </div>
+
+        {pinLoading ? (
+          <p className={styles.pinLoading}>Cargando código…</p>
+        ) : (
+          <>
+            <div className={styles.pinRow}>
+              <label className={styles.pinField}>
+                <span>Código actual</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={4}
+                  value={pinCode}
+                  onChange={(event) => {
+                    setPinCode(normalizePromotionPinCode(event.target.value))
+                    setPinSavedMessage(null)
+                  }}
+                  placeholder="1234"
+                />
+              </label>
+
+              <div className={styles.pinActions}>
+                <button
+                  type="button"
+                  className={styles.actionButton}
+                  onClick={() => setPinCode(generatePromotionPinCode())}
+                  disabled={pinSaving}
+                >
+                  Cambiar aleatoriamente
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.actionButton} ${styles.actionButtonPrimary}`}
+                  onClick={() => void handleSavePin(false)}
+                  disabled={pinSaving}
+                >
+                  {pinSaving ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+
+            <fieldset className={styles.pinRotationFieldset}>
+              <legend>Rotación automática</legend>
+              <div className={styles.pinRotationOptions}>
+                {PIN_ROTATIONS.map((rotation) => (
+                  <label key={rotation} className={styles.pinRotationOption}>
+                    <input
+                      type="radio"
+                      name="promotion-pin-rotation"
+                      value={rotation}
+                      checked={pinRotation === rotation}
+                      onChange={() => {
+                        setPinRotation(rotation)
+                        setPinSavedMessage(null)
+                      }}
+                    />
+                    <span>{PROMOTION_PIN_ROTATION_LABELS[rotation]}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <p className={styles.pinHint}>
+              {formatPromotionPinRotationHint(pinRotation, pinNextRotationAt)}
+            </p>
+
+            {pinError && <div className={styles.error}>{pinError}</div>}
+            {pinSavedMessage && <p className={styles.pinSuccess}>{pinSavedMessage}</p>}
+          </>
+        )}
+      </section>
 
       <div className={styles.toolbar}>
         <div className={styles.typeToggle} role="tablist" aria-label="Tipo de promoción">

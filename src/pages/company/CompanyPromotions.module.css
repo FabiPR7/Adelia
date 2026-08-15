@@ -19,6 +19,123 @@
   max-width: 760px;
 }
 
+.pinPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.05rem;
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+}
+
+.pinPanelHead h3 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--color-brown);
+}
+
+.pinPanelHead p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  max-width: 720px;
+}
+
+.pinLoading {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.pinRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.pinField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: min(100%, 12rem);
+  flex: 1 1 12rem;
+}
+
+.pinField span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.pinField input {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.pinActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.pinRotationFieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.pinRotationFieldset legend {
+  margin-bottom: 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.pinRotationOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.pinRotationOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-cream);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-brown);
+  cursor: pointer;
+}
+
+.pinRotationOption input {
+  accent-color: var(--color-brown);
+}
+
+.pinHint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.pinSuccess {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #166534;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;

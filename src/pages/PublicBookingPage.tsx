@@ -1,8 +1,12 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Calendar from '../components/Calendar'
 import BookingRestaurantLanding from '../components/booking/BookingRestaurantLanding'
+import ReservationDepositPayment, {
+  type ReservationDepositPaymentHandle,
+} from '../components/booking/ReservationDepositPayment'
 import { useAuth } from '../context/AuthContext'
+import { createPublicDepositIntent, type PublicDepositIntentResponse } from '../services/publicDepositApi'
 import {
   availabilityToReservations,
   createPublicReservation,
@@ -32,13 +36,21 @@ import {
 import { mergeDemoPromotions } from '../data/demoNearbyPromotions'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
 import {
+  canRedeemPromotionAsCustomer,
   getAttendanceDayBlockMessage,
   getPromoBookingHint,
   getPromoSlotDisabledReason,
   isPromoTimeConstrained,
   validatePromoSlotSelection,
 } from '../utils/promotionBooking'
-import { resolvePromotionHighlight, resolvePromotionMinimumSpend } from '../utils/promotionOffer'
+import { resolvePromotionHighlight, formatPromotionMinimumSpendBookingNote } from '../utils/promotionOffer'
+import {
+  companyCanCollectReservationDeposits,
+  companyRequiresReservationDeposit,
+  companyRequiresStripeDeposit,
+  computeReservationDepositCents,
+  formatDepositAuthorizationSummary,
+} from '../utils/reservationDeposit'
 import styles from './PublicBookingPage.module.css'
 
 const FloorPlanViewer = lazy(() => import('../components/FloorPlanViewer'))
@@ -50,7 +62,8 @@ type PageView = 'landing' | 'booking'
 function PublicBookingPage() {
   const { slug = '' } = useParams()
   const location = useLocation()
-  const { profile } = useAuth()
+  const navigate = useNavigate()
+  const { user, profile, isLoading: authLoading } = useAuth()
   const [searchParams] = useSearchParams()
   const [company, setCompany] = useState<PublicBookingCompany | null>(null)
   const [tables, setTables] = useState<PublicBookingTable[]>([])
@@ -73,11 +86,29 @@ function PublicBookingPage() {
   const [notes, setNotes] = useState('')
   const [pageView, setPageView] = useState<PageView>('landing')
   const [activePromo, setActivePromo] = useState<PublicPromotion | null>(null)
+  const [promoResolved, setPromoResolved] = useState(!searchParams.get('promo'))
   const [promoSlotError, setPromoSlotError] = useState<string | null>(null)
+  const [depositIntent, setDepositIntent] = useState<PublicDepositIntentResponse | null>(null)
+  const [depositLoading, setDepositLoading] = useState(false)
+  const [depositPaymentReady, setDepositPaymentReady] = useState(false)
+  const [depositPaymentError, setDepositPaymentError] = useState<string | null>(null)
+  const [completedBookingDeposit, setCompletedBookingDeposit] = useState<{
+    amountCents: number
+    pax: number
+    perGuestCents: number
+    cancellationHours: number | null
+  } | null>(null)
+  const depositPaymentRef = useRef<ReservationDepositPaymentHandle>(null)
 
   const promoId = searchParams.get('promo')
   const durationMinutes = company?.timeSlotMinutes ?? 120
   const schedule = company?.schedule
+  const depositRequired = company ? companyRequiresStripeDeposit(pax, company) : false
+  const depositUnavailable = company
+    ? companyRequiresReservationDeposit(pax, company)
+      && computeReservationDepositCents(pax, company) > 0
+      && !companyCanCollectReservationDeposits(company)
+    : false
 
   const loadAvailability = useCallback(async () => {
     if (!slug) {
@@ -96,6 +127,51 @@ function PublicBookingPage() {
       setIsAvailabilityLoading(false)
     }
   }, [slug, selectedDate])
+
+  useEffect(() => {
+    if (step !== 'form' || !company || !slug) {
+      return undefined
+    }
+
+    let cancelled = false
+
+    const loadDeposit = async () => {
+      if (!companyRequiresStripeDeposit(pax, company)) {
+        setDepositIntent(null)
+        setDepositPaymentError(null)
+        setDepositPaymentReady(false)
+        return
+      }
+
+      setDepositLoading(true)
+      setDepositPaymentError(null)
+
+      try {
+        const intent = await createPublicDepositIntent(slug, pax)
+        if (!cancelled) {
+          setDepositIntent(intent)
+          setDepositPaymentReady(false)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setDepositIntent(null)
+          setDepositPaymentError(
+            err instanceof Error ? err.message : 'No se pudo preparar la fianza.',
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setDepositLoading(false)
+        }
+      }
+    }
+
+    void loadDeposit()
+
+    return () => {
+      cancelled = true
+    }
+  }, [step, company, slug, pax])
 
   useEffect(() => {
     let cancelled = false
@@ -144,10 +220,12 @@ function PublicBookingPage() {
   useEffect(() => {
     if (!slug || !promoId) {
       setActivePromo(null)
+      setPromoResolved(true)
       return
     }
 
     let cancelled = false
+    setPromoResolved(false)
 
     void fetchPublicPromotionsBySlug(slug)
       .then((promotions) => {
@@ -166,6 +244,11 @@ function PublicBookingPage() {
           setActivePromo(null)
         }
       })
+      .finally(() => {
+        if (!cancelled) {
+          setPromoResolved(true)
+        }
+      })
 
     return () => {
       cancelled = true
@@ -179,6 +262,14 @@ function PublicBookingPage() {
     setPromoSlotError(null)
   }, [selectedDate, viewMode])
 
+  const canRedeemPromo = canRedeemPromotionAsCustomer(user, profile)
+  const promoAuthRequired = Boolean(activePromo) && !authLoading && !canRedeemPromo
+  const minSpendBookingNote = activePromo
+    ? formatPromotionMinimumSpendBookingNote(activePromo)
+    : null
+  const waitingForPromo = Boolean(promoId) && !promoResolved
+  const returnPath = `${location.pathname}${location.search}`
+  const promoAuthRedirect = encodeURIComponent(returnPath)
   const selectedTable = tables.find((table) => table.id === selectedTableId)
   const daySchedule = schedule ? getDaySchedule(selectedDate, schedule) : null
   const canUseMap = Boolean(company?.floorPlan.enabled)
@@ -295,7 +386,26 @@ function PublicBookingPage() {
     setSelectedTableId('')
     setError(null)
     setPromoSlotError(null)
+    setCompletedBookingDeposit(null)
   }
+
+  const returnToRestaurantHome = useCallback(() => {
+    setPageView('landing')
+    setStep('pick')
+    resetSelection()
+    navigate(`/reservar/${slug}`, { replace: true })
+  }, [navigate, slug])
+
+  const openBookingFlow = useCallback(() => {
+    setPageView('booking')
+    setStep('pick')
+    const params = new URLSearchParams(location.search)
+    params.set('reservar', '1')
+    navigate(
+      { pathname: `/reservar/${slug}`, search: params.toString() },
+      { replace: true },
+    )
+  }, [location.search, navigate, slug])
 
   const trySelectPromoSlot = (time: string, availableTimes: string[]): boolean => {
     if (!activePromo || !isPromoTimeConstrained(activePromo)) {
@@ -389,6 +499,11 @@ function PublicBookingPage() {
       return
     }
 
+    if (activePromo && !canRedeemPromo) {
+      setError('Debes registrarte como cliente para canjear promociones.')
+      return
+    }
+
     try {
       assertReservationStartInFuture(selectedDate, selectedTime)
     } catch (err) {
@@ -413,6 +528,25 @@ function PublicBookingPage() {
     setError(null)
 
     try {
+      if (depositRequired) {
+        if (!depositIntent?.paymentIntentId || !depositIntent.clientSecret || !depositIntent.stripeAccountId) {
+          setError('No se pudo preparar la fianza. Inténtalo de nuevo.')
+          return
+        }
+
+        if (!depositPaymentReady) {
+          setError('Introduce los datos de tu tarjeta para asegurar la fianza.')
+          return
+        }
+
+        if (depositPaymentError) {
+          setError(depositPaymentError)
+          return
+        }
+
+        await depositPaymentRef.current?.confirmDeposit()
+      }
+
       await createPublicReservation(slug, {
         date: dateToIsoDate(selectedDate),
         time: selectedTime,
@@ -422,7 +556,22 @@ function PublicBookingPage() {
         clientPhone: formatSpanishPhoneForStorage(clientPhone),
         pax,
         notes: notes.trim(),
+        ...(activePromo ? { promotionId: activePromo.id } : {}),
+        ...(depositRequired && depositIntent?.paymentIntentId
+          ? { depositPaymentIntentId: depositIntent.paymentIntentId }
+          : {}),
       })
+
+      setCompletedBookingDeposit(
+        depositRequired && depositIntent?.amountCents
+          ? {
+              amountCents: depositIntent.amountCents,
+              pax,
+              perGuestCents: company.depositPerGuestCents ?? Math.round(depositIntent.amountCents / pax),
+              cancellationHours: company.depositCancellationHours ?? null,
+            }
+          : null,
+      )
 
       setStep('done')
       setClientName('')
@@ -472,7 +621,9 @@ function PublicBookingPage() {
     (location.state as { from?: string } | null)?.from === 'promociones'
     || searchParams.get('from') === 'promociones'
   const landingBackHref =
-    profile?.role === 'customer' && fromPromotions ? '/app/promociones' : null
+    profile?.role === 'customer' && fromPromotions ? '/app/promociones' : '/'
+  const landingBackLabel =
+    profile?.role === 'customer' && fromPromotions ? '← Volver' : '← Menú principal'
 
   if (pageView === 'landing') {
     return (
@@ -481,10 +632,8 @@ function PublicBookingPage() {
         menuHref={menuHref}
         promotionsHref={promotionsHref}
         backHref={landingBackHref}
-        onReserve={() => {
-          setPageView('booking')
-          setStep('pick')
-        }}
+        backLabel={landingBackLabel}
+        onReserve={openBookingFlow}
       />
     )
   }
@@ -492,7 +641,7 @@ function PublicBookingPage() {
   return (
     <div className={styles.bookingPage}>
       <header className={styles.bookingTopBar}>
-        <button type="button" className={styles.backToLanding} onClick={() => setPageView('landing')}>
+        <button type="button" className={styles.backToLanding} onClick={returnToRestaurantHome}>
           ← Volver
         </button>
         <h1 className={styles.bookingTitle}>{company.name}</h1>
@@ -524,7 +673,7 @@ function PublicBookingPage() {
           </div>
         </section>
 
-        {activePromo && isPromoTimeConstrained(activePromo) ? (
+        {activePromo && isPromoTimeConstrained(activePromo) && !promoAuthRequired ? (
           <div className={styles.promoBanner}>
             <span className={styles.promoBannerBadge}>
               {resolvePromotionHighlight(activePromo, 0)}
@@ -532,15 +681,48 @@ function PublicBookingPage() {
             <div className={styles.promoBannerText}>
               <strong>{activePromo.title}</strong>
               <p>{getPromoBookingHint(activePromo)}</p>
-              {resolvePromotionMinimumSpend(activePromo) ? (
-                <p className={styles.promoBannerMinSpend}>
-                  {resolvePromotionMinimumSpend(activePromo)}
-                </p>
+              {minSpendBookingNote ? (
+                <p className={styles.promoBannerMinSpend}>{minSpendBookingNote}</p>
               ) : null}
             </div>
           </div>
         ) : null}
 
+        {waitingForPromo ? (
+          <p className={styles.loadingInline}>Cargando promoción…</p>
+        ) : promoAuthRequired && activePromo ? (
+          <div className={styles.promoAuthGate}>
+            <span className={styles.promoBannerBadge}>
+              {resolvePromotionHighlight(activePromo, 0)}
+            </span>
+            <h3>No puedes canjear promociones sin registrarte</h3>
+            <p>
+              Para reservar y canjear <strong>{activePromo.title}</strong> en{' '}
+              <strong>{company.name}</strong> necesitas una cuenta de cliente en Adelia.
+            </p>
+            {minSpendBookingNote ? (
+              <p className={styles.promoAuthGateMinSpend}>{minSpendBookingNote}</p>
+            ) : null}
+            <div className={styles.promoAuthGateActions}>
+              <Link
+                to={`/cuenta/registro?redirect=${promoAuthRedirect}`}
+                className={styles.primaryButton}
+              >
+                Registrarme gratis
+              </Link>
+              <Link
+                to={`/cuenta/entrar?redirect=${promoAuthRedirect}`}
+                className={styles.secondaryButton}
+              >
+                Ya tengo cuenta
+              </Link>
+            </div>
+            <Link to={`/reservar/${slug}?reservar=1`} className={styles.promoAuthGateSkip}>
+              Reservar mesa sin canjear promo
+            </Link>
+          </div>
+        ) : (
+          <>
         {promoSlotError && step !== 'done' ? (
           <div className={styles.promoSlotError}>{promoSlotError}</div>
         ) : null}
@@ -550,6 +732,14 @@ function PublicBookingPage() {
         ) : null}
 
         {error && step !== 'done' && <div className={styles.error}>{error}</div>}
+
+        {minSpendBookingNote
+        && !promoAuthRequired
+        && step !== 'done'
+        && !(activePromo && isPromoTimeConstrained(activePromo))
+          ? (
+          <p className={styles.bookingMinSpendNote}>{minSpendBookingNote}</p>
+        ) : null}
 
         <div className={styles.layout}>
           <aside className={styles.calendarPane}>
@@ -569,6 +759,25 @@ function PublicBookingPage() {
                   <strong>{formatDateSpanish(selectedDate)}</strong> a las <strong>{selectedTime}</strong>{' '}
                   ({selectedTable?.name ?? 'mesa'}). Te avisaremos por correo cuando se confirme tu asistencia.
                 </p>
+                {completedBookingDeposit ? (
+                  <p className={styles.successMinSpend}>
+                    {formatDepositAuthorizationSummary(
+                      completedBookingDeposit.pax,
+                      completedBookingDeposit.perGuestCents,
+                      completedBookingDeposit.cancellationHours,
+                    )}
+                  </p>
+                ) : null}
+                {minSpendBookingNote ? (
+                  <p className={styles.successMinSpend}>
+                    {minSpendBookingNote}. El restaurante lo comprobará al confirmar tu visita.
+                  </p>
+                ) : null}
+                {activePromo?.type === 'time_limited' ? (
+                  <p className={styles.successMinSpend}>
+                    Cuando el restaurante confirme tu asistencia podrás verificar para reclamar tu premio.
+                  </p>
+                ) : null}
                 <button type="button" className={styles.primaryButton} onClick={resetSelection}>
                   Hacer otra reserva
                 </button>
@@ -673,7 +882,46 @@ function PublicBookingPage() {
                         placeholder="Alergias, celebración, preferencias…"
                       />
                     </label>
-                    <button type="submit" className={styles.primaryButton} disabled={isSubmitting}>
+
+                    {depositUnavailable ? (
+                      <p className={styles.hint}>
+                        Esta reserva requiere fianza, pero el restaurante aún no tiene Stripe
+                        conectado. Contacta con el local para reservar.
+                      </p>
+                    ) : null}
+
+                    {depositLoading ? (
+                      <p className={styles.loadingInline}>Preparando fianza…</p>
+                    ) : null}
+
+                    {depositPaymentError ? (
+                      <p className={styles.error}>{depositPaymentError}</p>
+                    ) : null}
+
+                    {depositRequired
+                    && depositIntent?.required
+                    && depositIntent.clientSecret
+                    && depositIntent.stripeAccountId ? (
+                      <ReservationDepositPayment
+                        ref={depositPaymentRef}
+                        clientSecret={depositIntent.clientSecret}
+                        stripeAccountId={depositIntent.stripeAccountId}
+                        amountCents={depositIntent.amountCents}
+                        pax={pax}
+                        perGuestCents={
+                          company.depositPerGuestCents ?? Math.round(depositIntent.amountCents / pax)
+                        }
+                        cancellationHours={company.depositCancellationHours}
+                        onReadyChange={setDepositPaymentReady}
+                        onError={setDepositPaymentError}
+                      />
+                    ) : null}
+
+                    <button
+                      type="submit"
+                      className={styles.primaryButton}
+                      disabled={isSubmitting || depositUnavailable || depositLoading}
+                    >
                       {isSubmitting ? (
                         <span className={styles.submittingLabel}>
                           <span className={styles.spinner} aria-hidden="true" />
@@ -789,6 +1037,8 @@ function PublicBookingPage() {
             )}
           </div>
         </div>
+          </>
+        )}
       </main>
 
       {calendarOpen && (

@@ -12,6 +12,7 @@ import {
   buildMissionProgressList,
   computeWeeklyBonusProgress,
   getLevelForXp,
+  getWeeklyFeaturedCategory,
   getXpToNextLevel,
   rotateWeeklyMissions,
 } from '../utils/gamificationProgress'
@@ -33,8 +34,9 @@ function buildGuestPreview() {
     promotionCompanyIds: new Set<string>(),
     restaurantZones: new Map<string, string>(),
     restaurantCategories: new Map<string, string[]>(),
+    weeklyFeaturedCategory: getWeeklyFeaturedCategory(),
   }
-  const weeklyMissions = rotateWeeklyMissions(undefined, 5)
+  const weeklyMissions = rotateWeeklyMissions(undefined, 6)
   const weeklyProgress = buildMissionProgressList(weeklyMissions, context, state, new Set())
   const historicalProgress = buildMissionProgressList(
     HISTORICAL_MISSIONS.slice(0, 4),

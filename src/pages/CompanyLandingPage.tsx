@@ -191,19 +191,23 @@ function CompanyLandingPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <Link to="/" className={styles.brand}>
+          <Link to="/empresa" className={styles.brand} aria-label="Adelia empresas">
             <img src={ADELIA_LOGO_URL} alt="" className={styles.logo} />
             <span>Adelia</span>
-            <span className={styles.brandTag}>Empresas</span>
           </Link>
 
-          <div className={styles.headerActions}>
-            <Link to="/login" className={styles.headerGhost}>
-              Iniciar sesión
+          <div className={styles.headerAside}>
+            <div className={styles.headerActions}>
+              <Link to="/login" className={styles.headerGhost}>
+                Iniciar sesión
+              </Link>
+              <a href="#solicitar" className={styles.headerPrimary}>
+                Quiero Adelia
+              </a>
+            </div>
+            <Link to="/" className={styles.headerUserLink}>
+              ¿Eres usuario?
             </Link>
-            <a href="#solicitar" className={styles.headerPrimary}>
-              Quiero Adelia
-            </a>
           </div>
         </div>
       </header>

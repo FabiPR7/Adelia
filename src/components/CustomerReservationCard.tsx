@@ -2,14 +2,25 @@ import { Link } from 'react-router-dom'
 import type { Reservation } from '../types'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import { getReservationStatusLabel } from '../utils/customerReservations'
+import {
+  getPromotionVisitStatusPresentation,
+  isTimeLimitedPromotionReservation,
+  type ReservationPromotionInfo,
+} from '../utils/reservationPromotionEligibility'
+import { canCustomerReviewReservation } from '../types/review'
+import { canCustomerVerifyMinimumSpend } from '../utils/minimumSpendVerification'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './CustomerReservationCard.module.css'
 
 interface CustomerReservationCardProps {
   reservation: Reservation
   restaurant?: PublicDiscoveryRestaurant
+  promotion?: ReservationPromotionInfo | null
   bucket: 'upcoming' | 'past'
   isNext?: boolean
+  onVerifyMinimumSpend?: (reservation: Reservation) => void
+  onLeaveReview?: (reservation: Reservation) => void
+  hasReviewForRestaurant?: boolean
 }
 
 function formatCountdown(startTime: Date): string | null {
@@ -38,11 +49,19 @@ function formatCountdown(startTime: Date): string | null {
 function CustomerReservationCard({
   reservation,
   restaurant,
+  promotion = null,
   bucket,
   isNext = false,
+  onVerifyMinimumSpend,
+  onLeaveReview,
+  hasReviewForRestaurant = false,
 }: CustomerReservationCardProps) {
   const isUpcoming = bucket === 'upcoming'
   const statusLabel = getReservationStatusLabel(reservation.status, isUpcoming)
+  const promoVisitPresentation = getPromotionVisitStatusPresentation(reservation, isUpcoming, promotion)
+  const canVerify = canCustomerVerifyMinimumSpend(reservation)
+  const isTimeLimitedPromo = isTimeLimitedPromotionReservation(reservation, promotion)
+  const showReviewAction = onLeaveReview && canCustomerReviewReservation(reservation, bucket)
   const photoUrl = restaurant?.photoUrl
     ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoGallery)
     : ''
@@ -103,7 +122,39 @@ function CustomerReservationCard({
             {restaurant?.municipality ? ` · ${restaurant.municipality}` : ''}
           </p>
 
+          {promoVisitPresentation ? (
+            <p
+              className={
+                promoVisitPresentation.tone === 'verified'
+                  ? styles.promoNoteVerified
+                  : promoVisitPresentation.tone === 'failed'
+                    ? styles.promoNoteFailed
+                    : styles.promoNote
+              }
+            >
+              {promoVisitPresentation.label}
+            </p>
+          ) : null}
+
           <div className={styles.actions}>
+            {showReviewAction ? (
+              <button
+                type="button"
+                className={styles.reviewAction}
+                onClick={() => onLeaveReview(reservation)}
+              >
+                {hasReviewForRestaurant ? 'Mi reseña' : 'Reseñar'}
+              </button>
+            ) : null}
+            {canVerify && onVerifyMinimumSpend ? (
+              <button
+                type="button"
+                className={styles.verifyAction}
+                onClick={() => onVerifyMinimumSpend(reservation)}
+              >
+                {isTimeLimitedPromo ? 'Verifica tu gasto' : 'Verificar'}
+              </button>
+            ) : null}
             {restaurant && (
               <Link to={`/reservar/${restaurant.slug}`} className={styles.primaryAction}>
                 {isUpcoming ? 'Ver restaurante' : 'Reservar otra vez'}

@@ -31,3 +31,30 @@
 .active {
   transform: scale(1.02);
 }
+
+.inputValue {
+  margin: 0;
+  color: #6b5344;
+  font-size: 0.92rem;
+}
+
+.inputValue strong {
+  font-size: 1.15rem;
+  color: #4b3d33;
+}
+
+.inputValue span {
+  margin-left: 0.15rem;
+  color: #8a7a6e;
+}
+
+.inputWrap {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.inputCoins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}

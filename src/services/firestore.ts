@@ -19,6 +19,7 @@ import type {
   Company,
   CompanyEmailTemplates,
   CompanySettingsPayload,
+  PromotionVisitStatus,
   Reservation,
   ReservationFormData,
   ReservationStatus,
@@ -27,8 +28,11 @@ import type {
 } from '../types'
 import { defaultGamificationState } from '../types/gamification'
 import type { CustomerGamificationState, ClaimedPromotionRecord } from '../types/gamification'
+import type { VerifiedConsumptionRecord } from '../types/verifiedConsumption'
+import { parseCompanyReviewStats } from '../types/review'
+import { mapVerifiedConsumptionDoc } from '../utils/productReports'
 import type { PublicPromotion } from './publicPromotions'
-import { getNextLadderPromotionId } from '../utils/promotionReservationProgress'
+import { getNextLadderPromotionId, sortCompanyLadderPromotions } from '../utils/promotionReservationProgress'
 import { defaultTurns, parseFloorPlan, serializeFloorPlanForFirestore } from '../types/company'
 import {
   normalizeCompanyEmailTemplates,
@@ -43,8 +47,14 @@ import { normalizeCompanySchedule } from '../utils/schedule'
 import {
   normalizeCompanySettingsPayload,
 } from '../utils/companyValidation'
-import { notifyReservationConfirmationEmail, notifyReservationReceivedEmail, syncReservationClient } from './reservationEmailApi'
+import { notifyReservationCancelledNotification, notifyReservationConfirmationEmail, notifyReservationReceivedEmail, syncReservationClient } from './reservationEmailApi'
 import { upsertCompanyClientFromReservation } from './companyClients'
+import type { QrBrandingConfig, QrBrandingKind } from '../types/company'
+import {
+  normalizeQrBrandingConfig,
+  parseCompanyQrBranding,
+  serializeCompanyQrBranding,
+} from '../utils/qrBranding'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -109,66 +119,19 @@ export async function resolveLoginAuthEmail(username: string): Promise<string> {
     }
   }
 
-  const byLoginName = await getDocs(
-    query(collection(db, 'logins'), where('loginName', '==', trimmed)),
+  const companyBySlug = await getDocs(
+    query(collection(db, 'companies'), where('slug', '==', normalized)),
   )
 
-  if (!byLoginName.empty) {
-    const authEmail = byLoginName.docs[0].data().authEmail as string | undefined
-
-    if (authEmail) {
-      return authEmail
-    }
-  }
-
-  const companyLogins = await getDocs(
-    query(collection(db, 'logins'), where('role', '==', 'company')),
-  )
-
-  const loginByDisplayName = companyLogins.docs.find((item) => {
-    const storedLoginName = item.data().loginName as string | undefined
-
-    if (!storedLoginName) {
-      return false
-    }
-
-    return storedLoginName === trimmed || slugify(storedLoginName) === normalized
-  })
-
-  if (loginByDisplayName) {
-    const authEmail = loginByDisplayName.data().authEmail as string | undefined
-
-    if (authEmail) {
-      return authEmail
-    }
-  }
-
-  const companies = await getDocs(collection(db, 'companies'))
-  const companyMatch = companies.docs.find((item) => {
-    const name = item.data().name as string
-    return name === trimmed || slugify(name) === normalized
-  })
-
-  if (companyMatch) {
-    const byCompanyId = companyLogins.docs.find(
-      (item) => item.data().companyId === companyMatch.id,
-    )
-
-    if (byCompanyId) {
-      const authEmail = byCompanyId.data().authEmail as string | undefined
-
-      if (authEmail) {
-        return authEmail
-      }
-    }
-
-    const credentialsAuthEmail = await getCompanyAuthEmail(companyMatch.id)
+  if (!companyBySlug.empty) {
+    const companyId = companyBySlug.docs[0].id
+    const credentialsAuthEmail = await getCompanyAuthEmail(companyId)
 
     if (credentialsAuthEmail) {
       return credentialsAuthEmail
     }
 
-    return slugToAuthEmail(companyMatch.data().slug as string)
+    return slugToAuthEmail(normalized)
   }
 
   return slugToAuthEmail(normalized)
@@ -293,11 +256,26 @@ function parseGamificationData(data: Record<string, unknown>): CustomerGamificat
       ? (gamification.monthlyCompleted as string[])
       : [],
     reviewsCount: typeof gamification.reviewsCount === 'number' ? gamification.reviewsCount : 0,
+    reviewsWithPhotoCount: typeof gamification.reviewsWithPhotoCount === 'number'
+      ? gamification.reviewsWithPhotoCount
+      : 0,
+    textReviewsCount: typeof gamification.textReviewsCount === 'number'
+      ? gamification.textReviewsCount
+      : 0,
+    reviewedReservationIds: Array.isArray(gamification.reviewedReservationIds)
+      ? (gamification.reviewedReservationIds as string[])
+      : [],
+    reviewedCompanyIds: Array.isArray(gamification.reviewedCompanyIds)
+      ? (gamification.reviewedCompanyIds as string[])
+      : [],
     redemptionsCount: typeof gamification.redemptionsCount === 'number' ? gamification.redemptionsCount : 0,
     helpfulReviewVotes: typeof gamification.helpfulReviewVotes === 'number' ? gamification.helpfulReviewVotes : 0,
     favoritesAddedThisWeek: typeof gamification.favoritesAddedThisWeek === 'number'
       ? gamification.favoritesAddedThisWeek
       : 0,
+    favoriteSlugsAtWeekStart: Array.isArray(gamification.favoriteSlugsAtWeekStart)
+      ? (gamification.favoriteSlugsAtWeekStart as string[])
+      : [],
     awardedReservationXpIds: Array.isArray(gamification.awardedReservationXpIds)
       ? (gamification.awardedReservationXpIds as string[])
       : [],
@@ -316,6 +294,15 @@ function parseGamificationData(data: Record<string, unknown>): CustomerGamificat
       && !Array.isArray(gamification.activeLadderPromotionByCompany)
         ? (gamification.activeLadderPromotionByCompany as Record<string, string>)
         : {},
+    ladderCompletionsByCompany:
+      gamification.ladderCompletionsByCompany
+      && typeof gamification.ladderCompletionsByCompany === 'object'
+      && !Array.isArray(gamification.ladderCompletionsByCompany)
+        ? (gamification.ladderCompletionsByCompany as Record<string, number>)
+        : {},
+    lastCelebratedLevel: typeof gamification.lastCelebratedLevel === 'number'
+      ? gamification.lastCelebratedLevel
+      : null,
   }
 }
 
@@ -327,6 +314,14 @@ export async function recordPromotionClaim(
   companyLadderPromotions: PublicPromotion[],
 ): Promise<CustomerGamificationState> {
   const nextActiveId = getNextLadderPromotionId(companyLadderPromotions, claim.promotionId)
+  const sortedLadder = sortCompanyLadderPromotions(companyLadderPromotions)
+  const ladderSize = sortedLadder.length
+  const companyClaimsAfter = current.claimedPromotions.filter(
+    (record) => record.companyId === claim.companyId,
+  ).length + 1
+  const completionsAfter = ladderSize > 0
+    ? Math.floor(companyClaimsAfter / ladderSize)
+    : 0
 
   const next: CustomerGamificationState = {
     ...current,
@@ -340,6 +335,40 @@ export async function recordPromotionClaim(
       ...current.activeLadderPromotionByCompany,
       [claim.companyId]: nextActiveId,
     },
+    ladderCompletionsByCompany: {
+      ...current.ladderCompletionsByCompany,
+      [claim.companyId]: completionsAfter,
+    },
+  }
+
+  await updateCustomerGamification(uid, next)
+  return next
+}
+
+export async function recordTimeLimitedPromotionClaim(
+  uid: string,
+  claim: ClaimedPromotionRecord,
+  current: CustomerGamificationState,
+): Promise<CustomerGamificationState> {
+  const next: CustomerGamificationState = {
+    ...current,
+    redemptionsCount: current.redemptionsCount + 1,
+    claimedPromotions: [...current.claimedPromotions, claim],
+  }
+
+  await updateCustomerGamification(uid, next)
+  return next
+}
+
+
+export async function acknowledgeLevelCelebration(
+  uid: string,
+  current: CustomerGamificationState,
+  celebratedUpToLevel: number,
+): Promise<CustomerGamificationState> {
+  const next: CustomerGamificationState = {
+    ...current,
+    lastCelebratedLevel: celebratedUpToLevel,
   }
 
   await updateCustomerGamification(uid, next)
@@ -473,6 +502,17 @@ export async function getReservationsByCompany(companyId: string): Promise<Reser
   return snapshot.docs
     .map((item) => mapReservation(item.id, item.data()))
     .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+}
+
+export async function getVerifiedConsumptionsByCompany(
+  companyId: string,
+): Promise<VerifiedConsumptionRecord[]> {
+  const snapshot = await getDocs(collection(db, 'companies', companyId, 'verifiedConsumptions'))
+
+  return snapshot.docs
+    .map((item) => mapVerifiedConsumptionDoc(item.id, item.data()))
+    .filter((record): record is VerifiedConsumptionRecord => record !== null)
+    .sort((left, right) => right.verifiedAt.getTime() - left.verifiedAt.getTime())
 }
 
 export async function getCustomerReservations(email: string): Promise<Reservation[]> {
@@ -797,12 +837,34 @@ export async function updateReservation(
 export async function updateReservationStatus(
   reservationId: string,
   status: 'confirmed' | 'cancelled',
+  options?: { promotionVisitStatus?: PromotionVisitStatus },
 ): Promise<void> {
-  await updateDoc(doc(db, 'reservations', reservationId), { status })
+  const update: Record<string, unknown> = { status }
+
+  if (status === 'cancelled') {
+    update.cancelledBy = 'restaurant'
+  }
+
+  if (options?.promotionVisitStatus) {
+    update.promotionVisitStatus = options.promotionVisitStatus
+  }
+
+  await updateDoc(doc(db, 'reservations', reservationId), update)
 
   if (status === 'confirmed') {
     await notifyReservationConfirmationEmail(reservationId)
   }
+
+  if (status === 'cancelled') {
+    await notifyReservationCancelledNotification(reservationId, 'restaurant')
+  }
+}
+
+export async function updateReservationPromotionVisitStatus(
+  reservationId: string,
+  promotionVisitStatus: PromotionVisitStatus,
+): Promise<void> {
+  await updateDoc(doc(db, 'reservations', reservationId), { promotionVisitStatus })
 }
 
 export async function deleteReservation(reservationId: string): Promise<void> {
@@ -887,6 +949,10 @@ export async function updateCompanySettings(
     videos: normalizedPayload.videos,
     characteristics: normalizedPayload.characteristics,
     timeSlotMinutes: normalizedPayload.timeSlotMinutes,
+    depositMinPax: normalizedPayload.depositMinPax,
+    depositPerGuestCents: normalizedPayload.depositPerGuestCents,
+    depositEnabled: normalizedPayload.depositEnabled,
+    depositCancellationHours: normalizedPayload.depositCancellationHours,
     schedule: normalizedPayload.schedule,
     turns: normalizedPayload.turns,
     floorPlan: serializeFloorPlanForFirestore(normalizedPayload.floorPlan),
@@ -931,6 +997,24 @@ export async function updateCompanyFloorPlan(
 ): Promise<void> {
   await updateDoc(doc(db, 'companies', companyId), {
     floorPlan: serializeFloorPlanForFirestore(floorPlan),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function updateCompanyQrBranding(
+  companyId: string,
+  kind: QrBrandingKind,
+  config: QrBrandingConfig,
+): Promise<void> {
+  const companySnap = await getDoc(doc(db, 'companies', companyId))
+  const currentBranding = parseCompanyQrBranding(companySnap.data()?.qrBranding)
+  const normalizedConfig = normalizeQrBrandingConfig(config)
+
+  await updateDoc(doc(db, 'companies', companyId), {
+    qrBranding: serializeCompanyQrBranding({
+      ...currentBranding,
+      [kind]: normalizedConfig,
+    }),
     updatedAt: serverTimestamp(),
   })
 }
@@ -988,10 +1072,28 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
       ? (data.characteristics as string[]).slice(0, 5)
       : [],
     timeSlotMinutes: (data.timeSlotMinutes as number) ?? 120,
+    depositMinPax: typeof data.depositMinPax === 'number' && data.depositMinPax > 0
+      ? Math.trunc(data.depositMinPax)
+      : null,
+    depositPerGuestCents: typeof data.depositPerGuestCents === 'number' && data.depositPerGuestCents > 0
+      ? Math.trunc(data.depositPerGuestCents)
+      : null,
+    depositEnabled: data.depositEnabled === true
+      || (typeof data.depositMinPax === 'number' && data.depositMinPax > 0),
+    depositCancellationHours: typeof data.depositCancellationHours === 'number'
+      && data.depositCancellationHours > 0
+      ? Math.trunc(data.depositCancellationHours)
+      : null,
     schedule: normalizeCompanySchedule((data.schedule as Company['schedule']) ?? defaultSchedule()),
     turns: (data.turns as Company['turns']) ?? defaultTurns(),
     floorPlan: parseFloorPlan(data.floorPlan),
     emailTemplates: parseCompanyEmailTemplatesFromFirestore(data.emailTemplates),
+    qrBranding: parseCompanyQrBranding(data.qrBranding),
+    ...parseCompanyReviewStats(data),
+    stripeAccountId: typeof data.stripeAccountId === 'string' ? data.stripeAccountId : null,
+    stripeChargesEnabled: data.stripeChargesEnabled === true,
+    stripePayoutsEnabled: data.stripePayoutsEnabled === true,
+    stripeDetailsSubmitted: data.stripeDetailsSubmitted === true,
     createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
   }
 }
@@ -1006,7 +1108,65 @@ function mapTable(id: string, data: Record<string, unknown>): RestaurantTable {
   }
 }
 
+function mapMinSpendVerification(
+  data: unknown,
+): Reservation['minSpendVerification'] {
+  if (!data || typeof data !== 'object') {
+    return undefined
+  }
+
+  const record = data as Record<string, unknown>
+  const lineItemsRaw = Array.isArray(record.lineItems) ? record.lineItems : []
+  const lineItems = lineItemsRaw
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        return null
+      }
+
+      const line = item as Record<string, unknown>
+      const nodeId = typeof line.nodeId === 'string' ? line.nodeId : ''
+      const name = typeof line.name === 'string' ? line.name : ''
+      const quantity = typeof line.quantity === 'number' ? line.quantity : 0
+      const unitPriceCents = typeof line.unitPriceCents === 'number' ? line.unitPriceCents : 0
+      const lineTotalCents = typeof line.lineTotalCents === 'number' ? line.lineTotalCents : 0
+
+      if (!nodeId || quantity < 1) {
+        return null
+      }
+
+      return { nodeId, name, quantity, unitPriceCents, lineTotalCents }
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+
+  const mode = record.mode === 'products' ? 'products' : record.mode === 'total' ? 'total' : null
+  const totalCents = typeof record.totalCents === 'number' ? record.totalCents : null
+  const meetsMinimumSpend = record.meetsMinimumSpend === true
+
+  if (!mode || totalCents == null) {
+    return undefined
+  }
+
+  const verifiedAt = (record.verifiedAt as { toDate?: () => Date })?.toDate?.()
+    ?? (typeof record.verifiedAt === 'string' ? new Date(record.verifiedAt) : null)
+
+  if (!verifiedAt || Number.isNaN(verifiedAt.getTime())) {
+    return undefined
+  }
+
+  return {
+    mode,
+    totalCents,
+    lineItems,
+    verifiedAt,
+    meetsMinimumSpend,
+  }
+}
+
 function mapReservation(id: string, data: Record<string, unknown>): Reservation {
+  const minimumSpendCents =
+    typeof data.minimumSpendCents === 'number' ? data.minimumSpendCents : null
+  const promotionVisitStatus = data.promotionVisitStatus as PromotionVisitStatus | undefined
+
   return {
     id,
     companyId: data.companyId as string,
@@ -1021,35 +1181,18 @@ function mapReservation(id: string, data: Record<string, unknown>): Reservation 
     status: data.status as ReservationStatus,
     cancelToken: data.cancelToken as string,
     createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+    promotionId: typeof data.promotionId === 'string' ? data.promotionId : null,
+    minimumSpendCents,
+    promotionVisitStatus,
+    minSpendVerification: mapMinSpendVerification(data.minSpendVerification),
+    depositAmountCents: typeof data.depositAmountCents === 'number' ? data.depositAmountCents : null,
+    depositPaymentIntentId: typeof data.depositPaymentIntentId === 'string'
+      ? data.depositPaymentIntentId
+      : null,
+    depositStatus: typeof data.depositStatus === 'string'
+      ? data.depositStatus as Reservation['depositStatus']
+      : null,
   }
 }
 
-export function getFirestoreErrorMessage(
-  error: unknown,
-  context: 'load' | 'save' = 'load',
-): string {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    typeof error.code === 'string'
-  ) {
-    if (error.code === 'permission-denied') {
-      return context === 'save'
-        ? 'Sin permiso para guardar. Publica las reglas en la base de datos «adelia» (Firebase Console → Firestore → adelia → Reglas).'
-        : 'Sin permiso para leer Firestore. Revisa las reglas en Firebase Console.'
-    }
-
-    if (error.code === 'unavailable' || error.code === 'not-found') {
-      return 'Firestore no está disponible. Crea la base de datos «adelia» y ejecuta npm run seed.'
-    }
-  }
-
-  if (error instanceof Error && error.message.trim()) {
-    return error.message
-  }
-
-  return context === 'save'
-    ? 'No se pudieron guardar los cambios.'
-    : 'No se pudieron cargar los datos.'
-}
+export { getFirestoreErrorMessage } from './firestoreErrors'

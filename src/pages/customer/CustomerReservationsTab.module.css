@@ -234,3 +234,27 @@
     grid-column: 1 / -1;
   }
 }
+
+@media (min-width: 1024px) {
+  .page {
+    max-width: min(1100px, calc(100% - 3rem));
+    padding-bottom: 2.5rem;
+  }
+
+  .hero {
+    margin: 0 2rem;
+    padding: 2rem 1.75rem 1.65rem;
+  }
+
+  .tabs,
+  .list,
+  .empty {
+    margin-left: 2rem;
+    margin-right: 2rem;
+  }
+
+  .list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}

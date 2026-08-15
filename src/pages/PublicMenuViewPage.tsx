@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import MenuPreview from '../components/menu/MenuPreview'
+import MenuPromotionsFab from '../components/MenuPromotionsFab'
 import { fetchPublicMenu, type PublicBookingCompany } from '../services/publicApi'
 import type { MenuBoard, MenuNode } from '../types/company'
 import styles from './PublicMenuViewPage.module.css'
 
 function PublicMenuViewPage() {
   const { slug = '', boardId = '' } = useParams()
+  const [searchParams] = useSearchParams()
+  const highlightProductId = searchParams.get('producto')
   const menuHref = `/reservar/${slug}/carta`
   const reserveHref = `/reservar/${slug}?reservar=1`
 
@@ -93,7 +96,10 @@ function PublicMenuViewPage() {
         nodes={boardNodes}
         restaurantName={company.name}
         fullscreen
+        highlightProductId={highlightProductId}
       />
+
+      <MenuPromotionsFab slug={slug} />
     </div>
   )
 }

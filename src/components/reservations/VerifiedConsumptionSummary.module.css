@@ -1,0 +1,188 @@
+.panel {
+  margin: 0 1.125rem 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(26, 107, 63, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(26, 107, 63, 0.06), rgba(26, 107, 63, 0.02));
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-bottom: 0.85rem;
+}
+
+.header h3 {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--color-brown);
+}
+
+.header p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.stats div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 4.8rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(26, 107, 63, 0.12);
+}
+
+.stats strong {
+  font-size: 0.95rem;
+  color: #1a6b3f;
+}
+
+.stats span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+  gap: 0.85rem;
+}
+
+.block {
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(107, 83, 68, 0.08);
+}
+
+.block h4 {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-brown-light);
+}
+
+.productList,
+.hourList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.productRow,
+.hourRow {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(107, 83, 68, 0.08);
+}
+
+.productRow:last-child,
+.hourRow:last-child {
+  border-bottom: none;
+}
+
+.productMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.8125rem;
+}
+
+.productMeta strong {
+  color: var(--color-brown);
+}
+
+.productMeta span {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.barTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(26, 107, 63, 0.1);
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.hourRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.hourLabel {
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.hourMeta {
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 900px) {
+  .panel {
+    margin-inline: 0.75rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .stats {
+    width: 100%;
+  }
+
+  .stats div {
+    flex: 1;
+  }
+
+  .hourRow {
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .hourMeta {
+    text-align: left;
+  }
+}

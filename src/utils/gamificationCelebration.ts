@@ -102,13 +102,7 @@ export function buildCelebrationEvents(
   })
 
   if (newLevel.level > snapshot.level) {
-    events.push({
-      id: `level-${newLevel.level}`,
-      kind: 'level_up',
-      title: `¡Nivel ${newLevel.level}!`,
-      message: `Has ascendido a ${newLevel.title}. Nuevo estilo desbloqueado para tu perfil.`,
-      levelTitle: newLevel.title,
-    })
+    // La animación de subida de nivel la gestiona LevelUpCelebrationModal.
   }
 
   if (newRank < snapshot.rank) {

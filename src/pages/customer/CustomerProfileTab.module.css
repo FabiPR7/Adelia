@@ -486,3 +486,19 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+@media (min-width: 1024px) {
+  .content {
+    max-width: min(960px, calc(100% - 3rem));
+    margin: 0 auto;
+    padding: 1.35rem 2rem 2.5rem;
+  }
+
+  .heroCard {
+    border-radius: 28px;
+  }
+
+  .favoritesGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

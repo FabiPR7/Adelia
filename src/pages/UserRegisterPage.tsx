@@ -1,12 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { auth } from '../config/firebase'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import { registerCustomerAndSignOut, signInCustomerWithGoogle } from '../services/customerAuth'
 import { getUserProfile } from '../services/firestore'
 import { getAuthErrorMessage } from '../services/auth'
-import { getPostLoginPath } from '../utils/authProfile'
+import { getPostLoginPath, resolveSafeRedirect } from '../utils/authProfile'
 import {
   getPasswordChecks,
   isPasswordValid,
@@ -18,6 +18,8 @@ import styles from './UserCustomerAuth.module.css'
 
 function UserRegisterPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectTo = resolveSafeRedirect(searchParams.get('redirect'))
   const { user, profile, refreshProfile } = useAuth()
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
@@ -33,7 +35,7 @@ function UserRegisterPage() {
   const passwordReady = isPasswordValid(passwordChecks)
 
   if (user && profile) {
-    return <Navigate to={getPostLoginPath(profile, user)} replace />
+    return <Navigate to={redirectTo ?? getPostLoginPath(profile, user)} replace />
   }
 
   const finishGoogleRegister = async () => {
@@ -46,7 +48,7 @@ function UserRegisterPage() {
       return
     }
 
-    navigate(getPostLoginPath(nextProfile, currentUser), { replace: true })
+    navigate(redirectTo ?? getPostLoginPath(nextProfile, currentUser), { replace: true })
   }
 
   const handleGoogle = async () => {
@@ -85,6 +87,8 @@ function UserRegisterPage() {
       setIsLoading(false)
     }
   }
+
+  const redirectQuery = redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ''
 
   return (
     <CustomerAuthShell variant="register">
@@ -195,7 +199,7 @@ function UserRegisterPage() {
 
         <p className={styles.switchText}>
           ¿Ya tienes cuenta?{' '}
-          <Link to="/cuenta/entrar" className={styles.switchLink}>
+          <Link to={`/cuenta/entrar${redirectQuery}`} className={styles.switchLink}>
             Inicia sesión
           </Link>
         </p>

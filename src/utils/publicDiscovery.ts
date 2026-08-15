@@ -1,7 +1,7 @@
 import type { Company } from '../types'
 import type { PublicBookingCompany } from '../services/publicApi'
+import { computeAverageReviewRating } from '../types/review'
 import { isValidMapCoordinates } from './mapCoordinates'
-import { getMockReservationCount, getMockReviewRating } from './mockReviewRating'
 
 export interface PublicDiscoveryRestaurant {
   id: string
@@ -15,6 +15,34 @@ export interface PublicDiscoveryRestaurant {
   photoUrl: string
   characteristics: string[]
   searchText: string
+  reviewCount: number
+  reviewRatingSum: number
+  reviewAdelinas: number
+}
+
+export function getDiscoveryAverageRating(
+  restaurant: Pick<PublicDiscoveryRestaurant, 'reviewCount' | 'reviewRatingSum'>,
+): number {
+  return computeAverageReviewRating(restaurant.reviewRatingSum, restaurant.reviewCount)
+}
+
+export function getDiscoveryReviewAdelinas(
+  restaurant: Pick<PublicDiscoveryRestaurant, 'reviewAdelinas'>,
+): number {
+  return Math.max(0, restaurant.reviewAdelinas)
+}
+
+export function formatDiscoveryRatingBadge(
+  restaurant: Pick<PublicDiscoveryRestaurant, 'reviewCount' | 'reviewRatingSum'>,
+): string | null {
+  if (restaurant.reviewCount <= 0) {
+    return null
+  }
+
+  return getDiscoveryAverageRating(restaurant).toLocaleString('es-ES', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  })
 }
 
 export function mapCompanyToPublicBooking(company: Company): PublicBookingCompany {
@@ -39,6 +67,16 @@ export function mapCompanyToPublicBooking(company: Company): PublicBookingCompan
     timeSlotMinutes: company.timeSlotMinutes,
     schedule: company.schedule,
     floorPlan: company.floorPlan,
+    reviewCount: company.reviewCount ?? 0,
+    reviewRatingSum: company.reviewRatingSum ?? 0,
+    reviewAdelinas: company.reviewAdelinas ?? 0,
+    depositMinPax: company.depositMinPax ?? null,
+    depositPerGuestCents: company.depositPerGuestCents ?? null,
+    depositEnabled: company.depositEnabled ?? false,
+    depositCancellationHours: company.depositCancellationHours ?? null,
+    stripeAccountId: company.stripeAccountId ?? null,
+    stripeChargesEnabled: company.stripeChargesEnabled ?? false,
+    stripeDetailsSubmitted: company.stripeDetailsSubmitted ?? false,
   }
 }
 
@@ -67,6 +105,9 @@ export function mapCompanyToDiscoveryRestaurant(company: Company): PublicDiscove
     ]
       .join(' ')
       .toLowerCase(),
+    reviewCount: company.reviewCount ?? 0,
+    reviewRatingSum: company.reviewRatingSum ?? 0,
+    reviewAdelinas: company.reviewAdelinas ?? 0,
   }
 }
 
@@ -209,18 +250,20 @@ export function collectDiscoveryZones(restaurants: PublicDiscoveryRestaurant[]):
   return [...zones].sort((left, right) => left.localeCompare(right, 'es'))
 }
 
-export function sortRestaurantsByMockReservations(
+export function sortRestaurantsByReviewAdelinas(
   restaurants: PublicDiscoveryRestaurant[],
 ): PublicDiscoveryRestaurant[] {
   return [...restaurants].sort(
-    (left, right) => getMockReservationCount(right.slug) - getMockReservationCount(left.slug),
+    (left, right) => getDiscoveryReviewAdelinas(right) - getDiscoveryReviewAdelinas(left)
+      || getDiscoveryAverageRating(right) - getDiscoveryAverageRating(left),
   )
 }
 
-export function sortRestaurantsByMockRating(
+export function sortRestaurantsByReviewRating(
   restaurants: PublicDiscoveryRestaurant[],
 ): PublicDiscoveryRestaurant[] {
   return [...restaurants].sort(
-    (left, right) => getMockReviewRating(right.slug) - getMockReviewRating(left.slug),
+    (left, right) => getDiscoveryAverageRating(right) - getDiscoveryAverageRating(left)
+      || getDiscoveryReviewAdelinas(right) - getDiscoveryReviewAdelinas(left),
   )
 }

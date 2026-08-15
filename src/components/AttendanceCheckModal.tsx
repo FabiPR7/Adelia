@@ -1,6 +1,17 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import ConfirmDialog from './ConfirmDialog'
 import { dateToTimeInput } from '../utils/helpers'
-import type { Reservation } from '../types'
+import type { PromotionVisitStatus, Reservation } from '../types'
+import { formatMinimumSpendLabel } from '../utils/promotionOffer'
+import {
+  reservationHasMinimumSpendRequirement,
+  reservationNeedsMinimumSpendReview,
+} from '../utils/reservationPromotionEligibility'
+import { formatCentsAsEuros } from '../utils/minimumSpendVerification'
+import {
+  buildDepositCancelConfirmCopy,
+  reservationHasAuthorizedDeposit,
+} from '../utils/reservationDeposit'
 import styles from './AttendanceCheckModal.module.css'
 
 interface AttendanceCheckModalProps {
@@ -9,8 +20,13 @@ interface AttendanceCheckModalProps {
   reservations: Reservation[]
   tableMeta: Record<string, { name: string; capacity: number }>
   isSavingId: string | null
+  depositCancellationHours: number | null | undefined
   onDismiss: () => void
-  onMarkAttendance: (reservationId: string, status: 'confirmed' | 'cancelled') => Promise<void>
+  onMarkAttendance: (
+    reservationId: string,
+    status: 'confirmed' | 'cancelled',
+    promotionVisitStatus?: PromotionVisitStatus,
+  ) => Promise<void>
 }
 
 function AttendanceCheckModal({
@@ -19,9 +35,12 @@ function AttendanceCheckModal({
   reservations,
   tableMeta,
   isSavingId,
+  depositCancellationHours,
   onDismiss,
   onMarkAttendance,
 }: AttendanceCheckModalProps) {
+  const [pendingCancelReservation, setPendingCancelReservation] = useState<Reservation | null>(null)
+
   const hourReservations = useMemo(
     () =>
       reservations
@@ -30,11 +49,41 @@ function AttendanceCheckModal({
     [hour, reservations],
   )
 
-  if (!isOpen) {
+  if (!isOpen && !pendingCancelReservation) {
     return null
   }
 
+  const handleDismiss = () => {
+    setPendingCancelReservation(null)
+    onDismiss()
+  }
+
+  const handleAttendanceYes = (reservation: Reservation) => {
+    const promotionVisitStatus: PromotionVisitStatus =
+      reservationHasMinimumSpendRequirement(reservation)
+        ? 'pending'
+        : reservation.promotionId
+          ? 'eligible'
+          : 'n/a'
+    void onMarkAttendance(reservation.id, 'confirmed', promotionVisitStatus)
+  }
+
+  const handleAttendanceNo = (reservation: Reservation) => {
+    if (reservationHasAuthorizedDeposit(reservation)) {
+      setPendingCancelReservation(reservation)
+      return
+    }
+
+    void onMarkAttendance(reservation.id, 'cancelled', 'n/a')
+  }
+
+  const depositCancelCopy = pendingCancelReservation
+    ? buildDepositCancelConfirmCopy(pendingCancelReservation, depositCancellationHours)
+    : null
+
   return (
+    <>
+    {isOpen ? (
     <div className={styles.overlay} role="presentation">
       <div
         className={styles.dialog}
@@ -47,7 +96,7 @@ function AttendanceCheckModal({
             <h2 id="attendance-title">Control de asistencia</h2>
             <p className={styles.subtitle}>Reservas de las {hour}</p>
           </div>
-          <button type="button" className={styles.closeButton} onClick={onDismiss} aria-label="Cerrar">
+          <button type="button" className={styles.closeButton} onClick={handleDismiss} aria-label="Cerrar">
             ×
           </button>
         </header>
@@ -67,10 +116,29 @@ function AttendanceCheckModal({
                 const table = tableMeta[reservation.tableId]
                 const isPending = reservation.status === 'completed'
                 const isSaving = isSavingId === reservation.id
+                const minSpendLabel =
+                  reservationHasMinimumSpendRequirement(reservation)
+                  && reservation.minimumSpendCents != null
+                    ? formatMinimumSpendLabel(reservation.minimumSpendCents)
+                    : null
+                const verification = reservation.minSpendVerification
 
                 return (
                   <li key={reservation.id} className={styles.row}>
-                    <span className={styles.client}>{reservation.clientName}</span>
+                    <span className={styles.client}>
+                      {reservation.clientName}
+                      {minSpendLabel && (isPending || reservationNeedsMinimumSpendReview(reservation)) ? (
+                        <span className={styles.minSpendHint}>{minSpendLabel}</span>
+                      ) : null}
+                      {verification ? (
+                        <span className={styles.verificationHint}>
+                          Verificado: {formatCentsAsEuros(verification.totalCents)}
+                          {verification.lineItems.length > 0
+                            ? ` · ${verification.lineItems.length} producto${verification.lineItems.length === 1 ? '' : 's'}`
+                            : ''}
+                        </span>
+                      ) : null}
+                    </span>
                     <span className={styles.meta}>{table?.name ?? '—'}</span>
                     <span className={styles.meta}>{reservation.pax}</span>
                     <div className={styles.actions}>
@@ -80,7 +148,7 @@ function AttendanceCheckModal({
                             type="button"
                             className={styles.yesButton}
                             disabled={Boolean(isSavingId)}
-                            onClick={() => void onMarkAttendance(reservation.id, 'confirmed')}
+                            onClick={() => handleAttendanceYes(reservation)}
                           >
                             {isSaving ? '…' : 'Sí'}
                           </button>
@@ -88,13 +156,22 @@ function AttendanceCheckModal({
                             type="button"
                             className={styles.noButton}
                             disabled={Boolean(isSavingId)}
-                            onClick={() => void onMarkAttendance(reservation.id, 'cancelled')}
+                            onClick={() => handleAttendanceNo(reservation)}
                           >
                             {isSaving ? '…' : 'No'}
                           </button>
                         </>
                       ) : reservation.status === 'confirmed' ? (
-                        <span className={styles.resultYes}>Sí · Confirmada</span>
+                        <span className={styles.resultYes}>
+                          Sí · Confirmada
+                          {verification
+                            ? verification.meetsMinimumSpend
+                              ? ' · Mínimo OK'
+                              : ' · Sin mínimo'
+                            : reservationNeedsMinimumSpendReview(reservation)
+                              ? ' · Verificar en app'
+                              : ''}
+                        </span>
                       ) : (
                         <span className={styles.resultNo}>No · Cancelada</span>
                       )}
@@ -107,12 +184,35 @@ function AttendanceCheckModal({
         )}
 
         <footer className={styles.footer}>
-          <button type="button" className={styles.laterButton} onClick={onDismiss}>
+          <button type="button" className={styles.laterButton} onClick={handleDismiss}>
             Más tarde
           </button>
         </footer>
       </div>
     </div>
+    ) : null}
+
+    <ConfirmDialog
+      isOpen={Boolean(pendingCancelReservation && depositCancelCopy)}
+      title={depositCancelCopy?.title ?? 'Reserva con fianza'}
+      message={depositCancelCopy?.message ?? ''}
+      confirmLabel="Sí, cancelar"
+      cancelLabel="Volver"
+      variant="danger"
+      elevated
+      isLoading={Boolean(isSavingId && pendingCancelReservation?.id === isSavingId)}
+      onConfirm={() => {
+        if (!pendingCancelReservation) {
+          return
+        }
+
+        const reservationId = pendingCancelReservation.id
+        setPendingCancelReservation(null)
+        void onMarkAttendance(reservationId, 'cancelled', 'n/a')
+      }}
+      onCancel={() => setPendingCancelReservation(null)}
+    />
+    </>
   )
 }
 

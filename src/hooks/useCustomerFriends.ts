@@ -5,6 +5,7 @@ import {
   WEEKLY_LEADERBOARD,
 } from '../data/gamificationLeaderboard'
 import type { FriendProfile } from '../types/friends'
+import { acceptFriendRequest as acceptFriendRequestApi, sendFriendRequest as sendFriendRequestApi } from '../services/customerNotifications'
 
 /** Demo: amigos de Carolina (tú) — uno por nivel para previsualizar fondos. */
 const DEFAULT_FRIEND_IDS = [
@@ -76,6 +77,10 @@ function writeStored(
   },
 ): void {
   localStorage.setItem(storageKey(userId), JSON.stringify(state))
+}
+
+function isRealCustomerUid(id: string): boolean {
+  return id.length >= 20 && !WEEKLY_LEADERBOARD.some((entry) => entry.id === id)
 }
 
 export function useCustomerFriends(userId: string | undefined) {
@@ -156,10 +161,22 @@ export function useCustomerFriends(userId: string | undefined) {
         friendIds.includes(id)
         || incomingRequestIds.includes(id)
         || outgoingRequestIds.includes(id)
-        || !WEEKLY_LEADERBOARD.some((entry) => entry.id === id)
       ) {
         return false
       }
+
+      if (isRealCustomerUid(id)) {
+        void sendFriendRequestApi(id).catch(() => undefined)
+        const nextOutgoing = [...outgoingRequestIds, id]
+        setOutgoingRequestIds(nextOutgoing)
+        persist({ ...snapshot(), outgoingRequestIds: nextOutgoing })
+        return true
+      }
+
+      if (!WEEKLY_LEADERBOARD.some((entry) => entry.id === id)) {
+        return false
+      }
+
       const nextOutgoing = [...outgoingRequestIds, id]
       setOutgoingRequestIds(nextOutgoing)
       persist({ ...snapshot(), outgoingRequestIds: nextOutgoing })
@@ -173,6 +190,11 @@ export function useCustomerFriends(userId: string | undefined) {
       if (!incomingRequestIds.includes(id)) {
         return false
       }
+
+      if (isRealCustomerUid(id)) {
+        void acceptFriendRequestApi(id).catch(() => undefined)
+      }
+
       const nextIncoming = incomingRequestIds.filter((requestId) => requestId !== id)
       const nextFriends = friendIds.includes(id) ? friendIds : [...friendIds, id]
       setIncomingRequestIds(nextIncoming)

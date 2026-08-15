@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import MenuPromotionsFab from '../components/MenuPromotionsFab'
 import { fetchPublicMenu, type PublicBookingCompany } from '../services/publicApi'
 import type { MenuBoard } from '../types/company'
 import styles from './PublicMenuPage.module.css'
@@ -94,6 +95,8 @@ function PublicMenuPage() {
           </ul>
         )}
       </main>
+
+      <MenuPromotionsFab slug={slug} />
     </div>
   )
 }

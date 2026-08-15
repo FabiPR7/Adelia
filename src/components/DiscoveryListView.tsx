@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
-import AdelinaCoin from './AdelinaCoin'
+import DiscoveryRatingBadge from './DiscoveryRatingBadge'
 import { formatDistanceKm } from '../utils/geo'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
-import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
-import { getMockReviewRating } from '../utils/mockReviewRating'
+import {
+  formatDiscoveryRatingBadge,
+  type PublicDiscoveryRestaurant,
+} from '../utils/publicDiscovery'
 import styles from './DiscoveryListView.module.css'
 
 interface DiscoveryListViewProps {
@@ -23,7 +25,7 @@ function DiscoveryListView({
         const imageUrl = restaurant.photoUrl
           ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoThumb)
           : ''
-        const reviewRating = getMockReviewRating(restaurant.slug)
+        const ratingBadge = formatDiscoveryRatingBadge(restaurant)
         const distanceKm = distancesKm?.[restaurant.slug]
 
         return (
@@ -43,10 +45,9 @@ function DiscoveryListView({
               <div className={styles.copy}>
                 <div className={styles.titleRow}>
                   <h3>{restaurant.name}</h3>
-                  <span className={styles.reviewBadge} aria-label={`Valoración ${reviewRating.toFixed(1)}`}>
-                    <AdelinaCoin size="sm" variant="review" alt="" />
-                    {reviewRating.toFixed(1)}
-                  </span>
+                  {ratingBadge ? (
+                    <DiscoveryRatingBadge rating={ratingBadge} className={styles.reviewBadge} />
+                  ) : null}
                 </div>
                 <p>
                   {restaurant.municipality || restaurant.location}

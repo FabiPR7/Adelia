@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
-import AdelinaCoin from './AdelinaCoin'
+import DiscoveryRatingBadge from './DiscoveryRatingBadge'
 import { formatDistanceKm } from '../utils/geo'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
-import { getMockAdelinaReviewCount, getMockReviewRating } from '../utils/mockReviewRating'
-import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
+import {
+  formatDiscoveryRatingBadge,
+  type PublicDiscoveryRestaurant,
+} from '../utils/publicDiscovery'
 import styles from './RestaurantPreviewSheet.module.css'
 
 interface RestaurantPreviewSheetProps {
@@ -13,7 +15,7 @@ interface RestaurantPreviewSheetProps {
 }
 
 async function shareRestaurant(restaurant: PublicDiscoveryRestaurant) {
-  const url = `${window.location.origin}/reservar/${restaurant.slug}/restaurante`
+  const url = `${window.location.origin}/reservar/${restaurant.slug}`
   const payload = {
     title: `${restaurant.name} · Adelia`,
     text: `Reserva en ${restaurant.name} con Adelia`,
@@ -40,8 +42,7 @@ function RestaurantPreviewSheet({
   const imageUrl = restaurant.photoUrl
     ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoGallery)
     : ''
-  const reviewRating = getMockReviewRating(restaurant.slug)
-  const adelinaCount = getMockAdelinaReviewCount(restaurant.slug)
+  const ratingBadge = formatDiscoveryRatingBadge(restaurant)
 
   return (
     <div className={styles.backdrop} onClick={onClose} role="presentation">
@@ -78,19 +79,11 @@ function RestaurantPreviewSheet({
             <span className={styles.badge}>En Adelia</span>
           </div>
 
-          <div className={styles.statsRow}>
-            <span className={styles.stat}>
-              <AdelinaCoin size="sm" variant="review" alt="" />
-              <strong>{reviewRating.toFixed(1)}</strong>
-              <span>reseñas</span>
-            </span>
-            <span className={styles.statDivider} aria-hidden="true" />
-            <span className={styles.stat}>
-              <AdelinaCoin size="sm" alt="" />
-              <strong>{adelinaCount}</strong>
-              <span>Adelinas</span>
-            </span>
-          </div>
+          {ratingBadge ? (
+            <div className={styles.statsRow}>
+              <DiscoveryRatingBadge rating={ratingBadge} className={styles.stat} size="md" />
+            </div>
+          ) : null}
 
           <p className={styles.hook}>
             Reserva hoy, puntúa después y escala en el ranking de foodies.
@@ -120,7 +113,7 @@ function RestaurantPreviewSheet({
             </button>
           </div>
 
-          <Link to={`/reservar/${restaurant.slug}/restaurante`} className={styles.secondaryLink}>
+          <Link to={`/reservar/${restaurant.slug}`} className={styles.secondaryLink}>
             Ver ficha completa del local
           </Link>
         </div>

@@ -1,12 +1,24 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import LevelUpCelebrationModal from '../components/LevelUpCelebrationModal'
 import { useAuth } from './AuthContext'
 import {
   getAllCompanies,
   getCustomerReservations,
   recordPromotionClaim,
+  recordTimeLimitedPromotionClaim,
 } from '../services/firestore'
 import { fetchPublicPromotions, type PublicPromotion } from '../services/publicPromotions'
 import { useCustomerGamification } from '../hooks/useCustomerGamification'
+import { useLevelUpCelebration } from '../hooks/useLevelUpCelebration'
+import { getGamificationLevelByNumber } from '../data/gamificationLevels'
 import type { Reservation } from '../types'
 import type { ClaimedPromotionRecord } from '../types/gamification'
 import { hasRestaurantProfile } from '../utils/publicBooking'
@@ -24,8 +36,10 @@ import {
 } from '../data/demoNearbyPromotions'
 import type { CompanyLadderRuntime } from '../utils/promotionReservationProgress'
 import type { CustomerGamificationView } from '../hooks/useCustomerGamification'
+import type { LevelUpStep } from '../hooks/useLevelUpCelebration'
 
 interface CustomerGamificationContextValue extends CustomerGamificationView {
+  previewLevelUpCelebration: () => void
   loading: boolean
   reservations: Reservation[]
   verifiedReservationCounts: Record<string, number>
@@ -36,7 +50,11 @@ interface CustomerGamificationContextValue extends CustomerGamificationView {
     promotion: PublicPromotion,
     companyLadderPromotions: PublicPromotion[],
   ) => Promise<void>
-  refreshGamificationData: () => Promise<void>
+  claimTimeLimitedPromotion: (
+    promotion: PublicPromotion,
+    reservationId: string,
+  ) => Promise<void>
+  refreshGamificationData: (options?: { silent?: boolean }) => Promise<void>
 }
 
 const CustomerGamificationContext = createContext<CustomerGamificationContextValue | null>(null)
@@ -47,14 +65,17 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [promotionCompanyIds, setPromotionCompanyIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [previewStep, setPreviewStep] = useState<LevelUpStep | null>(null)
 
-  const refreshGamificationData = useCallback(async () => {
+  const refreshGamificationData = useCallback(async (options?: { silent?: boolean }) => {
     if (!profile?.email) {
       setLoading(false)
       return
     }
 
-    setLoading(true)
+    if (!options?.silent) {
+      setLoading(true)
+    }
 
     try {
       const [restaurantData, reservationData, promotions] = await Promise.all([
@@ -71,7 +92,9 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       setReservations(reservationData)
       setPromotionCompanyIds(new Set(promotions.map((promotion) => promotion.companyId)))
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
   }, [profile?.email])
 
@@ -89,6 +112,49 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     enabled: profile?.role === 'customer',
   })
 
+  const levelUpCelebration = useLevelUpCelebration({
+    userId: user?.uid,
+    gamification: gamification.state,
+    currentLevel: gamification.level.level,
+    enabled: profile?.role === 'customer',
+    refreshProfile,
+  })
+
+  const previewLevelUpCelebration = useCallback(() => {
+    const toLevel = Math.min(7, Math.max(2, gamification.level.level + 1))
+    const fromLevel = Math.max(1, toLevel - 1)
+    setPreviewStep({ fromLevel, toLevel })
+  }, [gamification.level.level])
+
+  useEffect(() => {
+    if (profile?.role !== 'customer') {
+      return
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('previewLevelUp') !== '1') {
+      return
+    }
+
+    previewLevelUpCelebration()
+
+    params.delete('previewLevelUp')
+    const nextSearch = params.toString()
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`
+    window.history.replaceState({}, '', nextUrl)
+  }, [previewLevelUpCelebration, profile?.role])
+
+  const activeLevelUpStep = previewStep ?? levelUpCelebration.activeStep
+
+  const handleLevelUpDismiss = useCallback(async () => {
+    if (previewStep) {
+      setPreviewStep(null)
+      return
+    }
+
+    await levelUpCelebration.dismissActive()
+  }, [levelUpCelebration, previewStep])
+
   const verifiedReservationCounts = useMemo(() => {
     const counts = buildVerifiedReservationCounts(reservations)
     return mergeDemoReservationCounts(counts)
@@ -105,8 +171,13 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     (): CompanyLadderRuntime => ({
       ladderBaselinesByCompany: profile?.gamification.ladderBaselinesByCompany ?? {},
       activeLadderPromotionByCompany: profile?.gamification.activeLadderPromotionByCompany ?? {},
+      ladderCompletionsByCompany: profile?.gamification.ladderCompletionsByCompany ?? {},
     }),
-    [profile?.gamification.ladderBaselinesByCompany, profile?.gamification.activeLadderPromotionByCompany],
+    [
+      profile?.gamification.ladderBaselinesByCompany,
+      profile?.gamification.activeLadderPromotionByCompany,
+      profile?.gamification.ladderCompletionsByCompany,
+    ],
   )
 
   const claimPromotion = useCallback(async (
@@ -127,6 +198,11 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       title: promotion.title,
       prizeLabel: resolvePromotionHighlight(promotion, 0),
       claimedAt: new Date().toISOString(),
+      description: promotion.description,
+      detail: promotion.detail,
+      photoUrl: promotion.photoUrl,
+      companyPhotoUrl: promotion.companyPhotoUrl,
+      promotionType: 'reservation_ladder',
     }
 
     await recordPromotionClaim(
@@ -137,8 +213,44 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       companyLadderPromotions,
     )
     await refreshProfile()
-    await refreshGamificationData()
+    void refreshGamificationData({ silent: true })
   }, [profile, refreshGamificationData, refreshProfile, user, verifiedReservationCounts])
+
+  const claimTimeLimitedPromotion = useCallback(async (
+    promotion: PublicPromotion,
+    reservationId: string,
+  ) => {
+    if (!user || !profile) {
+      return
+    }
+
+    const alreadyClaimed = profile.gamification.claimedPromotions.some(
+      (record) => record.reservationId === reservationId,
+    )
+    if (alreadyClaimed) {
+      return
+    }
+
+    const claim: ClaimedPromotionRecord = {
+      promotionId: promotion.id,
+      companyId: promotion.companyId,
+      companyName: promotion.companyName,
+      companySlug: promotion.companySlug,
+      title: promotion.title,
+      prizeLabel: resolvePromotionHighlight(promotion, 0),
+      claimedAt: new Date().toISOString(),
+      description: promotion.description,
+      detail: promotion.detail,
+      photoUrl: promotion.photoUrl,
+      companyPhotoUrl: promotion.companyPhotoUrl,
+      promotionType: 'time_limited',
+      reservationId,
+    }
+
+    await recordTimeLimitedPromotionClaim(user.uid, claim, profile.gamification)
+    await refreshProfile()
+    void refreshGamificationData({ silent: true })
+  }, [profile, refreshGamificationData, refreshProfile, user])
 
   const value = useMemo(
     (): CustomerGamificationContextValue => ({
@@ -150,7 +262,9 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       ladderRuntime,
       claimedPromotions,
       claimPromotion,
+      claimTimeLimitedPromotion,
       refreshGamificationData,
+      previewLevelUpCelebration,
     }),
     [
       gamification,
@@ -161,12 +275,30 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       ladderRuntime,
       claimedPromotions,
       claimPromotion,
+      claimTimeLimitedPromotion,
       refreshGamificationData,
+      previewLevelUpCelebration,
     ],
   )
 
   return (
     <CustomerGamificationContext.Provider value={value}>
+      <LevelUpCelebrationModal
+        step={activeLevelUpStep}
+        displayName={profile?.displayName ?? 'Tu perfil'}
+        handle={profile ? `@${profile.email.split('@')[0] ?? 'usuario'}` : undefined}
+        photoUrl={profile?.photoUrl || undefined}
+        xp={
+          previewStep
+            ? Math.max(
+              gamification.state.xp,
+              getGamificationLevelByNumber(previewStep.toLevel).minXp,
+            )
+            : gamification.state.xp
+        }
+        onDismiss={() => void handleLevelUpDismiss()}
+        dismissing={!previewStep && levelUpCelebration.acknowledging}
+      />
       {children}
     </CustomerGamificationContext.Provider>
   )

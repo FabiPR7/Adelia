@@ -66,12 +66,15 @@
 }
 
 .headerBusinessLink {
-  padding: 0.42rem 0.15rem;
+  padding: 0.42rem 0.5rem;
+  border-radius: 999px;
   font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-brown-light);
+  font-weight: 700;
+  color: var(--color-brown);
   text-decoration: none;
   white-space: nowrap;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(107, 83, 68, 0.14);
 }
 
 .headerBusinessLink:hover {
@@ -443,5 +446,24 @@
   .experienceFlow {
     margin-inline: calc(50% - 50vw);
     border-radius: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .heroTitle {
+    font-size: clamp(2rem, 3.2vw, 2.85rem);
+  }
+
+  .heroText {
+    font-size: 1rem;
+    max-width: 36rem;
+  }
+
+  .sectionHeader h2 {
+    font-size: 1.55rem;
+  }
+
+  .searchSection {
+    margin-bottom: 1.15rem;
   }
 }

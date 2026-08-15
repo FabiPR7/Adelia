@@ -934,6 +934,42 @@
   }
 }
 
+@media (min-width: 1024px) {
+  .page {
+    background:
+      radial-gradient(ellipse 70% 45% at 50% -5%, rgba(196, 92, 62, 0.1) 0%, transparent 55%),
+      linear-gradient(180deg, #f0ebe4 0%, #e8e2d9 45%, #e3dcd2 100%);
+  }
+
+  .hero {
+    min-height: clamp(18rem, 36vh, 28rem);
+  }
+
+  .heroContent {
+    max-width: min(1100px, 92vw);
+    padding-inline: clamp(1.5rem, 3vw, 2.5rem);
+  }
+
+  .body {
+    max-width: min(1100px, 92vw);
+    padding: 1.35rem clamp(1.5rem, 3vw, 2.5rem) 2.5rem;
+  }
+
+  .infoRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .actions {
+    max-width: 36rem;
+    margin-inline: auto;
+  }
+
+  .carouselBox {
+    max-height: 18rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .heroImage,
   .orbA,

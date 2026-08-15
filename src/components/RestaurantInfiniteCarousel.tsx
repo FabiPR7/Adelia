@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import RestaurantDiscoveryCard from './RestaurantDiscoveryCard'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
-import { getMockReviewRating } from '../utils/mockReviewRating'
 import styles from './RestaurantInfiniteCarousel.module.css'
 
 interface RestaurantInfiniteCarouselProps {
@@ -127,7 +126,6 @@ function RestaurantInfiniteCarousel({
         key={`${prefix}-${restaurant.id}`}
         restaurant={restaurant}
         onOpen={onOpenRestaurant}
-        reviewRating={getMockReviewRating(restaurant.slug)}
         distanceKm={distancesKm?.[restaurant.slug]}
       />
     ))

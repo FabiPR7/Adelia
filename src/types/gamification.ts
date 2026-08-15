@@ -22,6 +22,12 @@ export interface ClaimedPromotionRecord {
   title: string
   prizeLabel: string
   claimedAt: string
+  description?: string
+  detail?: string
+  photoUrl?: string
+  companyPhotoUrl?: string
+  promotionType?: 'reservation_ladder' | 'time_limited' | 'attendance'
+  reservationId?: string
 }
 
 export interface CustomerGamificationState {
@@ -34,15 +40,25 @@ export interface CustomerGamificationState {
   monthKey: string
   monthlyCompleted: string[]
   reviewsCount: number
+  reviewsWithPhotoCount: number
+  textReviewsCount: number
+  reviewedReservationIds: string[]
+  /** Restaurantes en los que el cliente ya publicó reseña (una por local). */
+  reviewedCompanyIds: string[]
   redemptionsCount: number
   helpfulReviewVotes: number
   favoritesAddedThisWeek: number
+  favoriteSlugsAtWeekStart: string[]
   awardedReservationXpIds: string[]
   claimedPromotions: ClaimedPromotionRecord[]
   /** Visitas confirmadas acumuladas en el momento del último canje por restaurante. */
   ladderBaselinesByCompany: Record<string, number>
   /** Promo de escalón activa por restaurante (solo una a la vez si hay varias). */
   activeLadderPromotionByCompany: Record<string, string>
+  /** Veces que el cliente completó el mapa entero de un restaurante. */
+  ladderCompletionsByCompany: Record<string, number>
+  /** Último nivel por el que ya se mostró la animación de ascenso. */
+  lastCelebratedLevel: number | null
 }
 
 export interface MissionProgress {
@@ -76,12 +92,19 @@ export function defaultGamificationState(): CustomerGamificationState {
     monthKey: '',
     monthlyCompleted: [],
     reviewsCount: 0,
+    reviewsWithPhotoCount: 0,
+    textReviewsCount: 0,
+    reviewedReservationIds: [],
+    reviewedCompanyIds: [],
     redemptionsCount: 0,
     helpfulReviewVotes: 0,
     favoritesAddedThisWeek: 0,
+    favoriteSlugsAtWeekStart: [],
     awardedReservationXpIds: [],
     claimedPromotions: [],
     ladderBaselinesByCompany: {},
     activeLadderPromotionByCompany: {},
+    ladderCompletionsByCompany: {},
+    lastCelebratedLevel: null,
   }
 }

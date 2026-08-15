@@ -12,6 +12,7 @@ export interface PromotionLadderProgress {
 export interface CompanyLadderRuntime {
   ladderBaselinesByCompany: Record<string, number>
   activeLadderPromotionByCompany: Record<string, string>
+  ladderCompletionsByCompany: Record<string, number>
 }
 
 /** Reservas hechas pero sin confirmar asistencia en el restaurante. */
@@ -96,6 +97,18 @@ export function getNextLadderPromotionId(
   }
 
   return ladder[(index + 1) % ladder.length].id
+}
+
+export function isLastLadderPromotion(
+  promotionId: string,
+  companyLadderPromotions: PublicPromotion[],
+): boolean {
+  const ladder = sortCompanyLadderPromotions(companyLadderPromotions)
+  if (ladder.length === 0) {
+    return false
+  }
+
+  return ladder[ladder.length - 1].id === promotionId
 }
 
 export function getLadderProgress(

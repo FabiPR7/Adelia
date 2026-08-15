@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import GamificationCelebrationToast from '../../components/GamificationCelebrationToast'
 import AchievementBadgeCard from '../../components/AchievementBadgeCard'
-import { SHOWCASE_EARNED_MISSION_IDS } from '../../data/achievementBadgeArt'
 import MissionIcon from '../../components/MissionIcon'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
@@ -18,8 +17,17 @@ import styles from './CustomerMissionsTab.module.css'
 type MissionSection = 'weekly' | 'monthly' | 'historical'
 type ArenaView = 'missions' | 'compite'
 
-function MissionCard({ item }: { item: MissionProgress }) {
+function MissionCard({
+  item,
+  weeklyFeaturedCategory,
+}: {
+  item: MissionProgress
+  weeklyFeaturedCategory?: string
+}) {
   const percent = Math.round(item.progress * 100)
+  const description = item.mission.id === 'ruta_especialidades' && weeklyFeaturedCategory
+    ? `Reserva en un local de ${weeklyFeaturedCategory}`
+    : item.mission.description
 
   return (
     <article className={`${styles.missionCard} ${item.completed ? styles.missionDone : ''}`}>
@@ -32,7 +40,7 @@ function MissionCard({ item }: { item: MissionProgress }) {
           <h3>{item.mission.name}</h3>
           <span className={styles.missionXp}>+{item.mission.xp} XP</span>
         </div>
-        <p>{item.mission.description}</p>
+        <p>{description}</p>
         {!item.completed ? (
           <div className={styles.missionProgressWrap}>
             <div className={styles.missionProgressTrack}>
@@ -236,6 +244,14 @@ function CustomerMissionsTab() {
         </div>
         <p className={styles.xpMeta}>{progressPercent}% del siguiente nivel</p>
 
+        <button
+          type="button"
+          className={styles.previewLevelButton}
+          onClick={gamification.previewLevelUpCelebration}
+        >
+          Ver animación de subida de nivel
+        </button>
+
         <div className={styles.heroStats}>
           <div>
             <span className={styles.statEmoji} aria-hidden="true">⚡</span>
@@ -350,14 +366,11 @@ function CustomerMissionsTab() {
             <div className={styles.logrosArenaGlow} aria-hidden="true" />
             <div className={styles.logrosGrid}>
               {activeMissions.map((item) => {
-                const earned =
-                  item.completed || SHOWCASE_EARNED_MISSION_IDS.has(item.mission.id)
-
                 return (
                   <AchievementBadgeCard
                     key={item.mission.id}
                     item={item}
-                    earned={earned}
+                    earned={item.completed}
                   />
                 )
               })}
@@ -366,7 +379,11 @@ function CustomerMissionsTab() {
         ) : (
           <div className={styles.missionList}>
             {activeMissions.map((item) => (
-              <MissionCard key={item.mission.id} item={item} />
+              <MissionCard
+                key={item.mission.id}
+                item={item}
+                weeklyFeaturedCategory={gamification.weeklyFeaturedCategory}
+              />
             ))}
           </div>
         )}

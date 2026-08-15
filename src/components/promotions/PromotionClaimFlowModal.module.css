@@ -1,0 +1,132 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(61, 50, 41, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-white);
+  border-radius: 18px;
+  box-shadow: 0 16px 48px rgba(74, 51, 72, 0.18);
+  padding: 1.35rem 1.25rem 1.15rem;
+}
+
+.title {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--color-brown);
+}
+
+.message {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.restaurantName {
+  font-weight: 800;
+  color: var(--color-brown);
+}
+
+.pinHint {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 107, 74, 0.08);
+  border: 1px solid rgba(255, 107, 74, 0.18);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--color-brown);
+}
+
+.pinInput {
+  width: 100%;
+  min-height: 3rem;
+  margin-bottom: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border: 2px solid rgba(107, 83, 68, 0.16);
+  border-radius: 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 1.5rem;
+  letter-spacing: 0.35em;
+  text-align: center;
+  color: var(--color-brown);
+  background: #fff;
+}
+
+.pinInput:focus {
+  outline: none;
+  border-color: #ff6b4a;
+  box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.15);
+}
+
+.error {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: #b02a37;
+}
+
+.actions {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.actionsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.secondaryButton,
+.primaryButton,
+.successButton {
+  flex: 1;
+  min-height: 2.45rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.secondaryButton {
+  background: #fff;
+  border-color: rgba(107, 83, 68, 0.14);
+  color: var(--color-brown);
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #ff6b4a, #ff4f8f);
+  color: #fff;
+}
+
+.successButton {
+  width: 100%;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+}
+
+.secondaryButton:disabled,
+.primaryButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.successEmoji {
+  display: block;
+  font-size: 2rem;
+  text-align: center;
+  margin-bottom: 0.35rem;
+}

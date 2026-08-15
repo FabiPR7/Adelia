@@ -23,13 +23,13 @@ import CustomerPromotionsTab from './pages/customer/CustomerPromotionsTab'
 import CustomerMissionsTab from './pages/customer/CustomerMissionsTab'
 import CustomerProfileTab from './pages/customer/CustomerProfileTab'
 import CustomerReservationsTab from './pages/customer/CustomerReservationsTab'
+import CustomerNotificationsTab from './pages/customer/CustomerNotificationsTab'
 import { getPostLoginPath } from './utils/authProfile'
 
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
 const PublicMenuPage = lazy(() => import('./pages/PublicMenuPage'))
 const PublicMenuViewPage = lazy(() => import('./pages/PublicMenuViewPage'))
 const PublicRestaurantPromotionsPage = lazy(() => import('./pages/PublicRestaurantPromotionsPage'))
-const PublicRestaurantProfile = lazy(() => import('./pages/PublicRestaurantProfile'))
 const PublicCancelReservation = lazy(() => import('./pages/PublicCancelReservation'))
 
 function AuthenticatedRoutes() {
@@ -135,6 +135,7 @@ function App() {
         <Route path="promociones" element={<CustomerPromotionsTab />} />
         <Route path="reservas" element={<CustomerReservationsTab />} />
         <Route path="misiones" element={<CustomerMissionsTab />} />
+        <Route path="notificaciones" element={<CustomerNotificationsTab />} />
         <Route path="perfil" element={<CustomerProfileTab />} />
       </Route>
       <Route path="/cuenta/entrar" element={<UserLoginPage />} />
@@ -148,25 +149,7 @@ function App() {
       />
       <Route
         path="/reservar/:slug/restaurante"
-        element={
-          <Suspense
-            fallback={
-              <div
-                style={{
-                  minHeight: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--color-text-muted)',
-                }}
-              >
-                Cargando restaurante…
-              </div>
-            }
-          >
-            <PublicRestaurantProfile />
-          </Suspense>
-        }
+        element={<Navigate to=".." replace relative="path" />}
       />
       <Route
         path="/reservar/:slug/cancelar"

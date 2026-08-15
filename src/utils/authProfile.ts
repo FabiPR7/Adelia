@@ -30,6 +30,14 @@ export async function resolveMustChangePassword(
   }
 }
 
+export function resolveSafeRedirect(redirect: string | null | undefined): string | null {
+  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) {
+    return null
+  }
+
+  return redirect
+}
+
 export function getPostLoginPath(profile: AppUser, user?: { emailVerified: boolean } | null) {
   if (profile.role === 'admin') {
     return '/admin'

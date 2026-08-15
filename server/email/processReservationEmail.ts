@@ -53,6 +53,13 @@ async function loadReservationEmailPayload(
     tableName,
     notes: typeof data.notes === 'string' ? data.notes : '',
     cancelToken: typeof data.cancelToken === 'string' ? data.cancelToken : '',
+    depositAmountCents: typeof data.depositAmountCents === 'number' ? data.depositAmountCents : null,
+    depositPerGuestCents: typeof company.depositPerGuestCents === 'number'
+      ? company.depositPerGuestCents
+      : null,
+    depositCancellationHours: typeof company.depositCancellationHours === 'number'
+      ? company.depositCancellationHours
+      : null,
     templates: emailTemplates,
   }
 }

@@ -15,6 +15,10 @@ import {
 import { DEFAULT_MENU_CURRENCY, MENU_CURRENCY_OPTIONS } from '../../data/menuCurrencies'
 import { getMenuAllergenIcon, getMenuAllergenLabel, MENU_ALLERGEN_OPTIONS } from '../../data/menuAllergens'
 import { getFirestoreErrorMessage } from '../../services/firestore'
+import { copyTextToClipboard, getPublicMenuBoardUrl, slugify } from '../../utils/helpers'
+import { downloadBookingQrCode } from '../../utils/bookingQr'
+import { resolveBrandedQrOptions } from '../../utils/qrBranding'
+import QrCustomizerModal from '../../components/QrCustomizerModal'
 import {
   createCompanyMenuBoard,
   createCompanyMenuNode,
@@ -153,7 +157,7 @@ function nodeToCopyForm(node: MenuNode, productNames: string[]): NodeFormState {
 }
 
 function CompanyMenu({ companyId }: CompanyMenuProps) {
-  const { user, profile, company } = useAuth()
+  const { user, profile, company, refreshCompany } = useAuth()
   const [boards, setBoards] = useState<MenuBoard[]>([])
   const [nodes, setNodes] = useState<MenuNode[]>([])
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
@@ -175,11 +179,26 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
   const [excelImportMode, setExcelImportMode] = useState<MenuExcelImportMode>('new-board')
   const [newBoardName, setNewBoardName] = useState('')
   const [createBoardError, setCreateBoardError] = useState<string | null>(null)
+  const [menuShareCopied, setMenuShareCopied] = useState(false)
+  const [isDownloadingMenuQr, setIsDownloadingMenuQr] = useState(false)
+  const [menuQrCustomizerOpen, setMenuQrCustomizerOpen] = useState(false)
 
   const selectedBoard = useMemo(
     () => boards.find((board) => board.id === selectedBoardId) ?? null,
     [boards, selectedBoardId],
   )
+
+  const selectedBoardPublicUrl = useMemo(() => {
+    if (!company?.slug || !selectedBoard) {
+      return ''
+    }
+
+    return getPublicMenuBoardUrl(company.slug, selectedBoard.id)
+  }, [company?.slug, selectedBoard])
+
+  useEffect(() => {
+    setMenuShareCopied(false)
+  }, [selectedBoardId])
 
   const boardNodes = useMemo(
     () => nodes.filter((node) => node.boardId === selectedBoardId),
@@ -266,6 +285,54 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
     await loadMenu()
     setSelectedBoardId(boardId)
     setEditorTab('content')
+  }
+
+  const handleOpenMenuBoardPublic = () => {
+    if (!selectedBoardPublicUrl) {
+      return
+    }
+
+    window.open(selectedBoardPublicUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleCopyMenuBoardLink = async () => {
+    if (!selectedBoardPublicUrl) {
+      return
+    }
+
+    setError(null)
+    const copied = await copyTextToClipboard(selectedBoardPublicUrl)
+
+    if (copied) {
+      setMenuShareCopied(true)
+      window.setTimeout(() => setMenuShareCopied(false), 2000)
+      return
+    }
+
+    setError('No se pudo copiar el enlace. Activa la carta e inténtalo de nuevo.')
+  }
+
+  const handleDownloadMenuBoardQr = async () => {
+    if (!selectedBoardPublicUrl || !selectedBoard || !company) {
+      return
+    }
+
+    setIsDownloadingMenuQr(true)
+    setError(null)
+
+    try {
+      const filename = `qr-carta-${slugify(selectedBoard.name)}-${slugify(company.slug || company.name)}.png`
+      const renderOptions = resolveBrandedQrOptions(company.qrBranding.menu, 'menu', {
+        companyName: company.name,
+        companyLogoUrl: company.logoUrl,
+        menuBoardName: selectedBoard.name,
+      })
+      await downloadBookingQrCode(selectedBoardPublicUrl, filename, renderOptions)
+    } catch {
+      setError('No se pudo generar el código QR de la carta.')
+    } finally {
+      setIsDownloadingMenuQr(false)
+    }
   }
 
   const closeCreateBoardModal = () => {
@@ -895,6 +962,39 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                     <button type="button" onClick={() => openExcelImportModal('existing-board')}>
                       Importar Excel
                     </button>
+                    <span className={styles.toolbarDivider} aria-hidden="true" />
+                    <button
+                      type="button"
+                      onClick={handleOpenMenuBoardPublic}
+                      disabled={!selectedBoard?.active || !selectedBoardPublicUrl}
+                      title={selectedBoard?.active ? 'Abrir la carta pública' : 'Activa la carta para compartirla'}
+                    >
+                      Ver carta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyMenuBoardLink()}
+                      disabled={!selectedBoard?.active || !selectedBoardPublicUrl}
+                      title={selectedBoard?.active ? 'Copiar enlace público' : 'Activa la carta para compartirla'}
+                    >
+                      {menuShareCopied ? 'Enlace copiado' : 'Copiar enlace'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMenuQrCustomizerOpen(true)}
+                      disabled={!selectedBoard?.active || !selectedBoardPublicUrl}
+                      title={selectedBoard?.active ? 'Personalizar QR de la carta' : 'Activa la carta para compartirla'}
+                    >
+                      Personalizar QR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadMenuBoardQr()}
+                      disabled={!selectedBoard?.active || !selectedBoardPublicUrl || isDownloadingMenuQr}
+                      title={selectedBoard?.active ? 'Descargar QR de la carta' : 'Activa la carta para compartirla'}
+                    >
+                      {isDownloadingMenuQr ? 'Generando QR…' : 'Descargar QR'}
+                    </button>
                     <span className={styles.toolbarHint}>
                       Arrastra entre filas para reordenar o cambiar de familia; arriba para sacar al nivel principal
                     </span>
@@ -1372,6 +1472,24 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
         onConfirm={() => void confirmDeleteNode()}
         onCancel={() => setDeleteNodeTarget(null)}
       />
+
+      {company && selectedBoard && selectedBoardPublicUrl ? (
+        <QrCustomizerModal
+          isOpen={menuQrCustomizerOpen}
+          kind="menu"
+          url={selectedBoardPublicUrl}
+          filename={`qr-carta-${slugify(selectedBoard.name)}-${slugify(company.slug || company.name)}.png`}
+          companyId={companyId}
+          context={{
+            companyName: company.name,
+            companyLogoUrl: company.logoUrl,
+            menuBoardName: selectedBoard.name,
+          }}
+          initialConfig={company.qrBranding.menu}
+          onClose={() => setMenuQrCustomizerOpen(false)}
+          onSaved={() => void refreshCompany()}
+        />
+      ) : null}
     </div>
   )
 }

@@ -1,5 +1,14 @@
 import { Router, type Request, type Response } from 'express'
-import { adminDb } from '../firebase-admin.ts'
+import { Timestamp } from 'firebase-admin/firestore'
+import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
+import { getUserRoleWithRest, verifyIdTokenWithRest } from '../rest-firebase.ts'
+import {
+  applyDuePromotionPinRotation,
+  defaultPromotionPinSettings,
+  mapPromotionPin,
+  normalizePromotionPinCode,
+  type PromotionPinSettings,
+} from '../utils/promotionPin.ts'
 
 const router = Router()
 
@@ -227,6 +236,100 @@ async function loadPromotionsForCompany(
     }
   })
 }
+
+function serializePromotionPin(settings: PromotionPinSettings) {
+  return {
+    code: settings.code,
+    rotation: settings.rotation,
+    nextRotationAt: settings.nextRotationAt ? Timestamp.fromDate(settings.nextRotationAt) : null,
+    lastRotatedAt: settings.lastRotatedAt ? Timestamp.fromDate(settings.lastRotatedAt) : null,
+    updatedAt: Timestamp.now(),
+  }
+}
+
+async function resolveCompanyPromotionPin(
+  companyRef: FirebaseFirestore.DocumentReference,
+  companyData: FirebaseFirestore.DocumentData,
+): Promise<string> {
+  const stored = mapPromotionPin(companyData.promotionPin as Record<string, unknown> | undefined)
+  const base = stored ?? defaultPromotionPinSettings()
+  const { settings, rotated } = applyDuePromotionPinRotation(base)
+
+  if (rotated) {
+    await companyRef.update({
+      promotionPin: serializePromotionPin(settings),
+    })
+  }
+
+  return settings.code
+}
+
+async function verifyCustomerToken(req: Request): Promise<string | null> {
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) {
+    return null
+  }
+
+  const token = header.slice(7)
+
+  if (canUseAdminSdk) {
+    const decoded = await adminAuth.verifyIdToken(token)
+    const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
+
+    if (!userSnap.exists || userSnap.data()?.role !== 'customer') {
+      return null
+    }
+
+    return decoded.uid
+  }
+
+  const decoded = await verifyIdTokenWithRest(token)
+  const role = await getUserRoleWithRest(token, decoded.uid)
+
+  if (role !== 'customer') {
+    return null
+  }
+
+  return decoded.uid
+}
+
+router.post('/validate-pin', async (req: Request, res: Response) => {
+  try {
+    const uid = await verifyCustomerToken(req)
+    if (!uid) {
+      res.status(401).json({ error: 'Debes iniciar sesión como cliente.' })
+      return
+    }
+
+    const { companyId, pin } = req.body as { companyId?: string; pin?: string }
+    const normalizedCompanyId = String(companyId ?? '').trim()
+    const normalizedPin = normalizePromotionPinCode(String(pin ?? ''))
+
+    if (!normalizedCompanyId) {
+      res.status(400).json({ error: 'Restaurante no válido.' })
+      return
+    }
+
+    if (normalizedPin.length !== 4) {
+      res.status(400).json({ error: 'El código PIN debe tener 4 dígitos.' })
+      return
+    }
+
+    const companyRef = adminDb.collection('companies').doc(normalizedCompanyId)
+    const companySnap = await companyRef.get()
+
+    if (!companySnap.exists) {
+      res.status(404).json({ error: 'Restaurante no encontrado.' })
+      return
+    }
+
+    const currentPin = await resolveCompanyPromotionPin(companyRef, companySnap.data()!)
+    res.json({ valid: currentPin === normalizedPin })
+  } catch (error) {
+    console.error('Validate promotion pin error:', error)
+    res.status(500).json({ error: 'No se pudo validar el código PIN.' })
+  }
+})
 
 router.get('/', async (_req: Request, res: Response) => {
   try {

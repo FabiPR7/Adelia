@@ -1,0 +1,526 @@
+.card {
+  --promo-accent: #ff6b4a;
+  --promo-accent-2: #ff4f8f;
+  --promo-body-bg: #fff5f0;
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--promo-body-bg);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.65) inset,
+    0 8px 22px rgba(74, 51, 72, 0.14);
+}
+
+.accent_coral {
+  --promo-accent: #ff6b4a;
+  --promo-accent-2: #ff4f8f;
+  --promo-body-bg: linear-gradient(180deg, #fff0eb 0%, #fffaf7 100%);
+}
+
+.accent_gold {
+  --promo-accent: #f59e0b;
+  --promo-accent-2: #fbbf24;
+  --promo-body-bg: linear-gradient(180deg, #fff8e8 0%, #fffdf7 100%);
+}
+
+.accent_magenta {
+  --promo-accent: #d946ef;
+  --promo-accent-2: #a855f7;
+  --promo-body-bg: linear-gradient(180deg, #fdf0ff 0%, #fffafe 100%);
+}
+
+.accent_sunset {
+  --promo-accent: #f97316;
+  --promo-accent-2: #fb7185;
+  --promo-body-bg: linear-gradient(180deg, #fff1ea 0%, #fffaf8 100%);
+}
+
+.cardClaimed {
+  position: relative;
+  filter: grayscale(1);
+  opacity: 0.92;
+}
+
+.cardClaimed .body {
+  --promo-body-bg: linear-gradient(180deg, #f3f4f6 0%, #fafafa 100%);
+  border-top-color: #9ca3af;
+}
+
+.cardClaimed .restaurant,
+.cardClaimed .detail,
+.cardClaimed .minSpend {
+  color: #6b7280;
+}
+
+.cardClaimed .highlight {
+  background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+  color: #4b5563;
+}
+
+.cardLocked {
+  opacity: 0.72;
+  filter: saturate(0.55);
+}
+
+.cardClaimable {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.65) inset,
+    0 8px 22px rgba(74, 51, 72, 0.14),
+    0 0 0 3px rgba(34, 197, 94, 0.22);
+}
+
+.claimedStamp {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 4;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(75, 85, 99, 0.92);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: rotate(6deg);
+}
+
+.link {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.staticWrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.card:not(.cardMapMode) .staticWrap {
+  cursor: default;
+}
+
+.visual {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: #2a1a24;
+}
+
+.visual img,
+.visualCollage,
+.imageFallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imageFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--promo-accent), var(--promo-accent-2));
+  font-size: 2rem;
+}
+
+.shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.2) 48%,
+    transparent 56%
+  );
+  transform: translateX(-120%);
+  animation: promoShine 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(22, 12, 28, 0.82) 0%,
+    rgba(22, 12, 28, 0.2) 45%,
+    transparent 100%
+  );
+}
+
+.accent_coral .overlay {
+  background: linear-gradient(
+    to top,
+    rgba(72, 28, 36, 0.88) 0%,
+    rgba(255, 107, 74, 0.18) 55%,
+    transparent 100%
+  );
+}
+
+.accent_gold .overlay {
+  background: linear-gradient(
+    to top,
+    rgba(68, 44, 18, 0.88) 0%,
+    rgba(245, 158, 11, 0.2) 55%,
+    transparent 100%
+  );
+}
+
+.accent_magenta .overlay {
+  background: linear-gradient(
+    to top,
+    rgba(58, 22, 62, 0.88) 0%,
+    rgba(217, 70, 239, 0.2) 55%,
+    transparent 100%
+  );
+}
+
+.accent_sunset .overlay {
+  background: linear-gradient(
+    to top,
+    rgba(62, 28, 22, 0.88) 0%,
+    rgba(249, 115, 22, 0.2) 55%,
+    transparent 100%
+  );
+}
+
+.highlight {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  z-index: 2;
+  display: inline-flex;
+  padding: 0.2rem 0.38rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fff9f2, #fde68a);
+  color: #7c3a2e;
+  font-family: var(--font-epic, var(--font-display));
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+  transform: rotate(-3deg);
+}
+
+.visualTags {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.tagProgress,
+.tagDistance {
+  padding: 0.2rem 0.42rem;
+  border-radius: 999px;
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
+.tagProgress {
+  background: linear-gradient(90deg, var(--promo-accent), var(--promo-accent-2));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+.tagDistance {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff9f2;
+}
+
+.visualTitle {
+  position: absolute;
+  left: 0.38rem;
+  right: 0.38rem;
+  bottom: 0.38rem;
+  z-index: 2;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  line-height: 1.12;
+  color: #fff9f2;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.38rem 0.42rem 0.45rem;
+  background: var(--promo-body-bg);
+  border-top: 2px solid var(--promo-accent);
+  min-height: 3.4rem;
+}
+
+.restaurant {
+  margin: 0;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--promo-accent);
+}
+
+.description {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: #6b7280;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-top: auto;
+}
+
+.metaChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.minSpend {
+  padding: 0.14rem 0.34rem;
+  border-radius: 8px;
+  background: rgba(255, 107, 74, 0.1);
+  border: 1px solid rgba(255, 107, 74, 0.14);
+  font-size: 0.52rem;
+  font-weight: 700;
+  color: #9a3412;
+}
+
+.detail {
+  padding: 0.18rem 0.42rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(107, 83, 68, 0.1);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #8b6914;
+}
+
+.arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--promo-accent), var(--promo-accent-2));
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--promo-accent) 45%, transparent);
+}
+
+.progressBar {
+  height: 5px;
+  margin-top: 0.15rem;
+  border-radius: 999px;
+  background: rgba(107, 83, 68, 0.12);
+  overflow: hidden;
+}
+
+.progressBar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--promo-accent), var(--promo-accent-2));
+}
+
+.progressCopy {
+  margin: 0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.reservationStatusNeutral,
+.reservationStatusPending,
+.reservationStatusVerified,
+.reservationStatusFailed {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.reservationStatusNeutral {
+  color: var(--color-text-muted);
+}
+
+.reservationStatusPending {
+  color: #92400e;
+}
+
+.reservationStatusVerified {
+  color: #166534;
+}
+
+.reservationStatusFailed {
+  color: #991b1b;
+}
+
+.claimButton {
+  width: 100%;
+  min-height: 2.2rem;
+  margin-top: 0.15rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(22, 163, 74, 0.24);
+}
+
+.claimButtonOverlay {
+  position: absolute;
+  left: 0.38rem;
+  right: 0.38rem;
+  bottom: 0.38rem;
+  z-index: 3;
+  min-height: 1.85rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(22, 163, 74, 0.35);
+}
+
+.cardMapMode {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.72) inset,
+    0 10px 24px rgba(74, 51, 72, 0.2);
+}
+
+.cardMapMode .staticWrap {
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.cardMapMode .visual {
+  border-radius: 16px 16px 0 0;
+}
+
+.cardMapMode .body {
+  border-radius: 0 0 16px 16px;
+}
+
+.cardMapMode .highlight {
+  font-size: 0.68rem;
+}
+
+.cardMapMode .visualTitle {
+  font-size: 0.74rem;
+}
+
+.cardMapMode .tagProgress,
+.cardMapMode .tagDistance {
+  font-size: 0.62rem;
+}
+
+.cardMapMode .restaurant {
+  font-size: 0.64rem;
+}
+
+.cardMapMode .detail {
+  font-size: 0.68rem;
+}
+
+.cardMapMode .minSpend {
+  font-size: 0.58rem;
+}
+
+.cardMapMode .progressCopy {
+  font-size: 0.66rem;
+}
+
+.cardMapMode .claimButton {
+  font-size: 0.84rem;
+}
+
+.cardMapMode.cardClaimable .visualTitle {
+  bottom: 2.45rem;
+}
+
+.cardMapMode .claimButtonOverlay {
+  font-size: 0.78rem;
+  min-height: 2rem;
+}
+
+.cardMapMode .claimedStamp {
+  font-size: 0.64rem;
+}
+
+@keyframes promoShine {
+  0%,
+  100% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+  55% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+@media (min-width: 540px) {
+  .highlight {
+    font-size: 0.88rem;
+  }
+
+  .visualTitle {
+    font-size: 0.82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shine {
+    animation: none;
+  }
+}

@@ -130,6 +130,11 @@
   color: #ff6b4a;
 }
 
+.statMuted {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

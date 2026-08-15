@@ -123,3 +123,38 @@
     width: 100%;
   }
 }
+
+@media (min-width: 1024px) {
+  .page {
+    background:
+      radial-gradient(circle at 100% 0%, rgba(196, 168, 130, 0.12), transparent 34%),
+      linear-gradient(180deg, #fff9f2 0%, var(--color-cream) 100%);
+  }
+
+  .header {
+    max-width: min(900px, 92vw);
+    margin: 0 auto;
+    width: 100%;
+    padding: 1.5rem 2rem 1rem;
+  }
+
+  .headerText h1 {
+    font-size: 1.75rem;
+  }
+
+  .main {
+    max-width: min(900px, 92vw);
+    padding: 1rem 2rem 2rem;
+  }
+
+  .boardList {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .boardCard {
+    padding: 1.25rem 1.35rem;
+    min-height: 5.5rem;
+  }
+}

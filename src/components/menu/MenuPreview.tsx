@@ -16,11 +16,16 @@ interface MenuPreviewProps {
   restaurantName?: string
   embedded?: boolean
   fullscreen?: boolean
+  highlightProductId?: string | null
 }
 
-function renderProductRow(products: MenuTreeNode[], template: MenuTemplateConfig) {
+function renderProductRow(
+  products: MenuTreeNode[],
+  template: MenuTemplateConfig,
+  highlightProductId?: string | null,
+) {
   const items = products
-    .map((product) => renderProduct(product, template))
+    .map((product) => renderProduct(product, template, highlightProductId))
     .filter(Boolean)
 
   if (items.length === 0) {
@@ -41,6 +46,7 @@ function renderProductRow(products: MenuTreeNode[], template: MenuTemplateConfig
 function renderFamily(
   node: MenuTreeNode,
   template: MenuTemplateConfig,
+  highlightProductId?: string | null,
 ) {
   const isSubfamily = Boolean(node.parentId)
   const childFamilies = node.children.filter((child) => child.nodeType === 'family')
@@ -62,13 +68,15 @@ function renderFamily(
           <span className={styles.familyAvailability}>{availabilityLabel}</span>
         ) : null}
       </div>
-      {childFamilies.map((child) => renderFamily(child, template))}
+      {childFamilies.map((child) => renderFamily(child, template, highlightProductId))}
       {node.availability.enabled && !isAvailable ? (
         <p className={styles.familyUnavailableNote}>
           Fuera de horario. Disponible {availabilityLabel}.
         </p>
       ) : null}
-      {isAvailable && childProducts.length > 0 ? renderProductRow(childProducts, template) : null}
+      {isAvailable && childProducts.length > 0
+        ? renderProductRow(childProducts, template, highlightProductId)
+        : null}
     </section>
   )
 }
@@ -202,9 +210,11 @@ function AllergenTooltipIcons({ allergens }: { allergens: string[] }) {
 function MenuGridProduct({
   node,
   template,
+  highlightProductId,
 }: {
   node: MenuTreeNode
   template: MenuTemplateConfig
+  highlightProductId?: string | null
 }) {
   const image = node.photoUrl
     ? optimizeCloudinaryUrl(node.photoUrl, CLOUDINARY_DISPLAY.menuProductGrid)
@@ -217,7 +227,10 @@ function MenuGridProduct({
     : null
 
   return (
-    <article className={styles.productCard}>
+    <article
+      id={`product-${node.id}`}
+      className={`${styles.productCard} ${highlightProductId === node.id ? styles.productHighlighted : ''}`}
+    >
       {showPhoto ? (
         <img
           src={image}
@@ -246,9 +259,11 @@ function MenuGridProduct({
 function MenuListProduct({
   node,
   template,
+  highlightProductId,
 }: {
   node: MenuTreeNode
   template: MenuTemplateConfig
+  highlightProductId?: string | null
 }) {
   const [photoOpen, setPhotoOpen] = useState(false)
 
@@ -291,7 +306,11 @@ function MenuListProduct({
 
   return (
     <>
-      <article key={node.id} className={styles.productCard}>
+      <article
+        key={node.id}
+        id={`product-${node.id}`}
+        className={`${styles.productCard} ${highlightProductId === node.id ? styles.productHighlighted : ''}`}
+      >
         <div className={styles.productListRow}>
           <div className={styles.productPhotoCol}>{photoControl}</div>
           <div className={styles.productMain}>
@@ -323,24 +342,48 @@ function MenuListProduct({
   )
 }
 
-function renderProduct(node: MenuTreeNode, template: MenuTemplateConfig) {
+function renderProduct(
+  node: MenuTreeNode,
+  template: MenuTemplateConfig,
+  highlightProductId?: string | null,
+) {
   if (!node.active) {
     return null
   }
 
   if (template.layout === 'list') {
-    return <MenuListProduct key={node.id} node={node} template={template} />
+    return <MenuListProduct key={node.id} node={node} template={template} highlightProductId={highlightProductId} />
   }
 
-  return <MenuGridProduct key={node.id} node={node} template={template} />
+  return <MenuGridProduct key={node.id} node={node} template={template} highlightProductId={highlightProductId} />
 }
 
-function MenuPreview({ board, nodes, restaurantName, embedded = false, fullscreen = false }: MenuPreviewProps) {
+function MenuPreview({
+  board,
+  nodes,
+  restaurantName,
+  embedded = false,
+  fullscreen = false,
+  highlightProductId = null,
+}: MenuPreviewProps) {
   const template = board.template
   const tree = buildMenuTree(nodes.filter((node) => node.boardId === board.id))
 
   const rootProducts = tree.filter((node) => node.nodeType === 'product')
   const rootFamilies = tree.filter((node) => node.nodeType === 'family')
+
+  useEffect(() => {
+    if (!highlightProductId) {
+      return
+    }
+
+    const element = document.getElementById(`product-${highlightProductId}`)
+    if (!element) {
+      return
+    }
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlightProductId, nodes, board.id])
 
   const themeStyle = {
     '--menu-bg': template.backgroundColor,
@@ -372,9 +415,9 @@ function MenuPreview({ board, nodes, restaurantName, embedded = false, fullscree
           <h2>{board.name}</h2>
         </header>
 
-        {rootFamilies.map((family) => renderFamily(family, template))}
+        {rootFamilies.map((family) => renderFamily(family, template, highlightProductId))}
 
-        {rootProducts.length > 0 ? renderProductRow(rootProducts, template) : null}
+        {rootProducts.length > 0 ? renderProductRow(rootProducts, template, highlightProductId) : null}
 
         {rootFamilies.length === 0 && rootProducts.length === 0 ? (
           <p className={styles.empty}>Añade familias o productos para ver la carta.</p>

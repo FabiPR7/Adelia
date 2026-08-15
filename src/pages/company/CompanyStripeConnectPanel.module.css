@@ -1,0 +1,113 @@
+.panel {
+  margin-top: 0;
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(99, 91, 255, 0.18);
+  background: linear-gradient(180deg, rgba(99, 91, 255, 0.06), rgba(255, 255, 255, 0.92));
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.header h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.9375rem;
+  color: var(--color-brown);
+}
+
+.header p {
+  margin: 0;
+  max-width: 38rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badgeIdle {
+  background: rgba(61, 50, 41, 0.08);
+  color: rgba(61, 50, 41, 0.72);
+}
+
+.badgePending {
+  background: rgba(212, 168, 83, 0.18);
+  color: #8b6914;
+}
+
+.badgeReady {
+  background: rgba(46, 125, 107, 0.16);
+  color: #1f6b59;
+}
+
+.warning,
+.error,
+.hint {
+  margin: 0.85rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.warning {
+  color: #8b4a32;
+}
+
+.error {
+  color: var(--color-error);
+}
+
+.hint {
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.primaryButton,
+.secondaryButton {
+  border-radius: 999px;
+  padding: 0.48rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryButton {
+  border: none;
+  background: #635bff;
+  color: #fff;
+}
+
+.secondaryButton {
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-brown);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .header {
+    flex-direction: column;
+  }
+}

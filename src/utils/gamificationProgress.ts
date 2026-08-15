@@ -1,4 +1,4 @@
-import { WEEKLY_MISSIONS } from '../data/gamificationMissions'
+import { MONTHLY_MISSION_POOL, WEEKLY_MISSIONS } from '../data/gamificationMissions'
 import { GAMIFICATION_LEVELS } from '../data/gamificationLevels'
 import type {
   CustomerGamificationState,
@@ -8,6 +8,7 @@ import type {
 } from '../types/gamification'
 import type { Reservation } from '../types'
 import { WEEKLY_BONUS_TARGET, WEEKLY_MISSION_BONUS_XP, CONFIRMED_RESERVATION_XP } from '../types/gamification'
+import { countsForPromotionProgress } from './reservationPromotionEligibility'
 
 export interface GamificationContext {
   reservations: Reservation[]
@@ -15,9 +16,50 @@ export interface GamificationContext {
   promotionCompanyIds: Set<string>
   restaurantZones: Map<string, string>
   restaurantCategories: Map<string, string[]>
+  weeklyFeaturedCategory: string
 }
 
-function getWeekKey(date = new Date()): string {
+const WEEKLY_FEATURED_CATEGORIES = [
+  'Italiana',
+  'Tapas',
+  'Sushi',
+  'Mexicana',
+  'Brunch',
+  'Mariscos',
+  'Pizza',
+  'Vegano',
+  'Brasas',
+  'Mediterránea',
+  'Gastronómico',
+  'Cocina de mercado',
+] as const
+
+const INTERNATIONAL_CUISINE_TAGS = new Set([
+  'Comida asiática',
+  'Sushi',
+  'Ramen',
+  'Wok',
+  'Comida china',
+  'Comida japonesa',
+  'Comida coreana',
+  'Comida tailandesa',
+  'Comida vietnamita',
+  'Comida india',
+  'Italiana',
+  'Pizza',
+  'Pasta',
+  'Mexicana',
+  'Tex-Mex',
+  'Argentino',
+  'Peruano',
+  'Mediterránea',
+  'Japonesa',
+  'Fusión',
+  'Fine dining',
+  'Steakhouse',
+])
+
+export function getWeekKey(date = new Date()): string {
   const start = new Date(date)
   start.setHours(0, 0, 0, 0)
   start.setDate(start.getDate() + 4 - (start.getDay() || 7))
@@ -28,6 +70,107 @@ function getWeekKey(date = new Date()): string {
 
 function getMonthKey(date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function hashKey(key: string): number {
+  return key.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
+}
+
+export function getWeeklyFeaturedCategory(date = new Date()): string {
+  const weekKey = getWeekKey(date)
+  const index = hashKey(weekKey) % WEEKLY_FEATURED_CATEGORIES.length
+  return WEEKLY_FEATURED_CATEGORIES[index] ?? WEEKLY_FEATURED_CATEGORIES[0]
+}
+
+function getWeekStart(date = new Date()): Date {
+  const weekStart = new Date(date)
+  weekStart.setDate(date.getDate() - ((date.getDay() + 6) % 7))
+  weekStart.setHours(0, 0, 0, 0)
+  return weekStart
+}
+
+function reservationsCreatedThisWeek(reservations: Reservation[]): Reservation[] {
+  const weekStart = getWeekStart()
+
+  return reservations.filter(
+    (reservation) => reservation.createdAt >= weekStart,
+  )
+}
+
+function computeFavoritesAddedThisWeek(
+  favoriteSlugs: string[],
+  favoriteSlugsAtWeekStart: string[],
+): number {
+  const baseline = new Set(favoriteSlugsAtWeekStart)
+  return favoriteSlugs.filter((slug) => !baseline.has(slug)).length
+}
+
+function firstVisitsThisWeek(attended: Reservation[]): Reservation[] {
+  const weekStart = getWeekStart()
+  const weekReservations = reservationsThisWeek(attended)
+
+  return weekReservations.filter((reservation) => {
+    const hadPriorVisit = attended.some(
+      (entry) =>
+        entry.companyId === reservation.companyId
+        && entry.startTime < weekStart,
+    )
+    return !hadPriorVisit
+  })
+}
+
+function firstVisitsThisMonth(attended: Reservation[]): Reservation[] {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const monthReservations = reservationsThisMonth(attended)
+
+  return monthReservations.filter((reservation) => {
+    const hadPriorVisit = attended.some(
+      (entry) =>
+        entry.companyId === reservation.companyId
+        && entry.startTime < monthStart,
+    )
+    return !hadPriorVisit
+  })
+}
+
+function restaurantHasCharacteristic(
+  companyId: string,
+  characteristic: string,
+  categories: Map<string, string[]>,
+): boolean {
+  const normalizedTarget = characteristic.trim().toLowerCase()
+  const characteristics = categories.get(companyId) ?? []
+
+  return characteristics.some(
+    (entry) => entry.trim().toLowerCase() === normalizedTarget,
+  )
+}
+
+function uniqueInternationalCuisines(
+  reservations: Reservation[],
+  categories: Map<string, string[]>,
+): number {
+  const seen = new Set<string>()
+
+  for (const reservation of reservations) {
+    for (const characteristic of categories.get(reservation.companyId) ?? []) {
+      if (INTERNATIONAL_CUISINE_TAGS.has(characteristic)) {
+        seen.add(characteristic)
+      }
+    }
+  }
+
+  return seen.size
+}
+
+function totalLadderCompletions(
+  ladderCompletionsByCompany: Record<string, number>,
+): number {
+  return Object.values(ladderCompletionsByCompany).reduce(
+    (sum, count) => sum + (count > 0 ? count : 0),
+    0,
+  )
 }
 
 function isWeekend(date: Date): boolean {
@@ -68,7 +211,11 @@ export function buildVerifiedReservationCounts(
 ): Record<string, number> {
   const counts: Record<string, number> = {}
 
-  for (const reservation of attendedReservations(reservations)) {
+  for (const reservation of reservations) {
+    if (!countsForPromotionProgress(reservation)) {
+      continue
+    }
+
     counts[reservation.companyId] = (counts[reservation.companyId] ?? 0) + 1
   }
 
@@ -104,10 +251,7 @@ function processReservationXp(
 }
 
 function reservationsThisWeek(reservations: Reservation[]): Reservation[] {
-  const now = new Date()
-  const weekStart = new Date(now)
-  weekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7))
-  weekStart.setHours(0, 0, 0, 0)
+  const weekStart = getWeekStart()
 
   return reservations.filter((reservation) => reservation.startTime >= weekStart)
 }
@@ -146,7 +290,12 @@ function evaluateMission(
   const attended = attendedReservations(context.reservations)
   const weekReservations = reservationsThisWeek(attended)
   const monthReservations = reservationsThisMonth(attended)
-  const visited = new Set(state.visitedCompanyIds)
+  const weekBookings = reservationsCreatedThisWeek(context.reservations)
+  const favoritesAddedThisWeek = computeFavoritesAddedThisWeek(
+    context.favoriteSlugs,
+    state.favoriteSlugsAtWeekStart,
+  )
+  const firstVisits = firstVisitsThisWeek(attended)
 
   switch (mission.id) {
     case 'plan_fin_semana':
@@ -159,43 +308,39 @@ function evaluateMission(
         current: weekReservations.filter((reservation) => reservation.pax >= 3).length,
         completed: weekReservations.some((reservation) => reservation.pax >= 3),
       }
-    case 'reserva_relampago':
+    case 'reserva_relampago': {
+      const matches = weekBookings.filter(
+        (reservation) =>
+          reservation.status !== 'cancelled'
+          && isSameDay(reservation.createdAt, reservation.startTime),
+      )
       return {
-        current: context.reservations.filter(
-          (reservation) =>
-            reservation.status !== 'cancelled'
-            && isSameDay(reservation.createdAt, reservation.startTime),
-        ).length,
-        completed: context.reservations.some(
-          (reservation) =>
-            reservation.status !== 'cancelled'
-            && isSameDay(reservation.createdAt, reservation.startTime),
-        ),
+        current: matches.length,
+        completed: matches.length >= 1,
       }
-    case 'reserva_anticipada':
+    }
+    case 'reserva_anticipada': {
+      const matches = weekBookings.filter(
+        (reservation) =>
+          reservation.status !== 'cancelled'
+          && daysBetween(reservation.createdAt, reservation.startTime) >= 3,
+      )
       return {
-        current: context.reservations.filter(
-          (reservation) =>
-            reservation.status !== 'cancelled'
-            && daysBetween(reservation.createdAt, reservation.startTime) >= 3,
-        ).length,
-        completed: context.reservations.some(
-          (reservation) =>
-            reservation.status !== 'cancelled'
-            && daysBetween(reservation.createdAt, reservation.startTime) >= 3,
-        ),
+        current: matches.length,
+        completed: matches.length >= 1,
       }
+    }
     case 'gourmet_reincidente': {
       const uniqueWeek = new Set(weekReservations.map((reservation) => reservation.companyId)).size
       return { current: uniqueWeek, completed: uniqueWeek >= 2 }
     }
     case 'descubrimiento_semanal':
       return {
-        current: weekReservations.filter((reservation) => !visited.has(reservation.companyId)).length,
-        completed: weekReservations.some((reservation) => !visited.has(reservation.companyId)),
+        current: firstVisits.length,
+        completed: firstVisits.length >= 1,
       }
     case 'en_busca_ofertas': {
-      const promoReservations = attended.filter(
+      const promoReservations = weekReservations.filter(
         (reservation) => context.promotionCompanyIds.has(reservation.companyId),
       )
       return {
@@ -205,21 +350,37 @@ function evaluateMission(
     }
     case 'fiel_seguidor':
       return {
-        current: state.favoritesAddedThisWeek,
-        completed: state.favoritesAddedThisWeek >= 3,
+        current: favoritesAddedThisWeek,
+        completed: favoritesAddedThisWeek >= 3,
       }
     case 'critico_foto':
+      return {
+        current: state.reviewsWithPhotoCount,
+        completed: state.reviewsWithPhotoCount >= mission.target,
+      }
     case 'voz_experiencia':
+      return {
+        current: state.textReviewsCount,
+        completed: state.textReviewsCount >= mission.target,
+      }
     case 'critico_consistente':
       return {
-        current: state.reviewsCount,
-        completed: state.reviewsCount >= mission.target,
+        current: state.reviewsWithPhotoCount,
+        completed: state.reviewsWithPhotoCount >= mission.target,
       }
-    case 'ruta_especialidades':
+    case 'ruta_especialidades': {
+      const matches = weekReservations.filter((reservation) =>
+        restaurantHasCharacteristic(
+          reservation.companyId,
+          context.weeklyFeaturedCategory,
+          context.restaurantCategories,
+        ),
+      )
       return {
-        current: weekReservations.length > 0 ? 1 : 0,
-        completed: weekReservations.length > 0,
+        current: matches.length > 0 ? 1 : 0,
+        completed: matches.length > 0,
       }
+    }
     case 'apoyo_hosteleria':
       return {
         current: weekReservations.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
@@ -246,6 +407,37 @@ function evaluateMission(
       const current = Number(lunch) + Number(dinner)
       return { current, completed: lunch && dinner }
     }
+    case 'maraton_mensual':
+      return {
+        current: monthReservations.length,
+        completed: monthReservations.length >= 6,
+      }
+    case 'grupo_grande_mes':
+      return {
+        current: monthReservations.filter((reservation) => reservation.pax >= 4).length,
+        completed: monthReservations.some((reservation) => reservation.pax >= 4),
+      }
+    case 'promo_doble_mes': {
+      const promoCount = monthReservations.filter(
+        (reservation) => context.promotionCompanyIds.has(reservation.companyId),
+      ).length
+      return { current: promoCount, completed: promoCount >= 2 }
+    }
+    case 'finde_gourmet_mes':
+      return {
+        current: monthReservations.filter((reservation) => isWeekend(reservation.startTime)).length,
+        completed: monthReservations.filter((reservation) => isWeekend(reservation.startTime)).length >= 2,
+      }
+    case 'valle_laboral_mes':
+      return {
+        current: monthReservations.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
+        completed: monthReservations.filter((reservation) => isWeekdaySlow(reservation.startTime)).length >= 2,
+      }
+    case 'descubridor_mes':
+      return {
+        current: firstVisitsThisMonth(attended).length,
+        completed: firstVisitsThisMonth(attended).length >= 2,
+      }
     case 'debut_gastronomico':
       return { current: attended.length, completed: attended.length >= 1 }
     case 'corazon_favorito':
@@ -349,16 +541,24 @@ function evaluateMission(
     }
     case 'emperador_adelia': {
       const level = getLevelForXp(state.xp).level
-      return { current: level, completed: level >= 10 }
+      return { current: level, completed: level >= 7 }
     }
-    case 'cliente_fiel_meson':
-      return { current: 0, completed: false }
+    case 'cliente_fiel_meson': {
+      const completions = totalLadderCompletions(state.ladderCompletionsByCompany)
+      return { current: completions, completed: completions >= 1 }
+    }
     case 'primera_opinion':
       return { current: state.reviewsCount, completed: state.reviewsCount >= 1 }
     case 'fotografo_gourmet':
-      return { current: state.reviewsCount, completed: state.reviewsCount >= 10 }
+      return {
+        current: state.reviewsWithPhotoCount,
+        completed: state.reviewsWithPhotoCount >= mission.target,
+      }
     case 'critico_destacado':
-      return { current: state.reviewsCount, completed: state.reviewsCount >= 25 }
+      return {
+        current: state.reviewsWithPhotoCount,
+        completed: state.reviewsWithPhotoCount >= mission.target,
+      }
     case 'guia_michelin':
       return {
         current: state.helpfulReviewVotes,
@@ -372,8 +572,10 @@ function evaluateMission(
       const unique = new Set(attended.map((reservation) => reservation.companyId)).size
       return { current: unique, completed: unique >= 10 }
     }
-    case 'ruta_internacional':
-      return { current: 0, completed: false }
+    case 'ruta_internacional': {
+      const cuisines = uniqueInternationalCuisines(attended, context.restaurantCategories)
+      return { current: cuisines, completed: cuisines >= mission.target }
+    }
     case 'infiltrado_hosteleria':
     case 'titan_hosteleria': {
       const pax = totalPax(attended)
@@ -410,8 +612,20 @@ export function getXpToNextLevel(xp: number, level: GamificationLevel): number |
 
 export function rotateWeeklyMissions(date = new Date(), count = 6): MissionDefinition[] {
   const weekKey = getWeekKey(date)
-  const seed = weekKey.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const seed = hashKey(weekKey)
   const sorted = [...WEEKLY_MISSIONS].sort((left, right) => {
+    const leftScore = (left.id.charCodeAt(0) + seed) % 97
+    const rightScore = (right.id.charCodeAt(0) + seed) % 97
+    return leftScore - rightScore
+  })
+
+  return sorted.slice(0, count)
+}
+
+export function rotateMonthlyMissions(date = new Date(), count = 5): MissionDefinition[] {
+  const monthKey = getMonthKey(date)
+  const seed = hashKey(monthKey)
+  const sorted = [...MONTHLY_MISSION_POOL].sort((left, right) => {
     const leftScore = (left.id.charCodeAt(0) + seed) % 97
     const rightScore = (right.id.charCodeAt(0) + seed) % 97
     return leftScore - rightScore
@@ -439,17 +653,24 @@ export function buildMissionProgressList(
   })
 }
 
-export function syncGamificationPeriods(state: CustomerGamificationState): CustomerGamificationState {
+export function syncGamificationPeriods(
+  state: CustomerGamificationState,
+  favoriteSlugs: string[] = [],
+): CustomerGamificationState {
   const weekKey = getWeekKey()
   const monthKey = getMonthKey()
+  const sameWeek = state.weekKey === weekKey
 
   return {
     ...state,
     weekKey,
     monthKey,
-    weeklyCompleted: state.weekKey === weekKey ? state.weeklyCompleted : [],
+    weeklyCompleted: sameWeek ? state.weeklyCompleted : [],
     monthlyCompleted: state.monthKey === monthKey ? state.monthlyCompleted : [],
-    favoritesAddedThisWeek: state.weekKey === weekKey ? state.favoritesAddedThisWeek : 0,
+    favoriteSlugsAtWeekStart: sameWeek ? state.favoriteSlugsAtWeekStart : favoriteSlugs,
+    favoritesAddedThisWeek: sameWeek
+      ? computeFavoritesAddedThisWeek(favoriteSlugs, state.favoriteSlugsAtWeekStart)
+      : 0,
   }
 }
 
@@ -484,12 +705,18 @@ export function processGamificationRewards(
   monthlyProgress: MissionProgress[],
   historicalProgress: MissionProgress[],
   reservations: Reservation[] = [],
+  favoriteSlugs: string[] = [],
 ): CustomerGamificationState {
-  let next = syncGamificationPeriods(state)
+  let next = syncGamificationPeriods(state, favoriteSlugs)
   next = processReservationXp(next, reservations)
   next = {
     ...next,
     redemptionsCount: Math.max(next.redemptionsCount, next.claimedPromotions.length),
+    visitedCompanyIds: deriveVisitedCompanyIds(reservations),
+    favoritesAddedThisWeek: computeFavoritesAddedThisWeek(
+      favoriteSlugs,
+      next.favoriteSlugsAtWeekStart,
+    ),
   }
   let xpGain = 0
   const completedHistorical = new Set(next.completedMissions)
@@ -529,11 +756,13 @@ export function processGamificationRewards(
   }
 
   const totalXp = next.xp + xpGain
+  const currentLevel = getLevelForXp(totalXp).level
 
   return {
     ...next,
     xp: totalXp,
     adelinas: 0,
+    lastCelebratedLevel: next.lastCelebratedLevel ?? currentLevel,
     completedMissions: [...completedHistorical],
     weeklyCompleted: [...weeklyDone],
     monthlyCompleted: [...monthlyDone],
@@ -541,5 +770,6 @@ export function processGamificationRewards(
     claimedPromotions: next.claimedPromotions,
     ladderBaselinesByCompany: next.ladderBaselinesByCompany,
     activeLadderPromotionByCompany: next.activeLadderPromotionByCompany,
+    ladderCompletionsByCompany: next.ladderCompletionsByCompany,
   }
 }

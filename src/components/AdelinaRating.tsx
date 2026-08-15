@@ -1,4 +1,5 @@
 import AdelinaCoin from './AdelinaCoin'
+import { ADELINA_RATING_SLOTS, getAdelinaSlotStates, MAX_REVIEW_RATING, MIN_REVIEW_RATING } from '../types/review'
 import styles from './AdelinaRating.module.css'
 
 interface AdelinaRatingProps {
@@ -13,7 +14,7 @@ interface AdelinaRatingProps {
 
 function AdelinaRating({
   value,
-  max = 5,
+  max = ADELINA_RATING_SLOTS,
   size = 'md',
   showValue = false,
   interactive = false,
@@ -21,16 +22,16 @@ function AdelinaRating({
   className = '',
 }: AdelinaRatingProps) {
   const clamped = Math.max(0, Math.min(max, value))
+  const slotStates = getAdelinaSlotStates(clamped, clamped > 0 ? 1 : 0)
 
   return (
     <div
       className={`${styles.row} ${className}`.trim()}
       role={interactive ? 'radiogroup' : 'img'}
-      aria-label={`Valoración de ${clamped} Adelinas de reseña sobre ${max}`}
+      aria-label={`Valoración de ${Math.round(clamped)} Adelinas de reseña sobre ${max}`}
     >
-      {Array.from({ length: max }, (_, index) => {
+      {slotStates.map((state, index) => {
         const coinValue = index + 1
-        const isActive = coinValue <= Math.round(clamped)
 
         if (interactive && onChange) {
           return (
@@ -44,7 +45,7 @@ function AdelinaRating({
               <AdelinaCoin
                 size={size}
                 variant="review"
-                className={isActive ? styles.active : styles.inactive}
+                className={state === 'full' ? styles.active : styles.inactive}
                 alt=""
               />
             </button>
@@ -56,17 +57,64 @@ function AdelinaRating({
             key={coinValue}
             size={size}
             variant="review"
-            className={isActive ? styles.active : styles.inactive}
+            className={state === 'full' ? styles.active : styles.inactive}
             alt=""
           />
         )
       })}
 
       {showValue && (
-        <span className={styles.label}>{clamped.toFixed(1)}</span>
+        <span className={styles.label}>{Math.round(clamped)}</span>
       )}
     </div>
   )
 }
 
+interface AdelinaRatingInputProps {
+  value: number
+  onChange: (value: number) => void
+  disabled?: boolean
+}
+
+export function AdelinaRatingInput({ value, onChange, disabled = false }: AdelinaRatingInputProps) {
+  const normalizedValue = Math.min(MAX_REVIEW_RATING, Math.max(MIN_REVIEW_RATING, Math.round(value)))
+  const slotStates = getAdelinaSlotStates(normalizedValue, 1)
+
+  return (
+    <div className={styles.inputWrap}>
+      <div className={styles.inputCoins} role="radiogroup" aria-label="Puntuación con Adelinas de reseña">
+        {Array.from({ length: ADELINA_RATING_SLOTS }, (_, index) => {
+          const coinValue = index + 1
+          const state = slotStates[index]
+
+          return (
+            <button
+              key={coinValue}
+              type="button"
+              className={`${styles.coinButton} ${styles.coinButtonInteractive}`}
+              disabled={disabled}
+              aria-label={`${coinValue} Adelinas de reseña`}
+              aria-pressed={normalizedValue === coinValue}
+              onClick={() => onChange(coinValue)}
+            >
+              <AdelinaCoin
+                size="lg"
+                variant="review"
+                className={state === 'full' ? styles.active : styles.inactive}
+                alt=""
+              />
+            </button>
+          )
+        })}
+      </div>
+      <p className={styles.inputValue}>
+        <strong>{normalizedValue}</strong>
+        <span> Adelinas</span>
+      </p>
+    </div>
+  )
+}
+
 export default AdelinaRating
+
+export { AdelinaRating }

@@ -1,5 +1,5 @@
 import { build } from 'esbuild'
-import { cpSync, mkdirSync, rmSync } from 'node:fs'
+import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -22,29 +22,48 @@ cpSync(
   path.join(libDir, 'adelia-logo-email.png'),
 )
 
+const external = [
+  'firebase-admin',
+  'firebase-admin/app',
+  'firebase-admin/auth',
+  'firebase-admin/firestore',
+  'firebase-functions',
+  'firebase-functions/v2/https',
+  'firebase-functions/v2/firestore',
+  'firebase-functions/v2/scheduler',
+  'firebase-functions/params',
+  'express',
+  'cors',
+  'resend',
+  'stripe',
+  'dotenv',
+  'dotenv/config',
+]
+
 await build({
-  entryPoints: [path.join(functionsDir, 'src', 'index.ts')],
+  entryPoints: [
+    path.join(functionsDir, 'src', 'api.ts'),
+    path.join(functionsDir, 'src', 'triggers.ts'),
+  ],
   bundle: true,
   platform: 'node',
   target: 'node20',
   format: 'esm',
-  outfile: path.join(libDir, 'index.js'),
-  external: [
-    'firebase-admin',
-    'firebase-admin/app',
-    'firebase-admin/auth',
-    'firebase-admin/firestore',
-    'firebase-functions',
-    'firebase-functions/v2/https',
-    'firebase-functions/v2/firestore',
-    'firebase-functions/params',
-    'express',
-    'cors',
-    'resend',
-    'dotenv',
-    'dotenv/config',
-  ],
+  outdir: libDir,
+  external,
   logLevel: 'info',
 })
+
+writeFileSync(
+  path.join(libDir, 'index.js'),
+  `export { api } from './api.js'\nexport {
+  onReservationCreatedSendEmail,
+  onReservationUpdatedSendEmail,
+  onReservationUpdatedNotifications,
+  onUserGamificationUpdatedNotifications,
+  processScheduledNotifications,
+} from './triggers.js'\n`,
+  'utf8',
+)
 
 console.log('Functions bundle listo')

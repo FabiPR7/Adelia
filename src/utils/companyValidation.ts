@@ -16,6 +16,10 @@ import {
   normalizeCompanySchedule,
   validateCompanyScheduleDetailed,
 } from './schedule'
+import {
+  DEFAULT_DEPOSIT_CANCELLATION_HOURS,
+  MAX_DEPOSIT_CANCELLATION_HOURS,
+} from './reservationDeposit'
 
 const ALLOWED_CHARACTERISTICS = new Set<string>(COMPANY_CHARACTERISTIC_OPTIONS)
 
@@ -273,6 +277,102 @@ export function validateCompanySchedule(schedule: CompanySchedule): string | nul
   return validateCompanyScheduleDetailed(normalizeCompanySchedule(schedule))
 }
 
+const MAX_DEPOSIT_MIN_PAX = 500
+const MAX_DEPOSIT_PER_GUEST_CENTS = 500_00
+
+export function normalizeDepositMinPax(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) {
+    return null
+  }
+
+  const rounded = Math.trunc(value)
+
+  if (rounded <= 0) {
+    return null
+  }
+
+  return Math.min(MAX_DEPOSIT_MIN_PAX, rounded)
+}
+
+export function normalizeDepositPerGuestCents(
+  depositMinPax: number | null | undefined,
+  value: number | null | undefined,
+): number | null {
+  const threshold = normalizeDepositMinPax(depositMinPax)
+
+  if (threshold == null) {
+    return null
+  }
+
+  if (value == null || !Number.isFinite(value)) {
+    return null
+  }
+
+  const rounded = Math.trunc(value)
+
+  if (rounded <= 0) {
+    return null
+  }
+
+  return Math.min(MAX_DEPOSIT_PER_GUEST_CENTS, rounded)
+}
+
+export function normalizeDepositCancellationHours(
+  depositEnabled: boolean,
+  depositMinPax: number | null | undefined,
+  value: number | null | undefined,
+): number | null {
+  if (!depositEnabled || normalizeDepositMinPax(depositMinPax) == null) {
+    return null
+  }
+
+  if (value == null || !Number.isFinite(value)) {
+    return DEFAULT_DEPOSIT_CANCELLATION_HOURS
+  }
+
+  const rounded = Math.trunc(value)
+
+  if (rounded <= 0) {
+    return null
+  }
+
+  return Math.min(MAX_DEPOSIT_CANCELLATION_HOURS, rounded)
+}
+
+export function validateReservationDepositSettings(
+  depositEnabled: boolean,
+  depositMinPax: number | null | undefined,
+  depositPerGuestCents: number | null | undefined,
+  depositCancellationHours: number | null | undefined,
+): string | null {
+  if (!depositEnabled) {
+    return null
+  }
+
+  const threshold = normalizeDepositMinPax(depositMinPax)
+  const perGuest = normalizeDepositPerGuestCents(depositMinPax, depositPerGuestCents)
+
+  if (threshold == null) {
+    return null
+  }
+
+  if (perGuest == null) {
+    return 'Indica el importe de fianza por comensal cuando defines a partir de cuántos comensales se pide.'
+  }
+
+  const cancellationHours = normalizeDepositCancellationHours(
+    depositEnabled,
+    depositMinPax,
+    depositCancellationHours,
+  )
+
+  if (cancellationHours == null) {
+    return 'Indica con cuántas horas de antelación se puede cancelar sin perder la fianza.'
+  }
+
+  return null
+}
+
 export function normalizeCompanySettingsPayload(
   payload: CompanySettingsPayload,
 ): CompanySettingsPayload {
@@ -299,6 +399,20 @@ export function normalizeCompanySettingsPayload(
     ),
     videos: sanitizeMediaUrls(payload.videos, MAX_COMPANY_VIDEOS),
     characteristics: sanitizeCompanyCharacteristics(payload.characteristics),
+    depositEnabled: payload.depositEnabled === true,
+    depositMinPax: payload.depositEnabled
+      ? normalizeDepositMinPax(payload.depositMinPax)
+      : null,
+    depositPerGuestCents: payload.depositEnabled
+      ? normalizeDepositPerGuestCents(payload.depositMinPax, payload.depositPerGuestCents)
+      : null,
+    depositCancellationHours: payload.depositEnabled
+      ? normalizeDepositCancellationHours(
+        payload.depositEnabled,
+        payload.depositMinPax,
+        payload.depositCancellationHours,
+      )
+      : null,
     turns: payload.turns.map((turn) => ({
       name: normalizeSpaces(turn.name),
       start: turn.start,

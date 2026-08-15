@@ -19,13 +19,14 @@ import type { CitySuggestion } from '../services/citySearch'
 import type { Reservation } from '../types'
 import { getPostLoginPath } from '../utils/authProfile'
 import { haversineDistanceKm, type GeoCoordinates } from '../utils/geo'
-import { getMockAdelinaReviewCount, getMockReviewRating } from '../utils/mockReviewRating'
 import {
   collectPopularCharacteristics,
   filterDiscoveryRestaurants,
   restaurantHasMapPin,
   sortRestaurantsByDistance,
   splitRestaurantsForCarousels,
+  getDiscoveryAverageRating,
+  getDiscoveryReviewAdelinas,
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
 import { getLocationErrorMessage, requestUserLocation } from '../utils/requestUserLocation'
@@ -179,7 +180,11 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   )
 
   const reviewSpotlight = useMemo(() => {
-    const pick = restaurants[0]
+    const pick = [...restaurants]
+      .filter((restaurant) => restaurant.reviewCount > 0)
+      .sort(
+        (left, right) => getDiscoveryAverageRating(right) - getDiscoveryAverageRating(left),
+      )[0]
 
     if (!pick) {
       return null
@@ -187,8 +192,8 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
 
     return {
       name: pick.name,
-      reviewRating: getMockReviewRating(pick.slug),
-      adelinaCount: getMockAdelinaReviewCount(pick.slug),
+      reviewRating: getDiscoveryAverageRating(pick),
+      adelinaCount: getDiscoveryReviewAdelinas(pick),
       isFavorite: false,
     }
   }, [restaurants])

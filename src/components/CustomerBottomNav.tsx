@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
+import { ADELIA_LOGO_URL } from '../constants/brand'
 import styles from './CustomerBottomNav.module.css'
 
 const TABS = [
@@ -52,6 +53,10 @@ function NavIcon({ name }: { name: (typeof TABS)[number]['icon'] }) {
 function CustomerBottomNav() {
   return (
     <nav className={styles.nav} aria-label="Navegación principal">
+      <Link to="/" className={styles.sidebarBrand}>
+        <img src={ADELIA_LOGO_URL} alt="" className={styles.sidebarLogo} />
+        <span className={styles.sidebarName}>Adelia</span>
+      </Link>
       {TABS.map((tab) => (
         <NavLink
           key={tab.to}

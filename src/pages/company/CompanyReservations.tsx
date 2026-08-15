@@ -17,9 +17,14 @@ import {
   updateReservation,
   updateReservationStatus,
 } from '../../services/firestore'
-import type { Reservation, ReservationFormData } from '../../types'
+import { syncReservationDeposit } from '../../services/reservationDepositApi'
+import type { PromotionVisitStatus, Reservation, ReservationFormData } from '../../types'
 import type { RestaurantTable } from '../../types'
 import { clampToTodayOrFuture, dateToTimeInput, formatDateSpanish, defaultSchedule, isReservationStartInPast, isSameDay } from '../../utils/helpers'
+import {
+  buildDepositCancelConfirmCopy,
+  reservationHasAuthorizedDeposit,
+} from '../../utils/reservationDeposit'
 import styles from './CompanyReservations.module.css'
 
 interface CompanyReservationsProps {
@@ -51,8 +56,10 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
     () => new Set(),
   )
   const [attendanceClock, setAttendanceClock] = useState(() => Date.now())
+  const [pendingDepositCancelForm, setPendingDepositCancelForm] = useState<ReservationFormData | null>(null)
 
   const durationMinutes = company?.timeSlotMinutes ?? 120
+  const depositCancellationHours = company?.depositCancellationHours ?? null
 
   const reservations = useMemo(
     () => filterReservationsForDate(allReservations, selectedDate),
@@ -261,11 +268,12 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
     }
   }
 
-  const handleSubmit = async (form: ReservationFormData) => {
+  const executeSubmit = async (form: ReservationFormData) => {
     setIsSaving(true)
     setError(null)
 
     const schedule = company?.schedule ?? defaultSchedule()
+    const previousStatus = editingReservation?.status
 
     try {
       if (editingReservation) {
@@ -279,10 +287,25 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
           reservations,
         )
 
+        if (form.status === 'cancelled' && previousStatus !== 'cancelled') {
+          try {
+            await syncReservationDeposit(companyId, updated.id, 'cancelled')
+          } catch (depositError) {
+            console.error('Deposit sync error:', depositError)
+            setError(
+              depositError instanceof Error
+                ? depositError.message
+                : 'La reserva se actualizó, pero no se pudo gestionar la fianza.',
+            )
+          }
+        }
+
         setAllReservations((current) =>
           sortReservations(
             current.map((reservation) =>
-              reservation.id === updated.id ? updated : reservation,
+              reservation.id === updated.id
+                ? { ...reservation, ...updated }
+                : reservation,
             ),
           ),
         )
@@ -298,6 +321,9 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
 
         setAllReservations((current) => sortReservations([...current, created]))
       }
+
+      setModalOpen(false)
+      setPendingDepositCancelForm(null)
     } catch (err) {
       throw err instanceof Error ? err : new Error(getFirestoreErrorMessage(err))
     } finally {
@@ -305,19 +331,59 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
     }
   }
 
+  const handleSubmit = async (form: ReservationFormData): Promise<boolean> => {
+    if (
+      editingReservation
+      && form.status === 'cancelled'
+      && editingReservation.status !== 'cancelled'
+      && reservationHasAuthorizedDeposit(editingReservation)
+    ) {
+      setPendingDepositCancelForm(form)
+      return false
+    }
+
+    await executeSubmit(form)
+    return true
+  }
+
   const handleMarkAttendance = async (
     reservationId: string,
     status: 'confirmed' | 'cancelled',
+    promotionVisitStatus?: PromotionVisitStatus,
   ) => {
     setAttendanceSavingId(reservationId)
     setError(null)
 
     try {
-      await updateReservationStatus(reservationId, status)
+      await updateReservationStatus(
+        reservationId,
+        status,
+        promotionVisitStatus ? { promotionVisitStatus } : undefined,
+      )
+
+      try {
+        await syncReservationDeposit(companyId, reservationId, status)
+      } catch (depositError) {
+        console.error('Deposit sync error:', depositError)
+        setError(
+          depositError instanceof Error
+            ? depositError.message
+            : 'La reserva se actualizó, pero no se pudo gestionar la fianza.',
+        )
+      }
+
       setAllReservations((current) =>
         sortReservations(
           current.map((reservation) =>
-            reservation.id === reservationId ? { ...reservation, status } : reservation,
+            reservation.id === reservationId
+              ? {
+                  ...reservation,
+                  status,
+                  ...(promotionVisitStatus
+                    ? { promotionVisitStatus }
+                    : {}),
+                }
+              : reservation,
           ),
         ),
       )
@@ -467,6 +533,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
         dayReservations={reservations}
         reservation={editingReservation}
         isSaving={isSaving}
+        depositCancellationHours={depositCancellationHours}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
       />
@@ -477,8 +544,34 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
         reservations={reservations}
         tableMeta={tableMeta}
         isSavingId={attendanceSavingId}
+        depositCancellationHours={depositCancellationHours}
         onDismiss={handleDismissAttendance}
         onMarkAttendance={handleMarkAttendance}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingDepositCancelForm && editingReservation)}
+        title="Reserva con fianza"
+        message={
+          editingReservation
+            ? buildDepositCancelConfirmCopy(editingReservation, depositCancellationHours).message
+            : ''
+        }
+        confirmLabel="Sí, cancelar"
+        cancelLabel="Volver"
+        variant="danger"
+        elevated
+        isLoading={isSaving}
+        onConfirm={() => {
+          if (!pendingDepositCancelForm) {
+            return
+          }
+
+          void executeSubmit(pendingDepositCancelForm).catch((err) => {
+            setError(err instanceof Error ? err.message : getFirestoreErrorMessage(err))
+          })
+        }}
+        onCancel={() => setPendingDepositCancelForm(null)}
       />
 
       <ConfirmDialog

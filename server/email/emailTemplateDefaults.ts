@@ -220,5 +220,5 @@ export function buildReservationCancelUrl(slug: string, cancelToken: string): st
 
 export function buildRestaurantProfileUrl(slug: string): string {
   const base = (process.env.APP_URL ?? 'https://adeliareservas.com').replace(/\/$/, '')
-  return `${base}/reservar/${encodeURIComponent(slug)}/restaurante`
+  return `${base}/reservar/${encodeURIComponent(slug)}`
 }
