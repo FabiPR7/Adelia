@@ -14,14 +14,53 @@ import reservationDepositRouter from './routes/reservationDeposit.ts'
 import reservationEmailRouter from './routes/reservationEmail.ts'
 import customerNotificationsRouter from './routes/customerNotifications.ts'
 import customerFriendsRouter from './routes/customerFriends.ts'
+import customerReservationInvitesRouter from './routes/customerReservationInvites.ts'
+import customerGamificationRouter from './routes/customerGamification.ts'
+import customerReviewsRouter from './routes/customerReviews.ts'
+import companyGamificationRouter from './routes/companyGamification.ts'
+import companyNotificationsRouter from './routes/companyNotifications.ts'
 import { handleStripeWebhook } from './routes/stripeWebhook.ts'
-import { adminAuth, adminDb, canUseAdminSdk } from './firebase-admin.ts'
-import { getUserRoleWithRest, verifyIdTokenWithRest } from './rest-firebase.ts'
+import { canUseAdminSdk } from './firebase-admin.ts'
+import { verifyAdmin } from './auth/verifyRequest.ts'
+
+const DEFAULT_CORS_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:4173',
+  'https://adeliareservas.com',
+  'https://www.adeliareservas.com',
+]
+
+function isAllowedOrigin(origin: string): boolean {
+  const configured = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+  if ([...DEFAULT_CORS_ORIGINS, ...configured].includes(origin)) {
+    return true
+  }
+
+  try {
+    const { hostname, protocol } = new URL(origin)
+    return (
+      (hostname === 'localhost' && (protocol === 'http:' || protocol === 'https:'))
+      || (protocol === 'https:' && (
+        hostname.endsWith('.web.app')
+        || hostname.endsWith('.firebaseapp.com')
+      ))
+    )
+  } catch {
+    return false
+  }
+}
 
 export function createApp() {
   const app = express()
 
-  app.use(cors({ origin: true }))
+  app.use(cors({
+    origin(origin, callback) {
+      callback(null, !origin || isAllowedOrigin(origin))
+    },
+  }))
 
   app.post(
     '/api/stripe/webhook',
@@ -32,49 +71,6 @@ export function createApp() {
   )
 
   app.use(express.json())
-
-  async function verifyAdmin(
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) {
-    try {
-      const header = req.headers.authorization
-
-      if (!header?.startsWith('Bearer ')) {
-        res.status(401).json({ error: 'No autorizado.' })
-        return
-      }
-
-      const token = header.slice(7)
-
-      if (canUseAdminSdk) {
-        const decoded = await adminAuth.verifyIdToken(token)
-        const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
-
-        if (!userSnap.exists || userSnap.data()?.role !== 'admin') {
-          res.status(403).json({ error: 'Solo el administrador puede realizar esta acción.' })
-          return
-        }
-
-        next()
-        return
-      }
-
-      const decoded = await verifyIdTokenWithRest(token)
-      const role = await getUserRoleWithRest(token, decoded.uid)
-
-      if (role !== 'admin') {
-        res.status(403).json({ error: 'Solo el administrador puede realizar esta acción.' })
-        return
-      }
-
-      next()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Token inválido o expirado.'
-      res.status(401).json({ error: message })
-    }
-  }
 
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -97,6 +93,11 @@ export function createApp() {
   app.use('/api/public/geocode', geocodeRouter)
   app.use('/api/customer/notifications', customerNotificationsRouter)
   app.use('/api/customer/friends', customerFriendsRouter)
+  app.use('/api/customer/reservation-invites', customerReservationInvitesRouter)
+  app.use('/api/customer/gamification', customerGamificationRouter)
+  app.use('/api/company', companyGamificationRouter)
+  app.use('/api/company', companyNotificationsRouter)
+  app.use('/api/customer/reviews', customerReviewsRouter)
 
   app.use(
     (

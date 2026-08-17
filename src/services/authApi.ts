@@ -17,26 +17,20 @@ export async function syncInitialPasswordChange(newPassword: string): Promise<vo
   const token = await getIdToken()
 
   if (!token) {
-    return
+    throw new Error('No hay sesión activa para sincronizar la contraseña.')
   }
 
-  try {
-    const response = await fetch(`${API_BASE}/api/auth/complete-initial-password-change`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ newPassword }),
-    })
+  const response = await fetch(`${API_BASE}/api/auth/complete-initial-password-change`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ newPassword }),
+  })
 
-    if (!response.ok) {
-      return
-    }
-
-    await response.json()
-  } catch {
-    // La contraseña ya se cambió en Firebase Auth; la sync con API es opcional.
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'No se pudo sincronizar el cambio de contraseña.'))
   }
 }
 

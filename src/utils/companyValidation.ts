@@ -5,6 +5,7 @@ import {
   MAX_COMPANY_VIDEOS,
 } from '../data/companyCharacteristics'
 import type { CompanySchedule, CompanySettingsPayload, ServiceTurn } from '../types'
+import { withFloorPlans } from '../types/company'
 import { isValidMapCoordinates } from './mapCoordinates'
 import { normalizeMainPhotoIndex } from './companyPhotos'
 import {
@@ -419,6 +420,13 @@ export function normalizeCompanySettingsPayload(
       end: turn.end,
     })),
     schedule: normalizeCompanySchedule(payload.schedule),
+    ...withFloorPlans(
+      payload.floorPlans?.length
+        ? payload.floorPlans
+        : payload.floorPlan
+          ? [payload.floorPlan]
+          : [],
+    ),
   }
 }
 

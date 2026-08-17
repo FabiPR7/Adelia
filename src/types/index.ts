@@ -77,6 +77,7 @@ export interface Company {
   schedule: CompanySchedule
   turns: import('./company').ServiceTurn[]
   floorPlan: import('./company').FloorPlan
+  floorPlans: import('./company').FloorPlan[]
   emailTemplates: import('./company').CompanyEmailTemplates
   qrBranding: import('./company').CompanyQrBranding
   reviewCount: number
@@ -143,6 +144,7 @@ export interface Reservation {
   status: ReservationStatus
   cancelToken: string
   createdAt: Date
+  customerUid?: string | null
   promotionId?: string | null
   minimumSpendCents?: number | null
   promotionVisitStatus?: PromotionVisitStatus
@@ -188,6 +190,7 @@ export { defaultGamificationState } from './gamification'
 export type {
   CompanyTab,
   ClientsSection,
+  CompiteSection,
   ReportsSection,
   SettingsSection,
   CompanySettingsSection,
@@ -225,8 +228,10 @@ export {
   SCHEDULE_DAY_LABELS,
   SETTINGS_SECTIONS,
   CLIENTS_SECTIONS,
+  COMPITE_SECTIONS,
   REPORTS_SECTIONS,
   isReportsTab,
+  isCompiteTab,
   DEFAULT_RECEIVED_EMAIL_TEMPLATE,
   DEFAULT_CONFIRMATION_EMAIL_TEMPLATE,
   defaultCompanyEmailTemplates,
@@ -235,6 +240,19 @@ export {
   FLOOR_PLAN_ELEMENT_LABELS,
   createFloorPlanElement,
   defaultFloorPlan,
+  createNamedFloorPlan,
+  parseFloorPlans,
+  primaryFloorPlan,
+  areFloorPlansEnabled,
+  enabledFloorPlans,
+  tablesForFloorPlan,
+  tableBelongsToFloorPlan,
+  syncAllFloorPlans,
+  withFloorPlans,
+  serializeFloorPlansForFirestore,
+  MAX_FLOOR_PLANS,
+  MAX_FLOOR_PLAN_NAME_LENGTH,
+  sanitizeFloorPlanName,
   defaultTurns,
   getTableMapKey,
   syncFloorPlanWithTables,

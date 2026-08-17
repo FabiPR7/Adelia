@@ -18,6 +18,7 @@ import {
   updateReservationStatus,
 } from '../../services/firestore'
 import { syncReservationDeposit } from '../../services/reservationDepositApi'
+import { pingCompanyGamification } from '../../services/companyGamification'
 import type { PromotionVisitStatus, Reservation, ReservationFormData } from '../../types'
 import type { RestaurantTable } from '../../types'
 import { clampToTodayOrFuture, dateToTimeInput, formatDateSpanish, defaultSchedule, isReservationStartInPast, isSameDay } from '../../utils/helpers'
@@ -322,6 +323,10 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
         setAllReservations((current) => sortReservations([...current, created]))
       }
 
+      if (form.status === 'confirmed') {
+        pingCompanyGamification()
+      }
+
       setModalOpen(false)
       setPendingDepositCancelForm(null)
     } catch (err) {
@@ -387,6 +392,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
           ),
         ),
       )
+      pingCompanyGamification()
     } catch (err) {
       setError(getFirestoreErrorMessage(err))
     } finally {

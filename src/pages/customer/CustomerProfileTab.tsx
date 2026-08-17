@@ -2,66 +2,51 @@ import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import GamificationRankingStripCard from '../../components/GamificationRankingStripCard'
 import { useAuth } from '../../context/AuthContext'
+import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import { logout } from '../../services/auth'
-import { getAllCompanies, getCustomerReservations } from '../../services/firestore'
-import { useCustomerGamification } from '../../hooks/useCustomerGamification'
 import { useFavoriteRestaurants } from '../../hooks/useFavoriteRestaurants'
-import { fetchPublicPromotions } from '../../services/publicPromotions'
-import { hasRestaurantProfile } from '../../utils/publicBooking'
-import {
-  mapCompanyToDiscoveryRestaurant,
-  mapCompanyToPublicBooking,
-  type PublicDiscoveryRestaurant,
-} from '../../utils/publicDiscovery'
+import { listMyReviews, type CustomerReviewSummary } from '../../services/userReviews'
+import { listProductClaims, type ProductClaimRecord } from '../../services/productClaims'
 import { getLevelProfileBackground } from '../../utils/levelProfileBackground'
 import { getLevelProfileBodyTheme } from '../../utils/levelProfileBodyThemes'
 import { getLevelRankingStripTheme } from '../../utils/levelRankingStripThemes'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
+import LegalLinks from '../../components/LegalLinks'
 import styles from './CustomerProfileTab.module.css'
 
 const QUICK_ACCENTS = ['coral', 'gold', 'magenta', 'sunset'] as const
 
 function CustomerProfileTab() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const { favoriteSlugs, toggleFavorite } = useFavoriteRestaurants()
-  const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
-  const [reservations, setReservations] = useState<Awaited<ReturnType<typeof getCustomerReservations>>>([])
-  const [promotionCompanyIds, setPromotionCompanyIds] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(true)
+  const {
+    loading,
+    reservations,
+    claimedPromotions,
+    restaurants,
+    level,
+    levelProgress,
+    xpToNext,
+    state,
+  } = useCustomerGamificationContext()
+  const [reviews, setReviews] = useState<CustomerReviewSummary[]>([])
+  const [productClaims, setProductClaims] = useState<ProductClaimRecord[]>([])
 
   useEffect(() => {
-    if (!profile) {
-      return
-    }
-
     let cancelled = false
-
     void Promise.all([
-      getAllCompanies().then((companies) =>
-        companies
-          .filter((company) => hasRestaurantProfile(mapCompanyToPublicBooking(company)))
-          .map(mapCompanyToDiscoveryRestaurant),
-      ),
-      getCustomerReservations(profile.email),
-      fetchPublicPromotions().catch(() => []),
-    ])
-      .then(([restaurantData, reservationData, promotions]) => {
-        if (!cancelled) {
-          setRestaurants(restaurantData)
-          setReservations(reservationData)
-          setPromotionCompanyIds(new Set(promotions.map((promotion) => promotion.companyId)))
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      })
-
+      listMyReviews(),
+      user?.uid ? listProductClaims(user.uid) : Promise.resolve([]),
+    ]).then(([reviewItems, claimItems]) => {
+      if (!cancelled) {
+        setReviews(reviewItems)
+        setProductClaims(claimItems)
+      }
+    })
     return () => {
       cancelled = true
     }
-  }, [profile])
+  }, [user?.uid])
 
   const favoriteRestaurants = useMemo(
     () => restaurants.filter((restaurant) => favoriteSlugs.includes(restaurant.slug)),
@@ -73,23 +58,15 @@ function CustomerProfileTab() {
     [reservations],
   )
 
-  const gamification = useCustomerGamification({
-    reservations,
-    favoriteSlugs,
-    restaurants,
-    promotionCompanyIds,
-    enabled: Boolean(profile),
-  })
-
   if (!profile || loading) {
     return <div className={styles.loading}>Cargando perfil…</div>
   }
 
-  const level = gamification.level.level
-  const stripTheme = getLevelRankingStripTheme(level)
-  const bodyTheme = getLevelProfileBodyTheme(level)
-  const levelBackground = getLevelProfileBackground(level)
-  const progressPercent = Math.round(gamification.levelProgress * 100)
+  const levelNumber = level.level
+  const stripTheme = getLevelRankingStripTheme(levelNumber)
+  const bodyTheme = getLevelProfileBodyTheme(levelNumber)
+  const levelBackground = getLevelProfileBackground(levelNumber)
+  const progressPercent = Math.round(levelProgress * 100)
 
   const photo = profile.photoUrl
     ? optimizeCloudinaryUrl(profile.photoUrl, CLOUDINARY_DISPLAY.photoPreview)
@@ -129,20 +106,20 @@ function CustomerProfileTab() {
 
         <section className={styles.showcase}>
           <GamificationRankingStripCard
-            level={level}
-            levelTitle={gamification.level.title}
+            level={levelNumber}
+            levelTitle={level.title}
             displayName={profile.displayName}
-            xp={gamification.state.xp}
-            levelProgress={gamification.levelProgress}
+            xp={state.xp}
+            levelProgress={levelProgress}
             photoUrl={photo || undefined}
             highlight
             profileSize
             className={styles.heroStrip}
           />
 
-          <div className={styles.levelPill} aria-label={`Nivel ${level}, ${gamification.level.title}`}>
-            <span className={styles.levelPillNumber}>Nivel {level}</span>
-            <span className={styles.levelPillTitle}>{gamification.level.title}</span>
+          <div className={styles.levelPill} aria-label={`Nivel ${levelNumber}, ${level.title}`}>
+            <span className={styles.levelPillNumber}>Nivel {levelNumber}</span>
+            <span className={styles.levelPillTitle}>{level.title}</span>
           </div>
 
           <div className={styles.identityMeta}>
@@ -152,8 +129,8 @@ function CustomerProfileTab() {
 
           <p className={styles.progressHint}>
             {progressPercent}% al siguiente nivel
-            {gamification.xpToNext != null
-              ? ` · faltan ${gamification.xpToNext.toLocaleString('es-ES')} XP`
+            {xpToNext != null
+              ? ` · faltan ${xpToNext.toLocaleString('es-ES')} XP`
               : null}
           </p>
         </section>
@@ -161,7 +138,7 @@ function CustomerProfileTab() {
         <section className={styles.metrics}>
           <div className={styles.metricCard}>
             <span className={styles.metricIcon} aria-hidden="true">⚡</span>
-            <strong>{gamification.state.xp.toLocaleString('es-ES')}</strong>
+            <strong>{state.xp.toLocaleString('es-ES')}</strong>
             <span>XP total</span>
           </div>
           <div className={styles.metricCard}>
@@ -214,13 +191,55 @@ function CustomerProfileTab() {
 
         <section className={styles.panel}>
           <div className={styles.panelHead}>
+            <h2>Promos y reseñas</h2>
+            <span>{claimedPromotions.length + reviews.length + productClaims.length}</span>
+          </div>
+          {claimedPromotions.length === 0 && reviews.length === 0 && productClaims.length === 0 ? (
+            <div className={styles.emptyFavorites}>
+              <p>Tus canjes y reseñas aparecen aquí, fuera del documento de perfil.</p>
+              <Link to="/app/promociones">Ver promociones</Link>
+            </div>
+          ) : (
+            <ul className={styles.activityList}>
+              {claimedPromotions.slice(0, 4).map((claim) => (
+                <li key={`${claim.promotionId}-${claim.claimedAt}`} className={styles.activityItem}>
+                  <strong>{claim.title}</strong>
+                  <span>{claim.companyName}</span>
+                </li>
+              ))}
+              {reviews.slice(0, 4).map((review) => (
+                <li key={review.id} className={styles.activityItem}>
+                  <strong>{review.companyName}</strong>
+                  <span>
+                    {review.rating} Adelinas
+                    {review.commentExcerpt ? ` · ${review.commentExcerpt}` : ''}
+                  </span>
+                </li>
+              ))}
+              {productClaims.slice(0, 4).map((claim) => (
+                <li key={claim.id} className={styles.activityItem}>
+                  <strong>Consumo verificado</strong>
+                  <span>
+                    {(claim.totalCents / 100).toLocaleString('es-ES', {
+                      style: 'currency',
+                      currency: 'EUR',
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
             <h2>Favoritos</h2>
             <span>{favoriteRestaurants.length}</span>
           </div>
 
           {favoriteRestaurants.length === 0 ? (
             <div className={styles.emptyFavorites}>
-              <p>Guarda restaurantes mientras exploras el carrusel.</p>
+              <p>Toca el corazón en un restaurante para guardarlo. También cuenta para misiones.</p>
               <Link to="/app/explorar">Ir a buscar</Link>
             </div>
           ) : (
@@ -264,6 +283,9 @@ function CustomerProfileTab() {
           )}
         </section>
 
+        <div className={styles.legalRow}>
+          <LegalLinks from="/app/perfil" />
+        </div>
         <div className={styles.actions}>
           <Link to="/cuenta/completar-perfil?edit=1" className={styles.secondaryBtn}>
             Editar preferencias

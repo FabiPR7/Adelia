@@ -12,6 +12,7 @@ import cardCrm from '../assets/landing-card-crm.webp'
 import cardReports from '../assets/landing-card-reports.webp'
 import cardEmail from '../assets/landing-card-email.webp'
 import cardProfile from '../assets/landing-card-profile.webp'
+import LegalLinks from '../components/LegalLinks'
 import styles from './CompanyLandingPage.module.css'
 
 const STATS = [
@@ -456,6 +457,11 @@ function CompanyLandingPage() {
           </p>
         </section>
       </main>
+
+      <footer className={styles.siteFooter}>
+        <LegalLinks from="/empresa" />
+        <p>© {new Date().getFullYear()} Adelia · Reservas para restaurantes</p>
+      </footer>
     </div>
   )
 }

@@ -8,7 +8,7 @@ import {
 } from '../../services/publicApi'
 import type { AdelinaSlotState } from '../../types/review'
 import { getAdelinaSlotStates } from '../../types/review'
-import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../../utils/cloudinaryUrl'
 import styles from './PublicRestaurantReviews.module.css'
 
 interface PublicRestaurantReviewsProps {
@@ -116,11 +116,12 @@ function PublicReviewCard({
                 />
               ) : (
                 <video
-                  src={item.url}
+                  src={optimizeCloudinaryVideoUrl(item.url)}
                   className={styles.mediaPreview}
                   controls
                   muted
                   preload="metadata"
+                  playsInline
                 />
               )}
             </li>

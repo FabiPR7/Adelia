@@ -34,7 +34,10 @@ export function formatDistanceKm(distanceKm: number): string {
   return `${Math.round(distanceKm)} km`
 }
 
-/** Radio máximo para mostrar promociones "cerca" del usuario. */
+/** Radio para el mapa «Cerca tuyo» en exploración. */
+export const DISCOVERY_NEARBY_MAX_KM = 20
+
+/** Radio para ofertas cercanas en la pestaña de promociones. */
 export const PROMO_NEARBY_MAX_KM = 35
 
 /** Tiempo estimado de desplazamiento según distancia en línea recta. */

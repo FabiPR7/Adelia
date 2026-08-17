@@ -22,6 +22,11 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
     timeSlotMinutes: (data.timeSlotMinutes as number) ?? 120,
     schedule: data.schedule ?? defaultSchedule(),
     floorPlan: data.floorPlan ?? { enabled: false },
+    floorPlans: Array.isArray(data.floorPlans) && data.floorPlans.length > 0
+      ? data.floorPlans
+      : data.floorPlan
+        ? [data.floorPlan]
+        : [],
   }
 }
 

@@ -308,7 +308,7 @@ export function buildLeaderboardWithUser(
     isYou: true,
   })
 
-  let pool = WEEKLY_LEADERBOARD
+  let pool = import.meta.env.DEV ? WEEKLY_LEADERBOARD : []
 
   if (options.scope === 'country') {
     pool = pool.filter((entry) => entry.homeCountry === userCountry)

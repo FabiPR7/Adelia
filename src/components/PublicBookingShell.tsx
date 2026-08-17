@@ -66,6 +66,7 @@ function PublicBookingShell({
           <span>Adelia</span>
         </div>
         <nav className={styles.footerLinks} aria-label="Legal">
+          <Link to={`/legal/aviso-legal?from=${encodeURIComponent(legalFrom)}`}>Aviso legal</Link>
           <Link to={`/legal/privacidad?from=${encodeURIComponent(legalFrom)}`}>Privacidad</Link>
           <Link to={`/legal/terminos?from=${encodeURIComponent(legalFrom)}`}>Términos</Link>
           <Link to={`/legal/cookies?from=${encodeURIComponent(legalFrom)}`}>Cookies</Link>

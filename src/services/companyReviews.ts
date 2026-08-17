@@ -6,14 +6,13 @@ import {
   limit,
   query,
   serverTimestamp,
-  setDoc,
   Timestamp,
   updateDoc,
   where,
-  writeBatch,
 } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { auth, db } from '../config/firebase'
 import { getFirestoreErrorMessage } from './firestoreErrors'
+import { pingCompanyGamification } from './companyGamification'
 import type { CustomerGamificationState } from '../types/gamification'
 import type {
   CompanyReview,
@@ -23,17 +22,14 @@ import type {
   ReviewTaggedPromotion,
 } from '../types/review'
 import {
-  computeReviewAdelinas,
-  defaultCompanyReviewStats,
   MAX_REVIEW_RATING,
   MAX_REVIEW_REPLY_LENGTH,
   MIN_REVIEW_RATING,
   MIN_REVIEW_REPLY_LENGTH,
   normalizeReviewRating,
-  parseCompanyReviewStats,
   reviewHasPhotoBonus,
 } from '../types/review'
-import { extractTagsFromComment, getReviewCommentPlainText } from '../utils/reviewCommentTags'
+import { getReviewCommentPlainText } from '../utils/reviewCommentTags'
 
 export interface SubmitCustomerReviewInput {
   reservationId: string
@@ -57,6 +53,38 @@ export interface UpdateCustomerReviewInput {
   mediaItems: ReviewMediaItem[]
   taggedProducts: ReviewTaggedProduct[]
   taggedPromotions: ReviewTaggedPromotion[]
+}
+
+const API_BASE = import.meta.env.VITE_API_URL ?? ''
+
+async function callCustomerReviewApi(
+  path: string,
+  method: 'POST' | 'PUT' | 'DELETE',
+  body?: Record<string, unknown>,
+) {
+  const user = auth.currentUser
+  if (!user) {
+    throw new Error('Debes iniciar sesión como cliente.')
+  }
+  const token = await user.getIdToken()
+  const response = await fetch(`${API_BASE}/api/customer/reviews${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  })
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string
+    inventory?: Record<string, number>
+    xp?: number
+    adelinas?: number
+  }
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo guardar la reseña.')
+  }
+  return data
 }
 
 function mapReviewMediaItems(value: unknown): ReviewMediaItem[] {
@@ -184,10 +212,6 @@ function reviewRef(companyId: string, customerUid: string) {
   return doc(db, 'companies', companyId, 'reviews', customerUid)
 }
 
-function sanitizeForFirestore<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
-}
-
 async function runFirestoreSaveStep(label: string, action: () => Promise<void>) {
   try {
     await action()
@@ -231,55 +255,6 @@ function validateCompanyReplyInput(text: string) {
 
 function reviewDocumentRef(companyId: string, reviewId: string) {
   return doc(db, 'companies', companyId, 'reviews', reviewId)
-}
-
-function applyReviewGamificationOnCreate(
-  current: CustomerGamificationState,
-  input: { companyId: string; reservationId: string; hasPhoto: boolean },
-): CustomerGamificationState {
-  if (current.reviewedCompanyIds.includes(input.companyId)) {
-    return current
-  }
-
-  return {
-    ...current,
-    reviewsCount: current.reviewsCount + 1,
-    reviewsWithPhotoCount: current.reviewsWithPhotoCount + (input.hasPhoto ? 1 : 0),
-    textReviewsCount: current.textReviewsCount + (input.hasPhoto ? 0 : 1),
-    reviewedCompanyIds: [...current.reviewedCompanyIds, input.companyId],
-    reviewedReservationIds: current.reviewedReservationIds.includes(input.reservationId)
-      ? current.reviewedReservationIds
-      : [...current.reviewedReservationIds, input.reservationId],
-  }
-}
-
-function applyReviewGamificationOnUpdate(
-  current: CustomerGamificationState,
-  previousHasPhoto: boolean,
-  nextHasPhoto: boolean,
-): CustomerGamificationState {
-  if (previousHasPhoto === nextHasPhoto) {
-    return current
-  }
-
-  return {
-    ...current,
-    reviewsWithPhotoCount: current.reviewsWithPhotoCount + (nextHasPhoto ? 1 : -1),
-    textReviewsCount: current.textReviewsCount + (nextHasPhoto ? -1 : 1),
-  }
-}
-
-function applyReviewGamificationOnDelete(
-  current: CustomerGamificationState,
-  input: { companyId: string; hasPhoto: boolean },
-): CustomerGamificationState {
-  return {
-    ...current,
-    reviewsCount: Math.max(0, current.reviewsCount - 1),
-    reviewsWithPhotoCount: Math.max(0, current.reviewsWithPhotoCount - (input.hasPhoto ? 1 : 0)),
-    textReviewsCount: Math.max(0, current.textReviewsCount - (input.hasPhoto ? 0 : 1)),
-    reviewedCompanyIds: current.reviewedCompanyIds.filter((id) => id !== input.companyId),
-  }
 }
 
 export async function getCompanyReviews(companyId: string): Promise<CompanyReview[]> {
@@ -335,139 +310,36 @@ export async function submitCustomerReview(
   currentGamification: CustomerGamificationState,
   input: SubmitCustomerReviewInput,
 ): Promise<CustomerGamificationState> {
-  const existing = await getCustomerReviewForCompany(input.companyId, input.customerUid)
-  if (existing) {
-    throw new Error('Ya tienes una reseña en este restaurante. Puedes editarla o eliminarla.')
-  }
-
   const { rating, comment } = validateReviewInput(input.rating, input.comment)
-  const extractedTags = extractTagsFromComment(comment)
-  const hasPhoto = reviewHasPhotoBonus(false, input.mediaItems)
-  const adelinasEarned = Math.round(computeReviewAdelinas(rating, hasPhoto, input.mediaItems))
-  const companyRef = doc(db, 'companies', input.companyId)
-  const userRef = doc(db, 'users', input.customerUid)
-
-  const companySnap = await getDoc(companyRef)
-  const stats = companySnap.exists()
-    ? parseCompanyReviewStats(companySnap.data() as Record<string, unknown>)
-    : defaultCompanyReviewStats()
-
-  const nextGamification = sanitizeForFirestore(applyReviewGamificationOnCreate(currentGamification, {
+  const data = await callCustomerReviewApi('/', 'POST', {
     companyId: input.companyId,
     reservationId: input.reservationId,
-    hasPhoto,
-  }))
-
-  const reviewPayload = {
-    companyId: input.companyId,
-    reservationId: input.reservationId,
-    customerUid: input.customerUid,
-    customerName: input.customerName,
     rating,
     comment,
-    hasPhoto,
     mediaItems: input.mediaItems,
-    taggedProducts: extractedTags.taggedProducts,
-    taggedPromotions: extractedTags.taggedPromotions,
-    adelinasEarned,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  })
+  return {
+    ...currentGamification,
+    ...(data.inventory && typeof data.inventory === 'object' ? { inventory: data.inventory } : {}),
+    ...(typeof data.xp === 'number' && Number.isFinite(data.xp) ? { xp: Math.trunc(data.xp) } : {}),
+    ...(typeof data.adelinas === 'number' && Number.isFinite(data.adelinas)
+      ? { adelinas: Math.trunc(data.adelinas) }
+      : {}),
   }
-
-  await runFirestoreSaveStep('No se pudo guardar la reseña', async () => {
-    await setDoc(reviewRef(input.companyId, input.customerUid), reviewPayload)
-  })
-
-  await runFirestoreSaveStep('No se pudieron actualizar las estadísticas del restaurante', async () => {
-    await updateDoc(companyRef, {
-      reviewCount: stats.reviewCount + 1,
-      reviewRatingSum: stats.reviewRatingSum + rating,
-      reviewAdelinas: stats.reviewAdelinas + adelinasEarned,
-    })
-  })
-
-  await runFirestoreSaveStep('No se pudo actualizar tu perfil', async () => {
-    await updateDoc(userRef, {
-      gamification: nextGamification,
-      xp: nextGamification.xp,
-      adelinas: nextGamification.adelinas,
-    })
-  })
-
-  return nextGamification
 }
 
 export async function updateCustomerReview(
   currentGamification: CustomerGamificationState,
   input: UpdateCustomerReviewInput,
 ): Promise<CustomerGamificationState> {
-  const existing = await getCustomerReviewForCompany(input.companyId, input.customerUid)
-  if (!existing) {
-    throw new Error('No encontramos tu reseña para editar.')
-  }
-
   const { rating, comment } = validateReviewInput(input.rating, input.comment)
-  const extractedTags = extractTagsFromComment(comment)
-  const hasPhoto = reviewHasPhotoBonus(false, input.mediaItems)
-  const adelinasEarned = Math.round(computeReviewAdelinas(rating, hasPhoto, input.mediaItems))
-  const companyRef = doc(db, 'companies', input.companyId)
-  const userRef = doc(db, 'users', input.customerUid)
-
-  const companySnap = await getDoc(companyRef)
-  const stats = companySnap.exists()
-    ? parseCompanyReviewStats(companySnap.data() as Record<string, unknown>)
-    : defaultCompanyReviewStats()
-
-  const nextGamification = applyReviewGamificationOnUpdate(
-    currentGamification,
-    reviewHasPhotoBonus(existing.hasPhoto, existing.mediaItems),
-    hasPhoto,
-  )
-
-  const targetRef = reviewRef(input.companyId, input.customerUid)
-  const reviewPayload = {
-    companyId: input.companyId,
+  await callCustomerReviewApi(`/${encodeURIComponent(input.companyId)}`, 'PUT', {
     reservationId: input.reservationId,
-    customerUid: input.customerUid,
-    customerName: input.customerName,
     rating,
     comment,
-    hasPhoto,
     mediaItems: input.mediaItems,
-    taggedProducts: extractedTags.taggedProducts,
-    taggedPromotions: extractedTags.taggedPromotions,
-    adelinasEarned,
-    updatedAt: serverTimestamp(),
-  }
-
-  const batch = writeBatch(db)
-
-  if (existing.id !== input.customerUid) {
-    batch.delete(doc(db, 'companies', input.companyId, 'reviews', existing.id))
-    batch.set(targetRef, {
-      ...reviewPayload,
-      createdAt: Timestamp.fromDate(existing.createdAt),
-    })
-  } else {
-    batch.update(targetRef, reviewPayload)
-  }
-
-  batch.update(companyRef, {
-    reviewCount: Math.max(0, stats.reviewCount),
-    reviewRatingSum: Math.max(0, stats.reviewRatingSum - existing.rating + rating),
-    reviewAdelinas: Math.max(0, stats.reviewAdelinas - existing.adelinasEarned + adelinasEarned),
   })
-
-  batch.update(userRef, {
-    gamification: nextGamification,
-    xp: nextGamification.xp,
-    adelinas: nextGamification.adelinas,
-  })
-
-  await batch.commit().catch((error) => {
-    throw new Error(getFirestoreErrorMessage(error, 'save'))
-  })
-  return nextGamification
+  return currentGamification
 }
 
 export async function deleteCustomerReview(
@@ -475,48 +347,9 @@ export async function deleteCustomerReview(
   companyId: string,
   customerUid: string,
 ): Promise<CustomerGamificationState> {
-  const existing = await getCustomerReviewForCompany(companyId, customerUid)
-  if (!existing) {
-    throw new Error('No encontramos tu reseña para eliminar.')
-  }
-
-  const companyRef = doc(db, 'companies', companyId)
-  const userRef = doc(db, 'users', customerUid)
-
-  const companySnap = await getDoc(companyRef)
-  const stats = companySnap.exists()
-    ? parseCompanyReviewStats(companySnap.data() as Record<string, unknown>)
-    : defaultCompanyReviewStats()
-
-  const nextGamification = applyReviewGamificationOnDelete(currentGamification, {
-    companyId,
-    hasPhoto: reviewHasPhotoBonus(existing.hasPhoto, existing.mediaItems),
-  })
-
-  const batch = writeBatch(db)
-
-  batch.delete(reviewRef(companyId, customerUid))
-
-  if (existing.id !== customerUid) {
-    batch.delete(doc(db, 'companies', companyId, 'reviews', existing.id))
-  }
-
-  batch.update(companyRef, {
-    reviewCount: Math.max(0, stats.reviewCount - 1),
-    reviewRatingSum: Math.max(0, stats.reviewRatingSum - existing.rating),
-    reviewAdelinas: Math.max(0, stats.reviewAdelinas - existing.adelinasEarned),
-  })
-
-  batch.update(userRef, {
-    gamification: nextGamification,
-    xp: nextGamification.xp,
-    adelinas: nextGamification.adelinas,
-  })
-
-  await batch.commit().catch((error) => {
-    throw new Error(getFirestoreErrorMessage(error, 'save'))
-  })
-  return nextGamification
+  void customerUid
+  await callCustomerReviewApi(`/${encodeURIComponent(companyId)}`, 'DELETE')
+  return currentGamification
 }
 
 export async function submitCompanyReviewReply(
@@ -552,6 +385,7 @@ export async function submitCompanyReviewReply(
   await runFirestoreSaveStep('No se pudo guardar la respuesta', async () => {
     await updateDoc(reviewDocumentRef(companyId, reviewId), { ownerReply: ownerReplyPayload })
   })
+  pingCompanyGamification()
 
   const createdAt = existingReply?.createdAt ?? new Date()
 

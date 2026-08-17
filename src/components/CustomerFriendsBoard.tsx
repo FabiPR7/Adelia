@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { LeaderboardEntry } from '../data/gamificationLeaderboard'
-import { searchShowcaseUsers } from '../data/gamificationLeaderboard'
+import { searchCustomers } from '../services/customerFriends'
 import type { FriendProfile } from '../types/friends'
 import ConfirmDialog from './ConfirmDialog'
 import FriendActionBar from './FriendActionBar'
@@ -18,7 +18,7 @@ interface CustomerFriendsBoardProps {
   incomingRequestCount: number
   userEntry: LeaderboardEntry
   userRankAmongFriends: number
-  onSendFriendRequest: (id: string) => boolean
+  onSendFriendRequest: (id: string) => Promise<void> | boolean
   onAcceptFriendRequest: (id: string) => boolean
   onRejectFriendRequest: (id: string) => boolean
   hasOutgoingRequest: (id: string) => boolean
@@ -44,19 +44,12 @@ function profileToStripProps(friend: FriendProfile) {
   return friendToStripProps(friend)
 }
 
-function searchAmongFriends(friends: FriendProfile[], query: string): FriendProfile[] {
-  const normalized = query.trim().toLowerCase()
-  if (!normalized) {
-    return []
-  }
-
-  return friends.filter((friend) => friend.displayName.toLowerCase().includes(normalized))
-}
+type PersonRelation = 'friend' | 'outgoing' | 'incoming' | 'none'
 
 function CustomerFriendsBoard({
   favoriteFriends,
   regularFriends,
-  blockedSearchIds,
+  blockedSearchIds: _blockedSearchIds,
   incomingRequests,
   incomingRequestCount,
   userEntry,
@@ -71,7 +64,10 @@ function CustomerFriendsBoard({
   onFriendProfileActiveChange,
 }: CustomerFriendsBoardProps) {
   const [friendQuery, setFriendQuery] = useState('')
-  const [friendSubmittedQuery, setFriendSubmittedQuery] = useState('')
+  const [peopleQuery, setPeopleQuery] = useState('')
+  const [peopleResults, setPeopleResults] = useState<FriendProfile[]>([])
+  const [peopleLoading, setPeopleLoading] = useState(false)
+  const [peopleError, setPeopleError] = useState<string | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [addQuery, setAddQuery] = useState('')
   const [addSubmittedQuery, setAddSubmittedQuery] = useState('')
@@ -104,10 +100,66 @@ function CustomerFriendsBoard({
     }, 1000)
   }
 
-  const addSearchResults = useMemo(
-    () => searchShowcaseUsers(addSubmittedQuery, blockedSearchIds),
-    [addSubmittedQuery, blockedSearchIds],
-  )
+  const [addSearchResults, setAddSearchResults] = useState<FriendProfile[]>([])
+  const [addSearchLoading, setAddSearchLoading] = useState(false)
+  const [addSearchError, setAddSearchError] = useState<string | null>(null)
+  const [sendingRequestId, setSendingRequestId] = useState<string | null>(null)
+  const [requestErrorById, setRequestErrorById] = useState<Record<string, string>>({})
+
+  const openAddModal = (presetQuery = '') => {
+    setAddModalOpen(true)
+    setAddQuery(presetQuery)
+    setAddSubmittedQuery(presetQuery.trim())
+    setAddSearchError(null)
+    setRequestErrorById({})
+  }
+
+  useEffect(() => {
+    const trimmed = addSubmittedQuery.trim()
+    if (trimmed.length < 2) {
+      setAddSearchResults([])
+      setAddSearchLoading(false)
+      setAddSearchError(null)
+      return
+    }
+
+    let cancelled = false
+    setAddSearchLoading(true)
+    setAddSearchError(null)
+
+    void searchCustomers(trimmed)
+      .then((results) => {
+        if (!cancelled) {
+          setAddSearchResults(results)
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setAddSearchResults([])
+          setAddSearchError(error instanceof Error ? error.message : 'No se pudo buscar.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAddSearchLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [addSubmittedQuery])
+
+  useEffect(() => {
+    if (!addModalOpen) {
+      return
+    }
+    const trimmed = addQuery.trim()
+    const timer = window.setTimeout(() => {
+      setAddSubmittedQuery(trimmed)
+    }, 280)
+    return () => window.clearTimeout(timer)
+  }, [addQuery, addModalOpen])
 
   const handleAddSearch = (event: FormEvent) => {
     event.preventDefault()
@@ -120,22 +172,96 @@ function CustomerFriendsBoard({
 
   const handleFriendSearch = (event: FormEvent) => {
     event.preventDefault()
+    setPeopleQuery(friendQuery.trim())
+  }
+
+  useEffect(() => {
     const trimmed = friendQuery.trim()
-    if (!trimmed) {
+    const timer = window.setTimeout(() => {
+      setPeopleQuery(trimmed)
+    }, 280)
+    return () => window.clearTimeout(timer)
+  }, [friendQuery])
+
+  useEffect(() => {
+    const trimmed = peopleQuery.trim()
+    if (trimmed.length < 2) {
+      setPeopleResults([])
+      setPeopleLoading(false)
+      setPeopleError(null)
       return
     }
-    setFriendSubmittedQuery(trimmed)
-  }
+
+    let cancelled = false
+    setPeopleLoading(true)
+    setPeopleError(null)
+
+    void searchCustomers(trimmed)
+      .then((results) => {
+        if (!cancelled) {
+          setPeopleResults(results)
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setPeopleResults([])
+          setPeopleError(error instanceof Error ? error.message : 'No se pudo buscar.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPeopleLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [peopleQuery])
 
   const allFriends = useMemo(
     () => [...favoriteFriends, ...regularFriends],
     [favoriteFriends, regularFriends],
   )
 
-  const friendSearchResults = useMemo(
-    () => searchAmongFriends(allFriends, friendSubmittedQuery),
-    [allFriends, friendSubmittedQuery],
+  const friendIds = useMemo(
+    () => new Set(allFriends.map((friend) => friend.id)),
+    [allFriends],
   )
+  const incomingIds = useMemo(
+    () => new Set(incomingRequests.map((friend) => friend.id)),
+    [incomingRequests],
+  )
+
+  const relationOf = (id: string): PersonRelation => {
+    if (friendIds.has(id)) {
+      return 'friend'
+    }
+    if (incomingIds.has(id)) {
+      return 'incoming'
+    }
+    if (hasOutgoingRequest(id)) {
+      return 'outgoing'
+    }
+    return 'none'
+  }
+
+  const sendRequestTo = (id: string) => {
+    setSendingRequestId(id)
+    setRequestErrorById((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+    void Promise.resolve(onSendFriendRequest(id))
+      .catch((error) => {
+        setRequestErrorById((current) => ({
+          ...current,
+          [id]: error instanceof Error ? error.message : 'No se pudo enviar.',
+        }))
+      })
+      .finally(() => setSendingRequestId(null))
+  }
 
   const selectedFriend = useMemo(
     () => allFriends.find((friend) => friend.id === selectedFriendId) ?? null,
@@ -186,7 +312,7 @@ function CustomerFriendsBoard({
   const scrollToFriend = (friendId: string) => {
     entryAnchorsRef.current.get(friendId)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     setActiveFriendId(friendId)
-    setFriendSubmittedQuery('')
+    setPeopleQuery('')
     setFriendQuery('')
   }
 
@@ -245,11 +371,7 @@ function CustomerFriendsBoard({
       <button
         type="button"
         className={styles.headIconBtn}
-        onClick={() => {
-          setAddModalOpen(true)
-          setAddQuery('')
-          setAddSubmittedQuery('')
-        }}
+        onClick={() => openAddModal()}
         aria-label="Añadir amigos"
       >
         <span className={styles.headIconGlyph} aria-hidden="true">
@@ -269,36 +391,88 @@ function CustomerFriendsBoard({
           type="search"
           value={friendQuery}
           onChange={(event) => setFriendQuery(event.target.value)}
-          placeholder="Buscar entre tus amigos…"
+          placeholder="Nombre o email de cualquier usuario…"
           className={styles.friendSearchInput}
-          aria-label="Buscar entre tus amigos"
+          aria-label="Buscar personas en Adelia"
         />
-        <button type="submit" className={styles.friendSearchBtn} disabled={!friendQuery.trim()}>
+        <button type="submit" className={styles.friendSearchBtn} disabled={friendQuery.trim().length < 2}>
           Buscar
         </button>
       </form>
+      <p className={styles.peopleSearchHint}>
+        {peopleLoading
+          ? 'Buscando cuentas reales…'
+          : peopleError
+            ? peopleError
+            : peopleQuery.trim().length >= 2
+              ? `${peopleResults.length} resultado${peopleResults.length === 1 ? '' : 's'} en Adelia`
+              : 'Escribe al menos 2 letras: Stan, Georgiana, el nombre completo o el email.'}
+      </p>
 
-      {friendSubmittedQuery.length > 0 && friendSearchResults.length > 0 && (
+      {peopleQuery.trim().length >= 2 && !peopleLoading && !peopleError && peopleResults.length === 0 ? (
+        <p className={styles.emptyHint}>
+          Nadie coincide con «{peopleQuery}». Prueba otra parte del nombre o el email.
+        </p>
+      ) : null}
+
+      {peopleResults.length > 0 && (
         <div className={styles.friendSearchResults}>
-          {friendSearchResults.map((friend) => {
-            const rank = friendsRankingEntries.find((entry) => entry.id === friend.id)?.rank ?? 0
+          {peopleResults.map((person) => {
+            const relation = relationOf(person.id)
+            const rank = friendsRankingEntries.find((entry) => entry.id === person.id)?.rank ?? 0
+            const sending = sendingRequestId === person.id
+            const requestError = requestErrorById[person.id]
+            const sent = relation === 'outgoing' || hasOutgoingRequest(person.id)
+
+            if (relation === 'friend') {
+              return (
+                <button
+                  key={person.id}
+                  type="button"
+                  className={styles.friendSearchHit}
+                  onClick={() => scrollToFriend(person.id)}
+                >
+                  <strong>{person.displayName}</strong>
+                  <span>Ya sois amigos · #{rank}</span>
+                </button>
+              )
+            }
+
             return (
-              <button
-                key={friend.id}
-                type="button"
-                className={styles.friendSearchHit}
-                onClick={() => scrollToFriend(friend.id)}
-              >
-                <strong>{friend.displayName}</strong>
-                <span>#{rank} · {friend.xp.toLocaleString('es-ES')} XP</span>
-              </button>
+              <div key={person.id} className={styles.peopleHit}>
+                <div className={styles.peopleHitCopy}>
+                  <strong>{person.displayName}</strong>
+                  <span>
+                    {relation === 'incoming'
+                      ? 'Te envió una solicitud'
+                      : sent
+                        ? 'Solicitud enviada'
+                        : 'Usuario de Adelia'}
+                  </span>
+                  {requestError ? <span className={styles.peopleHitError}>{requestError}</span> : null}
+                </div>
+                {relation === 'incoming' ? (
+                  <button
+                    type="button"
+                    className={styles.peopleHitBtn}
+                    onClick={() => setRequestsModalOpen(true)}
+                  >
+                    Ver
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`${styles.peopleHitBtn} ${sent ? styles.peopleHitBtnSent : ''}`}
+                    disabled={sent || sending}
+                    onClick={() => sendRequestTo(person.id)}
+                  >
+                    {sent ? 'Enviada' : sending ? '…' : 'Solicitar'}
+                  </button>
+                )}
+              </div>
             )
           })}
         </div>
-      )}
-
-      {friendSubmittedQuery.length > 0 && friendSearchResults.length === 0 && (
-        <p className={styles.emptyHint}>Ningún amigo coincide con «{friendSubmittedQuery}».</p>
       )}
     </div>
   )
@@ -325,13 +499,6 @@ function CustomerFriendsBoard({
           title="Añadir amigos"
           subtitle="Encuentra foodies y mándales una solicitud"
           onClose={() => setAddModalOpen(false)}
-          isEmpty={addSubmittedQuery.length > 0 && addSearchResults.length === 0}
-          emptyMessage={
-            addSubmittedQuery
-              ? `Nadie coincide con «${addSubmittedQuery}»`
-              : 'Sin resultados'
-          }
-          emptyHint="Prueba con otro nombre o revisa la ortografía."
         >
           <div className={styles.modalSearchPanel}>
             <form className={styles.modalSearchForm} onSubmit={handleAddSearch}>
@@ -340,7 +507,7 @@ function CustomerFriendsBoard({
                 type="search"
                 value={addQuery}
                 onChange={(event) => setAddQuery(event.target.value)}
-                placeholder="Buscar por nombre…"
+                placeholder="Nombre o email…"
                 className={styles.modalSearchInput}
               />
               <button type="submit" className={styles.modalSearchBtn} disabled={!addQuery.trim()}>
@@ -348,16 +515,29 @@ function CustomerFriendsBoard({
               </button>
             </form>
             <p className={styles.modalSearchHint}>
-              {addSubmittedQuery
-                ? `${addSearchResults.length} resultado${addSearchResults.length === 1 ? '' : 's'}`
-                : 'Escribe un nombre y envía tu solicitud de amistad'}
+              {addSearchLoading
+                ? 'Buscando cuentas reales de Adelia…'
+                : addSearchError
+                  ? addSearchError
+                  : addSubmittedQuery.length >= 2
+                    ? `${addSearchResults.length} resultado${addSearchResults.length === 1 ? '' : 's'}`
+                    : 'Escribe al menos 2 letras. Cualquier cuenta de cliente puede aparecer.'}
             </p>
+            {addSubmittedQuery.length >= 2 && !addSearchLoading && !addSearchError && addSearchResults.length === 0 ? (
+              <p className={styles.emptyHint}>
+                Nadie coincide con «{addSubmittedQuery}». Prueba nombre, apellido o el email.
+              </p>
+            ) : null}
           </div>
 
           {addSubmittedQuery.length > 0 && addSearchResults.length > 0 && (
             <div className={styles.modalList}>
               {addSearchResults.map((entry) => {
-                const sent = entry.id ? hasOutgoingRequest(entry.id) : false
+                const relation = relationOf(entry.id)
+                const sent = relation === 'outgoing' || hasOutgoingRequest(entry.id)
+                const sending = sendingRequestId === entry.id
+                const requestError = entry.id ? requestErrorById[entry.id] : null
+                const alreadyFriends = relation === 'friend'
                 return (
                   <article key={entry.id} className={styles.addCard}>
                     <div className={styles.addCardStrip}>
@@ -372,20 +552,40 @@ function CustomerFriendsBoard({
                     </div>
                     <button
                       type="button"
-                      className={`${styles.addCardBtn} ${sent ? styles.addCardBtnSent : ''}`}
-                      title={sent ? 'Solicitud enviada' : 'Enviar solicitud de amistad'}
-                      disabled={sent}
+                      className={`${styles.addCardBtn} ${sent || alreadyFriends ? styles.addCardBtnSent : ''}`}
+                      title={
+                        alreadyFriends
+                          ? 'Ya sois amigos'
+                          : relation === 'incoming'
+                            ? 'Te envió una solicitud'
+                            : sent
+                              ? 'Solicitud enviada'
+                              : 'Enviar solicitud de amistad'
+                      }
+                      disabled={sent || sending || alreadyFriends || relation === 'incoming'}
                       onClick={() => {
-                        if (entry.id) {
-                          onSendFriendRequest(entry.id)
+                        if (!entry.id || alreadyFriends || relation === 'incoming') {
+                          return
                         }
+                        sendRequestTo(entry.id)
                       }}
                     >
                       <span className={styles.addCardBtnIcon} aria-hidden="true">
-                        {sent ? '✓' : '+'}
+                        {alreadyFriends || sent ? '✓' : '+'}
                       </span>
-                      <span>{sent ? 'Enviada' : 'Solicitar'}</span>
+                      <span>
+                        {alreadyFriends
+                          ? 'Amigos'
+                          : relation === 'incoming'
+                            ? 'Pendiente'
+                            : sent
+                              ? 'Enviada'
+                              : sending
+                                ? 'Enviando…'
+                                : 'Solicitar'}
+                      </span>
                     </button>
+                    {requestError ? <p className={styles.emptyHint}>{requestError}</p> : null}
                   </article>
                 )
               })}

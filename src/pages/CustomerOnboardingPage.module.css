@@ -70,6 +70,20 @@
   color: var(--color-brown);
 }
 
+.textInput {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(107, 83, 68, 0.16);
+  border-radius: 14px;
+  font-size: 0.9375rem;
+  color: var(--color-brown);
+}
+
+.fieldHint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
 .error {
   margin: 0;
   color: #c62828;

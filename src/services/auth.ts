@@ -6,8 +6,8 @@ import {
   updatePassword,
 } from 'firebase/auth'
 import { auth } from '../config/firebase'
-import { clearMustChangePassword, updateCompanyLoginPassword } from './firestore'
 import { resolveLoginAuthEmail } from './firestore'
+import { syncInitialPasswordChange } from './authApi'
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/email-already-in-use': 'Ya existe una cuenta con este email.',
@@ -85,19 +85,8 @@ export async function changePasswordWithReauth(
 export async function changeInitialPassword(
   currentPassword: string,
   newPassword: string,
-  companyId: string | null,
+  _companyId: string | null,
 ): Promise<void> {
   await changePasswordWithReauth(currentPassword, newPassword)
-
-  const user = auth.currentUser
-
-  if (!user) {
-    throw new Error('No hay sesión activa.')
-  }
-
-  if (companyId) {
-    await updateCompanyLoginPassword(companyId, newPassword)
-  }
-
-  await clearMustChangePassword(user.uid)
+  await syncInitialPasswordChange(newPassword)
 }

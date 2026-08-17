@@ -42,3 +42,17 @@ export function getBadgesForProfile(level: number, missionsCompleted: number, st
 export function getBadgeById(id: string): GamificationBadge | undefined {
   return GAMIFICATION_BADGES.find((badge) => badge.id === id)
 }
+
+const PHANTOM_BADGE_IDS = new Set(GAMIFICATION_BADGES.map((badge) => badge.id))
+
+export function isPhantomBadgeNotification(notification: {
+  type: string
+  data?: { badgeId?: string }
+}): boolean {
+  if (notification.type !== 'badge_unlocked') {
+    return false
+  }
+
+  const badgeId = notification.data?.badgeId
+  return Boolean(badgeId && PHANTOM_BADGE_IDS.has(badgeId))
+}

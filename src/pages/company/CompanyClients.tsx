@@ -401,9 +401,13 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
       <footer className={styles.legalFooter}>
         Uso permitido para gestionar reservas del local. Informa a tus clientes en tu política de
         privacidad.{' '}
-        <a href="/legal/privacidad" target="_blank" rel="noreferrer">
-          Ver política Adelia
-        </a>
+        <a href="/legal/aviso-legal" target="_blank" rel="noreferrer">Aviso legal</a>
+        {' · '}
+        <a href="/legal/privacidad" target="_blank" rel="noreferrer">Privacidad</a>
+        {' · '}
+        <a href="/legal/terminos" target="_blank" rel="noreferrer">Términos</a>
+        {' · '}
+        <a href="/legal/cookies" target="_blank" rel="noreferrer">Cookies</a>
       </footer>
     </div>
   )

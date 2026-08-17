@@ -10,15 +10,23 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
+    function userDocExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function isAdmin() {
-      return isSignedIn() && userDoc().data.role == 'admin';
+      return isSignedIn() && userDocExists() && userDoc().data.role == 'admin';
     }
 
     function isCompanyOwner(companyId) {
       return isSignedIn() && (
-        get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid == request.auth.uid
+        (
+          exists(/databases/$(database)/documents/companies/$(companyId))
+          && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid == request.auth.uid
+        )
         || (
-          userDoc().data.role == 'company'
+          userDocExists()
+          && userDoc().data.role == 'company'
           && userDoc().data.companyId == companyId
         )
       );
@@ -27,7 +35,15 @@ service cloud.firestore {
     match /logins/{loginId} {
       allow get: if true;
       allow list: if false;
-      allow write: if isAdmin();
+      allow create, update: if isAdmin() || (
+        isSignedIn()
+        && request.resource.data.role == 'company'
+        && request.resource.data.loginName is string
+        && request.resource.data.authEmail is string
+        && request.resource.data.companyId is string
+        && isCompanyOwner(request.resource.data.companyId)
+      );
+      allow delete: if isAdmin();
     }
 
     match /companyCredentials/{companyId} {
@@ -35,19 +51,10 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (
         isCompanyOwner(companyId)
-        && (
-          (
-            request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['loginPassword', 'mustChangePassword', 'updatedAt'])
-            && request.resource.data.loginPassword is string
-          )
-          || (
-            request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['loginName', 'updatedAt'])
-            && request.resource.data.loginName is string
-            && request.resource.data.loginName.size() > 0
-          )
-        )
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['loginName', 'updatedAt'])
+        && request.resource.data.loginName is string
+        && request.resource.data.loginName.size() > 0
       );
     }
 
@@ -86,9 +93,9 @@ service cloud.firestore {
     function customerProfileUpdateKeys() {
       return [
         'displayName',
+        'displayNameLower',
         'favoriteSlugs',
         'phone',
-        'phoneVerified',
         'photoUrl',
         'homeCity',
         'homeMunicipality',
@@ -101,20 +108,10 @@ service cloud.firestore {
       ];
     }
 
-    function customerGamificationUpdateKeys() {
-      return ['gamification', 'xp', 'adelinas'];
-    }
-
     match /users/{userId} {
       allow create: if isAdmin() || (isSelf(userId) && isValidCustomerCreate());
       allow read: if isSelf(userId) || isAdmin();
       allow update: if isAdmin() || (
-        isSelf(userId)
-        && userDoc().data.role == 'company'
-        && userDoc().data.mustChangePassword == true
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChangePassword'])
-        && request.resource.data.mustChangePassword == false
-      ) || (
         isSelf(userId)
         && userDoc().data.role == 'company'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['loginName'])
@@ -125,10 +122,6 @@ service cloud.firestore {
         && userDoc().data.role == 'customer'
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(customerProfileUpdateKeys())
-      ) || (
-        isSelf(userId)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(customerGamificationUpdateKeys())
       );
       allow delete: if isAdmin();
 
@@ -183,67 +176,9 @@ service cloud.firestore {
 
     function isValidCompanyOwnerUpdate() {
       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      return !changedKeys.hasAny(['slug', 'ownerUid', 'createdAt'])
+      return !changedKeys.hasAny(['slug', 'ownerUid', 'createdAt', 'promotionPin'])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0;
-    }
-
-    function isValidCustomerReviewStatsUpdate(companyId) {
-      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && userDoc().data.role == 'customer'
-        && changedKeys.hasOnly(['reviewCount', 'reviewRatingSum', 'reviewAdelinas'])
-        && request.resource.data.reviewCount is number
-        && request.resource.data.reviewRatingSum is number
-        && request.resource.data.reviewAdelinas is number
-        && request.resource.data.reviewCount >= 0
-        && request.resource.data.reviewRatingSum >= 0
-        && request.resource.data.reviewAdelinas >= 0;
-    }
-
-    function isValidReviewCreate(companyId, reviewId) {
-      let data = request.resource.data;
-      return reviewId == request.auth.uid
-        && data.companyId == companyId
-        && data.reservationId is string
-        && data.customerUid == request.auth.uid
-        && data.customerName is string
-        && data.rating is number
-        && data.rating is int
-        && data.rating >= 1
-        && data.rating <= 5
-        && data.comment is string
-        && data.comment.size() >= 10
-        && data.hasPhoto is bool
-        && data.adelinasEarned is number
-        && data.adelinasEarned >= 1
-        && data.createdAt == request.time
-        && (!('updatedAt' in data) || data.updatedAt == request.time)
-        && (!('mediaItems' in data) || data.mediaItems is list)
-        && (!('taggedProducts' in data) || data.taggedProducts is list)
-        && (!('taggedPromotions' in data) || data.taggedPromotions is list);
-    }
-
-    function isValidReviewUpdate(companyId) {
-      let data = request.resource.data;
-      return data.companyId == companyId
-        && resource.data.customerUid == request.auth.uid
-        && data.customerUid == request.auth.uid
-        && data.customerName is string
-        && data.rating is number
-        && data.rating is int
-        && data.rating >= 1
-        && data.rating <= 5
-        && data.comment is string
-        && data.comment.size() >= 10
-        && data.hasPhoto is bool
-        && data.adelinasEarned is number
-        && data.adelinasEarned >= 1
-        && (!('updatedAt' in data) || data.updatedAt == request.time)
-        && (!('mediaItems' in data) || data.mediaItems is list)
-        && (!('taggedProducts' in data) || data.taggedProducts is list)
-        && (!('taggedPromotions' in data) || data.taggedPromotions is list);
     }
 
     function reviewHasOwnerReply(data) {
@@ -285,7 +220,16 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         isCompanyOwner(companyId)
         && isValidCompanyOwnerUpdate()
-      ) || isValidCustomerReviewStatsUpdate(companyId);
+      ) || (
+        isCompanyOwner(companyId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['promotionPin'])
+        && ('promotionPin' in resource.data)
+        && !('promotionPin' in request.resource.data)
+      );
+
+      match /private/{privateDoc} {
+        allow read, create, update, delete: if isCompanyOwner(companyId) || isAdmin();
+      }
 
       match /clients/{clientId} {
         allow read: if isCompanyOwner(companyId) || isAdmin();
@@ -295,19 +239,23 @@ service cloud.firestore {
 
       match /promotions/{promotionId} {
         allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
-        allow list: if isCompanyOwner(companyId) || isAdmin() || resource.data.active == true;
+        // list sin resource.data: el dueño puede leer inactivas. Firestore no filtra.
+        allow list: if isCompanyOwner(companyId) || isAdmin();
+        allow list: if resource.data.active == true;
         allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
       }
 
       match /menuBoards/{boardId} {
         allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
-        allow list: if isCompanyOwner(companyId) || isAdmin() || resource.data.active == true;
+        allow list: if isCompanyOwner(companyId) || isAdmin();
+        allow list: if resource.data.active == true;
         allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
       }
 
       match /menuNodes/{nodeId} {
         allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
-        allow list: if isCompanyOwner(companyId) || isAdmin() || resource.data.active == true;
+        allow list: if isCompanyOwner(companyId) || isAdmin();
+        allow list: if resource.data.active == true;
         allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
       }
 
@@ -318,26 +266,20 @@ service cloud.firestore {
 
       match /reviews/{reviewId} {
         allow get, list: if true;
-        allow create: if isSignedIn()
-          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-          && userDoc().data.role == 'customer'
-          && isValidReviewCreate(companyId, reviewId);
+        allow create: if false;
         allow update: if isAdmin() || (
           isCompanyOwner(companyId)
           && isValidCompanyReviewReplyUpdate(companyId)
-        ) || (
-          isSignedIn()
-          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-          && userDoc().data.role == 'customer'
-          && resource.data.customerUid == request.auth.uid
-          && isValidReviewUpdate(companyId)
         );
-        allow delete: if isCompanyOwner(companyId) || isAdmin() || (
-          isSignedIn()
-          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-          && userDoc().data.role == 'customer'
-          && resource.data.customerUid == request.auth.uid
-        );
+        allow delete: if isCompanyOwner(companyId) || isAdmin();
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if isCompanyOwner(companyId) || isAdmin();
+        allow update: if isCompanyOwner(companyId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt'])
+          && request.resource.data.read == true;
+        allow create, delete: if false;
       }
     }
 
@@ -354,6 +296,12 @@ service cloud.firestore {
         || isCompanyOwner(resource.data.companyId)
         || (
           isSignedIn()
+          && 'customerUid' in resource.data
+          && resource.data.customerUid == request.auth.uid
+        )
+        || (
+          isSignedIn()
+          && userDocExists()
           && userDoc().data.role == 'customer'
           && resource.data.clientEmail == userDoc().data.email
         );
@@ -365,6 +313,84 @@ service cloud.firestore {
         && (isAdmin() || isCompanyOwner(request.resource.data.companyId));
       allow update, delete: if isSignedIn()
         && (isAdmin() || isCompanyOwner(resource.data.companyId));
+    }
+
+    match /restaurantIndex/{companyId} {
+      allow read: if true;
+      allow write: if isAdmin() || isCompanyOwner(companyId);
+    }
+
+    match /friendships/{friendshipId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.userIds;
+      allow write: if false;
+    }
+
+    match /friendRequests/{requestId} {
+      allow read: if isSignedIn()
+        && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /friendFavorites/{favoriteId} {
+      allow read: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /reservationInvites/{inviteId} {
+      allow read: if isSignedIn()
+        && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /companyGamification/{companyId} {
+      allow read: if isCompanyOwner(companyId) || isAdmin();
+      allow write: if false;
+    }
+
+    match /promotionClaims/{claimId} {
+      allow read: if isSignedIn() && (
+        resource.data.customerUid == request.auth.uid
+        || isCompanyOwner(resource.data.companyId)
+        || isAdmin()
+      );
+      allow write: if false;
+    }
+
+    match /userFavorites/{favoriteId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.slug is string;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /reviewIndex/{reviewId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /productClaims/{claimId} {
+      allow read: if isSignedIn() && (
+        resource.data.customerUid == request.auth.uid
+        || isCompanyOwner(resource.data.companyId)
+        || isAdmin()
+      );
+      allow write: if false;
+    }
+
+    match /missionCatalog/{missionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /levelCatalog/{levelId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gameConfig/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

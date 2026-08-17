@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { Reservation } from '../types'
+import type { ReservationInvite } from '../types/reservationInvites'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import { getReservationStatusLabel } from '../utils/customerReservations'
 import {
@@ -18,6 +19,10 @@ interface CustomerReservationCardProps {
   promotion?: ReservationPromotionInfo | null
   bucket: 'upcoming' | 'past'
   isNext?: boolean
+  variant?: 'owner' | 'guest'
+  hostName?: string
+  invites?: ReservationInvite[]
+  onOpenInvites?: () => void
   onVerifyMinimumSpend?: (reservation: Reservation) => void
   onLeaveReview?: (reservation: Reservation) => void
   hasReviewForRestaurant?: boolean
@@ -52,19 +57,30 @@ function CustomerReservationCard({
   promotion = null,
   bucket,
   isNext = false,
+  variant = 'owner',
+  hostName,
+  invites = [],
+  onOpenInvites,
   onVerifyMinimumSpend,
   onLeaveReview,
   hasReviewForRestaurant = false,
 }: CustomerReservationCardProps) {
+  const isGuest = variant === 'guest'
   const isUpcoming = bucket === 'upcoming'
-  const statusLabel = getReservationStatusLabel(reservation.status, isUpcoming)
-  const promoVisitPresentation = getPromotionVisitStatusPresentation(reservation, isUpcoming, promotion)
-  const canVerify = canCustomerVerifyMinimumSpend(reservation)
+  const statusLabel = isGuest
+    ? (reservation.status === 'cancelled' ? 'Cancelada' : 'Invitado')
+    : getReservationStatusLabel(reservation.status, isUpcoming)
+  const promoVisitPresentation = isGuest
+    ? null
+    : getPromotionVisitStatusPresentation(reservation, isUpcoming, promotion)
+  const canVerify = !isGuest && canCustomerVerifyMinimumSpend(reservation)
   const isTimeLimitedPromo = isTimeLimitedPromotionReservation(reservation, promotion)
-  const showReviewAction = onLeaveReview && canCustomerReviewReservation(reservation, bucket)
+  const showReviewAction = !isGuest && onLeaveReview && canCustomerReviewReservation(reservation, bucket)
   const photoUrl = restaurant?.photoUrl
     ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoGallery)
     : ''
+  const pendingInvites = invites.filter((invite) => invite.status === 'pending').length
+  const showInvitesButton = !isGuest && invites.length > 0 && onOpenInvites
 
   const dateLabel = reservation.startTime.toLocaleDateString('es-ES', {
     weekday: 'short',
@@ -86,19 +102,24 @@ function CustomerReservationCard({
 
   return (
     <article
-      className={`${styles.card} ${isUpcoming ? styles.cardUpcoming : styles.cardPast} ${reservation.status === 'cancelled' ? styles.cardCancelled : ''} ${isNext ? styles.cardNext : ''}`}
+      className={`${styles.card} ${isGuest ? styles.cardGuest : isUpcoming ? styles.cardUpcoming : styles.cardPast} ${reservation.status === 'cancelled' ? styles.cardCancelled : ''} ${!isGuest && isNext ? styles.cardNext : ''}`}
     >
-      {isNext && (
+      {isGuest ? (
+        <div className={styles.guestRibbon}>
+          <span>Invitado</span>
+          {hostName ? <strong>por {hostName}</strong> : null}
+        </div>
+      ) : isNext ? (
         <div className={styles.nextRibbon}>
           <span>Próxima reserva</span>
           {countdown && <strong>{countdown}</strong>}
         </div>
-      )}
+      ) : null}
 
       <div className={styles.layout}>
         <div className={styles.media}>
           {photoUrl ? (
-            <img src={photoUrl} alt="" />
+            <img src={photoUrl} alt="" loading="lazy" decoding="async" />
           ) : (
             <div className={styles.mediaFallback} aria-hidden="true">
               🍽️
@@ -109,7 +130,26 @@ function CustomerReservationCard({
         <div className={styles.body}>
           <div className={styles.topRow}>
             <h3>{restaurant?.name ?? 'Restaurante'}</h3>
-            <span className={styles.status}>{statusLabel}</span>
+            <div className={styles.topActions}>
+              {showInvitesButton ? (
+                <button
+                  type="button"
+                  className={styles.invitesButton}
+                  onClick={onOpenInvites}
+                  aria-label="Ver invitaciones"
+                  title="Ver invitaciones"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"
+                    />
+                  </svg>
+                  {pendingInvites > 0 ? <span>{pendingInvites}</span> : null}
+                </button>
+              ) : null}
+              <span className={`${styles.status} ${isGuest ? styles.statusGuest : ''}`}>{statusLabel}</span>
+            </div>
           </div>
 
           <div className={styles.datetime}>
@@ -121,6 +161,12 @@ function CustomerReservationCard({
             {reservation.pax} {reservation.pax === 1 ? 'persona' : 'personas'}
             {restaurant?.municipality ? ` · ${restaurant.municipality}` : ''}
           </p>
+
+          {isGuest ? (
+            <p className={styles.guestNote}>
+              Esta visita no está a tu nombre y no suma premios. Solo el titular puede cancelar.
+            </p>
+          ) : null}
 
           {promoVisitPresentation ? (
             <p
@@ -155,12 +201,12 @@ function CustomerReservationCard({
                 {isTimeLimitedPromo ? 'Verifica tu gasto' : 'Verificar'}
               </button>
             ) : null}
-            {restaurant && (
+            {restaurant?.slug ? (
               <Link to={`/reservar/${restaurant.slug}`} className={styles.primaryAction}>
                 {isUpcoming ? 'Ver restaurante' : 'Reservar otra vez'}
               </Link>
-            )}
-            {isUpcoming && cancelHref && reservation.status !== 'cancelled' && (
+            ) : null}
+            {isUpcoming && !isGuest && cancelHref && reservation.status !== 'cancelled' && (
               <Link to={cancelHref} className={styles.secondaryAction}>
                 Cancelar
               </Link>

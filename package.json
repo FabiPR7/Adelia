@@ -19,7 +19,11 @@
     "backfill-password-flags": "node scripts/backfill-must-change-password.mjs",
     "seed-carol": "node scripts/seed-carol-demo.mjs",
     "link-stripe-carol": "node scripts/link-company-stripe.mjs carol",
-    "convert-assets": "node scripts/convert-to-webp.mjs"
+    "migrate-promotion-pins": "node scripts/migrate-promotion-pins.mjs",
+    "backfill-collections": "node scripts/backfill-collections.mjs",
+    "seed-game-catalog": "tsx scripts/seed-game-catalog.ts",
+    "convert-assets": "node scripts/convert-to-webp.mjs",
+    "optimize-levels": "node scripts/optimize-level-assets.mjs"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

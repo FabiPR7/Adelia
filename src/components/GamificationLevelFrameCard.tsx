@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { getLevelCardFrame, levelCardNeedsTextCover } from '../utils/levelCardAssets'
 import { getLevelCardTheme } from '../utils/levelCardLayout'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './GamificationLevelFrameCard.module.css'
 
 interface GamificationLevelFrameCardProps {
@@ -86,7 +87,7 @@ function GamificationLevelFrameCard({
       style={cssVars}
     >
       <div className={styles.frame}>
-        <img src={frame} alt="" className={styles.frameArt} draggable={false} />
+        <img src={frame} alt="" className={styles.frameArt} draggable={false} decoding="async" />
 
         {rank != null && (
           <div className={styles.rankBadge} aria-label={`Posición ${rank}`}>
@@ -96,7 +97,13 @@ function GamificationLevelFrameCard({
 
         <div className={styles.avatarSlot}>
           {photoUrl ? (
-            <img src={photoUrl} alt="" className={styles.avatarPhoto} />
+            <img
+              src={optimizeCloudinaryUrl(photoUrl, CLOUDINARY_DISPLAY.logo)}
+              alt=""
+              className={styles.avatarPhoto}
+              loading="lazy"
+              decoding="async"
+            />
           ) : (
             <span className={styles.avatarInitials}>{initials(displayName)}</span>
           )}

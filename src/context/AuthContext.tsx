@@ -10,6 +10,7 @@ import {
 import { onAuthStateChanged, type User } from 'firebase/auth'
 import { auth } from '../config/firebase'
 import { getCompanyById, getCompanyCredentialsMustChange, getUserProfile, ensureCompanyLoginIndex } from '../services/firestore'
+import { loadGameCatalog } from '../services/gameCatalog'
 import { resolveMustChangePassword } from '../utils/authProfile'
 import type { AppUser, Company } from '../types'
 
@@ -20,6 +21,7 @@ interface AuthContextValue {
   isLoading: boolean
   refreshProfile: () => Promise<void>
   refreshCompany: () => Promise<void>
+  patchProfileGamification: (patch: Partial<AppUser['gamification']>) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -29,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AppUser | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [catalogTick, setCatalogTick] = useState(0)
 
   const loadProfile = useCallback(async (currentUser: User | null) => {
     if (!currentUser) {
@@ -47,10 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const [credentialsMustChange, companyData] = await Promise.all([
       userProfile.companyId
-        ? getCompanyCredentialsMustChange(userProfile.companyId)
+        ? getCompanyCredentialsMustChange(userProfile.companyId).catch(() => null)
         : Promise.resolve(null),
       userProfile.companyId
-        ? getCompanyById(userProfile.companyId)
+        ? getCompanyById(userProfile.companyId).catch(() => null)
         : Promise.resolve(null),
     ])
 
@@ -85,10 +88,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadProfile(auth.currentUser)
   }, [loadProfile])
 
+  const patchProfileGamification = useCallback((patch: Partial<AppUser['gamification']>) => {
+    setProfile((current) => {
+      if (!current || current.role !== 'customer') {
+        return current
+      }
+
+      return {
+        ...current,
+        gamification: {
+          ...current.gamification,
+          ...patch,
+        },
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    void loadGameCatalog().finally(() => {
+      setCatalogTick((value) => value + 1)
+    })
+  }, [])
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser)
-      await loadProfile(currentUser)
+      try {
+        await loadProfile(currentUser)
+      } catch {
+        setProfile(null)
+        setCompany(null)
+      }
       setIsLoading(false)
     })
 
@@ -103,8 +133,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       refreshProfile,
       refreshCompany,
+      patchProfileGamification,
     }),
-    [user, profile, company, isLoading, refreshProfile, refreshCompany],
+    [user, profile, company, isLoading, refreshProfile, refreshCompany, patchProfileGamification, catalogTick],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

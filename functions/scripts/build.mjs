@@ -61,7 +61,9 @@ writeFileSync(
   onReservationUpdatedSendEmail,
   onReservationUpdatedNotifications,
   onUserGamificationUpdatedNotifications,
+  onPromotionClaimCreatedNotifications,
   processScheduledNotifications,
+  processDueNotifications,
 } from './triggers.js'\n`,
   'utf8',
 )

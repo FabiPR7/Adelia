@@ -4,9 +4,11 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
   query,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
   where,
@@ -33,7 +35,7 @@ import { parseCompanyReviewStats } from '../types/review'
 import { mapVerifiedConsumptionDoc } from '../utils/productReports'
 import type { PublicPromotion } from './publicPromotions'
 import { getNextLadderPromotionId, sortCompanyLadderPromotions } from '../utils/promotionReservationProgress'
-import { defaultTurns, parseFloorPlan, serializeFloorPlanForFirestore } from '../types/company'
+import { defaultTurns, parseFloorPlan, parseFloorPlans, primaryFloorPlan, serializeFloorPlanForFirestore, serializeFloorPlansForFirestore } from '../types/company'
 import {
   normalizeCompanyEmailTemplates,
   parseCompanyEmailTemplatesFromFirestore,
@@ -55,6 +57,7 @@ import {
   parseCompanyQrBranding,
   serializeCompanyQrBranding,
 } from '../utils/qrBranding'
+import { listUserFavoriteSlugs } from './userFavorites'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -65,26 +68,12 @@ export async function syncCompanyLoginIndex(
 ): Promise<void> {
   const trimmed = loginName.trim()
   const loginId = slugify(trimmed)
-  const batch = writeBatch(db)
-
-  const stale = await getDocs(
-    query(collection(db, 'logins'), where('authEmail', '==', authEmail)),
-  )
-
-  stale.docs.forEach((item) => {
-    if (item.id !== loginId) {
-      batch.delete(item.ref)
-    }
-  })
-
-  batch.set(doc(db, 'logins', loginId), {
+  await setDoc(doc(db, 'logins', loginId), {
     loginName: trimmed,
     authEmail,
     role: 'company',
     ...(companyId ? { companyId } : {}),
   })
-
-  await batch.commit()
 }
 
 async function getCompanyAuthEmail(companyId: string): Promise<string | null> {
@@ -189,24 +178,90 @@ export async function syncAllCompanyLoginIndexes(): Promise<void> {
 }
 
 export async function getUserProfile(uid: string): Promise<AppUser | null> {
-  const snapshot = await getDoc(doc(db, 'users', uid))
+  try {
+    const snapshot = await getDoc(doc(db, 'users', uid))
 
-  if (!snapshot.exists()) {
+    if (!snapshot.exists()) {
+      return withFavoriteSlugs(uid, await getUserProfileViaApi())
+    }
+
+    const data = snapshot.data()
+    let stats: Record<string, unknown> | undefined
+    try {
+      const statsRef = doc(db, 'userGamification', uid)
+      const statsSnap = await getDocFromServer(statsRef).catch(() => getDoc(statsRef))
+      stats = statsSnap.data() as Record<string, unknown> | undefined
+    } catch {
+      stats = undefined
+    }
+
+    const gamificationSource = stats?.state
+      ? { gamification: stats.state, xp: stats.xp, adelinas: stats.adelinas }
+      : data
+
+    return withFavoriteSlugs(
+      uid,
+      mapUserProfileRecord(data, gamificationSource as Record<string, unknown>, data.createdAt?.toDate?.() ?? new Date()),
+    )
+  } catch {
+    return withFavoriteSlugs(uid, await getUserProfileViaApi())
+  }
+}
+
+async function withFavoriteSlugs(uid: string, profile: AppUser | null): Promise<AppUser | null> {
+  if (!profile || profile.role !== 'customer') {
+    return profile
+  }
+  const slugs = await listUserFavoriteSlugs(uid)
+  if (slugs.length === 0) {
+    return profile
+  }
+  return { ...profile, favoriteSlugs: slugs }
+}
+
+async function getUserProfileViaApi(): Promise<AppUser | null> {
+  const token = await auth.currentUser?.getIdToken()
+  if (!token) {
     return null
   }
 
-  const data = snapshot.data()
+  try {
+    const response = await fetch(`${API_BASE}/api/auth/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) {
+      return null
+    }
+    const data = await response.json() as Record<string, unknown>
+    return mapUserProfileRecord(
+      data,
+      {
+        gamification: data.gamification,
+        xp: data.xp,
+        adelinas: data.adelinas,
+      },
+      typeof data.createdAt === 'string' ? new Date(data.createdAt) : new Date(),
+    )
+  } catch {
+    return null
+  }
+}
 
+function mapUserProfileRecord(
+  data: Record<string, unknown>,
+  gamificationSource: Record<string, unknown>,
+  createdAt: Date,
+): AppUser {
   return {
     email: data.email as string,
     role: data.role as AppUser['role'],
     companyId: (data.companyId as string | null) ?? null,
     displayName: (data.displayName as string) ?? '',
     favoriteSlugs: Array.isArray(data.favoriteSlugs) ? (data.favoriteSlugs as string[]) : [],
-    gamification: parseGamificationData(data),
+    gamification: parseGamificationData(gamificationSource),
     mustChangePassword: data.mustChangePassword === true,
     mustChangePasswordCleared: data.mustChangePassword === false,
-    createdAt: data.createdAt?.toDate?.() ?? new Date(),
+    createdAt,
     phone: typeof data.phone === 'string' ? data.phone : '',
     phoneVerified: data.phoneVerified === true,
     photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : '',
@@ -303,11 +358,68 @@ function parseGamificationData(data: Record<string, unknown>): CustomerGamificat
     lastCelebratedLevel: typeof gamification.lastCelebratedLevel === 'number'
       ? gamification.lastCelebratedLevel
       : null,
+    celebratedMissionIds: Array.isArray(gamification.celebratedMissionIds)
+      ? (gamification.celebratedMissionIds as unknown[]).filter((id): id is string => (
+        typeof id === 'string' && id.trim().length > 0
+      ))
+      : [],
+    celebrationsBootstrapped: gamification.celebrationsBootstrapped === true,
+    cancellationStrikeCount: typeof gamification.cancellationStrikeCount === 'number'
+      ? gamification.cancellationStrikeCount
+      : 0,
+    cancelledReservationIds: Array.isArray(gamification.cancelledReservationIds)
+      ? (gamification.cancelledReservationIds as string[])
+      : [],
+    xpPenaltyTotal: typeof gamification.xpPenaltyTotal === 'number'
+      ? gamification.xpPenaltyTotal
+      : 0,
+    promoLocked: gamification.promoLocked === true
+      || (
+        typeof gamification.cancellationStrikeCount === 'number'
+        && gamification.cancellationStrikeCount >= 5
+      ),
+    inventory:
+      gamification.inventory
+      && typeof gamification.inventory === 'object'
+      && !Array.isArray(gamification.inventory)
+        ? Object.fromEntries(
+          Object.entries(gamification.inventory as Record<string, unknown>)
+            .filter(([, value]) => typeof value === 'number' && value > 0)
+            .map(([key, value]) => [key, Math.trunc(value as number)]),
+        )
+        : {},
+    grantedItemKeys: Array.isArray(gamification.grantedItemKeys)
+      ? (gamification.grantedItemKeys as unknown[]).filter((key): key is string => typeof key === 'string')
+      : [],
+    tokenCreditsByCompany:
+      gamification.tokenCreditsByCompany
+      && typeof gamification.tokenCreditsByCompany === 'object'
+      && !Array.isArray(gamification.tokenCreditsByCompany)
+        ? Object.fromEntries(
+          Object.entries(gamification.tokenCreditsByCompany as Record<string, unknown>)
+            .filter(([, value]) => typeof value === 'number' && value > 0)
+            .map(([key, value]) => [key, Math.trunc(value as number)]),
+        )
+        : {},
+    pendingTokenSpend: Array.isArray(gamification.pendingTokenSpend)
+      ? (gamification.pendingTokenSpend as Array<Record<string, unknown>>)
+        .map((entry) => ({
+          id: typeof entry.id === 'string' ? entry.id : '',
+          companyId: typeof entry.companyId === 'string' ? entry.companyId : '',
+          itemId: typeof entry.itemId === 'string' ? entry.itemId : '',
+          visits: typeof entry.visits === 'number' ? Math.trunc(entry.visits) : 0,
+          coverCents: typeof entry.coverCents === 'number' ? Math.trunc(entry.coverCents) : 0,
+          remainderCents: typeof entry.remainderCents === 'number' ? Math.trunc(entry.remainderCents) : 0,
+          requiredCents: typeof entry.requiredCents === 'number' ? Math.trunc(entry.requiredCents) : 0,
+          createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : '',
+        }))
+        .filter((entry) => entry.companyId && entry.itemId && entry.visits > 0 && entry.remainderCents > 0)
+      : [],
   }
 }
 
 export async function recordPromotionClaim(
-  uid: string,
+  _uid: string,
   claim: ClaimedPromotionRecord,
   current: CustomerGamificationState,
   confirmedCountAtCompany: number,
@@ -341,12 +453,15 @@ export async function recordPromotionClaim(
     },
   }
 
-  await updateCustomerGamification(uid, next)
+  await callCustomerGamificationApi('/claim-ladder', {
+    companyId: claim.companyId,
+    promotionId: claim.promotionId,
+  })
   return next
 }
 
 export async function recordTimeLimitedPromotionClaim(
-  uid: string,
+  _uid: string,
   claim: ClaimedPromotionRecord,
   current: CustomerGamificationState,
 ): Promise<CustomerGamificationState> {
@@ -356,51 +471,180 @@ export async function recordTimeLimitedPromotionClaim(
     claimedPromotions: [...current.claimedPromotions, claim],
   }
 
-  await updateCustomerGamification(uid, next)
+  if (!claim.reservationId) {
+    throw new Error('La reserva es necesaria para registrar este canje.')
+  }
+  await callCustomerGamificationApi('/claim', {
+    companyId: claim.companyId,
+    promotionId: claim.promotionId,
+    reservationId: claim.reservationId,
+  })
   return next
 }
 
 
+export async function acknowledgeCelebrations(payload: {
+  level?: number
+  missionIds?: string[]
+  bootstrapped?: boolean
+}): Promise<void> {
+  const body: Record<string, unknown> = {}
+
+  if (typeof payload.level === 'number' && payload.level > 0) {
+    body.level = payload.level
+  }
+
+  if (payload.missionIds && payload.missionIds.length > 0) {
+    body.missionIds = [...new Set(payload.missionIds)]
+  }
+
+  if (payload.bootstrapped) {
+    body.bootstrapped = true
+  }
+
+  await callCustomerGamificationApi('/acknowledge-level', body)
+}
+
 export async function acknowledgeLevelCelebration(
-  uid: string,
+  _uid: string,
   current: CustomerGamificationState,
   celebratedUpToLevel: number,
 ): Promise<CustomerGamificationState> {
-  const next: CustomerGamificationState = {
+  await acknowledgeCelebrations({
+    level: celebratedUpToLevel,
+    missionIds: current.celebratedMissionIds,
+    bootstrapped: current.celebrationsBootstrapped || celebratedUpToLevel > 0,
+  })
+
+  return {
     ...current,
     lastCelebratedLevel: celebratedUpToLevel,
+    celebrationsBootstrapped: true,
   }
+}
 
-  await updateCustomerGamification(uid, next)
-  return next
+async function callCustomerGamificationApi(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const currentUser = auth.currentUser
+  if (!currentUser) {
+    throw new Error('Debes iniciar sesión como cliente.')
+  }
+  const token = await currentUser.getIdToken()
+  const response = await fetch(`${API_BASE}/api/customer/gamification${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  })
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string
+    [key: string]: unknown
+  }
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo sincronizar el progreso.')
+  }
+  return data
+}
+
+export async function applyInventoryReservationToken(
+  itemId: string,
+  companyId: string,
+): Promise<{
+  visits: number
+  coverCents: number
+  remainderCents: number
+  requiredCents: number
+  inventory: Record<string, number>
+  tokenCreditsByCompany: Record<string, number>
+  pendingTokenSpend: CustomerGamificationState['pendingTokenSpend']
+}> {
+  const data = await callCustomerGamificationApi('/inventory/apply-token', {
+    itemId,
+    companyId,
+  })
+  return {
+    visits: typeof data.visits === 'number' ? data.visits : 0,
+    coverCents: typeof data.coverCents === 'number' ? data.coverCents : 0,
+    remainderCents: typeof data.remainderCents === 'number' ? data.remainderCents : 0,
+    requiredCents: typeof data.requiredCents === 'number' ? data.requiredCents : 0,
+    inventory: data.inventory && typeof data.inventory === 'object'
+      ? data.inventory as Record<string, number>
+      : {},
+    tokenCreditsByCompany: data.tokenCreditsByCompany && typeof data.tokenCreditsByCompany === 'object'
+      ? data.tokenCreditsByCompany as Record<string, number>
+      : {},
+    pendingTokenSpend: Array.isArray(data.pendingTokenSpend)
+      ? (data.pendingTokenSpend as CustomerGamificationState['pendingTokenSpend'])
+      : [],
+  }
+}
+
+export async function useInventoryItem(itemId: string): Promise<{
+  message: string
+  xpGained: number
+  inventory: Record<string, number>
+  xp: number
+  cancellationStrikeCount: number
+  promoLocked: boolean
+}> {
+  const data = await callCustomerGamificationApi('/inventory/use', { itemId })
+  return {
+    message: typeof data.message === 'string' ? data.message : 'Ítem usado.',
+    xpGained: typeof data.xpGained === 'number' ? data.xpGained : 0,
+    inventory: data.inventory && typeof data.inventory === 'object'
+      ? data.inventory as Record<string, number>
+      : {},
+    xp: typeof data.xp === 'number' ? data.xp : 0,
+    cancellationStrikeCount: typeof data.cancellationStrikeCount === 'number' ? data.cancellationStrikeCount : 0,
+    promoLocked: data.promoLocked === true,
+  }
+}
+
+export async function claimSeasonInventoryPack(pack: 'weekly_bonus' | 'weekly_clear' | 'monthly_clear'): Promise<{
+  grants: Array<{ itemId: string; quantity: number }>
+  inventory: Record<string, number>
+  grantedItemKeys: string[]
+}> {
+  const data = await callCustomerGamificationApi('/inventory/claim-pack', { pack })
+  return {
+    grants: Array.isArray(data.grants)
+      ? (data.grants as Array<{ itemId?: unknown; quantity?: unknown }>)
+        .filter((entry) => typeof entry.itemId === 'string' && typeof entry.quantity === 'number')
+        .map((entry) => ({ itemId: entry.itemId as string, quantity: Math.trunc(entry.quantity as number) }))
+      : [],
+    inventory: data.inventory && typeof data.inventory === 'object'
+      ? data.inventory as Record<string, number>
+      : {},
+    grantedItemKeys: Array.isArray(data.grantedItemKeys)
+      ? (data.grantedItemKeys as unknown[]).filter((key): key is string => typeof key === 'string')
+      : [],
+  }
 }
 
 export async function updateCustomerGamification(
-  uid: string,
+  _uid: string,
   gamification: CustomerGamificationState,
 ): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
+  await callCustomerGamificationApi('/sync', {
     gamification,
-    xp: gamification.xp,
-    adelinas: gamification.adelinas,
   })
 }
 
-export async function clearMustChangePassword(uid: string): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
-    mustChangePassword: false,
-  })
+/** @deprecated Usar syncInitialPasswordChange / API de auth. Escritura solo vía Admin SDK. */
+export async function clearMustChangePassword(_uid: string): Promise<void> {
+  throw new Error('El flag mustChangePassword solo se actualiza desde la API autenticada.')
 }
 
+/** @deprecated Usar syncInitialPasswordChange / API de auth. Escritura solo vía Admin SDK. */
 export async function updateCompanyLoginPassword(
-  companyId: string,
-  newPassword: string,
+  _companyId: string,
+  _newPassword: string,
 ): Promise<void> {
-  await updateDoc(doc(db, 'companyCredentials', companyId), {
-    loginPassword: newPassword,
-    mustChangePassword: false,
-    updatedAt: serverTimestamp(),
-  })
+  throw new Error('La contraseña de empresa solo se actualiza desde la API autenticada.')
 }
 
 /** Marca que la empresa debe cambiar contraseña al entrar (admin o API). */
@@ -446,7 +690,35 @@ export async function getCompanyById(id: string): Promise<Company | null> {
     return null
   }
 
-  return mapCompany(snapshot.id, snapshot.data())
+  return mergeCompanyPrivateOps(mapCompany(snapshot.id, snapshot.data()))
+}
+
+async function mergeCompanyPrivateOps(company: Company): Promise<Company> {
+  try {
+    const opsSnap = await getDoc(doc(db, 'companies', company.id, 'private', 'ops'))
+    if (!opsSnap.exists()) {
+      return company
+    }
+    const ops = opsSnap.data()
+    if (ops.emailTemplates) {
+      company.emailTemplates = parseCompanyEmailTemplatesFromFirestore(ops.emailTemplates)
+    }
+    if (typeof ops.stripeAccountId === 'string') {
+      company.stripeAccountId = ops.stripeAccountId
+    }
+    if (typeof ops.stripeChargesEnabled === 'boolean') {
+      company.stripeChargesEnabled = ops.stripeChargesEnabled
+    }
+    if (typeof ops.stripePayoutsEnabled === 'boolean') {
+      company.stripePayoutsEnabled = ops.stripePayoutsEnabled
+    }
+    if (typeof ops.stripeDetailsSubmitted === 'boolean') {
+      company.stripeDetailsSubmitted = ops.stripeDetailsSubmitted
+    }
+  } catch {
+    // Público no puede leer private/ops; el doc principal sigue sirviendo.
+  }
+  return company
 }
 
 export async function getCompanyBySlug(slug: string): Promise<Company | null> {
@@ -459,7 +731,7 @@ export async function getCompanyBySlug(slug: string): Promise<Company | null> {
   }
 
   const docSnap = snapshot.docs[0]
-  return mapCompany(docSnap.id, docSnap.data())
+  return mergeCompanyPrivateOps(mapCompany(docSnap.id, docSnap.data()))
 }
 
 export async function getAllCompanies(): Promise<Company[]> {
@@ -515,20 +787,42 @@ export async function getVerifiedConsumptionsByCompany(
     .sort((left, right) => right.verifiedAt.getTime() - left.verifiedAt.getTime())
 }
 
-export async function getCustomerReservations(email: string): Promise<Reservation[]> {
+export async function getCustomerReservations(
+  email: string,
+  uid?: string,
+): Promise<Reservation[]> {
   const normalizedEmail = email.trim().toLowerCase()
+  const byId = new Map<string, Reservation>()
 
-  if (!normalizedEmail) {
-    return []
+  if (uid) {
+    try {
+      const uidSnapshot = await getDocs(
+        query(collection(db, 'reservations'), where('customerUid', '==', uid)),
+      )
+      uidSnapshot.docs.forEach((item) => {
+        byId.set(item.id, mapReservation(item.id, item.data()))
+      })
+    } catch {
+      // Índice o reglas aún no publicadas: se intenta por email.
+    }
   }
 
-  const snapshot = await getDocs(
-    query(collection(db, 'reservations'), where('clientEmail', '==', normalizedEmail)),
-  )
+  if (normalizedEmail) {
+    try {
+      const snapshot = await getDocs(
+        query(collection(db, 'reservations'), where('clientEmail', '==', normalizedEmail)),
+      )
+      snapshot.docs.forEach((item) => {
+        if (!byId.has(item.id)) {
+          byId.set(item.id, mapReservation(item.id, item.data()))
+        }
+      })
+    } catch {
+      // Sin permiso o índice pendiente.
+    }
+  }
 
-  return snapshot.docs
-    .map((item) => mapReservation(item.id, item.data()))
-    .sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
+  return [...byId.values()].sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
 }
 
 export function filterReservationsForDate(
@@ -843,6 +1137,7 @@ export async function updateReservationStatus(
 
   if (status === 'cancelled') {
     update.cancelledBy = 'restaurant'
+    update.cancelShieldRequested = true
   }
 
   if (options?.promotionVisitStatus) {
@@ -956,6 +1251,7 @@ export async function updateCompanySettings(
     schedule: normalizedPayload.schedule,
     turns: normalizedPayload.turns,
     floorPlan: serializeFloorPlanForFirestore(normalizedPayload.floorPlan),
+    floorPlans: serializeFloorPlansForFirestore(normalizedPayload.floorPlans),
     updatedAt: serverTimestamp(),
   })
 
@@ -977,6 +1273,12 @@ export async function updateCompanySettings(
   if (nameChanged && authEmail) {
     await syncCompanyLoginIndex(trimmedName, authEmail, companyId)
   }
+
+  const indexed = await getCompanyById(companyId)
+  if (indexed) {
+    const { syncRestaurantIndexFromCompany } = await import('./restaurantIndex')
+    await syncRestaurantIndexFromCompany(indexed).catch(() => undefined)
+  }
 }
 
 export async function updateCompanyEmailTemplates(
@@ -984,19 +1286,32 @@ export async function updateCompanyEmailTemplates(
   templates: CompanyEmailTemplates,
 ): Promise<void> {
   const normalized = normalizeCompanyEmailTemplates(templates)
-
-  await updateDoc(doc(db, 'companies', companyId), {
+  const payload = {
     emailTemplates: normalized,
     updatedAt: serverTimestamp(),
-  })
+  }
+
+  await Promise.all([
+    setDoc(doc(db, 'companies', companyId, 'private', 'ops'), payload, { merge: true }),
+    updateDoc(doc(db, 'companies', companyId), payload),
+  ])
 }
 
 export async function updateCompanyFloorPlan(
   companyId: string,
   floorPlan: import('../types/company').FloorPlan,
 ): Promise<void> {
+  await updateCompanyFloorPlans(companyId, [floorPlan])
+}
+
+export async function updateCompanyFloorPlans(
+  companyId: string,
+  floorPlans: import('../types/company').FloorPlan[],
+): Promise<void> {
+  const plans = floorPlans.length > 0 ? floorPlans : [parseFloorPlan(undefined)]
   await updateDoc(doc(db, 'companies', companyId), {
-    floorPlan: serializeFloorPlanForFirestore(floorPlan),
+    floorPlan: serializeFloorPlanForFirestore(primaryFloorPlan(plans)),
+    floorPlans: serializeFloorPlansForFirestore(plans),
     updatedAt: serverTimestamp(),
   })
 }
@@ -1040,6 +1355,7 @@ export async function replaceCompanyTables(
       name: table.name.trim(),
       capacity: table.capacity,
       sortOrder: index,
+      floorPlanId: table.floorPlanId?.trim() || '',
     })
   })
 
@@ -1047,6 +1363,7 @@ export async function replaceCompanyTables(
 }
 
 function mapCompany(id: string, data: Record<string, unknown>): Company {
+  const floorPlans = parseFloorPlans(data.floorPlans, data.floorPlan)
   return {
     id,
     name: data.name as string,
@@ -1086,7 +1403,8 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
       : null,
     schedule: normalizeCompanySchedule((data.schedule as Company['schedule']) ?? defaultSchedule()),
     turns: (data.turns as Company['turns']) ?? defaultTurns(),
-    floorPlan: parseFloorPlan(data.floorPlan),
+    floorPlan: primaryFloorPlan(floorPlans),
+    floorPlans,
     emailTemplates: parseCompanyEmailTemplatesFromFirestore(data.emailTemplates),
     qrBranding: parseCompanyQrBranding(data.qrBranding),
     ...parseCompanyReviewStats(data),
@@ -1105,6 +1423,7 @@ function mapTable(id: string, data: Record<string, unknown>): RestaurantTable {
     name: data.name as string,
     capacity: (data.capacity as number) ?? 2,
     sortOrder: (data.sortOrder as number) ?? 0,
+    floorPlanId: typeof data.floorPlanId === 'string' ? data.floorPlanId : '',
   }
 }
 
@@ -1181,6 +1500,7 @@ function mapReservation(id: string, data: Record<string, unknown>): Reservation 
     status: data.status as ReservationStatus,
     cancelToken: data.cancelToken as string,
     createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+    customerUid: typeof data.customerUid === 'string' ? data.customerUid : null,
     promotionId: typeof data.promotionId === 'string' ? data.promotionId : null,
     minimumSpendCents,
     promotionVisitStatus,

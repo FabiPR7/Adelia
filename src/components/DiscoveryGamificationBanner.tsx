@@ -2,10 +2,9 @@ import rankingHero from '../assets/gamification-ranking-hero.webp'
 import { buildLeaderboardWithUser, getUserRank } from '../data/gamificationLeaderboard'
 import GamificationLevelJourney from './GamificationLevelJourney'
 import GamificationRankingPodium from './GamificationRankingPodium'
-import GamificationCelebrationToast from './GamificationCelebrationToast'
 import MissionsHub from './MissionsHub'
 import type { CustomerGamificationView } from '../hooks/useCustomerGamification'
-import { useGamificationCelebrations } from '../hooks/useGamificationCelebrations'
+import { useCustomerGamificationContext } from '../context/CustomerGamificationContext'
 import { HISTORICAL_MISSIONS } from '../data/gamificationMissions'
 import { defaultGamificationState } from '../types/gamification'
 import {
@@ -23,7 +22,6 @@ interface DiscoveryGamificationBannerProps {
   gamification?: CustomerGamificationView | null
   isCustomer: boolean
   userName?: string
-  userId?: string
 }
 
 function buildGuestPreview() {
@@ -61,19 +59,10 @@ function DiscoveryGamificationBanner({
   gamification,
   isCustomer,
   userName = '',
-  userId,
 }: DiscoveryGamificationBannerProps) {
   const preview = buildGuestPreview()
   const data = isCustomer && gamification ? gamification : preview
-
-  const celebrations = useGamificationCelebrations({
-    userId,
-    userName,
-    xp: data.state.xp,
-    level: data.level.level,
-    levelTitle: data.level.title,
-    enabled: isCustomer,
-  })
+  const { celebrations } = useCustomerGamificationContext()
 
   const leaderboard = buildLeaderboardWithUser(
     userName,
@@ -87,11 +76,6 @@ function DiscoveryGamificationBanner({
 
   return (
     <>
-      <GamificationCelebrationToast
-        event={celebrations.activeEvent}
-        onDismiss={celebrations.dismissActive}
-      />
-
       <section className={styles.arena} aria-labelledby="gamification-heading">
       <div className={styles.hero}>
         <img src={rankingHero} alt="" className={styles.heroImage} />

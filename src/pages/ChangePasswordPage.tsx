@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { changeInitialPassword } from '../services/auth'
 import { getFirestoreErrorMessage } from '../services/firestore'
-import { syncInitialPasswordChange } from '../services/authApi'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import styles from './LoginPage.module.css'
 
@@ -39,7 +38,6 @@ function ChangePasswordPage() {
 
     try {
       await changeInitialPassword(currentPassword, newPassword, profile?.companyId ?? null)
-      await syncInitialPasswordChange(newPassword)
       await refreshProfile()
       navigate('/panel', { replace: true })
     } catch (err) {

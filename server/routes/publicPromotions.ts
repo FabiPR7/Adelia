@@ -1,16 +1,12 @@
 import { Router, type Request, type Response } from 'express'
-import { Timestamp } from 'firebase-admin/firestore'
-import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
-import { getUserRoleWithRest, verifyIdTokenWithRest } from '../rest-firebase.ts'
-import {
-  applyDuePromotionPinRotation,
-  defaultPromotionPinSettings,
-  mapPromotionPin,
-  normalizePromotionPinCode,
-  type PromotionPinSettings,
-} from '../utils/promotionPin.ts'
+import { adminDb } from '../firebase-admin.ts'
+import { verifyCustomerUid } from '../auth/verifyRequest.ts'
+import { createRateLimit } from '../middleware/rateLimit.ts'
+import { resolveCompanyPromotionPin } from '../utils/companyPromotionPin.ts'
+import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
 
 const router = Router()
+const validatePinRateLimit = createRateLimit(10, 60_000)
 
 interface PromotionOfferConfig {
   kind: string
@@ -237,69 +233,9 @@ async function loadPromotionsForCompany(
   })
 }
 
-function serializePromotionPin(settings: PromotionPinSettings) {
-  return {
-    code: settings.code,
-    rotation: settings.rotation,
-    nextRotationAt: settings.nextRotationAt ? Timestamp.fromDate(settings.nextRotationAt) : null,
-    lastRotatedAt: settings.lastRotatedAt ? Timestamp.fromDate(settings.lastRotatedAt) : null,
-    updatedAt: Timestamp.now(),
-  }
-}
-
-async function resolveCompanyPromotionPin(
-  companyRef: FirebaseFirestore.DocumentReference,
-  companyData: FirebaseFirestore.DocumentData,
-): Promise<string> {
-  const stored = mapPromotionPin(companyData.promotionPin as Record<string, unknown> | undefined)
-  const base = stored ?? defaultPromotionPinSettings()
-  const { settings, rotated } = applyDuePromotionPinRotation(base)
-
-  if (rotated) {
-    await companyRef.update({
-      promotionPin: serializePromotionPin(settings),
-    })
-  }
-
-  return settings.code
-}
-
-async function verifyCustomerToken(req: Request): Promise<string | null> {
-  const header = req.headers.authorization
-  if (!header?.startsWith('Bearer ')) {
-    return null
-  }
-
-  const token = header.slice(7)
-
-  if (canUseAdminSdk) {
-    const decoded = await adminAuth.verifyIdToken(token)
-    const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
-
-    if (!userSnap.exists || userSnap.data()?.role !== 'customer') {
-      return null
-    }
-
-    return decoded.uid
-  }
-
-  const decoded = await verifyIdTokenWithRest(token)
-  const role = await getUserRoleWithRest(token, decoded.uid)
-
-  if (role !== 'customer') {
-    return null
-  }
-
-  return decoded.uid
-}
-
-router.post('/validate-pin', async (req: Request, res: Response) => {
+router.post('/validate-pin', validatePinRateLimit, async (req: Request, res: Response) => {
   try {
-    const uid = await verifyCustomerToken(req)
-    if (!uid) {
-      res.status(401).json({ error: 'Debes iniciar sesión como cliente.' })
-      return
-    }
+    await verifyCustomerUid(req)
 
     const { companyId, pin } = req.body as { companyId?: string; pin?: string }
     const normalizedCompanyId = String(companyId ?? '').trim()
@@ -327,17 +263,30 @@ router.post('/validate-pin', async (req: Request, res: Response) => {
     res.json({ valid: currentPin === normalizedPin })
   } catch (error) {
     console.error('Validate promotion pin error:', error)
-    res.status(500).json({ error: 'No se pudo validar el código PIN.' })
+    const unauthorized = error instanceof Error && error.message.includes('cliente')
+    res.status(unauthorized ? 401 : 500).json({
+      error: unauthorized ? error.message : 'No se pudo validar el código PIN.',
+    })
   }
 })
 
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const companiesSnapshot = await adminDb.collection('companies').get()
-    const promotions: PublicPromotionPayload[] = []
+    const activeSnap = await adminDb
+      .collectionGroup('promotions')
+      .where('active', '==', true)
+      .limit(40)
+      .get()
 
-    for (const companyDoc of companiesSnapshot.docs) {
-      promotions.push(...await loadPromotionsForCompany(companyDoc))
+    const companyIds = [...new Set(activeSnap.docs.map((docSnap) => docSnap.ref.parent.parent?.id).filter(Boolean))] as string[]
+    const companySnaps = await Promise.all(
+      companyIds.map((companyId) => adminDb.collection('companies').doc(companyId).get()),
+    )
+    const companiesById = new Map(companySnaps.filter((snap) => snap.exists).map((snap) => [snap.id, snap]))
+
+    const promotions: PublicPromotionPayload[] = []
+    for (const companySnap of companiesById.values()) {
+      promotions.push(...await loadPromotionsForCompany(companySnap))
     }
 
     promotions.sort((left, right) => left.companyName.localeCompare(right.companyName, 'es'))

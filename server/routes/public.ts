@@ -21,8 +21,56 @@ import {
   type DepositCancelOutcome,
 } from '../stripe/deposits.ts'
 import { notifyReservationCancelled, notifyReservationReceived } from '../notifications/reservationEvents.ts'
+import { cancelInvitesForReservation, createReservationInvites } from '../reservations/invites.ts'
+import { readCompanyOps } from '../data/companyOps.ts'
+import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
+import { consumeInventoryItem, numberRecord } from '../gamification/inventory.ts'
+import { DEPOSIT_PASS_ITEM_ID, EXTRA_PAX_ITEM_ID } from '../gamification/inventoryItems.ts'
+import {
+  isPromoLockedForBooking,
+  previewCancellationPenalty,
+  previewCancelShieldCount,
+  PROMO_LOCK_BOOKING_MESSAGE,
+} from '../gamification/cancellationPenalty.ts'
 
 const router = Router()
+
+async function resolveBookingCustomer(req: Request): Promise<{
+  uid: string
+  displayName: string
+  email: string
+  phone: string
+  photoUrl: string
+} | null> {
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) {
+    return null
+  }
+
+  try {
+    const decoded = await adminAuth.verifyIdToken(header.slice(7))
+    const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
+    const data = userSnap.data()
+    if (!userSnap.exists || data?.role !== 'customer') {
+      return null
+    }
+
+    const emailFromDoc = typeof data.email === 'string' ? data.email.trim().toLowerCase() : ''
+    const emailFromToken = typeof decoded.email === 'string' ? decoded.email.trim().toLowerCase() : ''
+
+    return {
+      uid: decoded.uid,
+      displayName: typeof data.displayName === 'string' && data.displayName.trim()
+        ? data.displayName.trim()
+        : 'Cliente',
+      email: emailFromDoc || emailFromToken,
+      phone: typeof data.phone === 'string' ? data.phone.trim() : '',
+      photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : '',
+    }
+  } catch {
+    return null
+  }
+}
 
 async function findReservationByCancelToken(token: string) {
   const snapshot = await adminDb
@@ -71,6 +119,11 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
     timeSlotMinutes: (data.timeSlotMinutes as number) ?? 120,
     schedule: data.schedule ?? defaultSchedule(),
     floorPlan: data.floorPlan ?? { enabled: false },
+    floorPlans: Array.isArray(data.floorPlans) && data.floorPlans.length > 0
+      ? data.floorPlans
+      : data.floorPlan
+        ? [data.floorPlan]
+        : [],
   }
 }
 
@@ -101,10 +154,11 @@ async function getCompanyRecordBySlug(slug: string) {
   }
 
   const docSnap = snapshot.docs[0]
+  const data = (await readCompanyOps(docSnap.id)) ?? docSnap.data()
   return {
     id: docSnap.id,
-    data: docSnap.data(),
-    public: mapPublicCompany(docSnap.id, docSnap.data()),
+    data,
+    public: mapPublicCompany(docSnap.id, data),
   }
 }
 
@@ -435,6 +489,8 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
 
     const company = record.public
 
+    const customer = await resolveBookingCustomer(req)
+
     const {
       date: dateParam,
       time,
@@ -448,20 +504,27 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       depositPaymentIntentId: depositPaymentIntentIdRaw,
     } = req.body as Record<string, unknown>
 
-    if (typeof clientName !== 'string' || !clientName.trim()) {
+    const name = customer
+      ? customer.displayName
+      : typeof clientName === 'string' ? clientName.trim() : ''
+    const email = customer
+      ? customer.email
+      : typeof clientEmail === 'string' ? clientEmail.trim().toLowerCase() : ''
+    const phone = customer
+      ? customer.phone
+      : typeof clientPhone === 'string' ? clientPhone.trim() : ''
+
+    if (!name) {
       res.status(400).json({ error: 'Indica tu nombre.' })
       return
     }
-
-    const email = typeof clientEmail === 'string' ? clientEmail.trim().toLowerCase() : ''
-    const phone = typeof clientPhone === 'string' ? clientPhone.trim() : ''
 
     if (!isValidClientEmail(email)) {
       res.status(400).json({ error: 'Indica un correo electrónico válido.' })
       return
     }
 
-    if (!phone) {
+    if (!customer && !phone) {
       res.status(400).json({ error: 'Indica un teléfono de contacto.' })
       return
     }
@@ -502,8 +565,10 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
     const tableCapacity = (tableSnap.data()?.capacity as number) ?? 2
 
     if (guestCount > tableCapacity) {
-      res.status(400).json({ error: `Esta mesa admite hasta ${tableCapacity} personas.` })
-      return
+      if (!customer || req.body?.useExtraPax !== true || guestCount > tableCapacity + 1) {
+        res.status(400).json({ error: `Esta mesa admite hasta ${tableCapacity} personas.` })
+        return
+      }
     }
 
     const reservationsSnapshot = await adminDb
@@ -584,6 +649,11 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
 
       promotionId = promoSnap.id
 
+      if (await isPromoLockedForBooking(customer?.uid ?? null, email)) {
+        res.status(403).json({ error: PROMO_LOCK_BOOKING_MESSAGE })
+        return
+      }
+
       if (
         promoData.minimumSpendEnabled === true
         && typeof promoData.minimumSpendCents === 'number'
@@ -597,7 +667,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
     const reservationData: Record<string, unknown> = {
       companyId: company.id,
       tableId,
-      clientName: clientName.trim(),
+      clientName: name,
       clientEmail: email,
       clientPhone: phone,
       pax: guestCount,
@@ -621,18 +691,8 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       reservationData.promotionVisitStatus = promotionVisitStatus
     }
 
-    const authHeader = req.headers.authorization
-    if (authHeader?.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.slice(7)
-        const decoded = await adminAuth.verifyIdToken(token)
-        const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
-        if (userSnap.exists && userSnap.data()?.role === 'customer') {
-          reservationData.customerUid = decoded.uid
-        }
-      } catch {
-        // Reserva anónima o token inválido: continuar sin customerUid.
-      }
+    if (customer) {
+      reservationData.customerUid = customer.uid
     }
 
     const depositMinPax = typeof record.data.depositMinPax === 'number'
@@ -654,7 +714,15 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       )
       : 0
 
-    if (depositAmountCents > 0) {
+    const skipDeposit = req.body?.useDepositPass === true && depositAmountCents > 0
+    const useExtraPax = req.body?.useExtraPax === true && guestCount > tableCapacity
+
+    if ((skipDeposit || useExtraPax) && !customer) {
+      res.status(401).json({ error: 'Inicia sesión para usar este ítem.' })
+      return
+    }
+
+    if (depositAmountCents > 0 && !skipDeposit) {
       const depositPaymentIntentId = typeof depositPaymentIntentIdRaw === 'string'
         ? depositPaymentIntentIdRaw.trim()
         : ''
@@ -686,7 +754,40 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       reservationData.depositStatus = 'authorized'
     }
 
-    const reservationRef = await adminDb.collection('reservations').add(reservationData)
+    const reservationRef = adminDb.collection('reservations').doc()
+    let consumedInventory: Record<string, number> | null = null
+
+    try {
+      if (customer && (skipDeposit || useExtraPax)) {
+        consumedInventory = await adminDb.runTransaction(async (transaction) => {
+          const userRef = adminDb.collection('users').doc(customer.uid)
+          const statsRef = userGamificationRef(customer.uid)
+          const [userSnap, statsSnap] = await Promise.all([
+            transaction.get(userRef),
+            transaction.get(statsRef),
+          ])
+          let state = readGamificationFromDocs(statsSnap.data(), userSnap.data())
+          if (useExtraPax) {
+            state = consumeInventoryItem(state, EXTRA_PAX_ITEM_ID, 1)
+          }
+          if (skipDeposit) {
+            state = consumeInventoryItem(state, DEPOSIT_PASS_ITEM_ID, 1)
+          }
+          writeGamification(transaction, customer.uid, state)
+          transaction.set(reservationRef, reservationData)
+          return numberRecord(state.inventory)
+        })
+      } else {
+        await reservationRef.set(reservationData)
+      }
+    } catch (itemError) {
+      const message = itemError instanceof Error ? itemError.message : 'No se pudo crear la reserva.'
+      if (message === 'No te quedan cartas de este tipo.') {
+        res.status(403).json({ error: message })
+        return
+      }
+      throw itemError
+    }
 
     try {
       await upsertCompanyClientFromReservation(adminDb, reservationRef.id, reservationData)
@@ -706,9 +807,35 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       console.error('Public reservation received notification error:', notificationError)
     }
 
+    if (customer) {
+      try {
+        const photos = Array.isArray(record.data.photos) ? record.data.photos : []
+        const photoUrl = (typeof photos[0] === 'string' && photos[0].trim()
+          ? photos[0].trim()
+          : typeof record.data.logoUrl === 'string' ? record.data.logoUrl : '') || ''
+
+        await createReservationInvites({
+          reservationId: reservationRef.id,
+          startTime,
+          pax: guestCount,
+          companyId: company.id,
+          companyName: company.name,
+          companySlug: company.slug,
+          companyPhotoUrl: photoUrl,
+          fromUid: customer.uid,
+          fromDisplayName: customer.displayName,
+          fromPhotoUrl: customer.photoUrl,
+          inviteeUids: req.body?.inviteeUids,
+        })
+      } catch (inviteError) {
+        console.error('Public reservation invites error:', inviteError)
+      }
+    }
+
     res.status(201).json({
       id: reservationRef.id,
       message: 'Hemos recibido tu reserva.',
+      ...(consumedInventory ? { inventory: consumedInventory } : {}),
     })
   } catch (error) {
     console.error('Public reservation error:', error)
@@ -754,6 +881,12 @@ router.get('/cancel/preview', async (req: Request, res: Response) => {
       reservation,
       depositCancellationHours,
     })
+    const xpPenalty = reservation.status === 'cancelled'
+      ? null
+      : await previewCancellationPenalty(reservation as Record<string, unknown>, reservationRecord.id)
+    const cancelShieldCount = reservation.status === 'cancelled'
+      ? 0
+      : await previewCancelShieldCount(reservation as Record<string, unknown>)
 
     res.json({
       companyName,
@@ -766,6 +899,21 @@ router.get('/cancel/preview', async (req: Request, res: Response) => {
       depositCancellationHours,
       hasAuthorizedDeposit: depositPreview.hasAuthorizedDeposit,
       willChargeDeposit: depositPreview.willCaptureDeposit,
+      xpPenalty: xpPenalty
+        ? {
+            xpLost: xpPenalty.xpLost,
+            percent: xpPenalty.percent,
+            strikeCount: xpPenalty.strikeCount,
+            nextPercent: xpPenalty.nextPercent,
+            promoLocked: xpPenalty.promoLocked,
+            justLocked: xpPenalty.justLocked,
+            warning: xpPenalty.warning,
+            xpAfter: xpPenalty.xpAfter,
+            xpBefore: xpPenalty.xpBefore,
+          }
+        : null,
+      hasCustomerAccount: Boolean(xpPenalty),
+      cancelShieldCount,
     })
   } catch (error) {
     console.error('Public reservation cancel preview error:', error)
@@ -803,8 +951,7 @@ router.post('/cancel', async (req: Request, res: Response) => {
       : null
 
     if (typeof reservation.companyId === 'string') {
-      const companySnap = await adminDb.collection('companies').doc(reservation.companyId).get()
-      const companyData = companySnap.data()
+      const companyData = await readCompanyOps(reservation.companyId)
       const stripeAccountId = companyData?.stripeAccountId as string | undefined
       const depositCancellationHours = typeof companyData?.depositCancellationHours === 'number'
         ? companyData.depositCancellationHours
@@ -818,18 +965,34 @@ router.post('/cancel', async (req: Request, res: Response) => {
       })
     }
 
+    const useCancelShield = req.body?.useCancelShield === true
+
     await reservationRef.update({
       status: 'cancelled',
       cancelledBy: 'client',
+      cancelShieldRequested: useCancelShield,
       updatedAt: Timestamp.now(),
     })
 
     try {
-      await notifyReservationCancelled(
+      await cancelInvitesForReservation(reservationRecord.id)
+    } catch (inviteError) {
+      console.error('Cancel reservation invites error:', inviteError)
+    }
+
+    let penalty = null
+    try {
+      const notified = await notifyReservationCancelled(
         reservationRecord.id,
-        { ...reservation, status: 'cancelled', cancelledBy: 'client' },
+        {
+          ...reservation,
+          status: 'cancelled',
+          cancelledBy: 'client',
+          cancelShieldRequested: useCancelShield,
+        },
         'client',
       )
+      penalty = notified.penalty
     } catch (notificationError) {
       console.error('Cancel notification error:', notificationError)
     }
@@ -838,6 +1001,20 @@ router.post('/cancel', async (req: Request, res: Response) => {
       message: buildPublicCancelSuccessMessage(depositOutcome, depositAmountCents),
       depositOutcome,
       depositCharged: depositOutcome === 'captured',
+      xpPenalty: penalty
+        ? {
+            xpLost: penalty.xpLost,
+            percent: penalty.percent,
+            strikeCount: penalty.strikeCount,
+            nextPercent: penalty.nextPercent,
+            promoLocked: penalty.promoLocked,
+            justLocked: penalty.justLocked,
+            warning: penalty.warning,
+            xpAfter: penalty.xpAfter,
+            xpBefore: penalty.xpBefore,
+            shielded: penalty.shielded === true,
+          }
+        : null,
     })
   } catch (error) {
     console.error('Public reservation cancel error:', error)

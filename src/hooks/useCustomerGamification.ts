@@ -176,6 +176,16 @@ export function useCustomerGamification({
       ladderBaselines: nextState.ladderBaselinesByCompany,
       activeLadder: nextState.activeLadderPromotionByCompany,
       ladderCompletions: nextState.ladderCompletionsByCompany,
+      penalty: nextState.xpPenaltyTotal,
+      strikes: nextState.cancellationStrikeCount,
+      promoLocked: nextState.promoLocked,
+      inventory: nextState.inventory,
+      grantedItemKeys: nextState.grantedItemKeys,
+      tokenCredits: nextState.tokenCreditsByCompany,
+      pendingTokenSpend: nextState.pendingTokenSpend,
+      celebratedMissions: nextState.celebratedMissionIds,
+      celebratedLevel: nextState.lastCelebratedLevel,
+      celebrationsBootstrapped: nextState.celebrationsBootstrapped,
     })
 
     if (fingerprint === persistedRef.current) {

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { requestPasswordReset } from '../services/authApi'
 import { ADELIA_LOGO_URL } from '../constants/brand'
+import LegalLinks from '../components/LegalLinks'
 import styles from './LoginPage.module.css'
 
 function ForgotPasswordPage() {
@@ -108,6 +109,7 @@ function ForgotPasswordPage() {
                 Volver al inicio de sesión
               </Link>
             </p>
+            <LegalLinks from="/olvide-contrasena" />
           </footer>
         </section>
       </main>

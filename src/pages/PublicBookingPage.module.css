@@ -321,6 +321,20 @@
   font-size: 0.875rem;
 }
 
+.accountHint {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(74, 47, 32, 0.06);
+  color: var(--color-brown);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.accountHint strong {
+  font-weight: 800;
+}
+
 .slotGrid,
 .tableGrid {
   display: grid;
@@ -405,6 +419,30 @@
   font-family: var(--font-display);
   font-size: 0.9rem;
   color: var(--color-brown);
+}
+
+.mapTabList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.mapTab {
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-brown);
+  border-radius: 999px;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mapTabActive {
+  background: var(--color-brown);
+  border-color: var(--color-brown);
+  color: var(--color-white);
 }
 
 .mapHoursColumn {
@@ -522,6 +560,28 @@
   color: var(--color-brown-light);
 }
 
+.itemToggle {
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff8f1;
+  color: var(--color-brown);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.itemToggle input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.12rem;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: #7c3aed;
+}
+
 .formFields {
   margin: 0;
   padding: 0;
@@ -535,6 +595,17 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   font: inherit;
+}
+
+.formCard .itemToggle input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.12rem;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  flex-shrink: 0;
+  accent-color: #7c3aed;
 }
 
 .successCard {

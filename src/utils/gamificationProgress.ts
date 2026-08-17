@@ -756,13 +756,12 @@ export function processGamificationRewards(
   }
 
   const totalXp = next.xp + xpGain
-  const currentLevel = getLevelForXp(totalXp).level
 
   return {
     ...next,
     xp: totalXp,
-    adelinas: 0,
-    lastCelebratedLevel: next.lastCelebratedLevel ?? currentLevel,
+    adelinas: next.adelinas,
+    lastCelebratedLevel: next.lastCelebratedLevel,
     completedMissions: [...completedHistorical],
     weeklyCompleted: [...weeklyDone],
     monthlyCompleted: [...monthlyDone],

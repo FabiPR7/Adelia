@@ -1,11 +1,14 @@
 import {
+  onDocumentCreated,
   onDocumentUpdated,
+  onDocumentWritten,
 } from 'firebase-functions/v2/firestore'
-import { adminDb } from '../server/firebase-admin.ts'
 import {
   notifyReservationCancelled,
   notifyReservationConfirmed,
+  notifyPromotionClaimed,
 } from '../server/notifications/reservationEvents.ts'
+import { cancelInvitesForReservation } from '../server/reservations/invites.ts'
 import { notifyGamificationChanges } from '../server/notifications/gamificationEvents.ts'
 
 const reservationTriggerOptions = {
@@ -15,7 +18,13 @@ const reservationTriggerOptions = {
 } as const
 
 const userTriggerOptions = {
-  document: 'users/{userId}',
+  document: 'userGamification/{userId}',
+  database: 'adelia',
+  region: 'europe-southwest1',
+} as const
+
+const promotionClaimTriggerOptions = {
+  document: 'promotionClaims/{claimId}',
   database: 'adelia',
   region: 'europe-southwest1',
 } as const
@@ -39,6 +48,7 @@ export const onReservationUpdatedNotifications = onDocumentUpdated(
       if (before.status !== 'cancelled' && after.status === 'cancelled') {
         const cancelledBy = after.cancelledBy === 'client' ? 'client' : 'restaurant'
         await notifyReservationCancelled(reservationId, after, cancelledBy)
+        await cancelInvitesForReservation(reservationId)
       }
     } catch (error) {
       console.error(`Notification trigger failed for reservation ${reservationId}:`, error)
@@ -46,28 +56,67 @@ export const onReservationUpdatedNotifications = onDocumentUpdated(
   },
 )
 
-export const onUserGamificationUpdatedNotifications = onDocumentUpdated(
+export const onUserGamificationUpdatedNotifications = onDocumentWritten(
   userTriggerOptions,
   async (event) => {
     const before = event.data?.before.data()
     const after = event.data?.after.data()
     const userId = event.params.userId
 
-    if (!after || after.role !== 'customer') {
+    if (!after) {
       return
     }
 
-    const beforeGamification = JSON.stringify(before?.gamification ?? {})
-    const afterGamification = JSON.stringify(after.gamification ?? {})
+    const beforeState = before?.state && typeof before.state === 'object' ? before.state : {}
+    const afterState = after.state && typeof after.state === 'object' ? after.state : {}
 
-    if (beforeGamification === afterGamification) {
+    if (JSON.stringify(beforeState) === JSON.stringify(afterState)) {
       return
     }
 
     try {
-      await notifyGamificationChanges(userId, before, after)
+      await notifyGamificationChanges(
+        userId,
+        { role: 'customer', gamification: beforeState },
+        { role: 'customer', gamification: afterState },
+      )
     } catch (error) {
       console.error(`Gamification notification trigger failed for user ${userId}:`, error)
+    }
+  },
+)
+
+export const onPromotionClaimCreatedNotifications = onDocumentCreated(
+  promotionClaimTriggerOptions,
+  async (event) => {
+    const data = event.data?.data()
+    if (!data) {
+      return
+    }
+
+    const customerUid = typeof data.customerUid === 'string' ? data.customerUid : ''
+    const promotionId = typeof data.promotionId === 'string' ? data.promotionId : ''
+    const companyId = typeof data.companyId === 'string' ? data.companyId : ''
+    const title = typeof data.title === 'string' && data.title.trim()
+      ? data.title.trim()
+      : 'tu premio'
+    const reservationId = typeof data.reservationId === 'string' ? data.reservationId : undefined
+
+    if (!customerUid || !promotionId || !companyId) {
+      return
+    }
+
+    try {
+      await notifyPromotionClaimed(
+        customerUid,
+        promotionId,
+        companyId,
+        title,
+        reservationId,
+        event.params.claimId,
+      )
+    } catch (error) {
+      console.error(`Promotion claim notification failed for ${event.params.claimId}:`, error)
     }
   },
 )

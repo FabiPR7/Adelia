@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
+import { readCompanyOps, writeCompanyOps } from '../data/companyOps.ts'
 import { createStripeClient, getAppBaseUrl } from './config.ts'
 
 export interface CompanyStripeSnapshot {
@@ -18,8 +19,7 @@ function companyStripeRefreshUrl(tab = 'reservation-settings'): string {
 }
 
 export async function readCompanyStripeSnapshot(companyId: string): Promise<CompanyStripeSnapshot> {
-  const snap = await adminDb.collection('companies').doc(companyId).get()
-  const data = snap.data() ?? {}
+  const data = await readCompanyOps(companyId) ?? {}
 
   return {
     stripeAccountId: typeof data.stripeAccountId === 'string' ? data.stripeAccountId : null,
@@ -27,6 +27,20 @@ export async function readCompanyStripeSnapshot(companyId: string): Promise<Comp
     stripePayoutsEnabled: data.stripePayoutsEnabled === true,
     stripeDetailsSubmitted: data.stripeDetailsSubmitted === true,
   }
+}
+
+async function persistStripeSnapshot(companyId: string, snapshot: CompanyStripeSnapshot): Promise<void> {
+  const payload = {
+    stripeAccountId: snapshot.stripeAccountId,
+    stripeChargesEnabled: snapshot.stripeChargesEnabled,
+    stripePayoutsEnabled: snapshot.stripePayoutsEnabled,
+    stripeDetailsSubmitted: snapshot.stripeDetailsSubmitted,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+  await Promise.all([
+    writeCompanyOps(companyId, payload),
+    adminDb.collection('companies').doc(companyId).update(payload),
+  ])
 }
 
 export async function syncCompanyStripeStatus(
@@ -43,13 +57,7 @@ export async function syncCompanyStripeStatus(
     stripeDetailsSubmitted: account.details_submitted === true,
   }
 
-  await adminDb.collection('companies').doc(companyId).update({
-    stripeAccountId: snapshot.stripeAccountId,
-    stripeChargesEnabled: snapshot.stripeChargesEnabled,
-    stripePayoutsEnabled: snapshot.stripePayoutsEnabled,
-    stripeDetailsSubmitted: snapshot.stripeDetailsSubmitted,
-    updatedAt: FieldValue.serverTimestamp(),
-  })
+  await persistStripeSnapshot(companyId, snapshot)
 
   return snapshot
 }
@@ -78,12 +86,11 @@ export async function ensureConnectAccount(
     },
   })
 
-  await adminDb.collection('companies').doc(companyId).update({
+  await persistStripeSnapshot(companyId, {
     stripeAccountId: account.id,
     stripeChargesEnabled: false,
     stripePayoutsEnabled: false,
     stripeDetailsSubmitted: false,
-    updatedAt: FieldValue.serverTimestamp(),
   })
 
   return account.id

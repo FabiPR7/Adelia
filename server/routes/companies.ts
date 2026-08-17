@@ -6,6 +6,9 @@ import {
   setFirestoreDocWithRest,
 } from '../rest-firebase.ts'
 import { defaultSchedule, mapCompanyDoc, slugToAuthEmail, slugify } from '../utils.ts'
+import { syncRestaurantIndex } from '../data/restaurantIndex.ts'
+import { writeCompanyOps } from '../data/companyOps.ts'
+import { defaultCompanyEmailTemplates } from '../email/emailTemplateDefaults.ts'
 
 const router = Router()
 
@@ -13,13 +16,14 @@ function getAdminToken(req: Request) {
   return req.headers.authorization?.slice(7) ?? ''
 }
 
-async function syncLoginIndex(loginName: string, authEmail: string, role: string) {
+async function syncLoginIndex(loginName: string, authEmail: string, role: string, companyId?: string) {
   const loginId = slugify(loginName)
 
   await adminDb.collection('logins').doc(loginId).set({
     loginName,
     authEmail,
     role,
+    ...(companyId ? { companyId } : {}),
   })
 }
 
@@ -46,6 +50,9 @@ async function deleteCompanyData(companyId: string, loginName: string) {
 
   batch.delete(adminDb.collection('companies').doc(companyId))
   batch.delete(adminDb.collection('companyCredentials').doc(companyId))
+  batch.delete(adminDb.collection('restaurantIndex').doc(companyId))
+  batch.delete(adminDb.collection('companies').doc(companyId).collection('private').doc('ops'))
+  batch.delete(adminDb.collection('companies').doc(companyId).collection('private').doc('promotionPin'))
 
   await batch.commit()
   await removeLoginIndex(loginName)
@@ -132,8 +139,22 @@ router.post('/', async (req: Request, res: Response) => {
         updatedAt: now,
       })
 
-      await syncLoginIndex(name, email, 'company')
+      await syncLoginIndex(name, email, 'company', companyRef.id)
       await markMustChangePassword(userRecord.uid, companyRef.id)
+      await writeCompanyOps(companyRef.id, {
+        emailTemplates: defaultCompanyEmailTemplates(),
+        stripeAccountId: null,
+        stripeChargesEnabled: false,
+        stripePayoutsEnabled: false,
+        stripeDetailsSubmitted: false,
+      })
+      await syncRestaurantIndex(companyRef.id, {
+        name,
+        slug,
+        location,
+        phone,
+        website: website ?? '',
+      })
 
       const snapshot = await companyRef.get()
 
@@ -190,6 +211,22 @@ router.post('/', async (req: Request, res: Response) => {
       loginName: name,
       authEmail: email,
       role: 'company',
+    })
+    await setFirestoreDocWithRest(adminToken, `companies/${companyId}/private/ops`, {
+      emailTemplates: defaultCompanyEmailTemplates(),
+      stripeAccountId: null,
+      stripeChargesEnabled: false,
+      stripePayoutsEnabled: false,
+      stripeDetailsSubmitted: false,
+      updatedAt: now,
+    })
+    await setFirestoreDocWithRest(adminToken, `restaurantIndex/${companyId}`, {
+      companyId,
+      name,
+      slug,
+      location,
+      hasProfile: false,
+      updatedAt: now,
     })
 
     res.status(201).json({
@@ -278,7 +315,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       const authEmail =
         (credentialsSnap.data()?.authEmail as string) ??
         slugToAuthEmail(companyData.slug as string)
-      await syncLoginIndex(nextLoginName, authEmail, 'company')
+      await syncLoginIndex(nextLoginName, authEmail, 'company', id)
     }
 
     const updatedSnap = await companyRef.get()

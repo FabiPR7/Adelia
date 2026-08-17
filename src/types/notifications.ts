@@ -11,6 +11,10 @@ export type NotificationType =
   | 'friend_request_received'
   | 'friend_request_sent'
   | 'friend_request_accepted'
+  | 'reservation_invite_received'
+  | 'reservation_invite_accepted'
+  | 'reservation_invite_rejected'
+  | 'reservation_invite_cancelled'
   | 'mission_completed'
   | 'badge_unlocked'
   | 'level_up'
@@ -23,6 +27,8 @@ export interface NotificationData {
   companyName?: string
   companySlug?: string
   reservationId?: string
+  inviteId?: string
+  inviteStatus?: 'pending' | 'accepted' | 'rejected' | 'cancelled'
   promotionId?: string
   promotionTitle?: string
   missionId?: string
@@ -32,6 +38,15 @@ export interface NotificationData {
   fromLevel?: number
   toLevel?: number
   cancelledBy?: 'client' | 'restaurant'
+  xpLost?: number
+  xpAfter?: number
+  strikeCount?: number
+  percent?: number
+  nextPercent?: number | null
+  promoLocked?: boolean
+  justLocked?: boolean
+  warning?: string
+  shielded?: boolean
 }
 
 export interface CustomerNotification {

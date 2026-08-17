@@ -59,6 +59,35 @@ export interface CustomerGamificationState {
   ladderCompletionsByCompany: Record<string, number>
   /** Último nivel por el que ya se mostró la animación de ascenso. */
   lastCelebratedLevel: number | null
+  /** Misiones cuya celebración ya se mostró a este usuario. */
+  celebratedMissionIds: string[]
+  /** Si es true, no se reponen animaciones históricas al recargar. */
+  celebrationsBootstrapped: boolean
+  /** Cancelaciones de reserva (cliente o restaurante) que ya restaron XP. */
+  cancellationStrikeCount: number
+  cancelledReservationIds: string[]
+  xpPenaltyTotal: number
+  /** A las 5 cancelaciones se bloquean reservas y canjes de promoción. */
+  promoLocked: boolean
+  /** Cartas e ítems: id → cantidad. */
+  inventory: Record<string, number>
+  /** Claves ya recompensadas (nivel, misión, bonus). */
+  grantedItemKeys: string[]
+  /** Visitas extra aplicadas con cartas de mesa, por restaurante. */
+  tokenCreditsByCompany: Record<string, number>
+  /** Cartas usadas cuyo resto de gasto aún hay que verificar con el restaurante. */
+  pendingTokenSpend: PendingTokenSpend[]
+}
+
+export interface PendingTokenSpend {
+  id: string
+  companyId: string
+  itemId: string
+  visits: number
+  coverCents: number
+  remainderCents: number
+  requiredCents: number
+  createdAt: string
 }
 
 export interface MissionProgress {
@@ -77,9 +106,25 @@ export interface GamificationLevel {
   styleClass: string
 }
 
-export const WEEKLY_MISSION_BONUS_XP = 150
-export const WEEKLY_BONUS_TARGET = 5
-export const CONFIRMED_RESERVATION_XP = 25
+export let WEEKLY_MISSION_BONUS_XP = 150
+export let WEEKLY_BONUS_TARGET = 5
+export let CONFIRMED_RESERVATION_XP = 25
+
+export function applyGameConfig(config: {
+  weeklyBonusXp?: number
+  weeklyBonusTarget?: number
+  confirmedReservationXp?: number
+}): void {
+  if (typeof config.weeklyBonusXp === 'number' && Number.isFinite(config.weeklyBonusXp)) {
+    WEEKLY_MISSION_BONUS_XP = config.weeklyBonusXp
+  }
+  if (typeof config.weeklyBonusTarget === 'number' && Number.isFinite(config.weeklyBonusTarget)) {
+    WEEKLY_BONUS_TARGET = config.weeklyBonusTarget
+  }
+  if (typeof config.confirmedReservationXp === 'number' && Number.isFinite(config.confirmedReservationXp)) {
+    CONFIRMED_RESERVATION_XP = config.confirmedReservationXp
+  }
+}
 
 export function defaultGamificationState(): CustomerGamificationState {
   return {
@@ -106,5 +151,15 @@ export function defaultGamificationState(): CustomerGamificationState {
     activeLadderPromotionByCompany: {},
     ladderCompletionsByCompany: {},
     lastCelebratedLevel: null,
+    celebratedMissionIds: [],
+    celebrationsBootstrapped: false,
+    cancellationStrikeCount: 0,
+    cancelledReservationIds: [],
+    xpPenaltyTotal: 0,
+    promoLocked: false,
+    inventory: {},
+    grantedItemKeys: [],
+    tokenCreditsByCompany: {},
+    pendingTokenSpend: [],
   }
 }

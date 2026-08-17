@@ -34,7 +34,8 @@ function PublicRestaurantPromotionsPage() {
         if (!cancelled) {
           setCompanyName(booking.company.name)
           setPromotions(
-            mergeDemoPromotions(promoData).filter((promotion) => promotion.companySlug === slug),
+            (import.meta.env.DEV ? mergeDemoPromotions(promoData) : promoData)
+              .filter((promotion) => promotion.companySlug === slug),
           )
         }
       } catch (err) {

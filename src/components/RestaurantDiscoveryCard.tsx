@@ -6,6 +6,7 @@ import {
   formatDiscoveryRatingBadge,
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
+import FavoriteButton from './FavoriteButton'
 import styles from './RestaurantDiscoveryCard.module.css'
 
 interface RestaurantDiscoveryCardProps {
@@ -37,6 +38,8 @@ function RestaurantDiscoveryCard({
           onClick={() => onOpen(restaurant)}
           aria-label={`Ver ${restaurant.name}`}
         />
+
+        <FavoriteButton slug={restaurant.slug} name={restaurant.name} variant="overlay" />
 
         {!imageUrl && <span className={styles.imageFallback}>{restaurant.name.charAt(0)}</span>}
 

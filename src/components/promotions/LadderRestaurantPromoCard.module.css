@@ -255,3 +255,21 @@
   font-weight: 800;
   color: var(--color-text-muted);
 }
+
+.useTokenButton {
+  margin: 0 0.55rem 0.55rem;
+  min-height: 1.85rem;
+  border: none;
+  border-radius: 999px;
+  background: #1f1420;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ladderCardCompact .useTokenButton {
+  margin: 0 0.4rem 0.4rem;
+  min-height: 1.55rem;
+  font-size: 0.62rem;
+}

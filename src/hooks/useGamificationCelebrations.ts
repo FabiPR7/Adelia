@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CelebrationEvent } from '../utils/gamificationCelebration'
+import type { CelebrationEvent, CelebrationProgress } from '../utils/gamificationCelebration'
 import {
+  applyProgressToReceipts,
   buildCelebrationEvents,
-  createSnapshot,
-  readGamificationSnapshot,
-  writeGamificationSnapshot,
+  mergeCelebrationReceipts,
+  readCelebrationReceipts,
+  receiptsToSnapshot,
+  writeCelebrationReceipts,
 } from '../utils/gamificationCelebration'
 
 interface UseGamificationCelebrationsOptions {
@@ -13,7 +15,28 @@ interface UseGamificationCelebrationsOptions {
   xp: number
   level: number
   levelTitle: string
+  weeklyCompleted: string[]
+  monthlyCompleted: string[]
+  completedMissions: string[]
+  celebratedMissionIds: string[]
+  celebrationsBootstrapped: boolean
   enabled: boolean
+  hydrated: boolean
+  paused?: boolean
+  onPersistReceipts?: (payload: {
+    missionIds: string[]
+    bootstrapped: boolean
+  }) => void
+}
+
+function progressFingerprint(xp: number, progress: CelebrationProgress, seenMissions: string[]): string {
+  return [
+    xp,
+    [...progress.weeklyCompleted].sort().join(','),
+    [...progress.monthlyCompleted].sort().join(','),
+    [...progress.completedMissions].sort().join(','),
+    [...seenMissions].sort().join(','),
+  ].join('|')
 }
 
 export function useGamificationCelebrations({
@@ -22,91 +45,119 @@ export function useGamificationCelebrations({
   xp,
   level,
   levelTitle,
+  weeklyCompleted,
+  monthlyCompleted,
+  completedMissions,
+  celebratedMissionIds,
+  celebrationsBootstrapped,
   enabled,
+  hydrated,
+  paused = false,
+  onPersistReceipts,
 }: UseGamificationCelebrationsOptions) {
   const [queue, setQueue] = useState<CelebrationEvent[]>([])
   const [activeEvent, setActiveEvent] = useState<CelebrationEvent | null>(null)
   const [rankJustImproved, setRankJustImproved] = useState(false)
   const [levelJustUp, setLevelJustUp] = useState(false)
-  const bootstrappedRef = useRef(false)
-  const lastXpRef = useRef<number | null>(null)
+  const lastFingerprintRef = useRef<string | null>(null)
+  const persistRef = useRef(onPersistReceipts)
+  persistRef.current = onPersistReceipts
+
+  const progress: CelebrationProgress = {
+    weeklyCompleted,
+    monthlyCompleted,
+    completedMissions,
+  }
 
   const dismissActive = useCallback(() => {
     setActiveEvent(null)
   }, [])
 
   useEffect(() => {
-    if (!enabled || !userId) {
-      setQueue([])
-      setActiveEvent(null)
-      setRankJustImproved(false)
-      setLevelJustUp(false)
-      bootstrappedRef.current = false
-      lastXpRef.current = null
+    if (!enabled || !userId || !hydrated) {
       return
     }
 
-    if (lastXpRef.current === xp && bootstrappedRef.current) {
+    const local = readCelebrationReceipts(userId)
+    const receipts = mergeCelebrationReceipts(local, {
+      bootstrapped: celebrationsBootstrapped,
+      missionIds: celebratedMissionIds,
+    })
+
+    if (!receipts.bootstrapped) {
+      lastFingerprintRef.current = null
       return
     }
 
-    const snapshot = readGamificationSnapshot(userId)
-    const nextSnapshot = createSnapshot(userName, xp, level, levelTitle)
-
-    if (!bootstrappedRef.current) {
-      bootstrappedRef.current = true
-      lastXpRef.current = xp
-
-      if (snapshot && xp > snapshot.xp) {
-        const events = buildCelebrationEvents(snapshot, userName, xp, level, levelTitle)
-          .filter((event) => event.kind !== 'level_up')
-
-        if (events.some((event) => event.kind === 'rank_up')) {
-          setRankJustImproved(true)
-          window.setTimeout(() => setRankJustImproved(false), 4500)
-        }
-
-        if (events.length > 0) {
-          setQueue(events)
-        }
-      } else if (!snapshot) {
-        writeGamificationSnapshot(userId, nextSnapshot)
-        return
-      }
-
-      writeGamificationSnapshot(userId, nextSnapshot)
+    const fingerprint = progressFingerprint(xp, progress, receipts.missionIds)
+    if (lastFingerprintRef.current === fingerprint) {
       return
     }
 
-    if (snapshot && xp > snapshot.xp) {
-      const events = buildCelebrationEvents(snapshot, userName, xp, level, levelTitle)
+    const events = buildCelebrationEvents(
+      receiptsToSnapshot(receipts),
+      userName,
+      xp,
+      level,
+      levelTitle,
+      progress,
+    ).filter((event) => event.kind !== 'level_up')
 
-      if (events.some((event) => event.kind === 'rank_up')) {
-        setRankJustImproved(true)
-        window.setTimeout(() => setRankJustImproved(false), 4500)
-      }
+    lastFingerprintRef.current = fingerprint
 
-      if (events.length > 0) {
-        setQueue((current) => [...current, ...events.filter((event) => event.kind !== 'level_up')])
-      }
+    if (events.length === 0) {
+      return
     }
 
-    writeGamificationSnapshot(userId, nextSnapshot)
-    lastXpRef.current = xp
-  }, [enabled, userId, userName, xp, level, levelTitle])
+    const nextReceipts = applyProgressToReceipts(receipts, userName, xp, level, levelTitle, progress)
+    writeCelebrationReceipts(userId, nextReceipts)
+    persistRef.current?.({
+      missionIds: nextReceipts.missionIds,
+      bootstrapped: true,
+    })
+
+    if (events.some((event) => event.kind === 'rank_up')) {
+      setRankJustImproved(true)
+      window.setTimeout(() => setRankJustImproved(false), 4500)
+    }
+
+    if (level > receipts.lastCelebratedLevel && receipts.lastCelebratedLevel > 0) {
+      setLevelJustUp(true)
+      window.setTimeout(() => setLevelJustUp(false), 4500)
+    }
+
+    setQueue((current) => {
+      const seen = new Set(current.map((event) => event.id))
+      const fresh = events.filter((event) => !seen.has(event.id))
+      return fresh.length > 0 ? [...current, ...fresh] : current
+    })
+  }, [
+    celebratedMissionIds,
+    celebrationsBootstrapped,
+    completedMissions,
+    enabled,
+    hydrated,
+    level,
+    levelTitle,
+    monthlyCompleted,
+    userId,
+    userName,
+    weeklyCompleted,
+    xp,
+  ])
 
   useEffect(() => {
-    if (activeEvent || queue.length === 0) {
+    if (paused || activeEvent || queue.length === 0) {
       return
     }
 
     const [next, ...rest] = queue
     setActiveEvent(next)
     setQueue(rest)
-  }, [activeEvent, queue])
+  }, [activeEvent, paused, queue])
 
   useEffect(() => {
-    if (!activeEvent) {
+    if (!activeEvent || paused) {
       return
     }
 
@@ -115,7 +166,7 @@ export function useGamificationCelebrations({
     }, 5200)
 
     return () => window.clearTimeout(timeout)
-  }, [activeEvent])
+  }, [activeEvent, paused])
 
   return {
     activeEvent,

@@ -16,10 +16,11 @@ import type {
   CreateCompanyPayload,
   UpdateCompanyPayload,
 } from '../types'
-import { defaultTurns, parseFloorPlan, defaultCompanyEmailTemplates } from '../types/company'
+import { defaultTurns, parseFloorPlans, withFloorPlans, defaultCompanyEmailTemplates } from '../types/company'
 import { defaultCompanyQrBranding } from '../utils/qrBranding'
 import { defaultSchedule, slugify, slugToAuthEmail } from '../utils/helpers'
 import { syncCompanyLoginIndex } from './firestore'
+import { restaurantIndexPayload } from './restaurantIndex'
 
 const AUTH_API_KEY = import.meta.env.VITE_FIREBASE_API_KEY
 
@@ -124,6 +125,22 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
     companyId,
   })
 
+  batch.set(doc(db, 'companies', companyId, 'private', 'ops'), {
+    emailTemplates: defaultCompanyEmailTemplates(),
+    stripeAccountId: null,
+    stripeChargesEnabled: false,
+    stripePayoutsEnabled: false,
+    stripeDetailsSubmitted: false,
+    updatedAt: now,
+  })
+
+  batch.set(doc(db, 'restaurantIndex', companyId), restaurantIndexPayload({
+    id: companyId,
+    name,
+    slug,
+    location,
+  }))
+
   await batch.commit()
 
   return {
@@ -154,7 +171,7 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
       depositCancellationHours: null,
       schedule: defaultSchedule(),
       turns: defaultTurns(),
-      floorPlan: parseFloorPlan(undefined),
+      ...withFloorPlans(parseFloorPlans(undefined)),
       emailTemplates: defaultCompanyEmailTemplates(),
       qrBranding: defaultCompanyQrBranding(),
       reviewCount: 0,
@@ -257,6 +274,9 @@ export async function deleteCompany(companyId: string, company: AdminCompany): P
   batch.delete(doc(db, 'companyCredentials', companyId))
   batch.delete(doc(db, 'users', company.ownerUid))
   batch.delete(doc(db, 'logins', slugify(company.loginName)))
+  batch.delete(doc(db, 'restaurantIndex', companyId))
+  batch.delete(doc(db, 'companies', companyId, 'private', 'ops'))
+  batch.delete(doc(db, 'companies', companyId, 'private', 'promotionPin'))
 
   await batch.commit()
 }

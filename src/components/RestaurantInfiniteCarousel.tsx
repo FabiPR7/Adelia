@@ -10,7 +10,7 @@ interface RestaurantInfiniteCarouselProps {
   onOpenRestaurant: (restaurant: PublicDiscoveryRestaurant) => void
 }
 
-const SCROLL_SPEED_PX_PER_SECOND = 72
+const SCROLL_SPEED_PX_PER_SECOND = 50
 
 function normalizeOffset(offset: number, period: number): number {
   if (period <= 0) {

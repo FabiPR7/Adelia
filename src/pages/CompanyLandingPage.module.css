@@ -1410,3 +1410,16 @@
     justify-content: center;
   }
 }
+
+.siteFooter {
+  padding: 1.4rem 1.25rem 1.6rem;
+  border-top: 1px solid rgba(107, 83, 68, 0.12);
+  background: #1a120c;
+  color: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+.siteFooter p {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+}

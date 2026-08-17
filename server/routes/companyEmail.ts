@@ -11,6 +11,7 @@ import {
   buildSampleReservationEmailData,
 } from '../email/buildReservationEmail.ts'
 import { adminAuth, adminDb } from '../firebase-admin.ts'
+import { readCompanyOps } from '../data/companyOps.ts'
 
 const router = Router()
 
@@ -62,16 +63,16 @@ router.post('/:companyId/email-preview', async (req: Request, res: Response) => 
       return
     }
 
-    const companySnap = await adminDb.collection('companies').doc(companyId).get()
+    const company = await readCompanyOps(companyId)
 
-    if (!companySnap.exists) {
+    if (!company) {
       res.status(404).json({ error: 'Empresa no encontrada.' })
       return
     }
 
     const defaults = kind === 'received' ? DEFAULT_RECEIVED_TEMPLATE : DEFAULT_CONFIRMATION_TEMPLATE
     const normalizedTemplate = normalizeReservationEmailTemplate(template, defaults)
-    const payload = buildSampleReservationEmailData(kind, companySnap.data()!, normalizedTemplate)
+    const payload = buildSampleReservationEmailData(kind, company, normalizedTemplate)
     const html = buildReservationEmailHtml(payload, { logoMode: 'data' })
     const subject = buildReservationEmailSubject(payload)
 

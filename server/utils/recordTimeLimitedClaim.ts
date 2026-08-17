@@ -1,5 +1,12 @@
 import { adminDb } from '../firebase-admin.ts'
 import { notifyPromotionClaimed } from '../notifications/reservationEvents.ts'
+import {
+  appendClaimToState,
+  timeLimitedClaimDocId,
+  writeClaimInTransaction,
+} from '../data/promotionClaims.ts'
+import { readGamificationFromDocs, userGamificationRef } from '../data/userGamification.ts'
+import { isPromoLockedFromState } from '../gamification/cancellationPenalty.ts'
 
 interface PromotionOfferConfig {
   kind: string
@@ -144,10 +151,11 @@ export async function recordTimeLimitedPromotionClaimForVerification(
   promotionId: string,
 ): Promise<boolean> {
   const companyRef = adminDb.collection('companies').doc(companyId)
-  const [companySnap, promotionSnap, userSnap] = await Promise.all([
+  const [companySnap, promotionSnap, userSnap, statsSnap] = await Promise.all([
     companyRef.get(),
     companyRef.collection('promotions').doc(promotionId).get(),
     adminDb.collection('users').doc(customerUid).get(),
+    userGamificationRef(customerUid).get(),
   ])
 
   if (!companySnap.exists || !promotionSnap.exists || !userSnap.exists) {
@@ -160,11 +168,11 @@ export async function recordTimeLimitedPromotionClaimForVerification(
   }
 
   const companyData = companySnap.data()!
-  const userData = userSnap.data()!
-  const gamification = userData.gamification && typeof userData.gamification === 'object'
-    ? userData.gamification as Record<string, unknown>
-    : {}
-
+  const gamification = readGamificationFromDocs(statsSnap.data(), userSnap.data())
+  if (isPromoLockedFromState(gamification)) {
+    return false
+  }
+  const claimId = timeLimitedClaimDocId(customerUid, reservationId, promotionId)
   const existingClaims = Array.isArray(gamification.claimedPromotions)
     ? [...(gamification.claimedPromotions as ClaimedPromotionRecord[])]
     : []
@@ -195,16 +203,14 @@ export async function recordTimeLimitedPromotionClaimForVerification(
     reservationId,
   }
 
-  const redemptionsCount = typeof gamification.redemptionsCount === 'number'
-    ? gamification.redemptionsCount + 1
-    : existingClaims.length + 1
-
-  await adminDb.collection('users').doc(customerUid).update({
-    gamification: {
-      ...gamification,
-      claimedPromotions: [...existingClaims, claim],
-      redemptionsCount,
-    },
+  await adminDb.runTransaction(async (transaction) => {
+    await writeClaimInTransaction(
+      transaction,
+      customerUid,
+      claimId,
+      claim as unknown as Record<string, unknown>,
+      appendClaimToState(gamification, claim as unknown as Record<string, unknown>),
+    )
   })
 
   try {
@@ -214,6 +220,7 @@ export async function recordTimeLimitedPromotionClaimForVerification(
       companyId,
       claim.title || 'tu premio',
       reservationId,
+      claimId,
     )
   } catch (notificationError) {
     console.error('Promotion claimed notification error:', notificationError)

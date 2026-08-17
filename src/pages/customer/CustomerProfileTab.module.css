@@ -304,6 +304,37 @@
   font-weight: 800;
 }
 
+.activityList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.activityItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 14px;
+  background: rgba(107, 83, 68, 0.05);
+}
+
+.activityItem strong {
+  font-size: 0.82rem;
+  color: var(--color-brown);
+}
+
+.activityItem span {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -422,6 +453,11 @@
   color: #fff;
   font-size: 0.68rem;
   cursor: pointer;
+}
+
+.legalRow {
+  margin-top: 1rem;
+  color: var(--color-text-muted);
 }
 
 .actions {

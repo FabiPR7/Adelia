@@ -7,6 +7,7 @@ import { getCompanyMainPhotoUrl } from '../../utils/companyPhotos'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
 import { formatRestaurantLocation } from '../../utils/publicBooking'
 import { toGeoCoordinates } from '../../utils/mapCoordinates'
+import FavoriteButton from '../FavoriteButton'
 import styles from './BookingRestaurantLanding.module.css'
 
 interface BookingRestaurantLandingProps {
@@ -112,6 +113,8 @@ function PhotoCarousel({
               alt=""
               className={`${styles.carouselImage} ${index === activeIndex ? styles.carouselImageActive : ''}`}
               loading={index === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+              fetchPriority={index === 0 ? 'high' : 'low'}
               draggable={false}
             />
           </div>
@@ -184,8 +187,14 @@ export default function BookingRestaurantLanding({
           </Link>
         ) : null}
 
+        <FavoriteButton
+          slug={company.slug}
+          name={company.name}
+          variant="overlayEnd"
+        />
+
         {heroImage ? (
-          <img src={heroImage} alt="" className={styles.heroImage} />
+          <img src={heroImage} alt="" className={styles.heroImage} fetchPriority="high" decoding="async" />
         ) : (
           <div className={styles.heroFallback} aria-hidden="true">
             {company.logoUrl ? (

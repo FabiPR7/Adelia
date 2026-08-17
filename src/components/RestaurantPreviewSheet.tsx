@@ -6,6 +6,7 @@ import {
   formatDiscoveryRatingBadge,
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
+import FavoriteButton from './FavoriteButton'
 import styles from './RestaurantPreviewSheet.module.css'
 
 interface RestaurantPreviewSheetProps {
@@ -103,6 +104,7 @@ function RestaurantPreviewSheet({
             <Link to={`/reservar/${restaurant.slug}`} className={styles.primaryButton}>
               Reservar mesa ahora
             </Link>
+            <FavoriteButton slug={restaurant.slug} name={restaurant.name} variant="chip" />
             <button
               type="button"
               className={styles.iconButton}

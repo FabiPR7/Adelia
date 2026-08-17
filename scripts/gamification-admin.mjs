@@ -45,6 +45,14 @@ const defaultGamification = {
   activeLadderPromotionByCompany: {},
   ladderCompletionsByCompany: {},
   lastCelebratedLevel: 1,
+  cancellationStrikeCount: 0,
+  cancelledReservationIds: [],
+  xpPenaltyTotal: 0,
+  promoLocked: false,
+  inventory: {},
+  grantedItemKeys: [],
+  tokenCreditsByCompany: {},
+  pendingTokenSpend: [],
 }
 
 if (!getApps().length) {
@@ -112,6 +120,13 @@ for (const userDoc of targets) {
       adelinas: 0,
       gamification: defaultGamification,
     })
+    await db.collection('userGamification').doc(userDoc.id).set({
+      uid: userDoc.id,
+      xp: 0,
+      adelinas: 0,
+      state: defaultGamification,
+      updatedAt: new Date(),
+    }, { merge: true })
     console.log(`Reset nivel 1: ${email} (antes ${xp} XP, nivel ${currentLevel})`)
     continue
   }

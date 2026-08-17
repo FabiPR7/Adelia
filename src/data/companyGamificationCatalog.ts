@@ -1,0 +1,571 @@
+import type { GamificationLevel, MissionDefinition } from '../types/gamification'
+
+export const COMPANY_WEEKLY_SLOT_COUNT = 6
+export const COMPANY_MONTHLY_SLOT_COUNT = 5
+export const COMPANY_WEEKLY_BONUS_TARGET = 4
+export const COMPANY_WEEKLY_BONUS_XP = 120
+export const COMPANY_CONFIRMED_XP = 15
+export const COMPANY_REVIEW_XP = 10
+export const COMPANY_REPLY_XP = 8
+
+export const COMPANY_LEVELS: GamificationLevel[] = [
+  {
+    level: 1,
+    title: 'Fogón Nuevo',
+    minXp: 0,
+    maxXp: 249,
+    colors: ['#F4E6D4', '#C4A574'],
+    styleClass: 'companyLevel1',
+  },
+  {
+    level: 2,
+    title: 'Casa Abierta',
+    minXp: 250,
+    maxXp: 599,
+    colors: ['#34D399', '#059669'],
+    styleClass: 'companyLevel2',
+  },
+  {
+    level: 3,
+    title: 'Mesa de Barrio',
+    minXp: 600,
+    maxXp: 1099,
+    colors: ['#60A5FA', '#2563EB'],
+    styleClass: 'companyLevel3',
+  },
+  {
+    level: 4,
+    title: 'Casa de Confianza',
+    minXp: 1100,
+    maxXp: 1899,
+    colors: ['#A78BFA', '#6D28D9'],
+    styleClass: 'companyLevel4',
+  },
+  {
+    level: 5,
+    title: 'Referente Local',
+    minXp: 1900,
+    maxXp: 2999,
+    colors: ['#F97316', '#C2410C'],
+    styleClass: 'companyLevel5',
+  },
+  {
+    level: 6,
+    title: 'Estrella de la Villa',
+    minXp: 3000,
+    maxXp: 4499,
+    colors: ['#FBBF24', '#B45309'],
+    styleClass: 'companyLevel6',
+  },
+  {
+    level: 7,
+    title: 'Casa Ilustre',
+    minXp: 4500,
+    maxXp: 6499,
+    colors: ['#F43F5E', '#9F1239'],
+    styleClass: 'companyLevel7',
+  },
+  {
+    level: 8,
+    title: 'Leyenda del Fuego',
+    minXp: 6500,
+    maxXp: 8999,
+    colors: ['#FB7185', '#7C2D12'],
+    styleClass: 'companyLevel8',
+  },
+  {
+    level: 9,
+    title: 'Mesa Maestra',
+    minXp: 9000,
+    maxXp: 12499,
+    colors: ['#22D3EE', '#0E7490'],
+    styleClass: 'companyLevel9',
+  },
+  {
+    level: 10,
+    title: 'Emblema Adelia',
+    minXp: 12500,
+    maxXp: null,
+    colors: ['#E879F9', '#BE185D'],
+    styleClass: 'companyLevel10',
+  },
+]
+
+export const COMPANY_LEVEL_PERKS: Record<number, string> = {
+  2: 'Tu casa ya tiene nombre en el barrio',
+  3: 'Los vecinos te eligen a ti',
+  4: 'La mesa se llena con confianza',
+  5: 'Eres el referente de tu zona',
+  6: 'Brillas en el ranking local',
+  7: 'Una casa de la que se habla',
+  8: 'Leyenda entre fogones',
+  9: 'Maestría de sala y cocina',
+  10: 'Emblema de Adelia',
+}
+
+export const COMPANY_WEEKLY_MISSIONS: MissionDefinition[] = [
+  {
+    id: 'servicio_semana',
+    name: 'Servicio de la semana',
+    xp: 70,
+    cadence: 'weekly',
+    category: 'loyalty',
+    description: 'Confirma la asistencia de 3 reservas esta semana.',
+    icon: '🍽️',
+    target: 3,
+  },
+  {
+    id: 'valle_semana',
+    name: 'Valle lleno',
+    xp: 45,
+    cadence: 'weekly',
+    category: 'loyalty',
+    description: 'Confirma una reserva de lunes a jueves.',
+    icon: '📅',
+    target: 1,
+  },
+  {
+    id: 'finde_semana',
+    name: 'Finde en casa',
+    xp: 45,
+    cadence: 'weekly',
+    category: 'loyalty',
+    description: 'Confirma una reserva de viernes a domingo.',
+    icon: '🎉',
+    target: 1,
+  },
+  {
+    id: 'respuesta_semana',
+    name: 'Anfitrión atento',
+    xp: 70,
+    cadence: 'weekly',
+    category: 'reviews',
+    description: 'Responde a una reseña esta semana.',
+    icon: '💬',
+    target: 1,
+  },
+  {
+    id: 'mesa_llena_semana',
+    name: 'Mesa llena',
+    xp: 55,
+    cadence: 'weekly',
+    category: 'loyalty',
+    description: 'Confirma una reserva de 4 o más comensales.',
+    icon: '👨‍👩‍👧‍👦',
+    target: 1,
+  },
+  {
+    id: 'ritmo_semana',
+    name: 'Ritmo de sala',
+    xp: 100,
+    cadence: 'weekly',
+    category: 'loyalty',
+    description: 'Confirma 5 reservas esta semana.',
+    icon: '🔥',
+    target: 5,
+  },
+  {
+    id: 'oferta_viva',
+    name: 'Carta de ofertas',
+    xp: 40,
+    cadence: 'weekly',
+    category: 'rewards',
+    description: 'Ten al menos una promoción activa.',
+    icon: '🏷️',
+    target: 1,
+  },
+  {
+    id: 'comida_semana',
+    name: 'Servicio de comida',
+    xp: 40,
+    cadence: 'weekly',
+    category: 'loyalty',
+    description: 'Confirma una reserva en horario de comida (12:00–17:00).',
+    icon: '☀️',
+    target: 1,
+  },
+  {
+    id: 'cena_semana',
+    name: 'Servicio de cena',
+    xp: 40,
+    cadence: 'weekly',
+    category: 'loyalty',
+    description: 'Confirma una reserva en horario de cena (19:00–23:00).',
+    icon: '🌙',
+    target: 1,
+  },
+  {
+    id: 'grupo_semana',
+    name: 'Mesa de grupo',
+    xp: 80,
+    cadence: 'weekly',
+    category: 'loyalty',
+    description: 'Confirma una reserva de 8 o más comensales.',
+    icon: '🥂',
+    target: 1,
+  },
+  {
+    id: 'dias_semana',
+    name: 'Casa abierta',
+    xp: 75,
+    cadence: 'weekly',
+    category: 'exploration',
+    description: 'Confirma reservas en 3 días distintos esta semana.',
+    icon: '📆',
+    target: 3,
+  },
+  {
+    id: 'bienvenida_semana',
+    name: 'Bienvenida',
+    xp: 90,
+    cadence: 'weekly',
+    category: 'exploration',
+    description: 'Confirma la primera visita de un comensal nuevo esta semana.',
+    icon: '🚪',
+    target: 1,
+  },
+]
+
+export const COMPANY_MONTHLY_MISSIONS: MissionDefinition[] = [
+  {
+    id: 'volumen_mes',
+    name: 'Volumen del mes',
+    xp: 250,
+    cadence: 'monthly',
+    category: 'loyalty',
+    description: 'Confirma 12 reservas este mes.',
+    icon: '📈',
+    target: 12,
+  },
+  {
+    id: 'respuestas_mes',
+    name: 'Conversación de casa',
+    xp: 200,
+    cadence: 'monthly',
+    category: 'reviews',
+    description: 'Responde a 3 reseñas este mes.',
+    icon: '✍️',
+    target: 3,
+  },
+  {
+    id: 'valle_mes',
+    name: 'Entre semana',
+    xp: 180,
+    cadence: 'monthly',
+    category: 'loyalty',
+    description: 'Confirma 4 reservas de lunes a jueves.',
+    icon: '🗓️',
+    target: 4,
+  },
+  {
+    id: 'nuevos_mes',
+    name: 'Caras nuevas',
+    xp: 220,
+    cadence: 'monthly',
+    category: 'exploration',
+    description: 'Confirma la primera visita de 4 comensales nuevos.',
+    icon: '✨',
+    target: 4,
+  },
+  {
+    id: 'nota_casa_mes',
+    name: 'Nota de la casa',
+    xp: 200,
+    cadence: 'monthly',
+    category: 'reviews',
+    description: 'Mantén una media de 4 o más en las reseñas de este mes (mínimo 2).',
+    icon: '⭐',
+    target: 4,
+  },
+  {
+    id: 'mesas_grandes_mes',
+    name: 'Mesas grandes',
+    xp: 180,
+    cadence: 'monthly',
+    category: 'loyalty',
+    description: 'Confirma 3 reservas de 4 o más comensales.',
+    icon: '🪑',
+    target: 3,
+  },
+  {
+    id: 'ritmo_mes',
+    name: 'Sala a tope',
+    xp: 320,
+    cadence: 'monthly',
+    category: 'loyalty',
+    description: 'Confirma 20 reservas este mes.',
+    icon: '🚀',
+    target: 20,
+  },
+  {
+    id: 'finde_mes',
+    name: 'Fines de fiesta',
+    xp: 200,
+    cadence: 'monthly',
+    category: 'loyalty',
+    description: 'Confirma 4 reservas de viernes a domingo.',
+    icon: '🥳',
+    target: 4,
+  },
+  {
+    id: 'cubiertos_mes',
+    name: 'Cubiertos del mes',
+    xp: 280,
+    cadence: 'monthly',
+    category: 'loyalty',
+    description: 'Suma 40 comensales en reservas confirmadas.',
+    icon: '🍴',
+    target: 40,
+  },
+  {
+    id: 'fotos_mes',
+    name: 'Casa con foto',
+    xp: 160,
+    cadence: 'monthly',
+    category: 'reviews',
+    description: 'Recibe 2 reseñas con foto este mes.',
+    icon: '📷',
+    target: 2,
+  },
+]
+
+export const COMPANY_HISTORICAL_MISSIONS: MissionDefinition[] = [
+  {
+    id: 'primera_mesa',
+    name: 'Primera mesa',
+    xp: 80,
+    cadence: 'historical',
+    category: 'loyalty',
+    description: 'Confirma tu primera reserva en Adelia.',
+    icon: '🎉',
+    target: 1,
+  },
+  {
+    id: 'diez_servicios',
+    name: 'Diez servicios',
+    xp: 150,
+    cadence: 'historical',
+    category: 'loyalty',
+    description: 'Confirma 10 reservas.',
+    icon: '🔟',
+    target: 10,
+  },
+  {
+    id: 'cincuenta_mesas',
+    name: 'Cincuenta mesas',
+    xp: 400,
+    cadence: 'historical',
+    category: 'loyalty',
+    description: 'Confirma 50 reservas.',
+    icon: '🏅',
+    target: 50,
+  },
+  {
+    id: 'cien_reservas',
+    name: 'Cien reservas',
+    xp: 800,
+    cadence: 'historical',
+    category: 'loyalty',
+    description: 'Confirma 100 reservas.',
+    icon: '💯',
+    target: 100,
+  },
+  {
+    id: 'doscientas_mesas',
+    name: 'Sala veterana',
+    xp: 1200,
+    cadence: 'historical',
+    category: 'loyalty',
+    description: 'Confirma 200 reservas.',
+    icon: '🏛️',
+    target: 200,
+  },
+  {
+    id: 'veterano_adelia',
+    name: 'Veterano Adelia',
+    xp: 2000,
+    cadence: 'historical',
+    category: 'loyalty',
+    description: 'Confirma 500 reservas.',
+    icon: '👑',
+    target: 500,
+  },
+  {
+    id: 'primera_opinion',
+    name: 'Primera opinión',
+    xp: 80,
+    cadence: 'historical',
+    category: 'reviews',
+    description: 'Recibe tu primera reseña.',
+    icon: '📝',
+    target: 1,
+  },
+  {
+    id: 'diez_opiniones',
+    name: 'Diez voces',
+    xp: 300,
+    cadence: 'historical',
+    category: 'reviews',
+    description: 'Acumula 10 reseñas.',
+    icon: '🗣️',
+    target: 10,
+  },
+  {
+    id: 'cincuenta_voces',
+    name: 'Cincuenta voces',
+    xp: 900,
+    cadence: 'historical',
+    category: 'reviews',
+    description: 'Acumula 50 reseñas.',
+    icon: '📣',
+    target: 50,
+  },
+  {
+    id: 'anfitrion_responde',
+    name: 'Anfitrión que responde',
+    xp: 250,
+    cadence: 'historical',
+    category: 'reviews',
+    description: 'Responde a 5 reseñas.',
+    icon: '💌',
+    target: 5,
+  },
+  {
+    id: 'maestro_respuesta',
+    name: 'Maestro de sala',
+    xp: 700,
+    cadence: 'historical',
+    category: 'reviews',
+    description: 'Responde a 25 reseñas.',
+    icon: '🎩',
+    target: 25,
+  },
+  {
+    id: 'media_cuatro',
+    name: 'Cuatro Adelinas',
+    xp: 400,
+    cadence: 'historical',
+    category: 'reviews',
+    description: 'Alcanza una media de 4 o más con al menos 5 reseñas.',
+    icon: '⭐',
+    target: 4,
+  },
+  {
+    id: 'media_brillante',
+    name: 'Brillo de casa',
+    xp: 800,
+    cadence: 'historical',
+    category: 'reviews',
+    description: 'Alcanza una media de 4,5 o más con al menos 10 reseñas.',
+    icon: '🌟',
+    target: 5,
+  },
+  {
+    id: 'adelinas_100',
+    name: 'Cien Adelinas',
+    xp: 350,
+    cadence: 'historical',
+    category: 'rewards',
+    description: 'Suma 100 Adelinas de reseñas.',
+    icon: '🪙',
+    target: 100,
+  },
+  {
+    id: 'adelinas_500',
+    name: 'Quinientas Adelinas',
+    xp: 900,
+    cadence: 'historical',
+    category: 'rewards',
+    description: 'Suma 500 Adelinas de reseñas.',
+    icon: '💰',
+    target: 500,
+  },
+  {
+    id: 'foto_casa',
+    name: 'Casa con retrato',
+    xp: 450,
+    cadence: 'historical',
+    category: 'reviews',
+    description: 'Recibe 8 reseñas con foto.',
+    icon: '📸',
+    target: 8,
+  },
+  {
+    id: 'grupo_festejo',
+    name: 'Festejo',
+    xp: 300,
+    cadence: 'historical',
+    category: 'loyalty',
+    description: 'Confirma una reserva de 10 o más comensales.',
+    icon: '🎊',
+    target: 1,
+  },
+  {
+    id: 'casa_del_barrio',
+    name: 'Casa del barrio',
+    xp: 500,
+    cadence: 'historical',
+    category: 'exploration',
+    description: 'Alcanza el nivel 5, Referente Local.',
+    icon: '🏡',
+    target: 5,
+  },
+  {
+    id: 'casa_ilustre',
+    name: 'Casa ilustre',
+    xp: 1000,
+    cadence: 'historical',
+    category: 'exploration',
+    description: 'Alcanza el nivel 7, Casa Ilustre.',
+    icon: '🏰',
+    target: 7,
+  },
+  {
+    id: 'emblema_fogon',
+    name: 'Emblema del fogón',
+    xp: 2500,
+    cadence: 'historical',
+    category: 'exploration',
+    description: 'Alcanza el nivel 10, Emblema Adelia.',
+    icon: '💠',
+    target: 10,
+  },
+]
+
+const MISSION_BY_ID = new Map(
+  [...COMPANY_WEEKLY_MISSIONS, ...COMPANY_MONTHLY_MISSIONS, ...COMPANY_HISTORICAL_MISSIONS]
+    .map((mission) => [mission.id, mission]),
+)
+
+export function getCompanyMission(id: string): MissionDefinition | null {
+  return MISSION_BY_ID.get(id) ?? null
+}
+
+export function getCompanyLevelForXp(xp: number): GamificationLevel {
+  const safeXp = Math.max(0, Math.trunc(xp))
+  let current = COMPANY_LEVELS[0]
+  for (const level of COMPANY_LEVELS) {
+    if (safeXp >= level.minXp) {
+      current = level
+    }
+  }
+  return current
+}
+
+export function getCompanyXpToNext(xp: number, level = getCompanyLevelForXp(xp)): number | null {
+  if (level.maxXp == null) {
+    return null
+  }
+  return Math.max(0, level.maxXp + 1 - Math.max(0, Math.trunc(xp)))
+}
+
+export function getCompanyLevelProgress(xp: number, level = getCompanyLevelForXp(xp)): number {
+  if (level.maxXp == null) {
+    return 1
+  }
+  const span = level.maxXp - level.minXp + 1
+  if (span <= 0) {
+    return 1
+  }
+  return Math.min(1, Math.max(0, (Math.max(0, Math.trunc(xp)) - level.minXp) / span))
+}

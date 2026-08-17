@@ -8,6 +8,7 @@ import { getLevelRankingStripTheme } from '../utils/levelRankingStripThemes'
 import StripDynamicName from './StripDynamicName'
 import StripLevelTitle from './StripLevelTitle'
 import StripRankBadge from './StripRankBadge'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './GamificationRankingStripCard.module.css'
 
 interface GamificationRankingStripCardProps {
@@ -67,13 +68,19 @@ function GamificationRankingStripCard({
       style={cssVars}
       aria-label={`${displayName}, ${levelTitle}, ${xp.toLocaleString('es-ES')} XP`}
     >
-      <img src={background} alt="" className={styles.bgArt} draggable={false} />
+      <img src={background} alt="" className={styles.bgArt} draggable={false} decoding="async" />
       <div className={styles.bgOverlay} aria-hidden="true" />
 
       <div className={styles.row}>
         <div className={styles.avatar}>
           {photoUrl ? (
-            <img src={photoUrl} alt="" className={styles.avatarPhoto} />
+            <img
+              src={optimizeCloudinaryUrl(photoUrl, CLOUDINARY_DISPLAY.logo)}
+              alt=""
+              className={styles.avatarPhoto}
+              loading="lazy"
+              decoding="async"
+            />
           ) : (
             <span className={styles.avatarInitials}>{initials(displayName)}</span>
           )}

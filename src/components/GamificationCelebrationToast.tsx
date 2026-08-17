@@ -14,6 +14,8 @@ function iconForKind(kind: CelebrationKind): string {
       return '⚔️'
     case 'level_up':
       return '👑'
+    case 'mission_complete':
+      return '🎯'
     default:
       return '✨'
   }

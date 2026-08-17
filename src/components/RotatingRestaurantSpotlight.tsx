@@ -6,6 +6,7 @@ import {
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import FavoriteButton from './FavoriteButton'
 import styles from './RotatingRestaurantSpotlight.module.css'
 
 export type SpotlightMetric = 'reservations' | 'rating'
@@ -104,6 +105,7 @@ function RotatingRestaurantSpotlight({
                 Ver ficha
               </button>
             )}
+            <FavoriteButton slug={restaurant.slug} name={restaurant.name} variant="round" />
             <Link to={`/reservar/${restaurant.slug}`} className={styles.reserveBtn}>
               Reservar
             </Link>

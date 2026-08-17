@@ -7,7 +7,7 @@ import { getFirestoreErrorMessage } from '../../services/firestore'
 import type { AdelinaSlotState, CompanyReview, CompanyReviewOwnerReply } from '../../types/review'
 import { computeAverageReviewRating, getAdelinaSlotStates, ADELINA_RATING_SLOTS, MAX_REVIEW_REPLY_LENGTH } from '../../types/review'
 import { getCompanyMainPhotoUrl } from '../../utils/companyPhotos'
-import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../../utils/cloudinaryUrl'
 import styles from './CompanyReviews.module.css'
 
 interface CompanyReviewsProps {
@@ -172,7 +172,14 @@ function ReviewCard({ review, companyId, companyName, companySlug, onReplySaved 
                   loading="lazy"
                 />
               ) : (
-                <video src={item.url} className={styles.reviewMediaPreview} controls muted preload="metadata" />
+                <video
+                  src={optimizeCloudinaryVideoUrl(item.url)}
+                  className={styles.reviewMediaPreview}
+                  controls
+                  muted
+                  preload="metadata"
+                  playsInline
+                />
               )}
             </li>
           ))}

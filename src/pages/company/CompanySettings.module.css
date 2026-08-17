@@ -840,6 +840,118 @@ input:disabled {
   gap: 0.35rem;
 }
 
+.mapTabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mapTabList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.mapTab {
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-brown);
+  border-radius: 999px;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mapTabActive {
+  background: var(--color-brown);
+  border-color: var(--color-brown);
+  color: var(--color-white);
+}
+
+.mapTabInactive {
+  opacity: 0.72;
+  font-weight: 600;
+  border-style: dashed;
+}
+
+.mapTabActive.mapTabInactive {
+  opacity: 0.92;
+}
+
+.mapTabActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.mapAddButton,
+.mapDeleteButton {
+  border: 1px solid var(--color-border);
+  background: var(--color-cream);
+  color: var(--color-brown);
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mapDeleteButton {
+  color: var(--color-error);
+}
+
+.mapNameField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-brown-light);
+  flex: 1;
+  min-width: 0;
+}
+
+.mapMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.mapMetaRow .mapSwitchInline {
+  padding-top: 0;
+  padding-bottom: 0.15rem;
+}
+
+.mapEnabledHint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.mapNameField input {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-brown);
+}
+
+.tablesGridRowWithMap {
+  grid-template-columns: minmax(0, 1fr) 72px minmax(5.5rem, 0.9fr) 36px;
+}
+
+.tablesGridCellSelect {
+  min-width: 0;
+  width: 100%;
+  cursor: pointer;
+  appearance: auto;
+}
+
 .mapSwitchLabel {
   display: flex;
   align-items: center;
@@ -1186,6 +1298,10 @@ input:disabled {
   .tablesGridHeader,
   .tablesGridRow {
     grid-template-columns: minmax(0, 1fr) 56px 34px;
+  }
+
+  .tablesGridRowWithMap {
+    grid-template-columns: minmax(0, 1fr) 56px minmax(4.5rem, 0.95fr) 34px;
   }
 
   .tablesGridCell {

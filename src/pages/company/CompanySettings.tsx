@@ -16,16 +16,20 @@ import {
   getFirestoreErrorMessage,
   getTablesByCompany,
   replaceCompanyTables,
-  updateCompanyFloorPlan,
+  updateCompanyFloorPlans,
   updateCompanySettings,
 } from '../../services/firestore'
 import type { Company, CompanySettingsPayload, SettingsSection, TableInput } from '../../types'
 import {
+  createNamedFloorPlan,
   defaultFloorPlan,
+  MAX_FLOOR_PLANS,
   SCHEDULE_DAY_KEYS,
   SCHEDULE_DAY_LABELS,
   SETTINGS_SECTIONS,
-  syncFloorPlanWithTables,
+  syncAllFloorPlans,
+  tablesForFloorPlan,
+  withFloorPlans,
 } from '../../types/company'
 import { copyTextToClipboard, defaultSchedule, getPublicBookingUrl, selectInputText, slugify } from '../../utils/helpers'
 import {
@@ -145,14 +149,19 @@ function companyToForm(company: Company): CompanySettingsPayload {
     depositCancellationHours: company.depositCancellationHours ?? null,
     schedule: normalizeCompanySchedule(company.schedule ?? defaultSchedule()),
     turns: company.turns ?? [],
-    floorPlan: company.floorPlan ?? defaultFloorPlan(),
+    ...withFloorPlans(
+      company.floorPlans?.length
+        ? company.floorPlans
+        : [company.floorPlan ?? defaultFloorPlan()],
+    ),
   }
 }
 
-function emptyTable(index: number): TableInput {
+function emptyTable(index: number, floorPlanId = ''): TableInput {
   return {
     name: `Mesa ${index + 1}`,
     capacity: 4,
+    floorPlanId,
   }
 }
 
@@ -170,6 +179,7 @@ const CompanySettings = forwardRef(function CompanySettings(
   const [success, setSuccess] = useState<string | null>(null)
   const [tableSearchQuery, setTableSearchQuery] = useState('')
   const [tableCapacityFilter, setTableCapacityFilter] = useState('')
+  const [selectedMapId, setSelectedMapId] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
   const clientLinkInputRef = useRef<HTMLInputElement>(null)
   const [isDownloadingQr, setIsDownloadingQr] = useState(false)
@@ -286,11 +296,13 @@ const CompanySettings = forwardRef(function CompanySettings(
                 id: table.id,
                 name: table.name,
                 capacity: table.capacity,
+                floorPlanId: table.floorPlanId || initialForm.floorPlans[0]?.id || '',
               }))
-            : [emptyTable(0), emptyTable(1), emptyTable(2)]
+            : [emptyTable(0, initialForm.floorPlans[0]?.id)]
         const initialTimeSlot = String(company.timeSlotMinutes)
 
         setForm(initialForm)
+        setSelectedMapId(initialForm.floorPlans[0]?.id ?? '')
         setSelectedMunicipality(
           municipalityToCitySuggestion(initialForm.municipality, initialForm.country),
         )
@@ -485,6 +497,10 @@ const CompanySettings = forwardRef(function CompanySettings(
   }
 
   const handleSaveTables = async (): Promise<boolean> => {
+    if (!form || !company) {
+      return false
+    }
+
     setError(null)
     setSuccess(null)
 
@@ -505,15 +521,14 @@ const CompanySettings = forwardRef(function CompanySettings(
         id: table.id,
         name: table.name,
         capacity: table.capacity,
+        floorPlanId: table.floorPlanId || form.floorPlans[0]?.id || '',
       }))
 
-      const floorPlan = form.floorPlan.enabled
-        ? syncFloorPlanWithTables(form.floorPlan, savedTables)
-        : { ...form.floorPlan, enabled: false }
+      const floorPlans = syncAllFloorPlans(form.floorPlans, savedTables)
 
-      await updateCompanyFloorPlan(company.id, floorPlan)
+      await updateCompanyFloorPlans(company.id, floorPlans)
       setTables(savedTables)
-      const nextForm = { ...form, floorPlan }
+      const nextForm = { ...form, ...withFloorPlans(floorPlans) }
       setForm(nextForm)
       await refreshCompany()
       markSectionSaved('tables', {
@@ -539,12 +554,12 @@ const CompanySettings = forwardRef(function CompanySettings(
     )
   }
 
-  const syncMapIfEnabled = (nextTables: TableInput[]) => {
+  const syncMapsWithTables = (nextTables: TableInput[]) => {
     setForm((current) =>
-      current && current.floorPlan.enabled
+      current
         ? {
             ...current,
-            floorPlan: syncFloorPlanWithTables(current.floorPlan, nextTables),
+            ...withFloorPlans(syncAllFloorPlans(current.floorPlans, nextTables)),
           }
         : current,
     )
@@ -552,8 +567,8 @@ const CompanySettings = forwardRef(function CompanySettings(
 
   const addTable = () => {
     setTables((current) => {
-      const next = [...current, emptyTable(current.length)]
-      syncMapIfEnabled(next)
+      const next = [...current, emptyTable(current.length, selectedMapId || form?.floorPlans[0]?.id)]
+      syncMapsWithTables(next)
       return next
     })
   }
@@ -561,31 +576,91 @@ const CompanySettings = forwardRef(function CompanySettings(
   const removeTable = (index: number) => {
     setTables((current) => {
       const next = current.filter((_, tableIndex) => tableIndex !== index)
-      syncMapIfEnabled(next)
+      syncMapsWithTables(next)
       return next
     })
   }
 
-  const handleMapEnabledChange = (enabled: boolean) => {
+  const setMapEnabled = (planId: string, enabled: boolean) => {
     setForm((current) => {
       if (!current) {
         return current
       }
 
-      if (!enabled) {
-        return {
-          ...current,
-          floorPlan: { ...current.floorPlan, enabled: false },
-        }
+      const nextPlans = current.floorPlans.map((plan) =>
+        plan.id === planId ? { ...plan, enabled } : plan,
+      )
+
+      return {
+        ...current,
+        ...withFloorPlans(enabled ? syncAllFloorPlans(nextPlans, tables) : nextPlans),
+      }
+    })
+  }
+
+  const renameSelectedMap = (planId: string, name: string) => {
+    setForm((current) => {
+      if (!current) {
+        return current
       }
 
       return {
         ...current,
-        floorPlan: syncFloorPlanWithTables(
-          { ...current.floorPlan, enabled: true },
-          tables,
+        ...withFloorPlans(
+          current.floorPlans.map((plan) =>
+            plan.id === planId
+              ? { ...plan, name: name.slice(0, 40) }
+              : plan,
+          ),
         ),
       }
+    })
+  }
+
+  const addFloorPlan = () => {
+    setForm((current) => {
+      if (!current || current.floorPlans.length >= MAX_FLOOR_PLANS) {
+        return current
+      }
+
+      const nextPlan = createNamedFloorPlan(`Mapa ${current.floorPlans.length + 1}`, true)
+      const nextPlans = [...current.floorPlans, nextPlan]
+      setSelectedMapId(nextPlan.id)
+      return {
+        ...current,
+        ...withFloorPlans(nextPlans),
+      }
+    })
+  }
+
+  const removeSelectedMap = () => {
+    if (!form || form.floorPlans.length <= 1) {
+      return
+    }
+
+    const planId = selectedMapId || form.floorPlans[0]?.id
+    if (!planId) {
+      return
+    }
+
+    const remaining = form.floorPlans.filter((plan) => plan.id !== planId)
+    const fallbackId = remaining[0]?.id ?? ''
+    const removedName = form.floorPlans.find((plan) => plan.id === planId)?.name || 'este mapa'
+    const fallbackName = remaining[0]?.name || 'el otro mapa'
+
+    if (!window.confirm(`¿Quitar «${removedName}»? Sus mesas pasarán a «${fallbackName}».`)) {
+      return
+    }
+
+    const nextTables = tables.map((table) =>
+      table.floorPlanId === planId ? { ...table, floorPlanId: fallbackId } : table,
+    )
+
+    setTables(nextTables)
+    setSelectedMapId(fallbackId)
+    setForm({
+      ...form,
+      ...withFloorPlans(syncAllFloorPlans(remaining, nextTables)),
     })
   }
 
@@ -609,8 +684,8 @@ const CompanySettings = forwardRef(function CompanySettings(
   )
 
   const handleSaveMapOnly = async () => {
-    if (!form.floorPlan.enabled) {
-      setError('Activa el mapa antes de guardarlo.')
+    if (!form) {
+      setError('No hay mapas para guardar.')
       return
     }
 
@@ -619,9 +694,9 @@ const CompanySettings = forwardRef(function CompanySettings(
     setSuccess(null)
 
     try {
-      const floorPlan = syncFloorPlanWithTables(form.floorPlan, tables)
-      await updateCompanyFloorPlan(company.id, floorPlan)
-      const nextForm = { ...form, floorPlan }
+      const floorPlans = syncAllFloorPlans(form.floorPlans, tables)
+      await updateCompanyFloorPlans(company.id, floorPlans)
+      const nextForm = { ...form, ...withFloorPlans(floorPlans) }
       setForm(nextForm)
       await refreshCompany()
       markSectionSaved('tables', {
@@ -661,6 +736,10 @@ const CompanySettings = forwardRef(function CompanySettings(
     selectInputText(clientLinkInputRef.current)
     setError('No se pudo copiar automáticamente. Mantén pulsado el enlace y elige «Copiar».')
   }
+
+  const selectedPlan =
+    form.floorPlans.find((plan) => plan.id === (selectedMapId || form.floorPlans[0]?.id))
+    ?? form.floorPlans[0]
 
   const handleDownloadClientQr = async () => {
     if (!company) {
@@ -1231,20 +1310,8 @@ const CompanySettings = forwardRef(function CompanySettings(
         <header className={styles.tablesHeader}>
           <div className={styles.tablesHeaderText}>
             <h2>Mesas</h2>
-            <p>Nombre y capacidad de cada mesa (ocupantes máximos).</p>
+            <p>Nombre, capacidad y mapa de cada mesa. Activa solo los mapas que quieras mostrar al reservar.</p>
           </div>
-          <label className={styles.mapSwitchInline}>
-            <span className={styles.mapSwitchText}>Mapa</span>
-            <span className={styles.mapSwitch}>
-              <input
-                type="checkbox"
-                className={styles.mapSwitchInput}
-                checked={form.floorPlan.enabled}
-                onChange={(e) => handleMapEnabledChange(e.target.checked)}
-              />
-              <span className={styles.mapSwitchSlider} aria-hidden="true" />
-            </span>
-          </label>
         </header>
 
         <div className={styles.tablesLayout}>
@@ -1289,9 +1356,10 @@ const CompanySettings = forwardRef(function CompanySettings(
               )}
             </div>
             <div className={styles.tablesGrid} role="table" aria-label="Listado de mesas">
-              <div className={styles.tablesGridHeader} role="row">
+              <div className={`${styles.tablesGridHeader} ${styles.tablesGridRowWithMap}`} role="row">
                 <span role="columnheader">Nombre</span>
                 <span role="columnheader">Capacidad</span>
+                <span role="columnheader">Mapa</span>
                 <span className={styles.tablesGridHeaderAction} aria-hidden="true" />
               </div>
               {filteredTableEntries.length === 0 ? (
@@ -1304,7 +1372,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                 filteredTableEntries.map(({ table, index }) => (
                   <div
                     key={table.id ?? `new-${index}`}
-                    className={styles.tablesGridRow}
+                    className={`${styles.tablesGridRow} ${styles.tablesGridRowWithMap}`}
                     role="row"
                   >
                     <input
@@ -1325,6 +1393,27 @@ const CompanySettings = forwardRef(function CompanySettings(
                       }
                       aria-label={`Capacidad mesa ${index + 1}`}
                     />
+                    <select
+                      className={`${styles.tablesGridCell} ${styles.tablesGridCellSelect}`}
+                      value={table.floorPlanId || form.floorPlans[0]?.id || ''}
+                      onChange={(e) => {
+                        const nextPlanId = e.target.value
+                        setTables((current) => {
+                          const next = current.map((item, tableIndex) =>
+                            tableIndex === index ? { ...item, floorPlanId: nextPlanId } : item,
+                          )
+                          syncMapsWithTables(next)
+                          return next
+                        })
+                      }}
+                      aria-label={`Mapa de ${table.name || `mesa ${index + 1}`}`}
+                    >
+                      {form.floorPlans.map((plan) => (
+                        <option key={plan.id} value={plan.id}>
+                          {plan.enabled ? plan.name : `${plan.name} (inactivo)`}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       className={styles.tablesDeleteButton}
@@ -1351,15 +1440,111 @@ const CompanySettings = forwardRef(function CompanySettings(
           </div>
 
           <div className={styles.mapPanel}>
-            {form.floorPlan.enabled && activeSection === 'tables' ? (
+            {activeSection === 'tables' ? (
               <>
+                <div className={styles.mapTabs}>
+                  <div className={styles.mapTabList} role="tablist" aria-label="Mapas del restaurante">
+                    {form.floorPlans.map((plan) => {
+                      const selected = selectedPlan?.id === plan.id
+                      return (
+                        <button
+                          key={plan.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={selected}
+                          className={`${styles.mapTab} ${selected ? styles.mapTabActive : ''} ${plan.enabled ? '' : styles.mapTabInactive}`}
+                          onClick={() => setSelectedMapId(plan.id)}
+                        >
+                          {plan.name}
+                          {plan.enabled ? '' : ' · inactivo'}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className={styles.mapTabActions}>
+                    <button
+                      type="button"
+                      className={styles.mapAddButton}
+                      onClick={addFloorPlan}
+                      disabled={form.floorPlans.length >= MAX_FLOOR_PLANS}
+                    >
+                      + Añadir mapa
+                    </button>
+                    {form.floorPlans.length > 1 ? (
+                      <button
+                        type="button"
+                        className={styles.mapDeleteButton}
+                        onClick={removeSelectedMap}
+                      >
+                        Quitar mapa
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <div className={styles.mapMetaRow}>
+                  <label className={styles.mapNameField}>
+                    <span>Nombre del mapa</span>
+                    <input
+                      value={selectedPlan?.name ?? ''}
+                      onChange={(e) => {
+                        const planId = selectedPlan?.id || ''
+                        if (!selectedMapId && planId) {
+                          setSelectedMapId(planId)
+                        }
+                        renameSelectedMap(planId, e.target.value)
+                      }}
+                      placeholder="Terraza, comedor, Piso 1…"
+                      maxLength={40}
+                      aria-label="Nombre del mapa seleccionado"
+                    />
+                  </label>
+                  {selectedPlan ? (
+                    <label className={styles.mapSwitchInline}>
+                      <span className={styles.mapSwitchText}>
+                        {selectedPlan.enabled ? 'Activo al reservar' : 'Inactivo al reservar'}
+                      </span>
+                      <span className={styles.mapSwitch}>
+                        <input
+                          type="checkbox"
+                          className={styles.mapSwitchInput}
+                          checked={selectedPlan.enabled}
+                          onChange={(e) => setMapEnabled(selectedPlan.id, e.target.checked)}
+                        />
+                        <span className={styles.mapSwitchSlider} aria-hidden="true" />
+                      </span>
+                    </label>
+                  ) : null}
+                </div>
+                <p className={styles.mapEnabledHint}>
+                  {selectedPlan?.enabled
+                    ? 'Los clientes verán este mapa al reservar.'
+                    : 'El mapa se guarda, pero los clientes no lo verán hasta que lo actives.'}
+                </p>
                 <Suspense fallback={<p className={styles.mapPlaceholder}>Cargando mapa…</p>}>
-                  <FloorPlanEditor
-                    embedded
-                    tables={tables}
-                    floorPlan={form.floorPlan}
-                    onChange={(floorPlan) => setForm({ ...form, floorPlan })}
-                  />
+                  {selectedPlan ? (
+                    <FloorPlanEditor
+                      key={selectedPlan.id}
+                      embedded
+                      tables={tablesForFloorPlan(tables, selectedPlan, form.floorPlans)}
+                      floorPlan={selectedPlan}
+                      onChange={(floorPlan) =>
+                        setForm((current) =>
+                          current
+                            ? {
+                                ...current,
+                                ...withFloorPlans(
+                                  current.floorPlans.map((plan) =>
+                                    plan.id === floorPlan.id
+                                      ? { ...floorPlan, enabled: plan.enabled }
+                                      : plan,
+                                  ),
+                                ),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  ) : null}
                 </Suspense>
                 <div className={styles.mapActions}>
                   <button
@@ -1374,9 +1559,7 @@ const CompanySettings = forwardRef(function CompanySettings(
               </>
             ) : (
               <p className={styles.mapPlaceholder}>
-                {form.floorPlan.enabled
-                  ? 'El mapa se edita en esta pestaña de mesas.'
-                  : 'Activa el mapa para colocar mesas y decoración de forma visual.'}
+                Elige un mapa, ponle nombre y actívalo solo si quieres que los clientes lo vean al reservar.
               </p>
             )}
           </div>

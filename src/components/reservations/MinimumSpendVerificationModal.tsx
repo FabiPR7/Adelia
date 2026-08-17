@@ -31,6 +31,7 @@ interface MinimumSpendVerificationModalProps {
   promotion?: PublicPromotion | null
   menuNodes: MenuNode[]
   menuLoading: boolean
+  tokenCover?: { coverCents: number; remainderCents: number } | null
   onClose: () => void
   onVerified: (reservationId: string, result: Awaited<ReturnType<typeof verifyReservationMinimumSpend>>) => void
 }
@@ -41,6 +42,7 @@ export default function MinimumSpendVerificationModal({
   promotion = null,
   menuNodes,
   menuLoading,
+  tokenCover = null,
   onClose,
   onVerified,
 }: MinimumSpendVerificationModalProps) {
@@ -63,6 +65,9 @@ export default function MinimumSpendVerificationModal({
   )
 
   const minimumSpendCents = reservation?.minimumSpendCents ?? 0
+  const requiredCents = tokenCover && tokenCover.remainderCents > 0
+    ? tokenCover.remainderCents
+    : minimumSpendCents
   const isTimeLimitedPromo = reservation
     ? isTimeLimitedPromotionReservation(reservation, promotion)
     : false
@@ -101,7 +106,7 @@ export default function MinimumSpendVerificationModal({
     return null
   }
 
-  if (minimumSpendCents <= 0) {
+  if (requiredCents <= 0) {
     return null
   }
 
@@ -121,16 +126,20 @@ export default function MinimumSpendVerificationModal({
     setStep('review')
   }
 
-  const meetsDeclaredMinimum = computedTotalCents >= minimumSpendCents
+  const meetsDeclaredMinimum = computedTotalCents >= requiredCents
 
   const handlePinSubmit = async () => {
-    if (minimumSpendCents <= 0) {
+    if (requiredCents <= 0) {
       setError('Esta reserva no requiere verificación de gasto mínimo.')
       return
     }
 
     if (!meetsDeclaredMinimum) {
-      setError('El consumo indicado no alcanza el gasto mínimo requerido.')
+      setError(
+        tokenCover
+          ? `El consumo indicado no cubre los ${formatCentsAsEuros(requiredCents)} que faltan tras la carta.`
+          : 'El consumo indicado no alcanza el gasto mínimo requerido.',
+      )
       return
     }
     const validationError = validatePromotionPinCode(pin)
@@ -187,6 +196,12 @@ export default function MinimumSpendVerificationModal({
                   para reclamar <strong>{promotion?.title ?? 'tu premio'}</strong> en{' '}
                   <strong>{restaurantName}</strong>.
                 </>
+              ) : tokenCover && tokenCover.remainderCents > 0 ? (
+                <>
+                  Tu carta cubre <strong>{formatCentsAsEuros(tokenCover.coverCents)}</strong>.
+                  Muestra esta pantalla a un empleado de <strong>{restaurantName}</strong> para
+                  verificar los <strong>{formatCentsAsEuros(tokenCover.remainderCents)}</strong> que faltan.
+                </>
               ) : (
                 <>
                   Muestra esta pantalla a un empleado de <strong>{restaurantName}</strong> para
@@ -195,7 +210,17 @@ export default function MinimumSpendVerificationModal({
               )}
             </p>
             <p className={styles.target}>
-              Gasto mínimo requerido: <strong>{formatMinimumSpendTarget(minimumSpendCents)}</strong>
+              {tokenCover && tokenCover.remainderCents > 0 ? (
+                <>
+                  Carta: <strong>{formatCentsAsEuros(tokenCover.coverCents)}</strong>
+                  {' · '}
+                  Falta verificar: <strong>{formatCentsAsEuros(tokenCover.remainderCents)}</strong>
+                </>
+              ) : (
+                <>
+                  Gasto mínimo requerido: <strong>{formatMinimumSpendTarget(minimumSpendCents)}</strong>
+                </>
+              )}
             </p>
             <div className={styles.actionsStack}>
               <button type="button" className={styles.primaryButton} onClick={() => setStep('mode')}>
@@ -313,6 +338,18 @@ export default function MinimumSpendVerificationModal({
                 <span>Mínimo promo</span>
                 <strong>{formatMinimumSpendTarget(minimumSpendCents)}</strong>
               </div>
+              {tokenCover && tokenCover.remainderCents > 0 ? (
+                <>
+                  <div className={styles.reviewRow}>
+                    <span>Cubierto por carta</span>
+                    <strong>{formatCentsAsEuros(tokenCover.coverCents)}</strong>
+                  </div>
+                  <div className={styles.reviewRow}>
+                    <span>A verificar</span>
+                    <strong>{formatCentsAsEuros(tokenCover.remainderCents)}</strong>
+                  </div>
+                </>
+              ) : null}
               <div className={styles.reviewRow}>
                 <span>Total indicado</span>
                 <strong>{formatVerificationTotalLabel(computedTotalCents)}</strong>
@@ -333,16 +370,22 @@ export default function MinimumSpendVerificationModal({
                   })}
                 </ul>
               ) : null}
-              <p className={`${styles.reviewResult} ${computedTotalCents >= minimumSpendCents ? styles.reviewOk : styles.reviewFail}`}>
-                {computedTotalCents >= minimumSpendCents
-                  ? 'Cumple el gasto mínimo'
-                  : 'No alcanza el gasto mínimo'}
+              <p className={`${styles.reviewResult} ${computedTotalCents >= requiredCents ? styles.reviewOk : styles.reviewFail}`}>
+                {computedTotalCents >= requiredCents
+                  ? tokenCover
+                    ? 'Cubre el resto de la carta'
+                    : 'Cumple el gasto mínimo'
+                  : tokenCover
+                    ? 'No cubre lo que falta de la carta'
+                    : 'No alcanza el gasto mínimo'}
               </p>
             </div>
             <p className={styles.pinHint}>
               {meetsDeclaredMinimum
                 ? 'Si el resumen es correcto, pide el PIN al empleado para confirmar la verificación.'
-                : 'Corrige el consumo hasta alcanzar el gasto mínimo antes de validar con PIN.'}
+                : tokenCover
+                  ? 'Corrige el consumo hasta cubrir lo que falta de la carta antes de validar con PIN.'
+                  : 'Corrige el consumo hasta alcanzar el gasto mínimo antes de validar con PIN.'}
             </p>
             <div className={styles.actions}>
               <button

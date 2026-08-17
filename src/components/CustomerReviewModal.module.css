@@ -30,6 +30,16 @@
   line-height: 1.5;
 }
 
+.boostHint {
+  margin: -0.35rem 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(124, 58, 237, 0.08);
+  color: #6d28d9;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
 .field {
   display: grid;
   gap: 0.45rem;

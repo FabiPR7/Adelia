@@ -1,16 +1,16 @@
 /** Plantillas IA sin texto (niveles 1, 3–4, 6–12). Niveles 2 y 5 usan el PNG original del diseñador. */
-import level01 from '../assets/levels/generated/level-01-template.png'
-import level02 from '../assets/levels name/nivel 2.png'
-import level03 from '../assets/levels/generated/level-03-template.png'
-import level04 from '../assets/levels/generated/level-04-template.png'
-import level05 from '../assets/levels name/nivel 5.png'
-import level06 from '../assets/levels/generated/level-06-template.png'
-import level07 from '../assets/levels/generated/level-07-template.png'
-import level08 from '../assets/levels/generated/level-08-template.png'
-import level09 from '../assets/levels/generated/level-09-template.png'
-import level10 from '../assets/levels/generated/level-10-template.png'
-import level11 from '../assets/levels/generated/level-11-template.png'
-import level12 from '../assets/levels/generated/level-12-template.png'
+import level01 from '../assets/levels/generated/level-01-template.webp'
+import level02 from '../assets/levels name/nivel 2.webp'
+import level03 from '../assets/levels/generated/level-03-template.webp'
+import level04 from '../assets/levels/generated/level-04-template.webp'
+import level05 from '../assets/levels name/nivel 5.webp'
+import level06 from '../assets/levels/generated/level-06-template.webp'
+import level07 from '../assets/levels/generated/level-07-template.webp'
+import level08 from '../assets/levels/generated/level-08-template.webp'
+import level09 from '../assets/levels/generated/level-09-template.webp'
+import level10 from '../assets/levels/generated/level-10-template.webp'
+import level11 from '../assets/levels/generated/level-11-template.webp'
+import level12 from '../assets/levels/generated/level-12-template.webp'
 
 const LEVEL_CARD_FRAMES: Record<number, string> = {
   1: level01,

@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { createStripeClient } from './config.ts'
+import { readCompanyOps } from '../data/companyOps.ts'
 
 export type ReservationDepositStatus =
   | 'authorized'
@@ -345,8 +346,7 @@ export async function syncReservationDepositForStatus(input: {
     return
   }
 
-  const companySnap = await adminDb.collection('companies').doc(input.companyId).get()
-  const companyData = companySnap.data()
+  const companyData = await readCompanyOps(input.companyId)
   const stripeAccountId = companyData?.stripeAccountId as string | undefined
   const depositCancellationHours = typeof companyData?.depositCancellationHours === 'number'
     ? companyData.depositCancellationHours

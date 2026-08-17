@@ -193,6 +193,82 @@
   box-shadow: 0 12px 28px rgba(255, 79, 143, 0.26);
 }
 
+.pendingInvites {
+  margin: 0 0.85rem 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(22, 163, 74, 0.18);
+  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.08);
+}
+
+.pendingInvites h2 {
+  margin: 0 0 0.7rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: #166534;
+}
+
+.pendingInvites ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pendingInvite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.pendingInvite strong {
+  display: block;
+  color: var(--color-brown);
+  font-size: 0.92rem;
+}
+
+.pendingInvite span {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.pendingActions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.acceptInvite,
+.rejectInvite {
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.acceptInvite {
+  border: none;
+  background: #16a34a;
+  color: #fff;
+}
+
+.rejectInvite {
+  border: 1px solid rgba(185, 28, 28, 0.2);
+  background: #fff;
+  color: #b91c1c;
+}
+
+.inviteError {
+  margin: 0 0 0.55rem;
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
 @media (min-width: 900px) {
   .page {
     max-width: 760px;
@@ -207,6 +283,11 @@
   }
 
   .tabs {
+    margin-left: 1.5rem;
+    margin-right: 1.5rem;
+  }
+
+  .pendingInvites {
     margin-left: 1.5rem;
     margin-right: 1.5rem;
   }
@@ -248,7 +329,8 @@
 
   .tabs,
   .list,
-  .empty {
+  .empty,
+  .pendingInvites {
     margin-left: 2rem;
     margin-right: 2rem;
   }

@@ -5,6 +5,7 @@ import { isValidClientEmail } from './config.ts'
 import type { ReservationEmailBuildData } from './buildReservationEmail.ts'
 import { sendReservationConfirmationEmail } from './reservationConfirmation.ts'
 import { sendReservationReceivedEmail } from './reservationReceived.ts'
+import { readCompanyOps } from '../data/companyOps.ts'
 
 async function loadReservationEmailPayload(
   reservationId: string,
@@ -24,17 +25,14 @@ async function loadReservationEmailPayload(
     return null
   }
 
-  const [companySnap, tableSnap] = await Promise.all([
-    adminDb.collection('companies').doc(companyId).get(),
-    adminDb.collection('tables').doc(tableId).get(),
-  ])
+  const company = await readCompanyOps(companyId)
+  const tableSnap = await adminDb.collection('tables').doc(tableId).get()
 
-  if (!companySnap.exists) {
+  if (!company) {
     console.warn(`Reservation ${reservationId}: company ${companyId} not found`)
     return null
   }
 
-  const company = companySnap.data()!
   const tableName = tableSnap.exists ? ((tableSnap.data()?.name as string) ?? 'Mesa') : 'Mesa'
   const emailTemplates = parseCompanyEmailTemplates(company.emailTemplates)
 

@@ -1,0 +1,430 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1.15rem 0 0.35rem;
+  padding: 0 1rem 0.25rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #ff6b4a;
+}
+
+.header h2 {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--color-brown);
+}
+
+.lead {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.gpsButton,
+.overlayButton {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
+}
+
+.gpsButton:disabled,
+.overlayButton:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.mapCard {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(107, 83, 68, 0.12);
+  box-shadow: 0 16px 36px rgba(35, 28, 22, 0.1);
+  background: #efe7dc;
+}
+
+.map {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: min(56vh, 460px);
+  min-height: 280px;
+}
+
+.overlay,
+.loading {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  text-align: center;
+  background: rgba(255, 249, 242, 0.82);
+  backdrop-filter: blur(4px);
+  color: var(--color-brown);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.loading {
+  background: rgba(255, 249, 242, 0.62);
+  font-weight: 700;
+}
+
+.error {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(198, 40, 40, 0.08);
+  color: var(--color-error);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.listItem {
+  display: grid;
+  grid-template-columns: 1.7rem 1fr auto;
+  gap: 0.7rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(107, 83, 68, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  text-align: left;
+  cursor: pointer;
+}
+
+.listItemActive {
+  border-color: rgba(255, 107, 74, 0.45);
+  background: #fff7f3;
+}
+
+.listRank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  background: #3a2418;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.listCopy {
+  min-width: 0;
+}
+
+.listCopy strong,
+.listCopy span {
+  display: block;
+}
+
+.listCopy strong {
+  font-size: 0.88rem;
+  color: var(--color-brown);
+}
+
+.listCopy span {
+  margin-top: 0.12rem;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.listItem b {
+  font-size: 0.78rem;
+  color: #2563eb;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legendYou,
+.legendPlace {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+}
+
+.legendYou {
+  background: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+}
+
+.legendPlace {
+  background: #c45c3e;
+}
+
+.youMarker {
+  background: transparent;
+  border: none;
+}
+
+.youPulse,
+.youDot {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.youPulse {
+  inset: 0;
+  background: rgba(37, 99, 235, 0.28);
+  animation: nearbyPulse 1.8s ease-out infinite;
+}
+
+.youDot {
+  inset: 7px;
+  background: #2563eb;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.restaurantCard {
+  background: transparent !important;
+  border: none !important;
+  overflow: visible;
+}
+
+.restaurantCard img {
+  max-width: none;
+}
+
+.cardInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding-bottom: 8px;
+  cursor: pointer;
+  filter: drop-shadow(0 6px 12px rgba(35, 28, 22, 0.24));
+}
+
+.cardStack {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 8px);
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff9f2;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+}
+
+.cardPhoto {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 46px;
+  background:
+    linear-gradient(145deg, rgba(107, 83, 68, 0.92), rgba(196, 168, 130, 0.88)),
+    #cbb7a2;
+}
+
+.cardPhotoImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.cardDistance {
+  position: absolute;
+  top: 0.22rem;
+  right: 0.22rem;
+  padding: 0.08rem 0.28rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--color-brown);
+  font-size: 0.5rem;
+  font-weight: 800;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.16);
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.28rem 0.32rem 0.3rem;
+  background: #fff9f2;
+}
+
+.cardBody strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.6rem;
+  line-height: 1.15;
+  color: var(--color-brown);
+}
+
+.cardAdelinas {
+  display: flex;
+  align-items: center;
+  gap: 0.18rem;
+  min-width: 0;
+  color: #9a6b12;
+  font-size: 0.52rem;
+  font-weight: 800;
+}
+
+.cardAdelinas span:last-child,
+.cardAdelinas b {
+  line-height: 1;
+}
+
+.cardCoins {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.cardCoins img {
+  width: 9px;
+  height: 9px;
+  object-fit: contain;
+}
+
+.coinOn {
+  filter: drop-shadow(0 1px 3px rgba(245, 158, 11, 0.35));
+}
+
+.coinOff {
+  opacity: 0.28;
+  filter: grayscale(0.4);
+}
+
+.cardPointer {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 10px;
+  height: 8px;
+  transform: translateX(-50%);
+  background: #fff9f2;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.restaurantCardFeatured .cardStack {
+  box-shadow: 0 0 0 2px #ffd7a8;
+}
+
+.restaurantCardSelected .cardStack {
+  box-shadow: 0 0 0 2px #ff6b4a, 0 8px 16px rgba(255, 107, 74, 0.28);
+}
+
+.restaurantCardSelected .cardPointer {
+  background: #fff7f3;
+}
+
+@media (hover: hover) {
+  .restaurantCard:hover .cardInner {
+    transform: translateY(-3px);
+    transition: transform 0.16s ease;
+  }
+}
+
+@keyframes nearbyPulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+@media (min-width: 900px) {
+  .section {
+    padding: 0 1.5rem;
+  }
+
+  .map {
+    height: 480px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section {
+    padding: 0 2rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .youPulse {
+    animation: none;
+    opacity: 0.35;
+  }
+
+  .restaurantCard:hover .cardInner {
+    transform: none;
+  }
+}

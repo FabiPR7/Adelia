@@ -8,6 +8,8 @@ import PromotionOfferCard from '../../components/promotions/PromotionOfferCard'
 import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
+import ApplyMesaTokenModal from '../../components/ApplyMesaTokenModal'
+import { isCustomerPromoLocked } from '../../data/cancellationPenalties'
 import { getPublicCompanyMenuNodes } from '../../services/companyMenu'
 import { getCustomerReservations } from '../../services/firestore'
 import { fetchPublicPromotions, type PublicPromotion } from '../../services/publicPromotions'
@@ -15,6 +17,12 @@ import type { ClaimedPromotionRecord } from '../../types/gamification'
 import type { Reservation } from '../../types'
 import type { MenuNode } from '../../types/company'
 import type { VerifyMinimumSpendResult } from '../../services/minimumSpendApi'
+import { formatCentsAsEuros } from '../../utils/minimumSpendVerification'
+import {
+  matchingReservationTokens,
+  pendingTokenSpendForCompany,
+  promoMinimumCents,
+} from '../../data/inventoryItems'
 import {
   findTimeLimitedReservationForStrip,
   findReservationForActivasFeed,
@@ -42,6 +50,28 @@ import {
 import styles from './CustomerPromotionsTab.module.css'
 
 type PromoView = 'activas' | 'reclamadas'
+
+function canUsePromoTokenOnGroup(
+  group: LadderRestaurantGroup,
+  inventory: Record<string, number> | undefined,
+  activeByCompany: Record<string, string>,
+  locked: boolean,
+): boolean {
+  if (locked) {
+    return false
+  }
+
+  const ladder = sortCompanyLadderPromotions(group.ladderPromotions)
+  const active = ladder.find((promotion) => promotion.id === activeByCompany[group.companyId]) ?? ladder[0]
+  if (!active) {
+    return false
+  }
+
+  return matchingReservationTokens(
+    inventory,
+    promoMinimumCents(active.minimumSpendCents, active.minimumSpendEnabled),
+  ).length > 0
+}
 
 type PromoEntry = {
   promotion: PublicPromotion
@@ -210,12 +240,14 @@ function CustomerPromotionsTab() {
   const { user, profile, refreshProfile } = useAuth()
   const {
     loading: gamificationLoading,
+    state: gamificationState,
     verifiedReservationCounts,
     pendingReservationCounts,
     ladderRuntime,
     claimedPromotions,
     claimPromotion,
     claimTimeLimitedPromotion,
+    applyReservationToken,
     refreshGamificationData,
   } = useCustomerGamificationContext()
 
@@ -230,8 +262,13 @@ function CustomerPromotionsTab() {
   const [verifyReservation, setVerifyReservation] = useState<Reservation | null>(null)
   const [verifyMenuNodes, setVerifyMenuNodes] = useState<MenuNode[]>([])
   const [verifyMenuLoading, setVerifyMenuLoading] = useState(false)
+  const [tokenGroup, setTokenGroup] = useState<LadderRestaurantGroup | null>(null)
+  const [tokenApplying, setTokenApplying] = useState(false)
+  const [tokenError, setTokenError] = useState<string | null>(null)
+  const [tokenNotice, setTokenNotice] = useState<string | null>(null)
 
   const userClaimKey = profile?.email ?? user?.uid ?? ''
+  const promoLocked = isCustomerPromoLocked(profile)
 
   const claimedReservationIds = useMemo(
     () => new Set(
@@ -350,14 +387,17 @@ function CustomerPromotionsTab() {
           return
         }
 
-        setPromotions(mergeDemoPromotions(promoData))
+        setPromotions(import.meta.env.DEV ? mergeDemoPromotions(promoData) : promoData)
 
         if (location?.coords) {
           setCoords(location.coords)
           setUsingDemoLocation(false)
-        } else {
+        } else if (import.meta.env.DEV) {
           setCoords(DEMO_PREVIEW_COORDS)
           setUsingDemoLocation(true)
+        } else {
+          setCoords(null)
+          setUsingDemoLocation(false)
         }
       })
       .finally(() => {
@@ -496,6 +536,9 @@ function CustomerPromotionsTab() {
   )
 
   const handleClaimRequest = (promotion: PublicPromotion) => {
+    if (promoLocked) {
+      return
+    }
     setClaimFlowPromotion(promotion)
   }
 
@@ -512,6 +555,35 @@ function CustomerPromotionsTab() {
 
   const handleClaimFlowClose = () => {
     setClaimFlowPromotion(null)
+  }
+
+  const handleApplyToken = async (itemId: string) => {
+    if (!tokenGroup) {
+      return
+    }
+    setTokenApplying(true)
+    setTokenError(null)
+    setTokenNotice(null)
+    try {
+      const result = await applyReservationToken(itemId, tokenGroup.companyId)
+      if (result.remainderCents > 0) {
+        setTokenNotice(
+          `Carta usada: cubre ${formatCentsAsEuros(result.coverCents)} y faltan ${formatCentsAsEuros(result.remainderCents)}. Verifícalo con el restaurante en una reserva confirmada.`,
+        )
+      } else {
+        setTokenGroup(null)
+      }
+    } catch (error) {
+      setTokenError(error instanceof Error ? error.message : 'No se pudo usar la carta.')
+    } finally {
+      setTokenApplying(false)
+    }
+  }
+
+  const openTokenModal = (group: LadderRestaurantGroup) => {
+    setTokenNotice(null)
+    setTokenError(null)
+    setTokenGroup(group)
   }
 
   const handleVerifiedMinimumSpend = (
@@ -577,6 +649,16 @@ function CustomerPromotionsTab() {
         </button>
       </div>
 
+      {promoLocked ? (
+        <div className={styles.lockBanner} role="status">
+          <strong>Promociones bloqueadas</strong>
+          <p>
+            Has cancelado 5 reservas o más. No puedes reservar con promoción ni canjear premios.
+            Las reservas normales siguen disponibles.
+          </p>
+        </div>
+      ) : null}
+
       {view === 'reclamadas' ? (
         sortedClaims.length === 0 ? (
           <div className={styles.empty}>
@@ -636,6 +718,16 @@ function CustomerPromotionsTab() {
                         ladderRuntime={ladderRuntime}
                         claimedPromotions={claimedPromotions}
                         onOpenMap={setLadderMapGroup}
+                      onUseToken={
+                        canUsePromoTokenOnGroup(
+                          group,
+                          gamificationState.inventory,
+                          ladderRuntime.activeLadderPromotionByCompany,
+                          promoLocked,
+                        )
+                          ? openTokenModal
+                          : undefined
+                      }
                       />
                     ))}
                     {inProgressTimeLimitedPromotions.map((entry, index) => (
@@ -673,6 +765,16 @@ function CustomerPromotionsTab() {
                       ladderRuntime={ladderRuntime}
                       claimedPromotions={claimedPromotions}
                       onOpenMap={setLadderMapGroup}
+                      onUseToken={
+                        canUsePromoTokenOnGroup(
+                          group,
+                          gamificationState.inventory,
+                          ladderRuntime.activeLadderPromotionByCompany,
+                          promoLocked,
+                        )
+                          ? openTokenModal
+                          : undefined
+                      }
                     />
                   ))}
                   {idleRegularPromotions.map((entry, index) => (
@@ -694,6 +796,28 @@ function CustomerPromotionsTab() {
           )}
         </>
       )}
+
+      <ApplyMesaTokenModal
+        open={Boolean(tokenGroup)}
+        companyName={tokenGroup?.companyName ?? ''}
+        companyId={tokenGroup?.companyId ?? ''}
+        ladderPromotions={tokenGroup?.ladderPromotions ?? []}
+        activePromotionId={
+          tokenGroup
+            ? ladderRuntime.activeLadderPromotionByCompany[tokenGroup.companyId] ?? null
+            : null
+        }
+        inventory={gamificationState.inventory}
+        applying={tokenApplying}
+        error={tokenError}
+        notice={tokenNotice}
+        onClose={() => {
+          setTokenGroup(null)
+          setTokenError(null)
+          setTokenNotice(null)
+        }}
+        onApply={(itemId) => void handleApplyToken(itemId)}
+      />
 
       <PromotionLadderMapModal
         group={ladderMapGroup}
@@ -721,6 +845,11 @@ function CustomerPromotionsTab() {
         }
         menuNodes={verifyMenuNodes}
         menuLoading={verifyMenuLoading}
+        tokenCover={
+          verifyReservation
+            ? pendingTokenSpendForCompany(gamificationState.pendingTokenSpend, verifyReservation.companyId)
+            : null
+        }
         onClose={() => setVerifyReservation(null)}
         onVerified={handleVerifiedMinimumSpend}
       />

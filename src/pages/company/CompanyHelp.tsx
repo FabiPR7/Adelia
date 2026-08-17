@@ -1,6 +1,8 @@
+import { LEGAL_CONTACT_EMAIL } from '../../content/publicLegal'
+import LegalLinks from '../../components/LegalLinks'
 import styles from './CompanyHelp.module.css'
 
-const HELP_EMAIL = 'contacto@adeliareservas.com'
+const HELP_EMAIL = LEGAL_CONTACT_EMAIL
 
 const HELP_ITEMS = [
   {
@@ -19,6 +21,7 @@ const HELP_ITEMS = [
     answer: [
       'Ve a Mi restaurante → Mesas.',
       'Cada fila es una mesa: escribe el nombre (por ejemplo, «Mesa 1» o «Terraza 3») y la capacidad máxima de comensales.',
+      'Si tienes varios mapas, elige en la columna Mapa a cuál pertenece cada mesa.',
       'Usa + Añadir mesa para crear nuevas mesas.',
       'Pulsa Guardar mesas cuando termines. Los cambios se reflejan en tus reservas y en el mapa.',
     ],
@@ -56,10 +59,11 @@ const HELP_ITEMS = [
     id: 'floor-plan',
     question: '¿Cómo uso el mapa del salón?',
     answer: [
-      'En Mi restaurante → Mesas, activa el interruptor Mapa.',
-      'Arrastra mesas y objetos (barra, sillas, puertas…) para colocarlos.',
+      'En Mi restaurante → Mesas puedes crear varios mapas y llamarlos como quieras: Terraza, Comedor, Piso 1…',
+      'Cada mapa tiene un interruptor «Activo al reservar». Si lo apagas, el plano se guarda pero los clientes no lo ven.',
+      'Asigna cada mesa a un mapa y arrastra mesas y objetos (barra, sillas, puertas…) para colocarlos.',
       'Selecciona un elemento para girarlo, redimensionarlo o eliminarlo con los iconos del borde.',
-      'Guarda mesas y, si editaste el plano, Guardar mapa. El mapa se muestra también a tus clientes al reservar.',
+      'Guarda mesas y, si editaste el plano, Guardar mapa. Al reservar, tus clientes solo verán los mapas activos.',
     ],
   },
   {
@@ -115,6 +119,10 @@ function CompanyHelp() {
           </a>{' '}
           y te ayudamos lo antes posible.
         </p>
+        <div className={styles.legalBlock}>
+          <p className={styles.contactTitle}>Información legal</p>
+          <LegalLinks variant="sidebar" from="/panel" />
+        </div>
       </footer>
     </div>
   )

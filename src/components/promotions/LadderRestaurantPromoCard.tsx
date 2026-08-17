@@ -19,6 +19,7 @@ interface LadderRestaurantPromoCardProps {
   ladderRuntime: CompanyLadderRuntime
   claimedPromotions: ClaimedPromotionRecord[]
   onOpenMap: (group: LadderRestaurantGroup) => void
+  onUseToken?: (group: LadderRestaurantGroup) => void
 }
 
 function milestoneDotClass(
@@ -47,6 +48,7 @@ export default function LadderRestaurantPromoCard({
   ladderRuntime,
   claimedPromotions,
   onOpenMap,
+  onUseToken,
 }: LadderRestaurantPromoCardProps) {
   const sortedLadder = sortCompanyLadderPromotions(group.ladderPromotions)
   const summary = getActiveLadderPromotionSummary(
@@ -183,6 +185,15 @@ export default function LadderRestaurantPromoCard({
           ) : null}
         </div>
       </button>
+      {onUseToken ? (
+        <button
+          type="button"
+          className={styles.useTokenButton}
+          onClick={() => onUseToken(group)}
+        >
+          Usar carta
+        </button>
+      ) : null}
     </article>
   )
 }

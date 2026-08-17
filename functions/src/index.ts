@@ -4,5 +4,7 @@ export {
   onReservationUpdatedSendEmail,
   onReservationUpdatedNotifications,
   onUserGamificationUpdatedNotifications,
+  onPromotionClaimCreatedNotifications,
   processScheduledNotifications,
+  processDueNotifications,
 } from './triggers.ts'

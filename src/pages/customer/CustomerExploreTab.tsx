@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import DiscoverySearchBar from '../../components/DiscoverySearchBar'
 import DiscoverySkeleton from '../../components/DiscoverySkeleton'
+import FavoriteRestaurantsRow from '../../components/FavoriteRestaurantsRow'
+import NearbyRestaurantsMap from '../../components/NearbyRestaurantsMap'
 import RestaurantInfiniteCarousel from '../../components/RestaurantInfiniteCarousel'
 import RestaurantPreviewSheet from '../../components/RestaurantPreviewSheet'
 import RotatingRestaurantSpotlight from '../../components/RotatingRestaurantSpotlight'
+import { useAuth } from '../../context/AuthContext'
+import { useFavoriteRestaurants } from '../../hooks/useFavoriteRestaurants'
 import { fetchPublicDiscoveryRestaurants } from '../../services/publicDiscovery'
 import type { CitySuggestion } from '../../services/citySearch'
 import { haversineDistanceKm, type GeoCoordinates } from '../../utils/geo'
+import { toGeoCoordinates } from '../../utils/mapCoordinates'
 import {
   collectPopularCharacteristics,
   filterDiscoveryRestaurants,
@@ -23,6 +28,8 @@ import styles from './CustomerExploreTab.module.css'
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
 
 function CustomerExploreTab() {
+  const { profile } = useAuth()
+  const { favoriteSlugs } = useFavoriteRestaurants()
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -114,6 +121,21 @@ function CustomerExploreTab() {
     [filteredRestaurants],
   )
 
+  const favoriteRestaurants = useMemo(
+    () => restaurants.filter((restaurant) => favoriteSlugs.includes(restaurant.slug)),
+    [restaurants, favoriteSlugs],
+  )
+
+  const homeCoords = useMemo(
+    () => toGeoCoordinates(profile?.homeLatitude, profile?.homeLongitude),
+    [profile?.homeLatitude, profile?.homeLongitude],
+  )
+
+  const nearbyMapRestaurants = useMemo(
+    () => filterDiscoveryRestaurants(restaurants, '', selectedCity?.name ?? ''),
+    [restaurants, selectedCity],
+  )
+
   const handleSearch = () => {
     setAppliedSearch(searchDraft.trim())
     setActiveTrait('')
@@ -149,12 +171,7 @@ function CustomerExploreTab() {
     setNearbyMessage(readyMessage)
   }, [restaurants])
 
-  const handleUseLocation = () => {
-    if (nearbyActive) {
-      disableNearby()
-      return
-    }
-
+  const requestGpsLocation = useCallback(() => {
     setNearbyState('locating')
     setNearbyMessage('Obteniendo ubicación…')
 
@@ -173,7 +190,18 @@ function CustomerExploreTab() {
         setNearbyState('error')
         setNearbyMessage(getLocationErrorMessage(locationError, Boolean(cityLabel)))
       })
+  }, [enableNearby, selectedCity])
+
+  const handleUseLocation = () => {
+    if (nearbyActive) {
+      disableNearby()
+      return
+    }
+
+    requestGpsLocation()
   }
+
+  const previewOrigin = userCoords ?? homeCoords
 
   return (
     <div className={styles.page}>
@@ -205,6 +233,14 @@ function CustomerExploreTab() {
           <div className={styles.errorBox} role="alert">
             {error}
           </div>
+        )}
+
+        {!loading && !error && (
+          <FavoriteRestaurantsRow
+            restaurants={favoriteRestaurants}
+            distancesKm={nearbyActive ? distancesKm : undefined}
+            onOpenRestaurant={setPreviewRestaurant}
+          />
         )}
 
         {!loading && !error && filteredRestaurants.length === 0 && (
@@ -261,12 +297,30 @@ function CustomerExploreTab() {
             </section>
           </>
         )}
+
+        {!loading && !error && restaurants.length > 0 && (
+          <NearbyRestaurantsMap
+            restaurants={nearbyMapRestaurants}
+            userCoords={userCoords}
+            homeCoords={homeCoords}
+            locating={nearbyState === 'locating'}
+            locationError={nearbyState === 'error' ? nearbyMessage : null}
+            selectedSlug={previewRestaurant?.slug ?? null}
+            onRequestGps={requestGpsLocation}
+            onOpenRestaurant={setPreviewRestaurant}
+          />
+        )}
       </main>
 
       <RestaurantPreviewSheet
         restaurant={previewRestaurant}
         distanceKm={
-          previewRestaurant && nearbyActive ? distancesKm[previewRestaurant.slug] : undefined
+          previewRestaurant && previewOrigin && restaurantHasMapPin(previewRestaurant)
+            ? haversineDistanceKm(previewOrigin, {
+                lat: previewRestaurant.latitude as number,
+                lng: previewRestaurant.longitude as number,
+              })
+            : undefined
         }
         onClose={() => setPreviewRestaurant(null)}
       />

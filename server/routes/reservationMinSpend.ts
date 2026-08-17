@@ -1,99 +1,28 @@
 import { Router, type Request, type Response } from 'express'
 import { Timestamp } from 'firebase-admin/firestore'
-import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
-import { getUserRoleWithRest, verifyIdTokenWithRest } from '../rest-firebase.ts'
-import {
-  applyDuePromotionPinRotation,
-  defaultPromotionPinSettings,
-  mapPromotionPin,
-  normalizePromotionPinCode,
-  type PromotionPinSettings,
-} from '../utils/promotionPin.ts'
+import { adminDb } from '../firebase-admin.ts'
+import { verifyCustomerUid } from '../auth/verifyRequest.ts'
+import { createRateLimit } from '../middleware/rateLimit.ts'
+import { resolveCompanyPromotionPin } from '../utils/companyPromotionPin.ts'
+import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
 import { recordTimeLimitedPromotionClaimForVerification } from '../utils/recordTimeLimitedClaim.ts'
+import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
+import { findPendingTokenSpend, settlePendingTokenSpend } from '../gamification/inventory.ts'
 
 const router = Router()
+const verifySpendRateLimit = createRateLimit(10, 60_000)
 
 interface ProductSelectionInput {
   nodeId: string
   quantity: number
 }
 
-function serializePromotionPin(settings: PromotionPinSettings) {
-  return {
-    code: settings.code,
-    rotation: settings.rotation,
-    nextRotationAt: settings.nextRotationAt ? Timestamp.fromDate(settings.nextRotationAt) : null,
-    lastRotatedAt: settings.lastRotatedAt ? Timestamp.fromDate(settings.lastRotatedAt) : null,
-    updatedAt: Timestamp.now(),
-  }
-}
-
-async function resolveCompanyPromotionPin(
-  companyRef: FirebaseFirestore.DocumentReference,
-  companyData: FirebaseFirestore.DocumentData,
-): Promise<string> {
-  const stored = mapPromotionPin(companyData.promotionPin as Record<string, unknown> | undefined)
-  const base = stored ?? defaultPromotionPinSettings()
-  const { settings, rotated } = applyDuePromotionPinRotation(base)
-
-  if (rotated) {
-    await companyRef.update({
-      promotionPin: serializePromotionPin(settings),
-    })
-  }
-
-  return settings.code
-}
-
-async function verifyCustomerSession(req: Request): Promise<{ uid: string; email: string } | null> {
-  const header = req.headers.authorization
-  if (!header?.startsWith('Bearer ')) {
-    return null
-  }
-
-  const token = header.slice(7)
-
-  if (canUseAdminSdk) {
-    const decoded = await adminAuth.verifyIdToken(token)
-    const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
-
-    if (!userSnap.exists || userSnap.data()?.role !== 'customer') {
-      return null
-    }
-
-    const email = typeof userSnap.data()?.email === 'string' ? userSnap.data()?.email.trim() : ''
-    if (!email) {
-      return null
-    }
-
-    return { uid: decoded.uid, email }
-  }
-
-  const decoded = await verifyIdTokenWithRest(token)
-  const role = await getUserRoleWithRest(token, decoded.uid)
-
-  if (role !== 'customer') {
-    return null
-  }
-
-  const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
-  const email = typeof userSnap.data()?.email === 'string' ? userSnap.data()?.email.trim() : ''
-  if (!email) {
-    return null
-  }
-
-  return { uid: decoded.uid, email }
-}
-
-router.post('/:reservationId/verify-minimum-spend', async (req: Request, res: Response) => {
+router.post(
+  '/:reservationId/verify-minimum-spend',
+  verifySpendRateLimit,
+  async (req: Request, res: Response) => {
   try {
-    const customerSession = await verifyCustomerSession(req)
-    if (!customerSession) {
-      res.status(401).json({ error: 'Debes iniciar sesión como cliente.' })
-      return
-    }
-
-    const { uid: customerUid, email: customerEmail } = customerSession
+    const { uid: customerUid, email: customerEmail } = await verifyCustomerUid(req)
 
     const reservationId = String(req.params.reservationId ?? '').trim()
     if (!reservationId) {
@@ -151,17 +80,28 @@ router.post('/:reservationId/verify-minimum-spend', async (req: Request, res: Re
       ? reservation.minimumSpendCents
       : 0
 
-    if (minimumSpendCents <= 0) {
-      res.status(409).json({ error: 'Esta reserva no requiere verificación de gasto mínimo.' })
-      return
-    }
-
     if (reservation.minSpendVerification) {
       res.status(409).json({ error: 'El gasto mínimo ya fue verificado.' })
       return
     }
 
     const companyId = reservation.companyId as string
+    const userRef = adminDb.collection('users').doc(customerUid)
+    const statsRef = userGamificationRef(customerUid)
+    const [userSnap, statsSnap] = await Promise.all([
+      userRef.get(),
+      statsRef.get(),
+    ])
+    const gamification = readGamificationFromDocs(statsSnap.data(), userSnap.data())
+    const pendingToken = findPendingTokenSpend(gamification, companyId)
+    const requiredCents = pendingToken && pendingToken.remainderCents > 0
+      ? pendingToken.remainderCents
+      : minimumSpendCents
+
+    if (requiredCents <= 0) {
+      res.status(409).json({ error: 'Esta reserva no requiere verificación de gasto mínimo.' })
+      return
+    }
     const companyRef = adminDb.collection('companies').doc(companyId)
     const companySnap = await companyRef.get()
 
@@ -249,13 +189,23 @@ router.post('/:reservationId/verify-minimum-spend', async (req: Request, res: Re
       }
     }
 
-    if (totalCents < minimumSpendCents) {
-      res.status(400).json({ error: 'El consumo indicado no alcanza el gasto mínimo requerido.' })
+    if (totalCents < requiredCents) {
+      res.status(400).json({
+        error: pendingToken
+          ? `El consumo indicado no cubre los ${Math.round(requiredCents / 100)}€ que faltan tras la carta.`
+          : 'El consumo indicado no alcanza el gasto mínimo requerido.',
+      })
       return
     }
 
-    const meetsMinimumSpend = true
-    const promotionVisitStatus = 'eligible'
+    const settledPreview = settlePendingTokenSpend(
+      gamification,
+      companyId,
+      totalCents,
+      minimumSpendCents,
+    )
+    const meetsMinimumSpend = settledPreview.reservationEligible
+    const promotionVisitStatus = meetsMinimumSpend ? 'eligible' : 'pending'
     const verifiedAt = Timestamp.now()
 
     const minSpendVerification = {
@@ -264,16 +214,35 @@ router.post('/:reservationId/verify-minimum-spend', async (req: Request, res: Re
       lineItems,
       verifiedAt,
       meetsMinimumSpend,
+      cardCoverCents: pendingToken?.coverCents ?? 0,
+      remainderCents: pendingToken?.remainderCents ?? 0,
     }
 
-    await reservationRef.update({
-      minSpendVerification,
-      promotionVisitStatus,
+    await adminDb.runTransaction(async (transaction) => {
+      const [freshUserSnap, freshStatsSnap] = await Promise.all([
+        transaction.get(userRef),
+        transaction.get(statsRef),
+      ])
+      const freshState = readGamificationFromDocs(freshStatsSnap.data(), freshUserSnap.data())
+      const settled = settlePendingTokenSpend(
+        freshState,
+        companyId,
+        totalCents,
+        minimumSpendCents,
+      )
+      if (settled.settled) {
+        writeGamification(transaction, customerUid, settled.state)
+      }
+      transaction.update(reservationRef, {
+        minSpendVerification,
+        promotionVisitStatus,
+      })
     })
 
     await companyRef.collection('verifiedConsumptions').doc(reservationId).set({
       reservationId,
       companyId,
+      customerUid,
       clientName: typeof reservation.clientName === 'string' ? reservation.clientName : '',
       clientEmail: reservationEmail,
       pax: typeof reservation.pax === 'number' ? reservation.pax : 0,
@@ -285,6 +254,18 @@ router.post('/:reservationId/verify-minimum-spend', async (req: Request, res: Re
       lineItems,
       verifiedAt,
       meetsMinimumSpend,
+    })
+
+    await adminDb.collection('productClaims').doc(`${customerUid}_${reservationId}`).set({
+      customerUid,
+      companyId,
+      reservationId,
+      clientName: typeof reservation.clientName === 'string' ? reservation.clientName : '',
+      promotionId: typeof reservation.promotionId === 'string' ? reservation.promotionId : null,
+      mode,
+      totalCents,
+      lineItems,
+      verifiedAt,
     })
 
     const promotionId = typeof reservation.promotionId === 'string' ? reservation.promotionId.trim() : ''
@@ -313,7 +294,10 @@ router.post('/:reservationId/verify-minimum-spend', async (req: Request, res: Re
     })
   } catch (error) {
     console.error('Verify minimum spend error:', error)
-    res.status(500).json({ error: 'No se pudo verificar el gasto mínimo.' })
+    const unauthorized = error instanceof Error && error.message.includes('cliente')
+    res.status(unauthorized ? 401 : 500).json({
+      error: unauthorized ? error.message : 'No se pudo verificar el gasto mínimo.',
+    })
   }
 })
 

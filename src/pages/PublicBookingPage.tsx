@@ -2,10 +2,13 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Calendar from '../components/Calendar'
 import BookingRestaurantLanding from '../components/booking/BookingRestaurantLanding'
+import BookingInviteFriends from '../components/booking/BookingInviteFriends'
 import ReservationDepositPayment, {
   type ReservationDepositPaymentHandle,
 } from '../components/booking/ReservationDepositPayment'
 import { useAuth } from '../context/AuthContext'
+import { useCustomerGamificationContext } from '../context/CustomerGamificationContext'
+import { useCustomerFriends } from '../hooks/useCustomerFriends'
 import { createPublicDepositIntent, type PublicDepositIntentResponse } from '../services/publicDepositApi'
 import {
   availabilityToReservations,
@@ -34,6 +37,7 @@ import {
   isValidSpanishPhone,
 } from '../utils/helpers'
 import { mergeDemoPromotions } from '../data/demoNearbyPromotions'
+import { isCustomerPromoLocked } from '../data/cancellationPenalties'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
 import {
   canRedeemPromotionAsCustomer,
@@ -51,6 +55,18 @@ import {
   computeReservationDepositCents,
   formatDepositAuthorizationSummary,
 } from '../utils/reservationDeposit'
+import {
+  DEPOSIT_PASS_ITEM_ID,
+  EXTRA_PAX_ITEM_ID,
+  inventoryQuantity,
+} from '../data/inventoryItems'
+import {
+  areFloorPlansEnabled,
+  enabledFloorPlans,
+  parseFloorPlans,
+  tableBelongsToFloorPlan,
+  tablesForFloorPlan,
+} from '../types'
 import styles from './PublicBookingPage.module.css'
 
 const FloorPlanViewer = lazy(() => import('../components/FloorPlanViewer'))
@@ -63,13 +79,19 @@ function PublicBookingPage() {
   const { slug = '' } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, profile, isLoading: authLoading } = useAuth()
+  const { user, profile, isLoading: authLoading, refreshProfile, patchProfileGamification } = useAuth()
+  const { refreshGamificationData } = useCustomerGamificationContext()
+  const isLoggedCustomer = profile?.role === 'customer'
+  const { friends, loading: friendsLoading } = useCustomerFriends(
+    isLoggedCustomer ? user?.uid : undefined,
+  )
   const [searchParams] = useSearchParams()
   const [company, setCompany] = useState<PublicBookingCompany | null>(null)
   const [tables, setTables] = useState<PublicBookingTable[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [dayReservations, setDayReservations] = useState<Reservation[]>([])
   const [viewMode, setViewMode] = useState<ViewMode>('hours')
+  const [selectedBookingMapId, setSelectedBookingMapId] = useState('')
   const [step, setStep] = useState<BookingStep>('pick')
   const [selectedTime, setSelectedTime] = useState('')
   const [selectedTableId, setSelectedTableId] = useState('')
@@ -92,6 +114,9 @@ function PublicBookingPage() {
   const [depositLoading, setDepositLoading] = useState(false)
   const [depositPaymentReady, setDepositPaymentReady] = useState(false)
   const [depositPaymentError, setDepositPaymentError] = useState<string | null>(null)
+  const [useDepositPass, setUseDepositPass] = useState(false)
+  const [useExtraPax, setUseExtraPax] = useState(false)
+  const [inviteeIds, setInviteeIds] = useState<string[]>([])
   const [completedBookingDeposit, setCompletedBookingDeposit] = useState<{
     amountCents: number
     pax: number
@@ -103,11 +128,16 @@ function PublicBookingPage() {
   const promoId = searchParams.get('promo')
   const durationMinutes = company?.timeSlotMinutes ?? 120
   const schedule = company?.schedule
-  const depositRequired = company ? companyRequiresStripeDeposit(pax, company) : false
+  const hasDepositPass = inventoryQuantity(profile?.gamification?.inventory, DEPOSIT_PASS_ITEM_ID) > 0
+  const hasExtraPax = inventoryQuantity(profile?.gamification?.inventory, EXTRA_PAX_ITEM_ID) > 0
+  const depositRequired = company
+    ? companyRequiresStripeDeposit(pax, company) && !(useDepositPass && hasDepositPass)
+    : false
   const depositUnavailable = company
     ? companyRequiresReservationDeposit(pax, company)
       && computeReservationDepositCents(pax, company) > 0
       && !companyCanCollectReservationDeposits(company)
+      && !(useDepositPass && hasDepositPass)
     : false
 
   const loadAvailability = useCallback(async () => {
@@ -136,7 +166,7 @@ function PublicBookingPage() {
     let cancelled = false
 
     const loadDeposit = async () => {
-      if (!companyRequiresStripeDeposit(pax, company)) {
+      if (!companyRequiresStripeDeposit(pax, company) || useDepositPass) {
         setDepositIntent(null)
         setDepositPaymentError(null)
         setDepositPaymentReady(false)
@@ -171,7 +201,7 @@ function PublicBookingPage() {
     return () => {
       cancelled = true
     }
-  }, [step, company, slug, pax])
+  }, [step, company, slug, pax, useDepositPass])
 
   useEffect(() => {
     let cancelled = false
@@ -218,6 +248,15 @@ function PublicBookingPage() {
   }, [searchParams])
 
   useEffect(() => {
+    if (profile?.role !== 'customer') {
+      return
+    }
+    setClientName(profile.displayName)
+    setClientEmail(profile.email)
+    setClientPhone(profile.phone ?? '')
+  }, [profile])
+
+  useEffect(() => {
     if (!slug || !promoId) {
       setActivePromo(null)
       setPromoResolved(true)
@@ -233,7 +272,7 @@ function PublicBookingPage() {
           return
         }
 
-        const merged = mergeDemoPromotions(promotions)
+        const merged = import.meta.env.DEV ? mergeDemoPromotions(promotions) : promotions
         const found = merged.find(
           (promotion) => promotion.id === promoId && promotion.companySlug === slug,
         ) ?? null
@@ -263,7 +302,9 @@ function PublicBookingPage() {
   }, [selectedDate, viewMode])
 
   const canRedeemPromo = canRedeemPromotionAsCustomer(user, profile)
+  const promoLocked = isCustomerPromoLocked(profile)
   const promoAuthRequired = Boolean(activePromo) && !authLoading && !canRedeemPromo
+  const promoPenaltyLocked = Boolean(activePromo) && !authLoading && canRedeemPromo && promoLocked
   const minSpendBookingNote = activePromo
     ? formatPromotionMinimumSpendBookingNote(activePromo)
     : null
@@ -271,8 +312,55 @@ function PublicBookingPage() {
   const returnPath = `${location.pathname}${location.search}`
   const promoAuthRedirect = encodeURIComponent(returnPath)
   const selectedTable = tables.find((table) => table.id === selectedTableId)
+  const extraPaxCapacity = selectedTable
+    ? selectedTable.capacity + (useExtraPax && hasExtraPax ? 1 : 0)
+    : 20
   const daySchedule = schedule ? getDaySchedule(selectedDate, schedule) : null
-  const canUseMap = Boolean(company?.floorPlan.enabled)
+  const bookingFloorPlans = useMemo(
+    () => (company ? parseFloorPlans(company.floorPlans, company.floorPlan) : []),
+    [company],
+  )
+  const mapsForBooking = useMemo(
+    () => enabledFloorPlans(bookingFloorPlans),
+    [bookingFloorPlans],
+  )
+  const canUseMap = areFloorPlansEnabled(bookingFloorPlans)
+  const selectedBookingMap =
+    mapsForBooking.find((plan) => plan.id === selectedBookingMapId) ?? mapsForBooking[0]
+  const mapTables = useMemo(() => {
+    if (!selectedBookingMap) {
+      return []
+    }
+
+    return tablesForFloorPlan(tables, selectedBookingMap, bookingFloorPlans)
+  }, [tables, selectedBookingMap, bookingFloorPlans])
+
+  useEffect(() => {
+    if (!mapsForBooking.length) {
+      setSelectedBookingMapId('')
+      return
+    }
+
+    setSelectedBookingMapId((current) =>
+      mapsForBooking.some((plan) => plan.id === current)
+        ? current
+        : mapsForBooking[0].id,
+    )
+  }, [mapsForBooking])
+
+  const tableMapName = (tableId: string) => {
+    if (mapsForBooking.length < 2) {
+      return null
+    }
+
+    const table = tables.find((item) => item.id === tableId)
+    if (!table) {
+      return null
+    }
+
+    return bookingFloorPlans.find((plan) => tableBelongsToFloorPlan(table, plan, bookingFloorPlans))?.name
+      ?? null
+  }
 
   const hourSlots = useMemo(() => {
     if (!schedule) {
@@ -448,6 +536,20 @@ function PublicBookingPage() {
     openForm()
   }
 
+  const selectBookingMap = (planId: string) => {
+    setSelectedBookingMapId(planId)
+    const plan = mapsForBooking.find((item) => item.id === planId)
+    if (!plan) {
+      return
+    }
+
+    const visible = tablesForFloorPlan(tables, plan, bookingFloorPlans)
+    if (selectedTableId && !visible.some((table) => table.id === selectedTableId)) {
+      setSelectedTableId('')
+      setSelectedTime('')
+    }
+  }
+
   const handleSelectTableOnMap = (tableId: string) => {
     setSelectedTableId(tableId)
     setSelectedTime('')
@@ -469,23 +571,36 @@ function PublicBookingPage() {
       return
     }
 
-    if (!isValidClientName(clientName)) {
-      setError('Indica un nombre válido (mínimo 2 letras).')
-      return
-    }
+    const bookingName = isLoggedCustomer
+      ? (profile?.displayName ?? '').trim()
+      : clientName.trim().replace(/\s+/g, ' ')
+    const bookingEmail = isLoggedCustomer ? (profile?.email ?? '').trim() : clientEmail.trim()
+    const bookingPhone = isLoggedCustomer
+      ? (profile?.phone ?? '').trim()
+      : formatSpanishPhoneForStorage(clientPhone)
 
-    if (!clientPhone.trim()) {
-      setError('Indica un teléfono de contacto.')
-      return
-    }
+    if (!isLoggedCustomer) {
+      if (!isValidClientName(bookingName)) {
+        setError('Indica un nombre válido (mínimo 2 letras).')
+        return
+      }
 
-    if (!isValidSpanishPhone(clientPhone)) {
-      setError('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678).')
-      return
-    }
+      if (!bookingPhone) {
+        setError('Indica un teléfono de contacto.')
+        return
+      }
 
-    if (!isValidEmail(clientEmail)) {
-      setError('Indica un correo electrónico válido.')
+      if (!isValidSpanishPhone(clientPhone)) {
+        setError('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678).')
+        return
+      }
+
+      if (!isValidEmail(bookingEmail)) {
+        setError('Indica un correo electrónico válido.')
+        return
+      }
+    } else if (!bookingName || !isValidEmail(bookingEmail)) {
+      setError('Tu cuenta no tiene nombre o email. Completa el perfil e inténtalo de nuevo.')
       return
     }
 
@@ -494,8 +609,8 @@ function PublicBookingPage() {
       return
     }
 
-    if (selectedTable && pax > selectedTable.capacity) {
-      setError(`Esta mesa admite hasta ${selectedTable.capacity} personas.`)
+    if (selectedTable && pax > extraPaxCapacity) {
+      setError(`Esta mesa admite hasta ${extraPaxCapacity} personas.`)
       return
     }
 
@@ -547,20 +662,33 @@ function PublicBookingPage() {
         await depositPaymentRef.current?.confirmDeposit()
       }
 
-      await createPublicReservation(slug, {
+      const booking = await createPublicReservation(slug, {
         date: dateToIsoDate(selectedDate),
         time: selectedTime,
         tableId: selectedTableId,
-        clientName: clientName.trim().replace(/\s+/g, ' '),
-        clientEmail: clientEmail.trim(),
-        clientPhone: formatSpanishPhoneForStorage(clientPhone),
+        clientName: bookingName,
+        clientEmail: bookingEmail,
+        clientPhone: bookingPhone,
         pax,
         notes: notes.trim(),
         ...(activePromo ? { promotionId: activePromo.id } : {}),
         ...(depositRequired && depositIntent?.paymentIntentId
           ? { depositPaymentIntentId: depositIntent.paymentIntentId }
           : {}),
+        ...(useDepositPass && hasDepositPass ? { useDepositPass: true } : {}),
+        ...(useExtraPax && hasExtraPax && selectedTable && pax > selectedTable.capacity
+          ? { useExtraPax: true }
+          : {}),
+        ...(isLoggedCustomer && inviteeIds.length > 0 ? { inviteeUids: inviteeIds } : {}),
       })
+
+      if (isLoggedCustomer) {
+        if (booking.inventory) {
+          patchProfileGamification({ inventory: booking.inventory })
+        }
+        await refreshProfile()
+        await refreshGamificationData({ silent: true })
+      }
 
       setCompletedBookingDeposit(
         depositRequired && depositIntent?.amountCents
@@ -579,6 +707,9 @@ function PublicBookingPage() {
       setClientPhone('')
       setNotes('')
       setPax(2)
+      setUseExtraPax(false)
+      setUseDepositPass(false)
+      setInviteeIds([])
       await loadAvailability()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la reserva.')
@@ -673,7 +804,7 @@ function PublicBookingPage() {
           </div>
         </section>
 
-        {activePromo && isPromoTimeConstrained(activePromo) && !promoAuthRequired ? (
+        {activePromo && isPromoTimeConstrained(activePromo) && !promoAuthRequired && !promoPenaltyLocked ? (
           <div className={styles.promoBanner}>
             <span className={styles.promoBannerBadge}>
               {resolvePromotionHighlight(activePromo, 0)}
@@ -719,6 +850,18 @@ function PublicBookingPage() {
             </div>
             <Link to={`/reservar/${slug}?reservar=1`} className={styles.promoAuthGateSkip}>
               Reservar mesa sin canjear promo
+            </Link>
+          </div>
+        ) : promoPenaltyLocked && activePromo ? (
+          <div className={styles.promoAuthGate}>
+            <span className={styles.promoBannerBadge}>Bloqueado</span>
+            <h3>Promociones bloqueadas</h3>
+            <p>
+              Has cancelado demasiadas reservas. No puedes reservar con promoción ni canjear premios.
+              Sí puedes reservar mesa con normalidad.
+            </p>
+            <Link to={`/reservar/${slug}?reservar=1`} className={styles.primaryButton}>
+              Reservar mesa sin promo
             </Link>
           </div>
         ) : (
@@ -795,7 +938,23 @@ function PublicBookingPage() {
                   <button
                     type="button"
                     className={`${styles.toggleButton} ${viewMode === 'map' ? styles.toggleButtonActive : ''}`}
-                    onClick={() => setViewMode('map')}
+                    onClick={() => {
+                      setViewMode('map')
+                      if (!selectedTableId) {
+                        return
+                      }
+
+                      const table = tables.find((item) => item.id === selectedTableId)
+                      const plan = table
+                        ? mapsForBooking.find((item) =>
+                            tableBelongsToFloorPlan(table, item, bookingFloorPlans),
+                          )
+                        : undefined
+
+                      if (plan) {
+                        setSelectedBookingMapId(plan.id)
+                      }
+                    }}
                     disabled={!canUseMap}
                   >
                     Ver por mapa
@@ -827,8 +986,17 @@ function PublicBookingPage() {
                     <p className={styles.summary}>
                       {formatDateSpanish(selectedDate)} · {selectedTime} –{' '}
                       {formatSlotEndTime(selectedTime, durationMinutes)} · {selectedTable?.name}
+                      {tableMapName(selectedTableId) ? ` · ${tableMapName(selectedTableId)}` : ''}
                     </p>
+                    {isLoggedCustomer && profile ? (
+                      <p className={styles.accountHint}>
+                        Reservando como <strong>{profile.displayName}</strong>
+                        {profile.email ? ` · ${profile.email}` : ''}
+                      </p>
+                    ) : null}
                     <fieldset className={styles.formFields} disabled={isSubmitting}>
+                    {isLoggedCustomer ? null : (
+                      <>
                     <label>
                       Nombre
                       <input
@@ -863,18 +1031,63 @@ function PublicBookingPage() {
                         required
                       />
                     </label>
+                      </>
+                    )}
                     <label>
-                      Invitados
+                      Comensales
                       <input
                         type="number"
                         min={1}
-                        max={selectedTable?.capacity ?? 20}
+                        max={extraPaxCapacity}
                         value={pax}
-                        onChange={(e) => setPax(Number(e.target.value) || 1)}
+                        onChange={(e) => {
+                          const next = Math.max(1, Number(e.target.value) || 1)
+                          const clamped = Math.min(next, extraPaxCapacity)
+                          setPax(clamped)
+                          if (selectedTable && clamped <= selectedTable.capacity) {
+                            setUseExtraPax(false)
+                          }
+                        }}
                       />
                     </label>
+                    {hasExtraPax ? (
+                      <label className={styles.itemToggle}>
+                        <input
+                          type="checkbox"
+                          checked={useExtraPax}
+                          onChange={(event) => {
+                            const checked = event.target.checked
+                            setUseExtraPax(checked)
+                            if (!selectedTable) {
+                              return
+                            }
+                            if (checked) {
+                              setPax(selectedTable.capacity + 1)
+                            } else {
+                              setPax((current) => Math.min(current, selectedTable.capacity))
+                            }
+                          }}
+                        />
+                        <span>
+                          Usar Invitación extra
+                          {selectedTable
+                            ? ` · la mesa admite ${selectedTable.capacity}; con esta carta puedes sentar ${selectedTable.capacity + 1}`
+                            : ' · +1 comensal sobre la mesa'}
+                        </span>
+                      </label>
+                    ) : null}
+                    {hasDepositPass && company && companyRequiresReservationDeposit(pax, company) ? (
+                      <label className={styles.itemToggle}>
+                        <input
+                          type="checkbox"
+                          checked={useDepositPass}
+                          onChange={(event) => setUseDepositPass(event.target.checked)}
+                        />
+                        <span>Usar Salvoconducto de depósito · esta reserva no retiene fianza</span>
+                      </label>
+                    ) : null}
                     <label>
-                      Comentarios (opcional)
+                      Descripción (opcional)
                       <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
@@ -882,6 +1095,14 @@ function PublicBookingPage() {
                         placeholder="Alergias, celebración, preferencias…"
                       />
                     </label>
+                    {isLoggedCustomer ? (
+                      <BookingInviteFriends
+                        friends={friends}
+                        loading={friendsLoading}
+                        selectedIds={inviteeIds}
+                        onChange={setInviteeIds}
+                      />
+                    ) : null}
 
                     {depositUnavailable ? (
                       <p className={styles.hint}>
@@ -972,6 +1193,9 @@ function PublicBookingPage() {
                                 onClick={() => handleSelectTableForHour(table.id)}
                               >
                                 <strong>{table.name}</strong>
+                                {tableMapName(table.id) ? (
+                                  <span>{tableMapName(table.id)}</span>
+                                ) : null}
                                 <span>Hasta {table.capacity} pers.</span>
                               </button>
                             )
@@ -984,15 +1208,42 @@ function PublicBookingPage() {
                   <div className={styles.panel}>
                     <div className={styles.mapLayout}>
                       <div className={styles.mapColumn}>
-                        <h3>Elige una mesa</h3>
+                        {mapsForBooking.length > 1 ? (
+                          <div className={styles.mapTabList} role="tablist" aria-label="Mapas del restaurante">
+                            {mapsForBooking.map((plan) => {
+                              const selected = selectedBookingMap?.id === plan.id
+                              return (
+                                <button
+                                  key={plan.id}
+                                  type="button"
+                                  role="tab"
+                                  aria-selected={selected}
+                                  className={`${styles.mapTab} ${selected ? styles.mapTabActive : ''}`}
+                                  onClick={() => selectBookingMap(plan.id)}
+                                >
+                                  {plan.name}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        ) : null}
+                        <h3>
+                          Elige una mesa
+                          {selectedBookingMap ? ` · ${selectedBookingMap.name}` : ''}
+                        </h3>
                         <Suspense fallback={<p className={styles.loadingInline}>Cargando mapa…</p>}>
-                          <FloorPlanViewer
-                            floorPlan={company.floorPlan}
-                            tables={tables}
-                            selectedTableId={selectedTableId}
-                            onSelectTable={handleSelectTableOnMap}
-                            large
-                          />
+                          {selectedBookingMap ? (
+                            <FloorPlanViewer
+                              key={selectedBookingMap.id}
+                              floorPlan={selectedBookingMap}
+                              tables={mapTables}
+                              selectedTableId={selectedTableId}
+                              onSelectTable={handleSelectTableOnMap}
+                              large
+                            />
+                          ) : (
+                            <p className={styles.hint}>No hay un mapa disponible.</p>
+                          )}
                         </Suspense>
                       </div>
                       <div className={styles.mapHoursColumn}>
@@ -1006,7 +1257,9 @@ function PublicBookingPage() {
                               Cancelar
                             </button>
                             <h3 className={styles.mapHoursTitle}>
-                              {selectedTable?.name} · {selectedTable?.capacity} pers.
+                              {selectedTable?.name}
+                              {tableMapName(selectedTableId) ? ` · ${tableMapName(selectedTableId)}` : ''}
+                              {' '}· {selectedTable?.capacity} pers.
                             </h3>
                             <div className={styles.mapSlotGrid}>
                               {enrichedTableSlots.map((slot) => (

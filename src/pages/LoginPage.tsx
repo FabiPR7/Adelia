@@ -5,6 +5,7 @@ import { getAuthErrorMessage, loginWithUsername } from '../services/auth'
 import { getFirestoreErrorMessage, getCompanyCredentialsMustChange, getUserProfile } from '../services/firestore'
 import { getPostLoginPath, resolveMustChangePassword } from '../utils/authProfile'
 import { ADELIA_LOGO_URL } from '../constants/brand'
+import LegalLinks from '../components/LegalLinks'
 import styles from './LoginPage.module.css'
 
 function LoginPage() {
@@ -36,13 +37,13 @@ function LoginPage() {
 
       if (!profile) {
         setError(
-          'Tu cuenta no tiene perfil en Firestore. Ejecuta npm run seed en el proyecto.',
+          'No se pudo leer tu perfil. Despliega las reglas con npm run deploy:rules y vuelve a entrar.',
         )
         return
       }
 
       const credentialsMustChange = profile.companyId
-        ? await getCompanyCredentialsMustChange(profile.companyId)
+        ? await getCompanyCredentialsMustChange(profile.companyId).catch(() => null)
         : null
 
       const resolvedProfile = await resolveMustChangePassword(
@@ -147,6 +148,7 @@ function LoginPage() {
 
           <footer className={styles.footer}>
             <p>Acceso exclusivo para cuentas registradas.</p>
+            <LegalLinks from="/login" />
           </footer>
         </section>
 

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import MissionIcon from './MissionIcon'
 import type { MissionProgress } from '../types/gamification'
-import { WEEKLY_BONUS_TARGET } from '../types/gamification'
+import { WEEKLY_BONUS_TARGET, WEEKLY_MISSION_BONUS_XP } from '../types/gamification'
 import styles from './MissionsHub.module.css'
 
 interface MissionsHubProps {
@@ -64,7 +64,7 @@ function MissionsHub({
         <div className={`${styles.sectionHeader} ${isArena ? styles.sectionHeaderArena : ''}`}>
           <h3>Misiones de la semana</h3>
           <span className={styles.bonusPill}>
-            🎁 Bonus +150 XP · {weeklyBonus.completedCount}/{WEEKLY_BONUS_TARGET}
+            🎁 Bonus +{WEEKLY_MISSION_BONUS_XP} XP · {weeklyBonus.completedCount}/{WEEKLY_BONUS_TARGET}
           </span>
         </div>
         <div className={styles.compactList}>

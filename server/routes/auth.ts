@@ -1,4 +1,6 @@
 import { Router, type Request, type Response } from 'express'
+import { verifySignedInUser } from '../auth/verifyRequest.ts'
+import { readGamificationFromDocs, userGamificationRef } from '../data/userGamification.ts'
 import { Timestamp } from 'firebase-admin/firestore'
 import {
   emailsMatch,
@@ -31,6 +33,74 @@ function userMustChangePassword(
 ) {
   return userData.mustChangePassword === true || decoded.mustChangePassword === true
 }
+
+function toIsoDate(value: unknown): string {
+  if (value instanceof Timestamp) {
+    return value.toDate().toISOString()
+  }
+  if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+    return value.toDate().toISOString()
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  return new Date().toISOString()
+}
+
+router.get('/profile', async (req: Request, res: Response) => {
+  try {
+    const user = await verifySignedInUser(req)
+    const statsSnap = await userGamificationRef(user.uid).get()
+    const gamification = readGamificationFromDocs(statsSnap.data(), user.data)
+    const data = user.data
+    let favoriteSlugs = Array.isArray(data.favoriteSlugs)
+      ? data.favoriteSlugs.filter((item): item is string => typeof item === 'string')
+      : []
+    try {
+      const favSnap = await adminDb.collection('userFavorites').where('userId', '==', user.uid).get()
+      if (!favSnap.empty) {
+        favoriteSlugs = [...new Set(
+          favSnap.docs
+            .map((item) => item.data().slug)
+            .filter((item): item is string => typeof item === 'string' && item.length > 0),
+        )]
+      }
+    } catch {
+      // Índice de favoritos aún no rellenado.
+    }
+
+    res.json({
+      email: typeof data.email === 'string' ? data.email : user.email,
+      role: data.role === 'admin' || data.role === 'company' || data.role === 'customer'
+        ? data.role
+        : 'customer',
+      companyId: typeof data.companyId === 'string' ? data.companyId : null,
+      displayName: typeof data.displayName === 'string' ? data.displayName : '',
+      favoriteSlugs,
+      gamification,
+      xp: typeof gamification.xp === 'number' ? gamification.xp : 0,
+      adelinas: typeof gamification.adelinas === 'number' ? gamification.adelinas : 0,
+      mustChangePassword: data.mustChangePassword === true,
+      createdAt: toIsoDate(data.createdAt),
+      phone: typeof data.phone === 'string' ? data.phone : '',
+      phoneVerified: data.phoneVerified === true,
+      photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : '',
+      homeCity: typeof data.homeCity === 'string' ? data.homeCity : '',
+      homeMunicipality: typeof data.homeMunicipality === 'string' ? data.homeMunicipality : '',
+      homeCountry: typeof data.homeCountry === 'string' ? data.homeCountry : '',
+      homePostalCode: typeof data.homePostalCode === 'string' ? data.homePostalCode : '',
+      homeLatitude: typeof data.homeLatitude === 'number' ? data.homeLatitude : null,
+      homeLongitude: typeof data.homeLongitude === 'number' ? data.homeLongitude : null,
+      foodPreferences: Array.isArray(data.foodPreferences) ? data.foodPreferences : [],
+      onboardingCompleted: data.onboardingCompleted === true
+        || (data.onboardingCompleted == null && Boolean(data.displayName)),
+      authProvider: data.authProvider === 'google.com' ? 'google.com' : 'password',
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No autorizado.'
+    res.status(401).json({ error: message })
+  }
+})
 
 router.post('/complete-initial-password-change', async (req: Request, res: Response) => {
   try {
@@ -67,6 +137,18 @@ router.post('/complete-initial-password-change', async (req: Request, res: Respo
 
     if (userData.role !== 'company') {
       res.status(403).json({ error: 'Esta acción solo aplica a cuentas de empresa.' })
+      return
+    }
+
+    const email = (userData.email as string | undefined) ?? decoded.email
+    if (!email) {
+      res.status(400).json({ error: 'No se pudo verificar la cuenta.' })
+      return
+    }
+    try {
+      await signInWithPasswordRest(email, newPassword)
+    } catch {
+      res.status(409).json({ error: 'La contraseña de acceso aún no se ha actualizado.' })
       return
     }
 
@@ -259,6 +341,37 @@ router.post('/customer/send-verification-email', async (req: Request, res: Respo
     const message =
       error instanceof Error ? error.message : 'No se pudo enviar el correo de verificación.'
     res.status(500).json({ error: message })
+  }
+})
+
+router.post('/customer/sync-phone-verification', async (req: Request, res: Response) => {
+  try {
+    if (!canUseAdminSdk) {
+      res.status(503).json({ error: 'Verificación de teléfono no disponible en este entorno.' })
+      return
+    }
+    const token = getBearerToken(req)
+    if (!token) {
+      res.status(401).json({ error: 'No autorizado.' })
+      return
+    }
+    const decoded = await adminAuth.verifyIdToken(token)
+    const [userRecord, userSnap] = await Promise.all([
+      adminAuth.getUser(decoded.uid),
+      adminDb.collection('users').doc(decoded.uid).get(),
+    ])
+    if (!userSnap.exists || userSnap.data()?.role !== 'customer' || !userRecord.phoneNumber) {
+      res.status(403).json({ error: 'No se pudo verificar el teléfono de la cuenta.' })
+      return
+    }
+    await userSnap.ref.update({
+      phone: userRecord.phoneNumber,
+      phoneVerified: true,
+    })
+    res.json({ success: true })
+  } catch (error) {
+    console.error('sync phone verification error:', error)
+    res.status(500).json({ error: 'No se pudo guardar la verificación del teléfono.' })
   }
 })
 

@@ -6,19 +6,18 @@ import DiscoveryReviewsCallout from '../components/DiscoveryReviewsCallout'
 import DiscoveryPromotionsSection from '../components/DiscoveryPromotionsSection'
 import DiscoverySkeleton from '../components/DiscoverySkeleton'
 import DiscoveryTraitsFilter from '../components/DiscoveryTraitsFilter'
+import FavoriteRestaurantsRow from '../components/FavoriteRestaurantsRow'
 import RestaurantInfiniteCarousel from '../components/RestaurantInfiniteCarousel'
 import RestaurantPreviewSheet from '../components/RestaurantPreviewSheet'
+import LegalLinks from '../components/LegalLinks'
 import { useAuth } from '../context/AuthContext'
 import { ADELIA_LOGO_URL } from '../constants/brand'
-import { useCustomerGamification } from '../hooks/useCustomerGamification'
+import { useCustomerGamificationContext } from '../context/CustomerGamificationContext'
 import { useFavoriteRestaurants } from '../hooks/useFavoriteRestaurants'
-import { getCustomerReservations } from '../services/firestore'
 import { fetchPublicDiscoveryRestaurants } from '../services/publicDiscovery'
-import { fetchPublicPromotions } from '../services/publicPromotions'
 import type { CitySuggestion } from '../services/citySearch'
-import type { Reservation } from '../types'
-import { getPostLoginPath } from '../utils/authProfile'
 import { haversineDistanceKm, type GeoCoordinates } from '../utils/geo'
+import { getPostLoginPath } from '../utils/authProfile'
 import {
   collectPopularCharacteristics,
   filterDiscoveryRestaurants,
@@ -49,8 +48,6 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   const [selectedCity, setSelectedCity] = useState<CitySuggestion | null>(null)
   const [activeTrait, setActiveTrait] = useState('')
   const [previewRestaurant, setPreviewRestaurant] = useState<PublicDiscoveryRestaurant | null>(null)
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [promotionCompanyIds, setPromotionCompanyIds] = useState<Set<string>>(new Set())
   const [nearbyActive, setNearbyActive] = useState(false)
   const [nearbyState, setNearbyState] = useState<NearbyState>('idle')
   const [nearbyMessage, setNearbyMessage] = useState<string | null>(null)
@@ -81,60 +78,8 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
     }
   }, [])
 
-  useEffect(() => {
-    if (!profile || profile.role !== 'customer') {
-      setReservations([])
-      return
-    }
-
-    let cancelled = false
-
-    void getCustomerReservations(profile.email)
-      .then((data) => {
-        if (!cancelled) {
-          setReservations(data)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setReservations([])
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [profile])
-
-  useEffect(() => {
-    let cancelled = false
-
-    void fetchPublicPromotions()
-      .then((promotions) => {
-        if (!cancelled) {
-          setPromotionCompanyIds(new Set(promotions.map((promotion) => promotion.companyId)))
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPromotionCompanyIds(new Set())
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   const isCustomer = profile?.role === 'customer'
-
-  const gamification = useCustomerGamification({
-    reservations,
-    favoriteSlugs,
-    restaurants,
-    promotionCompanyIds,
-    enabled: isCustomer,
-  })
+  const gamification = useCustomerGamificationContext()
 
   const traitOptions = useMemo(
     () => collectPopularCharacteristics(restaurants),
@@ -179,6 +124,11 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
     [filteredRestaurants],
   )
 
+  const favoriteRestaurants = useMemo(
+    () => restaurants.filter((restaurant) => favoriteSlugs.includes(restaurant.slug)),
+    [restaurants, favoriteSlugs],
+  )
+
   const reviewSpotlight = useMemo(() => {
     const pick = [...restaurants]
       .filter((restaurant) => restaurant.reviewCount > 0)
@@ -194,9 +144,9 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
       name: pick.name,
       reviewRating: getDiscoveryAverageRating(pick),
       adelinaCount: getDiscoveryReviewAdelinas(pick),
-      isFavorite: false,
+      isFavorite: favoriteSlugs.includes(pick.slug),
     }
-  }, [restaurants])
+  }, [favoriteSlugs, restaurants])
 
   const handleSearch = () => {
     setAppliedSearch(searchDraft.trim())
@@ -398,6 +348,14 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
           </div>
         )}
 
+        {!loading && !error && (
+          <FavoriteRestaurantsRow
+            restaurants={favoriteRestaurants}
+            distancesKm={nearbyActive ? distancesKm : undefined}
+            onOpenRestaurant={setPreviewRestaurant}
+          />
+        )}
+
         {!loading && !error && filteredRestaurants.length === 0 && (
           <div className={styles.stateBox}>
             {restaurants.length === 0
@@ -448,7 +406,6 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
               gamification={gamification}
               isCustomer={isCustomer}
               userName={profile?.displayName}
-              userId={user?.uid}
             />
           </div>
         </section>
@@ -463,6 +420,12 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
         }
         onClose={() => setPreviewRestaurant(null)}
       />
+      {!appMode ? (
+        <footer className={styles.siteFooter}>
+          <LegalLinks from="/" />
+          <p>© {new Date().getFullYear()} Adelia</p>
+        </footer>
+      ) : null}
     </div>
   )
 }

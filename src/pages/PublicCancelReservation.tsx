@@ -7,8 +7,13 @@ import {
   fetchPublicCancelPreview,
   type PublicBookingCompany,
   type PublicCancelPreview,
+  type PublicCancelXpPenalty,
 } from '../services/publicApi'
 import { buildPublicDepositCancelWarningMessage } from '../utils/reservationDeposit'
+import {
+  formatCancelPenaltyPreview,
+  formatCancelPenaltyResult,
+} from '../data/cancellationPenalties'
 import styles from './PublicCancelReservation.module.css'
 
 function formatReservationWhen(startTime: string | null): string | null {
@@ -40,6 +45,8 @@ function PublicCancelReservation() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [resultMessage, setResultMessage] = useState<string | null>(null)
+  const [resultPenalty, setResultPenalty] = useState<PublicCancelXpPenalty | null>(null)
+  const [useShield, setUseShield] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -63,6 +70,7 @@ function PublicCancelReservation() {
         if (!cancelled) {
           setCompany(bookingPage.company)
           setCancelPreview(preview)
+          setUseShield((preview.cancelShieldCount ?? 0) > 0)
         }
       } catch (err) {
         if (!cancelled) {
@@ -107,8 +115,9 @@ function PublicCancelReservation() {
     setError(null)
 
     try {
-      const result = await cancelPublicReservation(token)
+      const result = await cancelPublicReservation(token, { useCancelShield: useShield })
       setResultMessage(result.message)
+      setResultPenalty(result.xpPenalty ?? null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cancelar la reserva.')
     } finally {
@@ -156,6 +165,24 @@ function PublicCancelReservation() {
           ) : resultMessage ? (
             <>
               <p className={styles.success}>{resultMessage}</p>
+              {resultPenalty?.shielded ? (
+                <div className={styles.xpPenaltyHint}>
+                  <p className={styles.xpPenaltyLoss}>Escudo de Mesa usado</p>
+                  <p>{resultPenalty.warning}</p>
+                </div>
+              ) : resultPenalty ? (
+                <div className={styles.xpPenaltyResult}>
+                  <p className={styles.xpPenaltyLoss}>
+                    {resultPenalty.xpLost > 0
+                      ? `−${resultPenalty.xpLost} XP (−${resultPenalty.percent}%)`
+                      : 'Aviso registrado'}
+                  </p>
+                  <p>{formatCancelPenaltyResult(resultPenalty)}</p>
+                  <p className={styles.xpPenaltyCount}>
+                    Cancelación {resultPenalty.strikeCount} de 5
+                  </p>
+                </div>
+              ) : null}
               <Link to={`/reservar/${slug}`} className={styles.primaryLink}>
                 Volver a reservar
               </Link>
@@ -181,6 +208,32 @@ function PublicCancelReservation() {
                 >
                   {depositWarning}
                 </p>
+              ) : null}
+              {cancelPreview?.xpPenalty && !useShield ? (
+                <p className={styles.xpPenaltyWarning}>
+                  {formatCancelPenaltyPreview(cancelPreview.xpPenalty)}
+                  {' '}
+                  Será tu cancelación {cancelPreview.xpPenalty.strikeCount} de 5.
+                </p>
+              ) : cancelPreview?.xpPenalty && useShield ? (
+                <p className={styles.xpPenaltyHint}>
+                  El Escudo de Mesa cubrirá esta cancelación: no perderás XP ni sumarás aviso.
+                </p>
+              ) : (
+                <p className={styles.xpPenaltyHint}>
+                  Si esta reserva está vinculada a una cuenta Adelia, cancelar te restará puntos de
+                  experiencia (12% la primera vez, y cada vez más).
+                </p>
+              )}
+              {(cancelPreview?.cancelShieldCount ?? 0) > 0 ? (
+                <label className={styles.shieldToggle}>
+                  <input
+                    type="checkbox"
+                    checked={useShield}
+                    onChange={(event) => setUseShield(event.target.checked)}
+                  />
+                  Usar Escudo de Mesa ({cancelPreview?.cancelShieldCount})
+                </label>
               ) : null}
               <button
                 type="button"

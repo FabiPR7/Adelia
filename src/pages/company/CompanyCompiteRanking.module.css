@@ -1,0 +1,138 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.header h1 {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  color: var(--color-brown);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ff6b4a;
+}
+
+.lead,
+.yourRank,
+.empty,
+.error {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: #b42318;
+}
+
+.yourRank strong {
+  color: var(--color-brown);
+}
+
+.scopeTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  padding: 0.28rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.scopeTab,
+.scopeTabActive {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  padding: 0.62rem 0.5rem;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.scopeTab span,
+.scopeTabActive span {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.scopeTabActive {
+  background: #fff;
+  color: var(--color-brown);
+  box-shadow: 0 8px 20px rgba(74, 51, 72, 0.08);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 2.4rem 2.6rem 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.8rem 0.9rem;
+  border-radius: 16px;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+}
+
+.rowYou {
+  border-color: rgba(236, 72, 153, 0.35);
+  background: linear-gradient(180deg, #fff7fb 0%, #fff 80%);
+}
+
+.rank {
+  font-size: 0.92rem;
+  color: var(--color-brown);
+}
+
+.logo {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--color-cream);
+}
+
+.meta strong,
+.meta span {
+  display: block;
+}
+
+.meta span {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.scores {
+  text-align: right;
+}
+
+.scores b,
+.scores span {
+  display: block;
+}
+
+.scores span {
+  margin-top: 0.12rem;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}

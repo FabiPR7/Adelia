@@ -1,6 +1,6 @@
 import type { GamificationLevel } from '../types/gamification'
 
-export const GAMIFICATION_LEVELS: GamificationLevel[] = [
+export let GAMIFICATION_LEVELS: GamificationLevel[] = [
   {
     level: 1,
     title: 'Comensal Aficionado',
@@ -59,13 +59,18 @@ export const GAMIFICATION_LEVELS: GamificationLevel[] = [
   },
 ]
 
-export const PROFILE_REWARDS = [
+export let PROFILE_REWARDS = [
   { level: 2, reward: 'Marco menta en tu perfil' },
   { level: 3, reward: 'Badge metálico plata' },
   { level: 4, reward: 'Resplandor púrpura épico' },
   { level: 5, reward: 'Marco efecto llamarada' },
   { level: 6, reward: 'Tarjeta VIP con destellos de Adelinas' },
   { level: 7, reward: 'Tarjeta holográfica + ranking de amigos' },
+  { level: 8, reward: 'Aura nebula en tu perfil' },
+  { level: 9, reward: 'Destellos místicos' },
+  { level: 10, reward: 'Nevada de titanio' },
+  { level: 11, reward: 'Lluvia de diamantes' },
+  { level: 12, reward: 'Corona divina eterna' },
 ]
 
 /** Títulos para niveles 8–12 (assets de tarjeta extendidos). */
@@ -104,4 +109,16 @@ export function getGamificationLevelByNumber(level: number): GamificationLevel {
 
 export function getProfileRewardForLevel(level: number): string | null {
   return PROFILE_REWARDS.find((reward) => reward.level === level)?.reward ?? null
+}
+
+export function applyLevelCatalog(
+  levels: GamificationLevel[],
+  rewards: Array<{ level: number; reward: string }> = [],
+): void {
+  if (levels.length > 0) {
+    GAMIFICATION_LEVELS = [...levels].sort((left, right) => left.level - right.level)
+  }
+  if (rewards.length > 0) {
+    PROFILE_REWARDS = [...rewards].sort((left, right) => left.level - right.level)
+  }
 }

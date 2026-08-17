@@ -1,0 +1,265 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.loading,
+.error,
+.empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: #b42318;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 1.35rem 1.2rem 1.2rem;
+  border-radius: 20px;
+  color: #fff;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #fde68a;
+}
+
+.hero h1 {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+.lead,
+.perk {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.perk {
+  font-size: 0.8rem;
+  color: #fde68a;
+}
+
+.levelPanel {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.levelBadge {
+  flex-shrink: 0;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-weight: 800;
+}
+
+.levelPanel strong,
+.levelPanel span {
+  display: block;
+}
+
+.levelPanel span {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.xpTrack {
+  margin-top: 0.85rem;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.xpFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #fde68a, #fb7185);
+}
+
+.bonusCard {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 18px;
+  color: #1f1418;
+  background: linear-gradient(135deg, #b45309 0%, #f59e0b 45%, #fde68a 100%);
+}
+
+.bonusIcon {
+  font-size: 1.8rem;
+}
+
+.bonusCard h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+}
+
+.bonusCard p {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+}
+
+.bonusMeter {
+  text-align: center;
+}
+
+.bonusMeter strong {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.bonusMeter span {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding: 0.3rem;
+  border-radius: 16px;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+}
+
+.tab,
+.tabActive {
+  padding: 0.55rem 0.35rem;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.tabActive {
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  color: #fff;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.missionCard {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.85rem;
+  align-items: start;
+  padding: 0.95rem;
+  border-radius: 18px;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+}
+
+.missionDone {
+  background: linear-gradient(180deg, #ecfdf5 0%, #fff 70%);
+}
+
+.missionIconWrap {
+  width: 2.8rem;
+  height: 2.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.missionBody h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-brown);
+}
+
+.missionBody p {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.missionBody footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.55rem;
+}
+
+.progressTrack {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(107, 83, 68, 0.12);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #ec4899);
+}
+
+.missionBody span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.missionXp {
+  font-size: 0.78rem;
+  color: #b45309;
+}
+
+.badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.badgeHint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.badgeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .tabs {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .missionCard {
+    grid-template-columns: auto 1fr;
+  }
+
+  .missionXp {
+    grid-column: 2;
+  }
+}

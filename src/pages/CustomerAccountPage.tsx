@@ -1,30 +1,23 @@
 import { Link, Navigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
-import GamificationCelebrationToast from '../components/GamificationCelebrationToast'
 import GamificationLevelCard from '../components/GamificationLevelCard'
 import MissionsHub from '../components/MissionsHub'
 import { useAuth } from '../context/AuthContext'
+import { useCustomerGamificationContext } from '../context/CustomerGamificationContext'
 import { logout } from '../services/auth'
-import { getAllCompanies, getCustomerReservations } from '../services/firestore'
+import { fetchPublicDiscoveryRestaurants } from '../services/publicDiscovery'
+import { getCustomerReservations } from '../services/firestore'
 import { ADELIA_LOGO_URL } from '../constants/brand'
-import { useCustomerGamification } from '../hooks/useCustomerGamification'
-import { useGamificationCelebrations } from '../hooks/useGamificationCelebrations'
 import { useFavoriteRestaurants } from '../hooks/useFavoriteRestaurants'
-import { fetchPublicPromotions } from '../services/publicPromotions'
-import { hasRestaurantProfile } from '../utils/publicBooking'
-import {
-  mapCompanyToDiscoveryRestaurant,
-  mapCompanyToPublicBooking,
-  type PublicDiscoveryRestaurant,
-} from '../utils/publicDiscovery'
+import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import styles from './CustomerAccountPage.module.css'
 
 function CustomerAccountPage() {
   const { user, profile, isLoading } = useAuth()
   const { favoriteSlugs, toggleFavorite } = useFavoriteRestaurants()
+  const gamification = useCustomerGamificationContext()
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [reservations, setReservations] = useState<Awaited<ReturnType<typeof getCustomerReservations>>>([])
-  const [promotionCompanyIds, setPromotionCompanyIds] = useState<Set<string>>(new Set())
   const [loadingData, setLoadingData] = useState(true)
 
   useEffect(() => {
@@ -35,19 +28,13 @@ function CustomerAccountPage() {
     let cancelled = false
 
     void Promise.all([
-      getAllCompanies().then((companies) =>
-        companies
-          .filter((company) => hasRestaurantProfile(mapCompanyToPublicBooking(company)))
-          .map(mapCompanyToDiscoveryRestaurant),
-      ),
+      fetchPublicDiscoveryRestaurants(),
       getCustomerReservations(profile.email),
-      fetchPublicPromotions().catch(() => []),
     ])
-      .then(([restaurantData, reservationData, promotions]) => {
+      .then(([restaurantData, reservationData]) => {
         if (!cancelled) {
           setRestaurants(restaurantData)
           setReservations(reservationData)
-          setPromotionCompanyIds(new Set(promotions.map((promotion) => promotion.companyId)))
         }
       })
       .finally(() => {
@@ -75,23 +62,6 @@ function CustomerAccountPage() {
     [reservations],
   )
 
-  const gamification = useCustomerGamification({
-    reservations,
-    favoriteSlugs,
-    restaurants,
-    promotionCompanyIds,
-    enabled: true,
-  })
-
-  const celebrations = useGamificationCelebrations({
-    userId: user?.uid,
-    userName: profile?.displayName ?? '',
-    xp: gamification.state.xp,
-    level: gamification.level.level,
-    levelTitle: gamification.level.title,
-    enabled: Boolean(user && profile?.role === 'customer'),
-  })
-
   if (!isLoading && (!user || !profile || profile.role !== 'customer')) {
     return <Navigate to="/cuenta/entrar" replace />
   }
@@ -102,11 +72,6 @@ function CustomerAccountPage() {
 
   return (
     <div className={styles.page}>
-      <GamificationCelebrationToast
-        event={celebrations.activeEvent}
-        onDismiss={celebrations.dismissActive}
-      />
-
       <header className={styles.header}>
         <Link to="/" className={styles.backLink}>
           ← Explorar
@@ -141,7 +106,7 @@ function CustomerAccountPage() {
             xpToNext={gamification.xpToNext}
             unlockedRewards={gamification.unlockedRewards}
             epic
-            celebrate={celebrations.levelJustUp || celebrations.rankJustImproved}
+            celebrate={gamification.celebrations.levelJustUp || gamification.celebrations.rankJustImproved}
           />
         </section>
 

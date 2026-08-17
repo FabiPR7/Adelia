@@ -1,7 +1,9 @@
 import type { Company } from '../types'
 import type { PublicBookingCompany } from '../services/publicApi'
 import { computeAverageReviewRating } from '../types/review'
+import { haversineDistanceKm } from './geo'
 import { isValidMapCoordinates } from './mapCoordinates'
+import { ensureHttpsUrl } from './cloudinaryUrl'
 
 export interface PublicDiscoveryRestaurant {
   id: string
@@ -67,6 +69,7 @@ export function mapCompanyToPublicBooking(company: Company): PublicBookingCompan
     timeSlotMinutes: company.timeSlotMinutes,
     schedule: company.schedule,
     floorPlan: company.floorPlan,
+    floorPlans: company.floorPlans?.length ? company.floorPlans : [company.floorPlan],
     reviewCount: company.reviewCount ?? 0,
     reviewRatingSum: company.reviewRatingSum ?? 0,
     reviewAdelinas: company.reviewAdelinas ?? 0,
@@ -81,7 +84,7 @@ export function mapCompanyToPublicBooking(company: Company): PublicBookingCompan
 }
 
 export function mapCompanyToDiscoveryRestaurant(company: Company): PublicDiscoveryRestaurant {
-  const photoUrl = company.photos?.[0] ?? company.logoUrl ?? ''
+  const photoUrl = ensureHttpsUrl(company.photos?.[0] ?? company.logoUrl ?? '')
   const hasPin = isValidMapCoordinates(company.latitude, company.longitude)
 
   return {
@@ -113,6 +116,31 @@ export function mapCompanyToDiscoveryRestaurant(company: Company): PublicDiscove
 
 export function restaurantHasMapPin(restaurant: Pick<PublicDiscoveryRestaurant, 'latitude' | 'longitude'>): boolean {
   return isValidMapCoordinates(restaurant.latitude, restaurant.longitude)
+}
+
+export function pickNearbyRestaurants(
+  restaurants: PublicDiscoveryRestaurant[],
+  origin: { lat: number; lng: number },
+  maxKm: number,
+  fallbackCount = 12,
+): Array<PublicDiscoveryRestaurant & { distanceKm: number }> {
+  const withDistance = restaurants
+    .filter(restaurantHasMapPin)
+    .map((restaurant) => ({
+      ...restaurant,
+      distanceKm: haversineDistanceKm(origin, {
+        lat: restaurant.latitude as number,
+        lng: restaurant.longitude as number,
+      }),
+    }))
+    .sort((left, right) => left.distanceKm - right.distanceKm)
+
+  const within = withDistance.filter((restaurant) => restaurant.distanceKm <= maxKm)
+  if (within.length > 0) {
+    return within.slice(0, 40)
+  }
+
+  return withDistance.slice(0, fallbackCount)
 }
 
 function normalizeSearch(value: string): string {

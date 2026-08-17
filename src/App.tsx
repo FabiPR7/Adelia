@@ -3,9 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import RoleRoute from './components/RoleRoute'
 import MustChangePasswordRoute from './components/MustChangePasswordRoute'
 import { useAuth } from './context/AuthContext'
-import AdminDashboard from './pages/AdminDashboard'
 import ChangePasswordPage from './pages/ChangePasswordPage'
-import CompanyDashboard from './pages/CompanyDashboard'
 import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
@@ -18,12 +16,7 @@ import CustomerAppLayout from './components/CustomerAppLayout'
 import CustomerGate from './components/CustomerGate'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import CustomerOnboardingPage from './pages/CustomerOnboardingPage'
-import CustomerExploreTab from './pages/customer/CustomerExploreTab'
-import CustomerPromotionsTab from './pages/customer/CustomerPromotionsTab'
-import CustomerMissionsTab from './pages/customer/CustomerMissionsTab'
-import CustomerProfileTab from './pages/customer/CustomerProfileTab'
-import CustomerReservationsTab from './pages/customer/CustomerReservationsTab'
-import CustomerNotificationsTab from './pages/customer/CustomerNotificationsTab'
+import CookieConsentBanner from './components/CookieConsentBanner'
 import { getPostLoginPath } from './utils/authProfile'
 
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
@@ -31,6 +24,30 @@ const PublicMenuPage = lazy(() => import('./pages/PublicMenuPage'))
 const PublicMenuViewPage = lazy(() => import('./pages/PublicMenuViewPage'))
 const PublicRestaurantPromotionsPage = lazy(() => import('./pages/PublicRestaurantPromotionsPage'))
 const PublicCancelReservation = lazy(() => import('./pages/PublicCancelReservation'))
+const CustomerExploreTab = lazy(() => import('./pages/customer/CustomerExploreTab'))
+const CustomerPromotionsTab = lazy(() => import('./pages/customer/CustomerPromotionsTab'))
+const CustomerMissionsTab = lazy(() => import('./pages/customer/CustomerMissionsTab'))
+const CustomerProfileTab = lazy(() => import('./pages/customer/CustomerProfileTab'))
+const CustomerReservationsTab = lazy(() => import('./pages/customer/CustomerReservationsTab'))
+const CustomerNotificationsTab = lazy(() => import('./pages/customer/CustomerNotificationsTab'))
+const CompanyDashboard = lazy(() => import('./pages/CompanyDashboard'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+
+function RouteFallback() {
+  return (
+    <div
+      style={{
+        minHeight: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'var(--color-text-muted)',
+      }}
+    >
+      Cargando…
+    </div>
+  )
+}
 
 function AuthenticatedRoutes() {
   const { user, profile, isLoading } = useAuth()
@@ -75,7 +92,9 @@ function AuthenticatedRoutes() {
         path="/admin"
         element={
           <RoleRoute role="admin">
-            <AdminDashboard />
+            <Suspense fallback={<RouteFallback />}>
+              <AdminDashboard />
+            </Suspense>
           </RoleRoute>
         }
       />
@@ -83,7 +102,9 @@ function AuthenticatedRoutes() {
         path="/panel"
         element={
           <RoleRoute role="company" requirePasswordChanged>
-            <CompanyDashboard />
+            <Suspense fallback={<RouteFallback />}>
+              <CompanyDashboard />
+            </Suspense>
           </RoleRoute>
         }
       />
@@ -102,6 +123,7 @@ function AuthenticatedRoutes() {
 
 function App() {
   return (
+    <>
     <Routes>
       <Route
         path="/olvide-contrasena"
@@ -131,12 +153,12 @@ function App() {
         }
       >
         <Route index element={<Navigate to="/app/explorar" replace />} />
-        <Route path="explorar" element={<CustomerExploreTab />} />
-        <Route path="promociones" element={<CustomerPromotionsTab />} />
-        <Route path="reservas" element={<CustomerReservationsTab />} />
-        <Route path="misiones" element={<CustomerMissionsTab />} />
-        <Route path="notificaciones" element={<CustomerNotificationsTab />} />
-        <Route path="perfil" element={<CustomerProfileTab />} />
+        <Route path="explorar" element={<Suspense fallback={<RouteFallback />}><CustomerExploreTab /></Suspense>} />
+        <Route path="promociones" element={<Suspense fallback={<RouteFallback />}><CustomerPromotionsTab /></Suspense>} />
+        <Route path="reservas" element={<Suspense fallback={<RouteFallback />}><CustomerReservationsTab /></Suspense>} />
+        <Route path="misiones" element={<Suspense fallback={<RouteFallback />}><CustomerMissionsTab /></Suspense>} />
+        <Route path="notificaciones" element={<Suspense fallback={<RouteFallback />}><CustomerNotificationsTab /></Suspense>} />
+        <Route path="perfil" element={<Suspense fallback={<RouteFallback />}><CustomerProfileTab /></Suspense>} />
       </Route>
       <Route path="/cuenta/entrar" element={<UserLoginPage />} />
       <Route
@@ -263,6 +285,8 @@ function App() {
       />
       <Route path="*" element={<AuthenticatedRoutes />} />
     </Routes>
+    <CookieConsentBanner />
+    </>
   )
 }
 

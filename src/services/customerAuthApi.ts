@@ -30,3 +30,19 @@ export async function requestCustomerVerificationEmailSend(): Promise<void> {
     throw new Error(await readApiError(response, 'No se pudo enviar el correo de verificación.'))
   }
 }
+
+export async function syncCustomerPhoneVerification(): Promise<void> {
+  const token = await getIdToken()
+  if (!token) {
+    throw new Error('Inicia sesión para verificar el teléfono.')
+  }
+  const response = await fetch(`${API_BASE}/api/auth/customer/sync-phone-verification`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'No se pudo guardar la verificación del teléfono.'))
+  }
+}

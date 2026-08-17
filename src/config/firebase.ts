@@ -20,11 +20,17 @@ const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)'
 export const db = getFirestore(app, databaseId)
 
 let analytics: Analytics | null = null
+let analyticsStarted = false
 
-isSupported().then((supported) => {
+export async function enableFirebaseAnalytics(): Promise<void> {
+  if (analyticsStarted || !firebaseConfig.measurementId) {
+    return
+  }
+  analyticsStarted = true
+  const supported = await isSupported().catch(() => false)
   if (supported) {
     analytics = getAnalytics(app)
   }
-})
+}
 
 export { analytics }

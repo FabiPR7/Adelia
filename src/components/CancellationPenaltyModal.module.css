@@ -1,0 +1,98 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(28, 10, 8, 0.58);
+}
+
+.card {
+  width: min(100%, 22.5rem);
+  padding: 1.35rem 1.2rem 1.2rem;
+  border-radius: 1.35rem;
+  color: #fff7f5;
+  background:
+    radial-gradient(circle at top right, rgba(248, 113, 113, 0.28), transparent 42%),
+    linear-gradient(160deg, #7f1d1d 0%, #991b1b 48%, #431407 100%);
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(254, 226, 226, 0.78);
+}
+
+.card h2 {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.loss {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.85rem;
+}
+
+.loss strong {
+  font-size: 2rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.loss span {
+  font-size: 0.82rem;
+  color: rgba(254, 226, 226, 0.82);
+}
+
+.copy,
+.warning,
+.lock,
+.strike {
+  margin: 0 0 0.7rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.warning,
+.lock {
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.85rem;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.lock {
+  font-weight: 700;
+  color: #fecaca;
+}
+
+.strike {
+  margin-bottom: 1rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(254, 226, 226, 0.7);
+}
+
+.button {
+  width: 100%;
+  min-height: 2.6rem;
+  border: none;
+  border-radius: 999px;
+  background: #fff7f5;
+  color: #7f1d1d;
+  font-weight: 800;
+  cursor: pointer;
+}

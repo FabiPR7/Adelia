@@ -1,4 +1,5 @@
 import type { CompanySettingsPayload, SettingsSection, TableInput } from '../types'
+import { parseFloorPlans, withFloorPlans } from '../types/company'
 
 export interface SettingsEditorState {
   form: CompanySettingsPayload
@@ -48,6 +49,7 @@ export function createSectionSnapshot(
       return JSON.stringify({
         tables,
         floorPlan: form.floorPlan,
+        floorPlans: form.floorPlans,
       })
     default:
       return ''
@@ -133,7 +135,7 @@ export function applySectionSnapshot(
         tables: parsed.tables as TableInput[],
         form: {
           ...form,
-          floorPlan: parsed.floorPlan as CompanySettingsPayload['floorPlan'],
+          ...withFloorPlans(parseFloorPlans(parsed.floorPlans ?? form.floorPlans, parsed.floorPlan)),
         },
       }
     default:

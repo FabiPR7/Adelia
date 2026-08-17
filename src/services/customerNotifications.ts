@@ -5,18 +5,29 @@ import type { CustomerNotification } from '../types/notifications'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
-function mapNotification(id: string, data: Record<string, unknown>): CustomerNotification {
-  const createdAt = data.createdAt && typeof data.createdAt === 'object' && 'toDate' in data.createdAt
-    ? (data.createdAt as { toDate: () => Date }).toDate().toISOString()
-    : typeof data.createdAt === 'string'
-      ? data.createdAt
-      : new Date().toISOString()
+function timestampToIso(value: unknown): string | null {
+  if (!value) {
+    return null
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value
+  }
+  if (typeof value === 'object' && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    try {
+      const converted = (value as { toDate: () => Date }).toDate()
+      if (converted instanceof Date && !Number.isNaN(converted.getTime())) {
+        return converted.toISOString()
+      }
+    } catch {
+      return null
+    }
+  }
+  return null
+}
 
-  const readAt = data.readAt && typeof data.readAt === 'object' && 'toDate' in data.readAt
-    ? (data.readAt as { toDate: () => Date }).toDate().toISOString()
-    : typeof data.readAt === 'string'
-      ? data.readAt
-      : null
+function mapNotification(id: string, data: Record<string, unknown>): CustomerNotification {
+  const createdAt = timestampToIso(data.createdAt) ?? new Date().toISOString()
+  const readAt = timestampToIso(data.readAt)
 
   return {
     id,

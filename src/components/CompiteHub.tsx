@@ -20,7 +20,7 @@ interface CompiteHubProps {
   blockedSearchIds: string[]
   incomingRequests: FriendProfile[]
   incomingRequestCount: number
-  onSendFriendRequest: (id: string) => boolean
+  onSendFriendRequest: (id: string) => Promise<void> | boolean
   onAcceptFriendRequest: (id: string) => boolean
   onRejectFriendRequest: (id: string) => boolean
   hasOutgoingRequest: (id: string) => boolean

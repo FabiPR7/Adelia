@@ -16,14 +16,27 @@ import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firest
 import { defaultGamificationState } from '../types/gamification'
 import { auth, db } from '../config/firebase'
 import { getAuthErrorMessage } from './auth'
-import { requestCustomerVerificationEmailSend } from './customerAuthApi'
+import { getUserProfile } from './firestore'
+import { replaceUserFavorites } from './userFavorites'
+import {
+  requestCustomerVerificationEmailSend,
+  syncCustomerPhoneVerification,
+} from './customerAuthApi'
 import { normalizePhoneE164 } from '../utils/customerRouting'
+import { formatSpanishPhoneForStorage, isValidSpanishPhone } from '../utils/helpers'
 
 export interface RegisterCustomerInput {
   email: string
   password: string
   displayName: string
-  phone?: string
+  phone: string
+}
+
+function requireCustomerPhone(phone: string): string {
+  if (!isValidSpanishPhone(phone)) {
+    throw new Error('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678).')
+  }
+  return formatSpanishPhoneForStorage(phone)
 }
 
 function buildCustomerDoc(input: {
@@ -54,6 +67,7 @@ function buildCustomerDoc(input: {
     gamification: defaultGamificationState(),
     xp: 0,
     adelinas: 0,
+    displayNameLower: input.displayName.trim().toLowerCase(),
     mustChangePassword: false,
     createdAt: serverTimestamp(),
   }
@@ -100,7 +114,7 @@ export async function startPhoneVerification(phone: string): Promise<void> {
   )
 }
 
-export async function confirmPhoneVerification(code: string, phone: string): Promise<void> {
+export async function confirmPhoneVerification(code: string, _phone: string): Promise<void> {
   const user = auth.currentUser
 
   if (!user) {
@@ -113,19 +127,15 @@ export async function confirmPhoneVerification(code: string, phone: string): Pro
 
   const credential = PhoneAuthProvider.credential(phoneVerificationId, code.trim())
   await linkWithCredential(user, credential)
-
-  await updateDoc(doc(db, 'users', user.uid), {
-    phone: normalizePhoneE164(phone),
-    phoneVerified: true,
-  })
+  await syncCustomerPhoneVerification()
 
   resetPhoneVerificationSession()
 }
 
 export async function registerCustomer(input: RegisterCustomerInput): Promise<User> {
   const normalizedEmail = input.email.trim().toLowerCase()
+  const storedPhone = requireCustomerPhone(input.phone)
   const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, input.password)
-  const normalizedPhone = input.phone ? normalizePhoneE164(input.phone) : ''
 
   await updateProfile(credential.user, {
     displayName: input.displayName.trim(),
@@ -139,7 +149,7 @@ export async function registerCustomer(input: RegisterCustomerInput): Promise<Us
     buildCustomerDoc({
       email: normalizedEmail,
       displayName: input.displayName,
-      phone: normalizedPhone,
+      phone: storedPhone,
       phoneVerified: false,
       authProvider: 'password',
     }),
@@ -172,8 +182,8 @@ export async function loginCustomer(email: string, password: string): Promise<Us
     )
   }
 
-  const profileSnap = await getDoc(doc(db, 'users', credential.user.uid))
-  const role = profileSnap.data()?.role
+  const profile = await getUserProfile(credential.user.uid).catch(() => null)
+  const role = profile?.role
 
   if (role !== 'customer') {
     await signOut(auth)
@@ -207,6 +217,17 @@ export async function checkEmailVerified(): Promise<boolean> {
 export async function signInCustomerWithGoogle(): Promise<'existing' | 'created'> {
   const result = await signInWithPopup(auth, new GoogleAuthProvider())
   const user = result.user
+  const profile = await getUserProfile(user.uid).catch(() => null)
+
+  if (profile) {
+    if (profile.role !== 'customer') {
+      await signOut(auth)
+      throw new Error('Esta cuenta de Google no es de cliente.')
+    }
+
+    return 'existing'
+  }
+
   const profileRef = doc(db, 'users', user.uid)
   const existing = await getDoc(profileRef)
 
@@ -227,8 +248,10 @@ export async function signInCustomerWithGoogle(): Promise<'existing' | 'created'
     ...buildCustomerDoc({
       email: (user.email ?? '').trim().toLowerCase(),
       displayName: user.displayName?.trim() || 'Comensal',
-      phone: user.phoneNumber ?? '',
-      phoneVerified: Boolean(user.phoneNumber),
+      phone: user.phoneNumber && isValidSpanishPhone(user.phoneNumber)
+        ? formatSpanishPhoneForStorage(user.phoneNumber)
+        : '',
+      phoneVerified: Boolean(user.phoneNumber && isValidSpanishPhone(user.phoneNumber)),
       authProvider: 'google.com',
     }),
     photoUrl: user.photoURL ?? '',
@@ -249,11 +272,21 @@ export async function updateCustomerFavorites(uid: string, favoriteSlugs: string
   await updateDoc(doc(db, 'users', uid), {
     favoriteSlugs,
   })
+  await replaceUserFavorites(uid, favoriteSlugs).catch(() => undefined)
+}
+
+export async function updateCustomerPhone(uid: string, phone: string): Promise<void> {
+  const storedPhone = requireCustomerPhone(phone)
+  await updateDoc(doc(db, 'users', uid), {
+    phone: storedPhone,
+  })
 }
 
 export async function updateCustomerDisplayName(uid: string, displayName: string): Promise<void> {
+  const trimmed = displayName.trim()
   await updateDoc(doc(db, 'users', uid), {
-    displayName: displayName.trim(),
+    displayName: trimmed,
+    displayNameLower: trimmed.toLowerCase(),
   })
 }
 
@@ -266,6 +299,7 @@ export interface CustomerOnboardingPayload {
   homeLatitude: number | null
   homeLongitude: number | null
   foodPreferences: string[]
+  phone?: string
 }
 
 export async function completeCustomerOnboarding(
@@ -282,5 +316,6 @@ export async function completeCustomerOnboarding(
     homeLongitude: payload.homeLongitude,
     foodPreferences: payload.foodPreferences,
     onboardingCompleted: true,
+    ...(payload.phone ? { phone: payload.phone } : {}),
   })
 }

@@ -6,6 +6,10 @@ export {
 export {
   onReservationUpdatedNotifications,
   onUserGamificationUpdatedNotifications,
+  onPromotionClaimCreatedNotifications,
 } from './notificationTriggers.ts'
 
-export { processScheduledNotifications } from './scheduledNotifications.ts'
+export {
+  processScheduledNotifications,
+  processDueNotifications,
+} from './scheduledNotifications.ts'

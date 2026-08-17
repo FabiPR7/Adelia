@@ -1,6 +1,6 @@
 import type { MissionDefinition } from '../types/gamification'
 
-export const WEEKLY_MISSIONS: MissionDefinition[] = [
+export let WEEKLY_MISSIONS: MissionDefinition[] = [
   {
     id: 'plan_fin_semana',
     name: 'Plan de Fin de Semana',
@@ -113,7 +113,7 @@ export const WEEKLY_MISSIONS: MissionDefinition[] = [
   },
 ]
 
-export const MONTHLY_MISSION_POOL: MissionDefinition[] = [
+export let MONTHLY_MISSION_POOL: MissionDefinition[] = [
   {
     id: 'ruta_gastronomica',
     name: 'Ruta Gastronómica de Adelia',
@@ -219,9 +219,9 @@ export const MONTHLY_MISSION_POOL: MissionDefinition[] = [
 ]
 
 /** @deprecated Usar rotateMonthlyMissions() para obtener las misiones activas del mes. */
-export const MONTHLY_MISSIONS = MONTHLY_MISSION_POOL
+export let MONTHLY_MISSIONS = MONTHLY_MISSION_POOL
 
-export const HISTORICAL_MISSIONS: MissionDefinition[] = [
+export let HISTORICAL_MISSIONS: MissionDefinition[] = [
   { id: 'debut_gastronomico', name: 'Debut Gastronómico', xp: 150, cadence: 'historical', category: 'loyalty', description: 'Completa tu primera reserva asistida', icon: '🎉', target: 1 },
   { id: 'corazon_favorito', name: 'Corazón Favorito', xp: 150, cadence: 'historical', category: 'loyalty', description: 'Guarda tu primer restaurante favorito', icon: '❤️', target: 1 },
   { id: 'almuerzo_sol', name: 'Almuerzo al Sol', xp: 150, cadence: 'historical', category: 'loyalty', description: 'Reserva una mesa a mediodía', icon: '☀️', target: 1 },
@@ -259,3 +259,24 @@ export const HISTORICAL_MISSIONS: MissionDefinition[] = [
   { id: 'titan_hosteleria', name: 'Titán Hostelería', xp: 2500, cadence: 'historical', category: 'exploration', description: '200 comensales en tus reservas en total', icon: '🌋', target: 200 },
   { id: 'emperador_adelia', name: 'Emperador Adelia', xp: 3000, cadence: 'historical', category: 'loyalty', description: 'Alcanza el nivel 7 de foodie', icon: '🦁', target: 7 },
 ]
+
+export function allMissionDefinitions(): MissionDefinition[] {
+  return [...WEEKLY_MISSIONS, ...MONTHLY_MISSION_POOL, ...HISTORICAL_MISSIONS]
+}
+
+export function applyMissionCatalog(missions: MissionDefinition[]): void {
+  const weekly = missions.filter((mission) => mission.cadence === 'weekly')
+  const monthly = missions.filter((mission) => mission.cadence === 'monthly')
+  const historical = missions.filter((mission) => mission.cadence === 'historical')
+
+  if (weekly.length > 0) {
+    WEEKLY_MISSIONS = weekly
+  }
+  if (monthly.length > 0) {
+    MONTHLY_MISSION_POOL = monthly
+    MONTHLY_MISSIONS = monthly
+  }
+  if (historical.length > 0) {
+    HISTORICAL_MISSIONS = historical
+  }
+}

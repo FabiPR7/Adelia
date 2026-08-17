@@ -179,8 +179,9 @@ export function createCanvasFire(
   const context = ctx
 
   const compact = options.compact ?? false
-  const maxParticles = compact ? 85 : 130
-  const spawnPerFrame = compact ? 2 : 4
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const maxParticles = reducedMotion ? 12 : compact ? 28 : 40
+  const spawnPerFrame = reducedMotion ? 1 : compact ? 1 : 2
 
   let particles: Particle[] = []
   let width = 0
@@ -246,7 +247,18 @@ export function createCanvasFire(
     cancelAnimationFrame(raf)
   }
 
+  function handleVisibility() {
+    if (document.hidden) {
+      stop()
+    } else {
+      start()
+    }
+  }
+
+  document.addEventListener('visibilitychange', handleVisibility)
+
   function destroy() {
+    document.removeEventListener('visibilitychange', handleVisibility)
     stop()
     particles = []
     context.clearRect(0, 0, canvas.width, canvas.height)

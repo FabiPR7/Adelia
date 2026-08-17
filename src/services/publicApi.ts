@@ -21,6 +21,7 @@ export interface PublicBookingTable {
   name: string
   capacity: number
   sortOrder: number
+  floorPlanId: string
 }
 
 export interface PublicBookingCompany {
@@ -44,6 +45,7 @@ export interface PublicBookingCompany {
   timeSlotMinutes: number
   schedule: CompanySchedule
   floorPlan: FloorPlan
+  floorPlans: FloorPlan[]
   reviewCount: number
   reviewRatingSum: number
   reviewAdelinas: number
@@ -101,6 +103,9 @@ export interface PublicBookingPayload {
   notes: string
   promotionId?: string
   depositPaymentIntentId?: string
+  useDepositPass?: boolean
+  useExtraPax?: boolean
+  inviteeUids?: string[]
 }
 
 async function getCompanyOrThrow(slug: string) {
@@ -128,6 +133,7 @@ export async function fetchPublicBookingPage(slug: string): Promise<{
         name: table.name,
         capacity: table.capacity,
         sortOrder: table.sortOrder,
+        floorPlanId: table.floorPlanId || '',
       })),
     }
   } catch (error) {
@@ -156,7 +162,7 @@ export async function fetchPublicAvailability(
 export async function createPublicReservation(
   slug: string,
   payload: PublicBookingPayload,
-): Promise<{ id: string; message: string }> {
+): Promise<{ id: string; message: string; inventory?: Record<string, number> }> {
   const token = await getIdToken().catch(() => null)
 
   const response = await fetch(
@@ -178,6 +184,7 @@ export async function createPublicReservation(
     id?: string
     message?: string
     error?: string
+    inventory?: Record<string, number>
   }
 
   if (!response.ok) {
@@ -187,6 +194,7 @@ export async function createPublicReservation(
   return {
     id: data.id ?? '',
     message: data.message ?? 'Hemos recibido tu reserva.',
+    ...(data.inventory && typeof data.inventory === 'object' ? { inventory: data.inventory } : {}),
   }
 }
 
@@ -259,12 +267,29 @@ export interface PublicCancelPreview {
   depositCancellationHours: number | null
   hasAuthorizedDeposit: boolean
   willChargeDeposit: boolean
+  hasCustomerAccount?: boolean
+  cancelShieldCount?: number
+  xpPenalty?: PublicCancelXpPenalty | null
+}
+
+export interface PublicCancelXpPenalty {
+  xpLost: number
+  percent: number
+  strikeCount: number
+  nextPercent: number | null
+  promoLocked: boolean
+  justLocked: boolean
+  warning: string
+  xpAfter: number
+  xpBefore: number
+  shielded?: boolean
 }
 
 export interface PublicCancelResult {
   message: string
   depositOutcome: 'none' | 'captured' | 'released'
   depositCharged: boolean
+  xpPenalty?: PublicCancelXpPenalty | null
 }
 
 export async function fetchPublicCancelPreview(token: string): Promise<PublicCancelPreview> {
@@ -281,11 +306,17 @@ export async function fetchPublicCancelPreview(token: string): Promise<PublicCan
   return data
 }
 
-export async function cancelPublicReservation(token: string): Promise<PublicCancelResult> {
+export async function cancelPublicReservation(
+  token: string,
+  options?: { useCancelShield?: boolean },
+): Promise<PublicCancelResult> {
   const response = await fetch(`${API_BASE}/api/public/booking/cancel`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({
+      token,
+      useCancelShield: options?.useCancelShield === true,
+    }),
   })
 
   const data = (await response.json().catch(() => ({}))) as PublicCancelResult & { error?: string }
@@ -298,5 +329,6 @@ export async function cancelPublicReservation(token: string): Promise<PublicCanc
     message: data.message ?? 'Tu reserva ha sido cancelada correctamente.',
     depositOutcome: data.depositOutcome ?? 'none',
     depositCharged: data.depositCharged === true,
+    xpPenalty: data.xpPenalty ?? null,
   }
 }

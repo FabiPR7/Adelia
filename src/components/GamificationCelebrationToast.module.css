@@ -1,11 +1,11 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 1600;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 1rem;
+  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem 1rem;
   pointer-events: none;
 }
 
@@ -57,6 +57,12 @@
   background:
     radial-gradient(circle at top right, rgba(34, 211, 238, 0.35), transparent 42%),
     linear-gradient(135deg, #0e7490 0%, #7c3aed 48%, #db2777 100%);
+}
+
+.mission_complete {
+  background:
+    radial-gradient(circle at top right, rgba(74, 222, 128, 0.4), transparent 42%),
+    linear-gradient(135deg, #14532d 0%, #166534 48%, #0f766e 100%);
 }
 
 .shine {

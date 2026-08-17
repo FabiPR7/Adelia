@@ -1,0 +1,583 @@
+.card {
+  --card-ink: #2c241c;
+  --card-muted: rgba(44, 36, 28, 0.62);
+  --card-line: rgba(44, 36, 28, 0.22);
+  --card-frame: rgba(255, 255, 255, 0.38);
+  --card-frame-inner: rgba(44, 36, 28, 0.16);
+  --emblem-fill: rgba(255, 255, 255, 0.18);
+  --emblem-stroke: currentColor;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  overflow: hidden;
+  isolation: isolate;
+  appearance: none;
+  font: inherit;
+  color: var(--card-ink);
+  text-align: center;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  padding: 0.22rem 0.18rem 0.2rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.12),
+    0 5px 10px rgba(28, 18, 14, 0.14);
+}
+
+.clickable {
+  cursor: pointer;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.clickable:hover {
+  transform: translateY(-3px);
+}
+
+.clickable:hover .sheen {
+  transform: translateX(120%);
+  opacity: 1;
+}
+
+.compact,
+.mini {
+  aspect-ratio: 5 / 7;
+}
+
+.mini {
+  border-radius: 0.48rem;
+  padding: 0.16rem 0.14rem 0.14rem;
+}
+
+.featured {
+  border-radius: 1.05rem;
+  padding: 0.62rem 0.55rem 0.58rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.12),
+    0 12px 24px rgba(28, 18, 14, 0.16);
+}
+
+.dimmed {
+  filter: saturate(0.42) brightness(0.94);
+  opacity: 0.78;
+}
+
+.selected {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px #fffaf3,
+    0 0 0 3px rgba(184, 134, 11, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 8px 16px rgba(28, 18, 14, 0.2);
+}
+
+.material,
+.sheen,
+.innerFrame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.material {
+  z-index: 0;
+  border-radius: inherit;
+}
+
+.sheen {
+  z-index: 3;
+  width: 46%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 36%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(255, 255, 255, 0.08) 64%,
+    transparent 100%
+  );
+  transform: translateX(-140%);
+  opacity: 0;
+  mix-blend-mode: screen;
+  transition: transform 0.7s ease, opacity 0.7s ease;
+}
+
+.innerFrame {
+  z-index: 1;
+  inset: 0.16rem;
+  border: 1px solid var(--card-frame);
+  border-radius: 0.38rem;
+  box-shadow: inset 0 0 0 1px var(--card-frame-inner);
+}
+
+.mini .innerFrame {
+  inset: 0.12rem;
+  border-radius: 0.32rem;
+  box-shadow: none;
+}
+
+.featured .innerFrame {
+  inset: 0.42rem;
+  border-radius: 0.72rem;
+  box-shadow: inset 0 0 0 3px var(--card-frame-inner);
+}
+
+.top,
+.stage,
+.meta {
+  position: relative;
+  z-index: 2;
+}
+
+.qty {
+  position: absolute;
+  top: 0.28rem;
+  right: 0.28rem;
+  z-index: 4;
+  min-width: 0.82rem;
+  padding: 0.02rem 0.18rem;
+  border-radius: 999px;
+  background: rgba(20, 12, 10, 0.72);
+  color: #fff8ee;
+  font-size: 0.46rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.stage {
+  position: absolute;
+  inset: 0.08rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+}
+
+.emblem {
+  width: 86%;
+  max-width: none;
+  height: auto;
+  color: var(--emblem-stroke);
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.14));
+}
+
+.stageShield .emblem {
+  width: 90%;
+}
+
+.featured .emblem,
+.featured .stageShield .emblem {
+  width: 82%;
+  max-width: none;
+}
+
+.mini .emblem,
+.mini .stageShield .emblem {
+  width: 88%;
+}
+
+.emblemFill {
+  fill: var(--emblem-fill);
+}
+
+.emblemStroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.value {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  margin: 0.04rem 0 0;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+}
+
+.value small {
+  margin-top: 0.08rem;
+  font-size: 0.52rem;
+  letter-spacing: 0;
+  opacity: 0.72;
+}
+
+.valueHint {
+  margin: 0.08rem 0 0;
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--card-muted);
+}
+
+.meta {
+  padding-top: 0.08rem;
+  border-top: 1px solid var(--card-line);
+}
+
+.metal {
+  margin: 0;
+  font-size: 0.45rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--card-muted);
+}
+
+.meta h3 {
+  margin: 0.02rem 0 0;
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  line-height: 1.1;
+}
+
+.spend {
+  margin: 0.02rem 0 0;
+  font-size: 0.42rem;
+  font-weight: 700;
+  color: var(--card-muted);
+}
+
+.featured .qty {
+  top: 0.55rem;
+  right: 0.55rem;
+  min-width: 1.15rem;
+  padding: 0.08rem 0.32rem;
+  font-size: 0.62rem;
+}
+
+.mini .qty {
+  top: 0.18rem;
+  right: 0.18rem;
+  font-size: 0.42rem;
+  padding: 0.02rem 0.16rem;
+}
+
+.featured .family {
+  margin-bottom: 0.15rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+}
+
+.featured .value {
+  margin-top: 0.08rem;
+  font-size: 1.85rem;
+}
+
+.featured .value small {
+  margin-top: 0.12rem;
+  font-size: 0.72rem;
+}
+
+.featured .valueHint {
+  margin-top: 0.18rem;
+  font-size: 0.62rem;
+}
+
+.featured .meta {
+  padding-top: 0.28rem;
+}
+
+.featured .metal {
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+}
+
+.featured .meta h3 {
+  margin-top: 0.12rem;
+  font-size: 0.86rem;
+}
+
+.featured .spend {
+  margin-top: 0.12rem;
+  font-size: 0.66rem;
+}
+
+.mini .brand,
+.mini .family,
+.mini .metal,
+.mini .spend,
+.mini .valueHint,
+.card:not(.featured):not(.mini) .brand,
+.card:not(.featured):not(.mini) .metal,
+.card:not(.featured):not(.mini) .family,
+.card:not(.featured):not(.mini) .spend,
+.card:not(.featured):not(.mini) .valueHint {
+  display: none;
+}
+
+.mini .top,
+.card:not(.featured):not(.mini) .top {
+  min-height: 0.7rem;
+  justify-content: flex-end;
+}
+
+.mini .qty {
+  font-size: 0.42rem;
+  padding: 0.02rem 0.16rem;
+}
+
+.mini .emblem {
+  width: 40%;
+}
+
+.mini .value {
+  font-size: 0.95rem;
+}
+
+.card:not(.featured) .meta {
+  border-top: none;
+  padding-top: 0;
+}
+
+.mini .meta h3 {
+  font-size: 0.48rem;
+  letter-spacing: 0.01em;
+}
+
+/* Ivory linen */
+.rarity_white {
+  --card-ink: #3b3128;
+  --card-muted: rgba(59, 49, 40, 0.58);
+  --card-line: rgba(90, 70, 48, 0.16);
+  --card-frame: rgba(255, 255, 255, 0.72);
+  --card-frame-inner: rgba(122, 96, 70, 0.16);
+  --emblem-fill: rgba(255, 255, 255, 0.55);
+  --emblem-stroke: #6a5646;
+  border-color: #d8ccb8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -10px 18px rgba(90, 70, 48, 0.1),
+    0 12px 24px rgba(70, 52, 36, 0.12);
+}
+
+.rarity_white .material {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(120, 90, 55, 0.035) 0 1px,
+      transparent 1px 3px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(90, 70, 45, 0.03) 0 1px,
+      transparent 1px 4px
+    ),
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 255, 255, 0.9), transparent 58%),
+    linear-gradient(180deg, #fbf6ec 0%, #efe4d0 48%, #e2d3bb 100%);
+}
+
+.rarity_white .qty {
+  background: rgba(59, 49, 40, 0.78);
+}
+
+/* Brushed copper */
+.rarity_copper {
+  --card-ink: #fff4e8;
+  --card-muted: rgba(255, 236, 214, 0.72);
+  --card-line: rgba(255, 228, 196, 0.22);
+  --card-frame: rgba(255, 220, 180, 0.38);
+  --card-frame-inner: rgba(80, 28, 10, 0.28);
+  --emblem-fill: rgba(255, 210, 160, 0.16);
+  --emblem-stroke: #ffe7cc;
+  border-color: #a45a32;
+}
+
+.rarity_copper .material {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 210, 170, 0.08) 0 1px,
+      transparent 1px 3px
+    ),
+    linear-gradient(
+      118deg,
+      transparent 36%,
+      rgba(255, 228, 196, 0.28) 42%,
+      transparent 48%
+    ),
+    linear-gradient(
+      168deg,
+      #4a2414 0%,
+      #8a4324 16%,
+      #c56b38 34%,
+      #e6a070 46%,
+      #9a4a28 62%,
+      #d48952 78%,
+      #6e3018 100%
+    );
+}
+
+.rarity_copper {
+  box-shadow:
+    inset 0 2px 5px rgba(255, 232, 210, 0.28),
+    inset 0 -10px 16px rgba(60, 18, 8, 0.38),
+    0 14px 26px rgba(92, 32, 12, 0.28);
+}
+
+/* Brushed silver */
+.rarity_silver {
+  --card-ink: #f4f7fa;
+  --card-muted: rgba(236, 242, 248, 0.72);
+  --card-line: rgba(255, 255, 255, 0.2);
+  --card-frame: rgba(255, 255, 255, 0.42);
+  --card-frame-inner: rgba(30, 40, 52, 0.28);
+  --emblem-fill: rgba(255, 255, 255, 0.14);
+  --emblem-stroke: #eef3f8;
+  border-color: #8b96a3;
+}
+
+.rarity_silver .material {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16) 0 1px,
+      transparent 1px 3px
+    ),
+    linear-gradient(
+      112deg,
+      transparent 38%,
+      rgba(255, 255, 255, 0.38) 44%,
+      transparent 50%
+    ),
+    linear-gradient(
+      180deg,
+      #dfe5ec 0%,
+      #9aa6b4 28%,
+      #c9d1db 46%,
+      #6d7886 68%,
+      #b7c0cb 86%,
+      #5c6672 100%
+    );
+}
+
+.rarity_silver {
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.4),
+    inset 0 -10px 16px rgba(30, 38, 48, 0.32),
+    0 14px 26px rgba(40, 48, 60, 0.22);
+}
+
+/* Antique gold leaf */
+.rarity_gold {
+  --card-ink: #2a1f08;
+  --card-muted: rgba(42, 31, 8, 0.68);
+  --card-line: rgba(72, 52, 12, 0.22);
+  --card-frame: rgba(255, 244, 200, 0.5);
+  --card-frame-inner: rgba(90, 62, 10, 0.22);
+  --emblem-fill: rgba(255, 248, 220, 0.28);
+  --emblem-stroke: #3a2a0c;
+  border-color: rgba(184, 134, 11, 0.7);
+}
+
+.rarity_gold .material {
+  background:
+    linear-gradient(
+      108deg,
+      transparent 34%,
+      rgba(255, 252, 235, 0.65) 39%,
+      rgba(255, 235, 180, 0.28) 43%,
+      transparent 48%
+    ),
+    linear-gradient(
+      168deg,
+      #4a3810 0%,
+      #7a5c18 14%,
+      #c9a227 32%,
+      #f0d875 42%,
+      #a67c00 58%,
+      #d4af37 72%,
+      #8b6914 88%,
+      #5c4612 100%
+    );
+}
+
+.rarity_gold {
+  box-shadow:
+    inset 0 2px 5px rgba(255, 248, 220, 0.4),
+    inset 0 -8px 14px rgba(60, 40, 8, 0.42),
+    0 14px 28px rgba(80, 55, 10, 0.32);
+}
+
+.rarity_gold .qty {
+  background: rgba(42, 31, 8, 0.78);
+  color: #f8e7a8;
+}
+
+/* Enamel navy / steel */
+.rarity_azure {
+  --card-ink: #e8f4f8;
+  --card-muted: rgba(210, 230, 236, 0.72);
+  --card-line: rgba(180, 210, 220, 0.2);
+  --card-frame: rgba(186, 220, 230, 0.35);
+  --card-frame-inner: rgba(6, 24, 36, 0.35);
+  --emblem-fill: rgba(160, 210, 220, 0.12);
+  --emblem-stroke: #d7eef4;
+  border-color: #3d6b7c;
+}
+
+.rarity_azure .material {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(150, 200, 214, 0.22), transparent 58%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0 1px,
+      transparent 1px 4px
+    ),
+    linear-gradient(168deg, #16303c 0%, #1d4a5a 28%, #0f2a36 58%, #082028 100%);
+}
+
+.rarity_azure {
+  box-shadow:
+    inset 0 1px 0 rgba(210, 236, 242, 0.22),
+    inset 0 -10px 18px rgba(4, 16, 24, 0.45),
+    0 14px 28px rgba(8, 28, 36, 0.32);
+}
+
+.rarity_ash {
+  --card-ink: #d8d0c6;
+  --card-muted: rgba(210, 200, 188, 0.62);
+  --card-line: rgba(180, 168, 150, 0.18);
+  --card-frame: rgba(255, 255, 255, 0.12);
+  --card-frame-inner: rgba(20, 16, 12, 0.35);
+  --emblem-fill: rgba(180, 168, 150, 0.12);
+  --emblem-stroke: #cfc4b6;
+  border-color: #6b6156;
+}
+
+.rarity_ash .material {
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 10%, rgba(90, 80, 70, 0.35), transparent 55%),
+    repeating-linear-gradient(
+      28deg,
+      rgba(0, 0, 0, 0.08) 0 1px,
+      transparent 1px 7px
+    ),
+    linear-gradient(168deg, #3a342e 0%, #2a2520 42%, #1c1814 100%);
+}
+
+.rarity_ash {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -10px 16px rgba(0, 0, 0, 0.4),
+    0 10px 20px rgba(20, 14, 10, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clickable,
+  .sheen {
+    transition: none;
+  }
+
+  .clickable:hover .sheen {
+    transform: none;
+    opacity: 0.35;
+  }
+}

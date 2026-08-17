@@ -3,10 +3,11 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { auth } from '../config/firebase'
 import { ADELIA_LOGO_URL } from '../constants/brand'
-import { registerCustomerAndSignOut, signInCustomerWithGoogle } from '../services/customerAuth'
+import { registerCustomerAndSignOut, signInCustomerWithGoogle, updateCustomerPhone } from '../services/customerAuth'
 import { getUserProfile } from '../services/firestore'
 import { getAuthErrorMessage } from '../services/auth'
 import { getPostLoginPath, resolveSafeRedirect } from '../utils/authProfile'
+import { isValidSpanishPhone } from '../utils/helpers'
 import {
   getPasswordChecks,
   isPasswordValid,
@@ -14,6 +15,7 @@ import {
 } from '../utils/passwordValidation'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
+import LegalLinks from '../components/LegalLinks'
 import styles from './UserCustomerAuth.module.css'
 
 function UserRegisterPage() {
@@ -23,10 +25,12 @@ function UserRegisterPage() {
   const { user, profile, refreshProfile } = useAuth()
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [acceptedLegal, setAcceptedLegal] = useState(false)
 
   const passwordChecks = useMemo(
     () => getPasswordChecks(password, confirmPassword),
@@ -53,10 +57,28 @@ function UserRegisterPage() {
 
   const handleGoogle = async () => {
     setError(null)
+
+    if (!isValidSpanishPhone(phone)) {
+      setError('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678) antes de continuar.')
+      return
+    }
+
+    if (!acceptedLegal) {
+      setError('Debes aceptar el aviso legal, la privacidad y los términos para continuar.')
+      return
+    }
+
     setIsLoading(true)
 
     try {
-      await signInCustomerWithGoogle()
+      const googleResult = await signInCustomerWithGoogle()
+      const currentUser = auth.currentUser
+      if (currentUser && (googleResult === 'created' || googleResult === 'existing')) {
+        const nextProfile = await getUserProfile(currentUser.uid)
+        if (googleResult === 'created' || !nextProfile?.phone) {
+          await updateCustomerPhone(currentUser.uid, phone)
+        }
+      }
       await finishGoogleRegister()
     } catch (err) {
       setError(getAuthErrorMessage(err))
@@ -69,15 +91,25 @@ function UserRegisterPage() {
     event.preventDefault()
     setError(null)
 
+    if (!isValidSpanishPhone(phone)) {
+      setError('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678).')
+      return
+    }
+
     if (!passwordReady) {
       setError('Revisa los requisitos de contraseña antes de continuar.')
+      return
+    }
+
+    if (!acceptedLegal) {
+      setError('Debes aceptar el aviso legal, la privacidad y los términos para continuar.')
       return
     }
 
     setIsLoading(true)
 
     try {
-      await registerCustomerAndSignOut({ email, password, displayName })
+      await registerCustomerAndSignOut({ email, password, displayName, phone })
       navigate(`/cuenta/verificar-email?email=${encodeURIComponent(email.trim().toLowerCase())}`, {
         replace: true,
       })
@@ -133,6 +165,20 @@ function UserRegisterPage() {
           </label>
 
           <label>
+            Teléfono
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              autoComplete="tel"
+              inputMode="tel"
+              placeholder="612 345 678"
+              required
+            />
+            <span className={styles.fieldHint}>Obligatorio. 9 dígitos de España, por si el restaurante necesita llamarte.</span>
+          </label>
+
+          <label>
             Contraseña
             <input
               type="password"
@@ -174,10 +220,25 @@ function UserRegisterPage() {
             })}
           </ul>
 
+          <label className={styles.legalCheck}>
+            <input
+              type="checkbox"
+              checked={acceptedLegal}
+              onChange={(event) => setAcceptedLegal(event.target.checked)}
+            />
+            <span>
+              He leído y acepto el{' '}
+              <Link to="/legal/aviso-legal?from=/cuenta/registro">aviso legal</Link>, la{' '}
+              <Link to="/legal/privacidad?from=/cuenta/registro">política de privacidad</Link>
+              {' '}y los{' '}
+              <Link to="/legal/terminos?from=/cuenta/registro">términos de uso</Link>.
+            </span>
+          </label>
+
           <button
             type="submit"
             className={styles.submitButton}
-            disabled={isLoading || !passwordReady}
+            disabled={isLoading || !passwordReady || !isValidSpanishPhone(phone) || !acceptedLegal}
           >
             {isLoading ? 'Creando cuenta…' : 'Registrarme'}
           </button>
@@ -187,7 +248,7 @@ function UserRegisterPage() {
 
         <GoogleSignInButton
           label="Registrarse con Google"
-          disabled={isLoading}
+          disabled={isLoading || !acceptedLegal}
           onClick={() => void handleGoogle()}
         />
 
@@ -203,6 +264,9 @@ function UserRegisterPage() {
             Inicia sesión
           </Link>
         </p>
+        <div className={styles.legalRow}>
+          <LegalLinks from="/cuenta/registro" />
+        </div>
       </main>
     </CustomerAuthShell>
   )

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useRef, useState, useEffect } from 'react'
+import { Suspense, lazy, useRef, useState, useEffect, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
@@ -6,7 +6,9 @@ import { useAuth } from '../context/AuthContext'
 import { logout } from '../services/auth'
 import {
   CLIENTS_SECTIONS,
+  COMPITE_SECTIONS,
   isClientsTab,
+  isCompiteTab,
   isReportsTab,
   isSettingsTab,
   REPORTS_SECTIONS,
@@ -15,20 +17,27 @@ import {
   type CompanySettingsSection,
 } from '../types'
 import type { CompanySettingsHandle } from './company/CompanySettings'
-import CompanyReservations from './company/CompanyReservations'
-import CompanyClients from './company/CompanyClients'
-import CompanyReportsReservations from './company/CompanyReportsReservations'
-import CompanyReportsClients from './company/CompanyReportsClients'
-import CompanyReportsProducts from './company/CompanyReportsProducts'
-import CompanyPromotions from './company/CompanyPromotions'
-import CompanyReviews from './company/CompanyReviews'
-import CompanyEmailTemplate from './company/CompanyEmailTemplate'
-import CompanyHelp from './company/CompanyHelp'
-import CompanyMenu from './company/CompanyMenu'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import CompanyNotificationsBell from '../components/CompanyNotificationsBell'
+import LegalLinks from '../components/LegalLinks'
+import { syncCompanyGamification } from '../services/companyGamification'
 import styles from './CompanyDashboard.module.css'
 
+const CompanyReservations = lazy(() => import('./company/CompanyReservations'))
+const CompanyClients = lazy(() => import('./company/CompanyClients'))
+const CompanyReportsReservations = lazy(() => import('./company/CompanyReportsReservations'))
+const CompanyReportsClients = lazy(() => import('./company/CompanyReportsClients'))
+const CompanyReportsProducts = lazy(() => import('./company/CompanyReportsProducts'))
+const CompanyReportsReviews = lazy(() => import('./company/CompanyReportsReviews'))
+const CompanyCompiteNotifications = lazy(() => import('./company/CompanyCompiteNotifications'))
+const CompanyCompiteMissions = lazy(() => import('./company/CompanyCompiteMissions'))
+const CompanyCompiteRanking = lazy(() => import('./company/CompanyCompiteRanking'))
+const CompanyPromotions = lazy(() => import('./company/CompanyPromotions'))
+const CompanyReviews = lazy(() => import('./company/CompanyReviews'))
+const CompanyEmailTemplate = lazy(() => import('./company/CompanyEmailTemplate'))
+const CompanyHelp = lazy(() => import('./company/CompanyHelp'))
+const CompanyMenu = lazy(() => import('./company/CompanyMenu'))
 const CompanySettings = lazy(() => import('./company/CompanySettings'))
 
 function settingsSectionLabel(tab: CompanyTab): string {
@@ -38,6 +47,10 @@ function settingsSectionLabel(tab: CompanyTab): string {
 
   if (isClientsTab(tab)) {
     return CLIENTS_SECTIONS.find((section) => section.id === tab)?.label ?? 'Clientes'
+  }
+
+  if (isCompiteTab(tab)) {
+    return COMPITE_SECTIONS.find((section) => section.id === tab)?.label ?? 'Compite'
   }
 
   if (isReportsTab(tab)) {
@@ -51,6 +64,56 @@ function settingsSectionLabel(tab: CompanyTab): string {
   return SETTINGS_SECTIONS.find((section) => section.id === tab)?.label ?? 'Mi restaurante'
 }
 
+type SidebarGroupId = 'clients' | 'reports' | 'settings' | 'compite'
+
+function sidebarGroupForTab(tab: CompanyTab): SidebarGroupId | null {
+  if (isClientsTab(tab)) return 'clients'
+  if (isReportsTab(tab)) return 'reports'
+  if (isSettingsTab(tab)) return 'settings'
+  if (isCompiteTab(tab)) return 'compite'
+  return null
+}
+
+const CLOSED_GROUPS: Record<SidebarGroupId, boolean> = {
+  clients: false,
+  reports: false,
+  settings: false,
+  compite: false,
+}
+
+interface SidebarNavGroupProps {
+  label: string
+  hint: string
+  open: boolean
+  active: boolean
+  onToggle: () => void
+  children: ReactNode
+}
+
+function SidebarNavGroup({ label, hint, open, active, onToggle, children }: SidebarNavGroupProps) {
+  return (
+    <div className={styles.navGroup}>
+      <button
+        type="button"
+        className={`${styles.navGroupToggle} ${active ? styles.navGroupTitleActive : ''}`}
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        <span className={styles.navLabel}>{label}</span>
+        <span className={styles.navHint}>{hint}</span>
+      </button>
+      <div
+        className={`${styles.navSubmenuWrap} ${open ? styles.navSubmenuWrapOpen : ''}`}
+        inert={!open ? true : undefined}
+      >
+        <div className={styles.navSubmenuInner}>
+          <div className={styles.navSubmenu}>{children}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CompanyDashboard() {
   const { company } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -62,14 +125,44 @@ function CompanyDashboard() {
   const [unsavedSection, setUnsavedSection] = useState<CompanySettingsSection | null>(null)
   const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false)
   const [isSavingUnsaved, setIsSavingUnsaved] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Record<SidebarGroupId, boolean>>(CLOSED_GROUPS)
   const settingsRef = useRef<CompanySettingsHandle>(null)
 
   useEffect(() => {
-    const tab = searchParams.get('tab')
+    if (!company?.id) {
+      return
+    }
+    void syncCompanyGamification().catch(() => undefined)
+  }, [company?.id])
 
-    if (tab === 'reservation-settings') {
-      setActiveTab('reservation-settings')
-      setLastSettingsSection('reservation-settings')
+  useEffect(() => {
+    if (!company?.id || !isCompiteTab(activeTab)) {
+      return
+    }
+    void syncCompanyGamification().catch(() => undefined)
+  }, [activeTab, company?.id])
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    const knownTabs = new Set<string>([
+      'reservation-settings',
+      ...CLIENTS_SECTIONS.map((section) => section.id),
+      ...COMPITE_SECTIONS.map((section) => section.id),
+      ...REPORTS_SECTIONS.map((section) => section.id),
+    ])
+
+    if (tab && knownTabs.has(tab)) {
+      const nextTab = tab as CompanyTab
+      setActiveTab(nextTab)
+      if (isSettingsTab(nextTab) && nextTab !== 'menu') {
+        setLastSettingsSection(nextTab)
+      }
+      if (isCompiteTab(nextTab) || isClientsTab(nextTab) || isReportsTab(nextTab) || isSettingsTab(nextTab)) {
+        const group = sidebarGroupForTab(nextTab)
+        if (group) {
+          setOpenGroups((current) => ({ ...current, [group]: true }))
+        }
+      }
     }
 
     if (searchParams.get('stripe')) {
@@ -89,6 +182,10 @@ function CompanyDashboard() {
     }
 
     setActiveTab(tab)
+    const group = sidebarGroupForTab(tab)
+    if (group) {
+      setOpenGroups((current) => ({ ...current, [group]: true }))
+    }
     setSidebarOpen(false)
     setPendingTab(null)
     setUnsavedSection(null)
@@ -114,6 +211,10 @@ function CompanyDashboard() {
     }
 
     completeNavigation(tab)
+  }
+
+  const toggleGroup = (group: SidebarGroupId) => {
+    setOpenGroups((current) => ({ ...current, [group]: !current[group] }))
   }
 
   const handleStayEditing = () => {
@@ -164,6 +265,7 @@ function CompanyDashboard() {
   const inMenu = activeTab === 'menu'
   const inSettingsEditor = isSettingsTab(activeTab) && activeTab !== 'menu'
   const inClients = isClientsTab(activeTab)
+  const inCompite = isCompiteTab(activeTab)
   const inReports = isReportsTab(activeTab)
   const settingsSection = inSettingsEditor ? activeTab : lastSettingsSection
   const unsavedSectionLabel =
@@ -187,6 +289,7 @@ function CompanyDashboard() {
             <h1>{company.name}</h1>
             <p>{company.location || 'Sin dirección'}</p>
           </div>
+          <CompanyNotificationsBell onOpen={() => attemptNavigate('compite-notifications')} />
           <button
             type="button"
             className={styles.sidebarClose}
@@ -207,71 +310,93 @@ function CompanyDashboard() {
             <span className={styles.navHint}>Calendario y listado del día</span>
           </button>
 
-          <div className={styles.navGroup}>
-            <div className={`${styles.navGroupTitle} ${inClients ? styles.navGroupTitleActive : ''}`}>
-              <span className={styles.navLabel}>Clientes</span>
-            </div>
+          <SidebarNavGroup
+            label="Clientes"
+            hint="Reservas, promos y reseñas"
+            open={openGroups.clients}
+            active={inClients}
+            onToggle={() => toggleGroup('clients')}
+          >
+            {CLIENTS_SECTIONS.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={`${styles.navSubItem} ${
+                  activeTab === section.id ? styles.navSubItemActive : ''
+                }`}
+                onClick={() => attemptNavigate(section.id)}
+              >
+                <span className={styles.navSubLabel}>{section.label}</span>
+                <span className={styles.navHint}>{section.hint}</span>
+              </button>
+            ))}
+          </SidebarNavGroup>
 
-            <div className={styles.navSubmenu}>
-              {CLIENTS_SECTIONS.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  className={`${styles.navSubItem} ${
-                    activeTab === section.id ? styles.navSubItemActive : ''
-                  }`}
-                  onClick={() => attemptNavigate(section.id)}
-                >
-                  <span className={styles.navSubLabel}>{section.label}</span>
-                  <span className={styles.navHint}>{section.hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <SidebarNavGroup
+            label="Informes"
+            hint="Reservas, clientes, productos y reseñas"
+            open={openGroups.reports}
+            active={inReports}
+            onToggle={() => toggleGroup('reports')}
+          >
+            {REPORTS_SECTIONS.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={`${styles.navSubItem} ${
+                  activeTab === section.id ? styles.navSubItemActive : ''
+                }`}
+                onClick={() => attemptNavigate(section.id)}
+              >
+                <span className={styles.navSubLabel}>{section.label}</span>
+                <span className={styles.navHint}>{section.hint}</span>
+              </button>
+            ))}
+          </SidebarNavGroup>
 
-          <div className={styles.navGroup}>
-            <div className={`${styles.navGroupTitle} ${inReports ? styles.navGroupTitleActive : ''}`}>
-              <span className={styles.navLabel}>Informes</span>
-            </div>
+          <SidebarNavGroup
+            label="Mi restaurante"
+            hint="Perfil, mesas y carta"
+            open={openGroups.settings}
+            active={inSettingsEditor || inMenu}
+            onToggle={() => toggleGroup('settings')}
+          >
+            {SETTINGS_SECTIONS.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={`${styles.navSubItem} ${
+                  activeTab === section.id ? styles.navSubItemActive : ''
+                }`}
+                onClick={() => attemptNavigate(section.id)}
+              >
+                <span className={styles.navSubLabel}>{section.label}</span>
+                <span className={styles.navHint}>{section.hint}</span>
+              </button>
+            ))}
+          </SidebarNavGroup>
 
-            <div className={styles.navSubmenu}>
-              {REPORTS_SECTIONS.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  className={`${styles.navSubItem} ${
-                    activeTab === section.id ? styles.navSubItemActive : ''
-                  }`}
-                  onClick={() => attemptNavigate(section.id)}
-                >
-                  <span className={styles.navSubLabel}>{section.label}</span>
-                  <span className={styles.navHint}>{section.hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.navGroup}>
-            <div className={`${styles.navGroupTitle} ${inSettingsEditor || inMenu ? styles.navGroupTitleActive : ''}`}>
-              <span className={styles.navLabel}>Mi restaurante</span>
-            </div>
-
-            <div className={styles.navSubmenu}>
-              {SETTINGS_SECTIONS.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  className={`${styles.navSubItem} ${
-                    activeTab === section.id ? styles.navSubItemActive : ''
-                  }`}
-                  onClick={() => attemptNavigate(section.id)}
-                >
-                  <span className={styles.navSubLabel}>{section.label}</span>
-                  <span className={styles.navHint}>{section.hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <SidebarNavGroup
+            label="Compite"
+            hint="Misiones, ranking y avisos"
+            open={openGroups.compite}
+            active={inCompite}
+            onToggle={() => toggleGroup('compite')}
+          >
+            {COMPITE_SECTIONS.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={`${styles.navSubItem} ${
+                  activeTab === section.id ? styles.navSubItemActive : ''
+                }`}
+                onClick={() => attemptNavigate(section.id)}
+              >
+                <span className={styles.navSubLabel}>{section.label}</span>
+                <span className={styles.navHint}>{section.hint}</span>
+              </button>
+            ))}
+          </SidebarNavGroup>
 
           <button
             type="button"
@@ -284,6 +409,7 @@ function CompanyDashboard() {
         </nav>
 
         <div className={styles.sidebarFooter}>
+          <LegalLinks variant="sidebar" from="/panel" />
           <div className={styles.meta}>
             <span>{company.phone || '—'}</span>
             <span>{company.contactEmail || company.website || '—'}</span>
@@ -314,53 +440,38 @@ function CompanyDashboard() {
               <span>{settingsSectionLabel(activeTab)}</span>
             </div>
           </div>
+          <CompanyNotificationsBell onOpen={() => attemptNavigate('compite-notifications')} />
         </header>
 
         <main className={styles.main}>
-          <div className={activeTab === 'reservations' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyReservations companyId={company.id} />
-          </div>
-          <div className={activeTab === 'clients-reservations' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyClients companyId={company.id} />
-          </div>
-          <div className={activeTab === 'clients-promotions' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyPromotions companyId={company.id} />
-          </div>
-          <div className={activeTab === 'clients-reviews' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyReviews companyId={company.id} />
-          </div>
-          <div className={activeTab === 'clients-email-received' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyEmailTemplate kind="received" />
-          </div>
-          <div className={activeTab === 'clients-email-confirmation' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyEmailTemplate kind="confirmation" />
-          </div>
-          <div className={activeTab === 'reports-reservations' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyReportsReservations companyId={company.id} />
-          </div>
-          <div className={activeTab === 'reports-clients' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyReportsClients companyId={company.id} />
-          </div>
-          <div className={activeTab === 'reports-products' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyReportsProducts companyId={company.id} />
-          </div>
-          <div className={activeTab === 'help' ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyHelp />
-          </div>
-          <div className={inMenu ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <CompanyMenu companyId={company.id} />
-          </div>
-          <div className={inSettingsEditor ? styles.tabPanelActive : styles.tabPanelHidden}>
-            <Suspense
-              fallback={
-                <div className={styles.pageLoading}>
-                  <p>Cargando ajustes…</p>
-                </div>
-              }
-            >
+          <Suspense
+            fallback={
+              <div className={styles.pageLoading}>
+                <p>Cargando…</p>
+              </div>
+            }
+          >
+            {activeTab === 'reservations' ? <CompanyReservations companyId={company.id} /> : null}
+            {activeTab === 'clients-reservations' ? <CompanyClients companyId={company.id} /> : null}
+            {activeTab === 'clients-promotions' ? <CompanyPromotions companyId={company.id} /> : null}
+            {activeTab === 'clients-reviews' ? <CompanyReviews companyId={company.id} /> : null}
+            {activeTab === 'clients-email-received' ? <CompanyEmailTemplate kind="received" /> : null}
+            {activeTab === 'clients-email-confirmation' ? <CompanyEmailTemplate kind="confirmation" /> : null}
+            {activeTab === 'reports-reservations' ? <CompanyReportsReservations companyId={company.id} /> : null}
+            {activeTab === 'reports-clients' ? <CompanyReportsClients companyId={company.id} /> : null}
+            {activeTab === 'reports-products' ? <CompanyReportsProducts companyId={company.id} /> : null}
+            {activeTab === 'reports-reviews' ? <CompanyReportsReviews companyId={company.id} /> : null}
+            {activeTab === 'compite-notifications' ? (
+              <CompanyCompiteNotifications onOpenTab={attemptNavigate} />
+            ) : null}
+            {activeTab === 'compite-missions' ? <CompanyCompiteMissions /> : null}
+            {activeTab === 'compite-ranking' ? <CompanyCompiteRanking /> : null}
+            {activeTab === 'help' ? <CompanyHelp /> : null}
+            {inMenu ? <CompanyMenu companyId={company.id} /> : null}
+            {inSettingsEditor ? (
               <CompanySettings ref={settingsRef} activeSection={settingsSection} />
-            </Suspense>
-          </div>
+            ) : null}
+          </Suspense>
         </main>
       </div>
 

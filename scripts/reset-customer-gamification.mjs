@@ -42,6 +42,14 @@ const defaultGamification = {
   activeLadderPromotionByCompany: {},
   ladderCompletionsByCompany: {},
   lastCelebratedLevel: 1,
+  cancellationStrikeCount: 0,
+  cancelledReservationIds: [],
+  xpPenaltyTotal: 0,
+  promoLocked: false,
+  inventory: {},
+  grantedItemKeys: [],
+  tokenCreditsByCompany: {},
+  pendingTokenSpend: [],
 }
 
 const usersSnap = await db.collection('users').get()
@@ -70,6 +78,14 @@ await userDoc.ref.update({
   adelinas: 0,
   gamification: defaultGamification,
 })
+
+await db.collection('userGamification').doc(userDoc.id).set({
+  uid: userDoc.id,
+  xp: 0,
+  adelinas: 0,
+  state: defaultGamification,
+  updatedAt: new Date(),
+}, { merge: true })
 
 console.log(`Reset gamificación para ${data.email} (${userDoc.id})`)
 console.log(`XP anterior: ${previousXp} → 0 (nivel 1)`)

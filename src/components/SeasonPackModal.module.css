@@ -1,0 +1,143 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(20, 10, 16, 0.5);
+}
+
+.dialog {
+  width: min(100%, 26rem);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 1.1rem 1rem 1.2rem;
+  border-radius: 1.35rem 1.35rem 1.1rem 1.1rem;
+  background: #fffaf6;
+}
+
+.dialog h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: var(--color-brown);
+}
+
+.lead {
+  margin: 0.4rem 0 0.95rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.pack {
+  margin: 0 0 0.75rem;
+  padding: 0.8rem 0.75rem 0.85rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(107, 83, 68, 0.12);
+}
+
+.packHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.packHead h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-brown);
+}
+
+.packHead p {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.progress {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #9a3412;
+}
+
+.prizes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+}
+
+.prize {
+  display: grid;
+  gap: 0.28rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.prize span {
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.claim,
+.close {
+  width: 100%;
+  min-height: 2.4rem;
+  margin-top: 0.7rem;
+  border: none;
+  border-radius: 999px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.claim {
+  background: #7c3aed;
+  color: #fff;
+}
+
+.claim:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.claimed,
+.wait {
+  margin: 0.55rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.claimed {
+  color: #059669;
+}
+
+.wait {
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: #b91c1c;
+}
+
+.close {
+  margin-top: 0.85rem;
+  background: #1f1420;
+  color: #fff;
+}
+
+@media (min-width: 720px) {
+  .overlay {
+    align-items: center;
+  }
+}

@@ -1,0 +1,127 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(35, 28, 22, 0.45);
+}
+
+.sheet {
+  width: min(420px, 100%);
+  max-height: 80vh;
+  overflow: auto;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 20px 48px rgba(35, 28, 22, 0.22);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 0.7rem;
+}
+
+.header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--color-brown);
+}
+
+.close {
+  border: none;
+  background: rgba(107, 83, 68, 0.08);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--color-brown);
+  cursor: pointer;
+}
+
+.empty {
+  margin: 0;
+  padding: 0 1.1rem 1.2rem;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.5rem;
+  border-radius: 14px;
+  background: var(--color-cream);
+}
+
+.avatar,
+.avatarFallback {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.avatarFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(107, 83, 68, 0.12);
+  font-weight: 800;
+  color: var(--color-brown);
+}
+
+.meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.meta strong {
+  font-size: 0.9rem;
+  color: var(--color-brown);
+}
+
+.status {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.pending {
+  color: #c2410c;
+}
+
+.accepted {
+  color: #15803d;
+}
+
+.rejected,
+.cancelled {
+  color: #b91c1c;
+}
+
+@media (min-width: 700px) {
+  .overlay {
+    align-items: center;
+  }
+}

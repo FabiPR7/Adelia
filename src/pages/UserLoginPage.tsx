@@ -9,6 +9,7 @@ import { getAuthErrorMessage } from '../services/auth'
 import { getPostLoginPath, resolveSafeRedirect } from '../utils/authProfile'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
+import LegalLinks from '../components/LegalLinks'
 import styles from './UserCustomerAuth.module.css'
 
 function UserLoginPage() {
@@ -146,6 +147,9 @@ function UserLoginPage() {
         <Link to="/empresa" className={styles.businessLink}>
           ¿Eres restaurante? Acceso empresas
         </Link>
+        <div className={styles.legalRow}>
+          <LegalLinks from="/cuenta/entrar" />
+        </div>
       </main>
     </CustomerAuthShell>
   )

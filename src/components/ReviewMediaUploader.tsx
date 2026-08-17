@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type ChangeEvent } from 'react'
 import type { ReviewMediaItem } from '../types/review'
-import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../utils/cloudinaryUrl'
 import { getCloudinaryResourceType, uploadToCloudinary } from '../utils/cloudinaryUpload'
 import styles from './ReviewMediaUploader.module.css'
 
@@ -90,7 +90,14 @@ function ReviewMediaUploader({ value, onChange, disabled = false }: ReviewMediaU
                 {item.type === 'image' ? (
                   <img src={previewUrl} alt="" className={styles.mediaPreview} />
                 ) : (
-                  <video src={previewUrl} className={styles.mediaPreview} controls muted />
+                  <video
+                    src={optimizeCloudinaryVideoUrl(item.url)}
+                    className={styles.mediaPreview}
+                    controls
+                    muted
+                    preload="metadata"
+                    playsInline
+                  />
                 )}
                 <button
                   type="button"

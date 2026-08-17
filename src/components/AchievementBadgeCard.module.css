@@ -5,7 +5,8 @@
   padding: 0;
   border: none;
   background: transparent;
-  perspective: 720px;
+  perspective: 900px;
+  -webkit-perspective: 900px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -15,11 +16,15 @@
   width: 100%;
   min-height: 6.35rem;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transform: rotateY(0deg);
+  -webkit-transform: rotateY(0deg);
   transition: transform 0.5s cubic-bezier(0.4, 0.15, 0.2, 1);
 }
 
 .cardFlipped .flipInner {
   transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
 }
 
 .faceFront,
@@ -27,22 +32,36 @@
   position: absolute;
   inset: 0;
   border-radius: 14px;
-  backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
 }
 
 .faceFront {
   display: flex;
   align-items: center;
   justify-content: center;
+  transform: rotateY(0deg) translateZ(1px);
+  -webkit-transform: rotateY(0deg) translateZ(1px);
+  z-index: 2;
+  opacity: 1;
+  transition: opacity 0s linear 0.25s;
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+}
+
+.cardFlipped .faceFront {
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .cardMaterial {
   position: absolute;
   inset: 0;
   z-index: 0;
+  overflow: hidden;
+  border-radius: 14px;
   pointer-events: none;
 }
 
@@ -59,18 +78,28 @@
 }
 
 .faceBack {
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateZ(1px);
+  -webkit-transform: rotateY(180deg) translateZ(1px);
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0s linear 0.25s;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
   padding: 0.55rem 0.35rem 0.5rem;
+  overflow: hidden;
   background: linear-gradient(160deg, #1e1b4b 0%, #312e81 52%, #4c1d95 100%);
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: #fff;
   text-align: center;
   box-shadow: 0 10px 22px rgba(49, 46, 129, 0.32);
+}
+
+.cardFlipped .faceBack {
+  z-index: 3;
+  opacity: 1;
 }
 
 /* —— Fácil: terciopelo —— */
@@ -275,13 +304,15 @@
     0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-/* Obtenida vs bloqueada */
-.cardLocked .faceFront {
+/* El filter en la cara 3D deja el frente visible en móviles reales. */
+.cardLocked .cardMaterial,
+.cardLocked .cardContent {
   filter: grayscale(0.4) saturate(0.55) brightness(0.82);
   opacity: 0.76;
 }
 
-.cardLocked.tierLegendary .faceFront {
+.cardLocked.tierLegendary .cardMaterial,
+.cardLocked.tierLegendary .cardContent {
   filter: grayscale(0.5) saturate(0.4) brightness(0.7);
 }
 
@@ -291,7 +322,8 @@
   opacity: 0.18;
 }
 
-.cardEarned .faceFront {
+.cardEarned .cardMaterial,
+.cardEarned .cardContent {
   filter: none;
   opacity: 1;
 }
@@ -367,5 +399,13 @@
 
   .badgeName {
     font-size: 0.62rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flipInner,
+  .faceFront,
+  .faceBack {
+    transition: none;
   }
 }

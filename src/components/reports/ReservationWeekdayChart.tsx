@@ -4,13 +4,14 @@ import styles from './ReservationWeekdayChart.module.css'
 
 interface ReservationWeekdayChartProps {
   data: WeekdayChartData
+  emptyLabel?: string
 }
 
 const WIDTH = 360
 const HEIGHT = 180
 const PADDING = { top: 12, right: 8, bottom: 28, left: 8 }
 
-function ReservationWeekdayChart({ data }: ReservationWeekdayChartProps) {
+function ReservationWeekdayChart({ data, emptyLabel = 'Sin reservas en este periodo' }: ReservationWeekdayChartProps) {
   const plotWidth = WIDTH - PADDING.left - PADDING.right
   const plotHeight = HEIGHT - PADDING.top - PADDING.bottom
   const hasData = data.values.some((value) => value > 0)
@@ -20,7 +21,7 @@ function ReservationWeekdayChart({ data }: ReservationWeekdayChartProps) {
   return (
     <div className={shared.chartBody}>
       {!hasData ? (
-        <div className={shared.empty}>Sin reservas en este periodo</div>
+        <div className={shared.empty}>{emptyLabel}</div>
       ) : (
         <svg
           className={shared.plot}

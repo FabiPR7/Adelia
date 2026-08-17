@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import CustomerReservationCard from '../../components/CustomerReservationCard'
 import CustomerReviewModal, { type CustomerReviewSubmitInput } from '../../components/CustomerReviewModal'
 import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
+import ReservationInvitesModal from '../../components/ReservationInvitesModal'
 import { canCustomerVerifyMinimumSpend } from '../../utils/minimumSpendVerification'
+import { pendingTokenSpendForCompany, REVIEW_BOOST_ITEM_ID, inventoryQuantity } from '../../data/inventoryItems'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import { getPublicCompanyMenuNodes } from '../../services/companyMenu'
@@ -14,25 +16,100 @@ import {
   submitCustomerReview,
   updateCustomerReview,
 } from '../../services/companyReviews'
-import { getAllCompanies, getCustomerReservations } from '../../services/firestore'
+import { fetchPublicDiscoveryRestaurants } from '../../services/publicDiscovery'
+import { getCustomerReservations } from '../../services/firestore'
+import {
+  acceptReservationInvite,
+  fetchReservationInvitesState,
+  rejectReservationInvite,
+} from '../../services/customerReservationInvites'
 import type { Reservation } from '../../types'
+import type { ReservationInvite } from '../../types/reservationInvites'
 import type { CompanyReview } from '../../types/review'
 import type { MenuNode } from '../../types/company'
 import type { VerifyMinimumSpendResult } from '../../services/minimumSpendApi'
-import { hasRestaurantProfile } from '../../utils/publicBooking'
-import { splitCustomerReservations } from '../../utils/customerReservations'
-import {
-  mapCompanyToDiscoveryRestaurant,
-  mapCompanyToPublicBooking,
-  type PublicDiscoveryRestaurant,
-} from '../../utils/publicDiscovery'
+import type { PublicDiscoveryRestaurant } from '../../utils/publicDiscovery'
 import styles from './CustomerReservationsTab.module.css'
 
 type ReservationTab = 'upcoming' | 'past'
 
+type PlanItem =
+  | { kind: 'owned'; reservation: Reservation; startTime: Date }
+  | { kind: 'guest'; invite: ReservationInvite; reservation: Reservation; startTime: Date }
+
+function reservationFromInvite(invite: ReservationInvite): Reservation {
+  const startTime = new Date(invite.startTime)
+  return {
+    id: `guest-${invite.id}`,
+    companyId: invite.companyId,
+    tableId: '',
+    clientName: invite.fromDisplayName,
+    clientEmail: '',
+    clientPhone: '',
+    pax: invite.pax,
+    notes: '',
+    startTime,
+    endTime: startTime,
+    status: invite.reservationStatus,
+    cancelToken: '',
+    createdAt: new Date(invite.createdAt),
+  }
+}
+
+function restaurantFromInvite(
+  invite: ReservationInvite,
+  restaurantById: Record<string, PublicDiscoveryRestaurant>,
+): PublicDiscoveryRestaurant {
+  return restaurantById[invite.companyId] ?? {
+    id: invite.companyId,
+    name: invite.companyName,
+    slug: invite.companySlug,
+    location: '',
+    municipality: '',
+    country: '',
+    latitude: null,
+    longitude: null,
+    photoUrl: invite.companyPhotoUrl,
+    characteristics: [],
+    searchText: invite.companyName,
+    reviewCount: 0,
+    reviewRatingSum: 0,
+    reviewAdelinas: 0,
+  }
+}
+
+function splitPlanItems(owned: Reservation[], accepted: ReservationInvite[]) {
+  const now = Date.now()
+  const upcoming: PlanItem[] = []
+  const past: PlanItem[] = []
+
+  for (const reservation of owned) {
+    const item: PlanItem = { kind: 'owned', reservation, startTime: reservation.startTime }
+    if (reservation.status !== 'cancelled' && reservation.startTime.getTime() >= now) {
+      upcoming.push(item)
+    } else {
+      past.push(item)
+    }
+  }
+
+  for (const invite of accepted) {
+    const reservation = reservationFromInvite(invite)
+    const item: PlanItem = { kind: 'guest', invite, reservation, startTime: reservation.startTime }
+    if (invite.reservationStatus !== 'cancelled' && reservation.startTime.getTime() >= now) {
+      upcoming.push(item)
+    } else {
+      past.push(item)
+    }
+  }
+
+  upcoming.sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+  past.sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
+  return { upcoming, past }
+}
+
 function CustomerReservationsTab() {
-  const { user, profile, refreshProfile } = useAuth()
-  const { refreshGamificationData } = useCustomerGamificationContext()
+  const { user, profile, refreshProfile, patchProfileGamification } = useAuth()
+  const { refreshGamificationData, state: gamificationState } = useCustomerGamificationContext()
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [reservations, setReservations] = useState<Awaited<ReturnType<typeof getCustomerReservations>>>([])
   const [reviewsByCompanyId, setReviewsByCompanyId] = useState<Record<string, CompanyReview>>({})
@@ -46,6 +123,12 @@ function CustomerReservationsTab() {
   const [reviewPromotions, setReviewPromotions] = useState<PublicPromotion[]>([])
   const [reviewCatalogLoading, setReviewCatalogLoading] = useState(false)
   const [promotionsById, setPromotionsById] = useState<Record<string, PublicPromotion>>({})
+  const [pendingInvites, setPendingInvites] = useState<ReservationInvite[]>([])
+  const [acceptedInvites, setAcceptedInvites] = useState<ReservationInvite[]>([])
+  const [sentInvites, setSentInvites] = useState<ReservationInvite[]>([])
+  const [inviteModalReservationId, setInviteModalReservationId] = useState<string | null>(null)
+  const [inviteActionId, setInviteActionId] = useState<string | null>(null)
+  const [inviteError, setInviteError] = useState<string | null>(null)
 
   const loadCustomerReviews = useCallback(async (
     reservationRows: Reservation[],
@@ -74,15 +157,16 @@ function CustomerReservationsTab() {
     let cancelled = false
 
     void Promise.all([
-      getAllCompanies().then((companies) =>
-        companies
-          .filter((company) => hasRestaurantProfile(mapCompanyToPublicBooking(company)))
-          .map(mapCompanyToDiscoveryRestaurant),
-      ),
-      getCustomerReservations(profile.email),
+      fetchPublicDiscoveryRestaurants(),
+      getCustomerReservations(profile.email, user.uid),
       fetchPublicPromotions().catch(() => [] as PublicPromotion[]),
+      fetchReservationInvitesState().catch(() => ({
+        pending: [] as ReservationInvite[],
+        accepted: [] as ReservationInvite[],
+        sent: [] as ReservationInvite[],
+      })),
     ])
-      .then(async ([restaurantData, reservationData, promotionData]) => {
+      .then(async ([restaurantData, reservationData, promotionData, inviteData]) => {
         if (cancelled) {
           return
         }
@@ -90,6 +174,9 @@ function CustomerReservationsTab() {
         setRestaurants(restaurantData)
         setReservations(reservationData)
         setPromotionsById(Object.fromEntries(promotionData.map((promotion) => [promotion.id, promotion])))
+        setPendingInvites(inviteData.pending)
+        setAcceptedInvites(inviteData.accepted)
+        setSentInvites(inviteData.sent)
         await loadCustomerReviews(reservationData, user.uid)
       })
       .finally(() => {
@@ -109,12 +196,43 @@ function CustomerReservationsTab() {
   )
 
   const { upcoming, past } = useMemo(
-    () => splitCustomerReservations(reservations),
-    [reservations],
+    () => splitPlanItems(reservations, acceptedInvites),
+    [reservations, acceptedInvites],
   )
 
+  const sentInvitesByReservation = useMemo(() => {
+    const grouped: Record<string, ReservationInvite[]> = {}
+    for (const invite of sentInvites) {
+      const list = grouped[invite.reservationId] ?? []
+      list.push(invite)
+      grouped[invite.reservationId] = list
+    }
+    return grouped
+  }, [sentInvites])
+
   const visible = tab === 'upcoming' ? upcoming : past
-  const nextReservation = upcoming[0]
+  const nextItem = upcoming[0]
+  const modalInvites = inviteModalReservationId
+    ? sentInvitesByReservation[inviteModalReservationId] ?? []
+    : []
+
+  const handleInviteDecision = async (inviteId: string, decision: 'accept' | 'reject') => {
+    setInviteActionId(inviteId)
+    setInviteError(null)
+    try {
+      const invite = decision === 'accept'
+        ? await acceptReservationInvite(inviteId)
+        : await rejectReservationInvite(inviteId)
+      setPendingInvites((current) => current.filter((item) => item.id !== inviteId))
+      if (decision === 'accept') {
+        setAcceptedInvites((current) => [invite, ...current.filter((item) => item.id !== invite.id)])
+      }
+    } catch (error) {
+      setInviteError(error instanceof Error ? error.message : 'No se pudo responder a la invitación.')
+    } finally {
+      setInviteActionId(null)
+    }
+  }
 
   useEffect(() => {
     if (!verifyReservation) {
@@ -187,14 +305,15 @@ function CustomerReservationsTab() {
 
     await loadCustomerReviews(reservations, user.uid)
     await refreshProfile()
-  }, [loadCustomerReviews, refreshProfile, reservations, user])
+    void refreshGamificationData({ silent: true })
+  }, [loadCustomerReviews, refreshGamificationData, refreshProfile, reservations, user])
 
   const handleSubmitReview = async (input: CustomerReviewSubmitInput) => {
     if (!user || !profile?.gamification) {
       throw new Error('Debes iniciar sesión como cliente.')
     }
 
-    await submitCustomerReview(profile.gamification, {
+    const nextGamification = await submitCustomerReview(profile.gamification, {
       reservationId: input.reservationId,
       companyId: input.companyId,
       customerUid: user.uid,
@@ -206,6 +325,11 @@ function CustomerReservationsTab() {
       mediaItems: input.mediaItems,
       taggedProducts: input.taggedProducts,
       taggedPromotions: input.taggedPromotions,
+    })
+    patchProfileGamification({
+      inventory: nextGamification.inventory,
+      xp: nextGamification.xp,
+      adelinas: nextGamification.adelinas,
     })
     await refreshReviewsState()
   }
@@ -314,6 +438,50 @@ function CustomerReservationsTab() {
         </button>
       </div>
 
+      {pendingInvites.length > 0 ? (
+        <section className={styles.pendingInvites} aria-label="Invitaciones pendientes">
+          <h2>Te han invitado</h2>
+          {inviteError ? <p className={styles.inviteError}>{inviteError}</p> : null}
+          <ul>
+            {pendingInvites.map((invite) => (
+              <li key={invite.id} className={styles.pendingInvite}>
+                <div>
+                  <strong>{invite.companyName}</strong>
+                  <span>
+                    {invite.fromDisplayName} te invita ·{' '}
+                    {new Date(invite.startTime).toLocaleString('es-ES', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <div className={styles.pendingActions}>
+                  <button
+                    type="button"
+                    className={styles.acceptInvite}
+                    disabled={inviteActionId === invite.id}
+                    onClick={() => void handleInviteDecision(invite.id, 'accept')}
+                  >
+                    Aceptar
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.rejectInvite}
+                    disabled={inviteActionId === invite.id}
+                    onClick={() => void handleInviteDecision(invite.id, 'reject')}
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {visible.length === 0 ? (
         <div className={styles.empty}>
           <div className={styles.emptyIcon} aria-hidden="true">
@@ -335,27 +503,44 @@ function CustomerReservationsTab() {
         </div>
       ) : (
         <div className={styles.list}>
-          {visible.map((reservation) => (
-            <CustomerReservationCard
-              key={reservation.id}
-              reservation={reservation}
-              restaurant={restaurantById[reservation.companyId]}
-              promotion={
-                reservation.promotionId
-                  ? promotionsById[reservation.promotionId] ?? null
-                  : null
-              }
-              bucket={tab}
-              isNext={tab === 'upcoming' && reservation.id === nextReservation?.id}
-              onVerifyMinimumSpend={(reservation) => {
-                if (canCustomerVerifyMinimumSpend(reservation)) {
-                  setVerifyReservation(reservation)
+          {visible.map((item) => {
+            if (item.kind === 'guest') {
+              return (
+                <CustomerReservationCard
+                  key={item.reservation.id}
+                  reservation={item.reservation}
+                  restaurant={restaurantFromInvite(item.invite, restaurantById)}
+                  bucket={tab}
+                  variant="guest"
+                  hostName={item.invite.fromDisplayName}
+                />
+              )
+            }
+
+            return (
+              <CustomerReservationCard
+                key={item.reservation.id}
+                reservation={item.reservation}
+                restaurant={restaurantById[item.reservation.companyId]}
+                promotion={
+                  item.reservation.promotionId
+                    ? promotionsById[item.reservation.promotionId] ?? null
+                    : null
                 }
-              }}
-              onLeaveReview={setReviewReservation}
-              hasReviewForRestaurant={Boolean(reviewsByCompanyId[reservation.companyId])}
-            />
-          ))}
+                bucket={tab}
+                isNext={tab === 'upcoming' && item.reservation.id === nextItem?.reservation.id && nextItem.kind === 'owned'}
+                invites={sentInvitesByReservation[item.reservation.id] ?? []}
+                onOpenInvites={() => setInviteModalReservationId(item.reservation.id)}
+                onVerifyMinimumSpend={(reservation) => {
+                  if (canCustomerVerifyMinimumSpend(reservation)) {
+                    setVerifyReservation(reservation)
+                  }
+                }}
+                onLeaveReview={setReviewReservation}
+                hasReviewForRestaurant={Boolean(reviewsByCompanyId[item.reservation.companyId])}
+              />
+            )
+          })}
         </div>
       )}
 
@@ -371,6 +556,7 @@ function CustomerReservationsTab() {
         onSubmit={handleSubmitReview}
         onUpdate={handleUpdateReview}
         onDelete={handleDeleteReview}
+        reviewBoostPending={inventoryQuantity(gamificationState.inventory, REVIEW_BOOST_ITEM_ID) > 0}
       />
 
       <MinimumSpendVerificationModal
@@ -383,8 +569,19 @@ function CustomerReservationsTab() {
         }
         menuNodes={verifyMenuNodes}
         menuLoading={verifyMenuLoading}
+        tokenCover={
+          verifyReservation
+            ? pendingTokenSpendForCompany(gamificationState.pendingTokenSpend, verifyReservation.companyId)
+            : null
+        }
         onClose={() => setVerifyReservation(null)}
         onVerified={handleVerifiedMinimumSpend}
+      />
+
+      <ReservationInvitesModal
+        open={Boolean(inviteModalReservationId)}
+        invites={modalInvites}
+        onClose={() => setInviteModalReservationId(null)}
       />
     </div>
   )

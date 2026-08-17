@@ -19,7 +19,8 @@ import ReviewMediaUploader from './ReviewMediaUploader'
 import ReviewTagSearchPanel from './ReviewTagSearchPanel'
 import AdelinaRating, { AdelinaRatingInput } from './AdelinaRating'
 import { extractTagsFromComment, getReviewCommentPlainLength } from '../utils/reviewCommentTags'
-import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../utils/cloudinaryUrl'
+import { REVIEW_BOOST_ADELINAS, REVIEW_BOOST_XP } from '../data/inventoryItems'
 import styles from './CustomerReviewModal.module.css'
 
 type ReviewModalMode = 'manage' | 'create' | 'edit'
@@ -47,6 +48,7 @@ interface CustomerReviewModalProps {
   onSubmit: (input: CustomerReviewSubmitInput) => Promise<void>
   onUpdate: (input: CustomerReviewSubmitInput) => Promise<void>
   onDelete: (companyId: string) => Promise<void>
+  reviewBoostPending?: boolean
 }
 
 function cloneReviewState(review: CompanyReview | null) {
@@ -69,6 +71,7 @@ export default function CustomerReviewModal({
   onSubmit,
   onUpdate,
   onDelete,
+  reviewBoostPending = false,
 }: CustomerReviewModalProps) {
   const [mode, setMode] = useState<ReviewModalMode>('create')
   const [comment, setComment] = useState('')
@@ -213,7 +216,14 @@ export default function CustomerReviewModal({
                           className={styles.existingMediaPreview}
                         />
                       ) : (
-                        <video src={item.url} className={styles.existingMediaPreview} controls muted />
+                        <video
+                          src={optimizeCloudinaryVideoUrl(item.url)}
+                          className={styles.existingMediaPreview}
+                          controls
+                          muted
+                          preload="metadata"
+                          playsInline
+                        />
                       )}
                     </li>
                   ))}
@@ -262,6 +272,11 @@ export default function CustomerReviewModal({
             <p className={styles.message}>
               Cuéntanos tu experiencia en <strong>{restaurantName}</strong>.
             </p>
+            {reviewBoostPending && mode === 'create' ? (
+              <p className={styles.boostHint}>
+                Tienes una Nota del crítico: al publicar se gasta y esta reseña suma +{REVIEW_BOOST_XP} XP y +{REVIEW_BOOST_ADELINAS} Adelinas extra.
+              </p>
+            ) : null}
 
             <div className={styles.field}>
               Adelinas de reseña

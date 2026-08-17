@@ -11,6 +11,7 @@ import { COMPANY_CHARACTERISTIC_OPTIONS } from '../data/companyCharacteristics'
 import { completeCustomerOnboarding } from '../services/customerAuth'
 import type { CitySuggestion } from '../services/citySearch'
 import { getCustomerDestination } from '../utils/customerRouting'
+import { formatSpanishPhoneForStorage, isValidSpanishPhone } from '../utils/helpers'
 import styles from './CustomerOnboardingPage.module.css'
 
 function CustomerOnboardingPageContent() {
@@ -36,8 +37,10 @@ function CustomerOnboardingPageContent() {
       : null,
   )
   const [foodPreferences, setFoodPreferences] = useState<string[]>(profile?.foodPreferences ?? [])
+  const [phone, setPhone] = useState(profile?.phone ?? '')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const needsPhone = !isValidSpanishPhone(profile?.phone ?? '')
 
   if (user && profile && profile.onboardingCompleted && !isEditing) {
     return <Navigate to="/app/perfil" replace />
@@ -62,6 +65,11 @@ function CustomerOnboardingPageContent() {
       return
     }
 
+    if (needsPhone && !isValidSpanishPhone(phone)) {
+      setError('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678).')
+      return
+    }
+
     setIsSaving(true)
 
     try {
@@ -74,6 +82,9 @@ function CustomerOnboardingPageContent() {
         homeLatitude: coordinates?.lat ?? null,
         homeLongitude: coordinates?.lng ?? null,
         foodPreferences,
+        ...(needsPhone || isValidSpanishPhone(phone)
+          ? { phone: formatSpanishPhoneForStorage(phone) }
+          : {}),
       })
       await refreshProfile()
       navigate(isEditing ? '/app/perfil' : '/app/explorar', { replace: true })
@@ -118,6 +129,25 @@ function CustomerOnboardingPageContent() {
               label="Ciudad"
             />
           </div>
+
+          {needsPhone ? (
+            <label className={styles.field}>
+              <span className={styles.label}>Teléfono</span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                autoComplete="tel"
+                inputMode="tel"
+                placeholder="612 345 678"
+                required
+                className={styles.textInput}
+              />
+              <span className={styles.fieldHint}>
+                Obligatorio para cuentas nuevas. El restaurante podrá contactarte si hace falta.
+              </span>
+            </label>
+          ) : null}
 
           <div className={styles.field}>
             <span className={styles.label}>Ubicación en mapa (opcional)</span>

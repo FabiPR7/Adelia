@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type ChangeEvent } from 'react'
 import { uploadToCloudinary } from '../utils/cloudinaryUpload'
-import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../utils/cloudinaryUrl'
 import { adjustMainPhotoIndexAfterRemove } from '../utils/companyPhotos'
 import styles from './MediaGalleryUploader.module.css'
 
@@ -124,7 +124,13 @@ function MediaGalleryUploader({
                 decoding="async"
               />
             ) : (
-              <video src={url} className={styles.media} controls preload="none" />
+              <video
+                src={optimizeCloudinaryVideoUrl(url)}
+                className={styles.media}
+                controls
+                preload="none"
+                playsInline
+              />
             )}
             {canSetMain && (
               <button

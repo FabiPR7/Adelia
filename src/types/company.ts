@@ -13,6 +13,7 @@ export interface RestaurantTable {
   name: string
   capacity: number
   sortOrder: number
+  floorPlanId: string
 }
 
 export interface CompanySettingsPayload {
@@ -43,12 +44,14 @@ export interface CompanySettingsPayload {
   schedule: CompanySchedule
   turns: ServiceTurn[]
   floorPlan: FloorPlan
+  floorPlans: FloorPlan[]
 }
 
 export interface TableInput {
   id?: string
   name: string
   capacity: number
+  floorPlanId?: string
 }
 
 export interface FloorPlanTablePosition {
@@ -103,6 +106,8 @@ export const FLOOR_STYLE_IDS: FloorStyleId[] = [
 ]
 
 export interface FloorPlan {
+  id: string
+  name: string
   enabled: boolean
   backgroundColor: string
   backgroundImageUrl: string
@@ -112,6 +117,9 @@ export interface FloorPlan {
   tablePositions: FloorPlanTablePosition[]
   elements: FloorPlanElement[]
 }
+
+export const MAX_FLOOR_PLANS = 20
+export const MAX_FLOOR_PLAN_NAME_LENGTH = 40
 
 export const FLOOR_STYLE_OPTIONS: { id: FloorStyleId; label: string }[] = [
   { id: 'wine', label: 'Mosaico bar' },
@@ -157,8 +165,15 @@ export function createFloorPlanElement(type: FloorPlanElementType): FloorPlanEle
   }
 }
 
-export function defaultFloorPlan(): FloorPlan {
+export function sanitizeFloorPlanName(value: string, fallback = 'Salón'): string {
+  const name = value.trim().replace(/\s+/g, ' ').slice(0, MAX_FLOOR_PLAN_NAME_LENGTH)
+  return name || fallback
+}
+
+export function defaultFloorPlan(name = 'Salón'): FloorPlan {
   return {
+    id: generateUuid(),
+    name: sanitizeFloorPlanName(name),
     enabled: false,
     backgroundColor: '#6b2424',
     backgroundImageUrl: '',
@@ -170,6 +185,25 @@ export function defaultFloorPlan(): FloorPlan {
   }
 }
 
+export function createNamedFloorPlan(name: string, enabled = true): FloorPlan {
+  return {
+    ...defaultFloorPlan(name),
+    enabled,
+  }
+}
+
+export function primaryFloorPlan(plans: FloorPlan[]): FloorPlan {
+  return plans.find((plan) => plan.enabled) ?? plans[0] ?? defaultFloorPlan()
+}
+
+export function areFloorPlansEnabled(plans: FloorPlan[]): boolean {
+  return plans.some((plan) => plan.enabled)
+}
+
+export function enabledFloorPlans(plans: FloorPlan[]): FloorPlan[] {
+  return plans.filter((plan) => plan.enabled)
+}
+
 export function getTableMapKey(table: TableInput, index: number): string {
   return table.id ?? `draft-${index}`
 }
@@ -179,7 +213,17 @@ export function parseFloorPlan(value: unknown): FloorPlan {
     return defaultFloorPlan()
   }
 
-  const data = value as Partial<FloorPlan>
+  const data = value as Partial<FloorPlan> & { id?: unknown; name?: unknown }
+  const parsed = parseFloorPlanFields(data)
+
+  return {
+    id: typeof data.id === 'string' && data.id.trim() ? data.id.trim() : 'default',
+    name: sanitizeFloorPlanName(typeof data.name === 'string' ? data.name : 'Salón'),
+    ...parsed,
+  }
+}
+
+function parseFloorPlanFields(data: Partial<FloorPlan>): Omit<FloorPlan, 'id' | 'name'> {
   const tablePositions = Array.isArray(data.tablePositions)
     ? data.tablePositions
         .filter(
@@ -255,6 +299,64 @@ export function parseFloorPlan(value: unknown): FloorPlan {
   }
 }
 
+export function parseFloorPlans(value: unknown, legacy?: unknown): FloorPlan[] {
+  if (Array.isArray(value) && value.length > 0) {
+    const plans = value
+      .map((item, index) => {
+        const parsed = parseFloorPlan(item)
+        if (typeof item === 'object' && item !== null && typeof (item as { id?: unknown }).id !== 'string') {
+          return { ...parsed, id: `map-${index + 1}` }
+        }
+        return parsed
+      })
+      .slice(0, MAX_FLOOR_PLANS)
+
+    return ensureUniqueFloorPlanIds(plans)
+  }
+
+  const legacyPlan = parseFloorPlan(legacy)
+  return [{
+    ...legacyPlan,
+    id: legacyPlan.id || 'default',
+    name: legacyPlan.name || 'Salón',
+  }]
+}
+
+function ensureUniqueFloorPlanIds(plans: FloorPlan[]): FloorPlan[] {
+  const used = new Set<string>()
+
+  return plans.map((plan, index) => {
+    let id = plan.id.trim() || `map-${index + 1}`
+    let suffix = 2
+    while (used.has(id)) {
+      id = `${plan.id.trim() || 'map'}-${suffix}`
+      suffix += 1
+    }
+    used.add(id)
+    return { ...plan, id }
+  })
+}
+
+export function tableBelongsToFloorPlan(
+  table: TableInput,
+  plan: FloorPlan,
+  plans: FloorPlan[],
+): boolean {
+  if (table.floorPlanId) {
+    return table.floorPlanId === plan.id
+  }
+
+  return plans[0]?.id === plan.id
+}
+
+export function tablesForFloorPlan(
+  tables: TableInput[],
+  plan: FloorPlan,
+  plans: FloorPlan[],
+): TableInput[] {
+  return tables.filter((table) => tableBelongsToFloorPlan(table, plan, plans))
+}
+
 export function syncFloorPlanWithTables(floorPlan: FloorPlan, tables: TableInput[]): FloorPlan {
   const keys = tables.map((table, index) => getTableMapKey(table, index))
   const previous = new Map(floorPlan.tablePositions.map((item) => [item.tableKey, item]))
@@ -292,9 +394,24 @@ export function syncFloorPlanWithTables(floorPlan: FloorPlan, tables: TableInput
   }
 }
 
+export function syncAllFloorPlans(plans: FloorPlan[], tables: TableInput[]): FloorPlan[] {
+  const list = plans.length > 0 ? plans : [defaultFloorPlan()]
+  return list.map((plan) => syncFloorPlanWithTables(plan, tablesForFloorPlan(tables, plan, list)))
+}
+
+export function withFloorPlans(plans: FloorPlan[]): { floorPlans: FloorPlan[]; floorPlan: FloorPlan } {
+  const floorPlans = plans.length > 0 ? plans : [defaultFloorPlan()]
+  return {
+    floorPlans,
+    floorPlan: primaryFloorPlan(floorPlans),
+  }
+}
+
 /** Firestore no acepta `undefined`; omitimos campos opcionales vacíos. */
 export function serializeFloorPlanForFirestore(floorPlan: FloorPlan) {
   return {
+    id: floorPlan.id,
+    name: sanitizeFloorPlanName(floorPlan.name),
     enabled: floorPlan.enabled,
     backgroundColor: floorPlan.backgroundColor,
     backgroundImageUrl: floorPlan.backgroundImageUrl,
@@ -321,6 +438,10 @@ export function serializeFloorPlanForFirestore(floorPlan: FloorPlan) {
       ...(item.rotation !== undefined ? { rotation: item.rotation } : {}),
     })),
   }
+}
+
+export function serializeFloorPlansForFirestore(plans: FloorPlan[]) {
+  return plans.slice(0, MAX_FLOOR_PLANS).map(serializeFloorPlanForFirestore)
 }
 
 export type EmailTemplateKind = 'received' | 'confirmation'
@@ -794,9 +915,11 @@ export type SettingsSection =
 
 export type CompanySettingsSection = Exclude<SettingsSection, 'menu'>
 
-export type ReportsSection = 'reports-reservations' | 'reports-clients' | 'reports-products'
+export type ReportsSection = 'reports-reservations' | 'reports-clients' | 'reports-products' | 'reports-reviews'
 
-export type CompanyTab = 'reservations' | ClientsSection | ReportsSection | 'help' | SettingsSection
+export type CompiteSection = 'compite-notifications' | 'compite-missions' | 'compite-ranking'
+
+export type CompanyTab = 'reservations' | ClientsSection | ReportsSection | CompiteSection | 'help' | SettingsSection
 
 export const CLIENTS_SECTIONS: { id: ClientsSection; label: string; hint: string }[] = [
   { id: 'clients-reservations', label: 'Reservas', hint: 'Historial por cliente' },
@@ -810,6 +933,13 @@ export const REPORTS_SECTIONS: { id: ReportsSection; label: string; hint: string
   { id: 'reports-reservations', label: 'Reservas', hint: 'KPIs, gráficos y listado' },
   { id: 'reports-clients', label: 'Clientes', hint: 'Informes de clientes' },
   { id: 'reports-products', label: 'Productos', hint: 'Consumo verificado en promos' },
+  { id: 'reports-reviews', label: 'Reseñas', hint: 'Puntuación, estrellas y Adelinas' },
+]
+
+export const COMPITE_SECTIONS: { id: CompiteSection; label: string; hint: string }[] = [
+  { id: 'compite-notifications', label: 'Notificaciones', hint: 'Misiones, niveles y puntuación' },
+  { id: 'compite-missions', label: 'Misiones e insignias', hint: 'Retos, logros y tu nivel' },
+  { id: 'compite-ranking', label: 'Ranking', hint: 'Local y mundial' },
 ]
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: string }[] = [
@@ -829,13 +959,23 @@ export function isClientsTab(tab: CompanyTab): tab is ClientsSection {
 }
 
 export function isReportsTab(tab: CompanyTab): tab is ReportsSection {
-  return tab === 'reports-reservations' || tab === 'reports-clients' || tab === 'reports-products'
+  return tab === 'reports-reservations'
+    || tab === 'reports-clients'
+    || tab === 'reports-products'
+    || tab === 'reports-reviews'
+}
+
+export function isCompiteTab(tab: CompanyTab): tab is CompiteSection {
+  return tab === 'compite-notifications'
+    || tab === 'compite-missions'
+    || tab === 'compite-ranking'
 }
 
 export function isSettingsTab(tab: CompanyTab): tab is SettingsSection {
   return tab !== 'reservations'
     && !isClientsTab(tab)
     && !isReportsTab(tab)
+    && !isCompiteTab(tab)
     && tab !== 'help'
 }
 
