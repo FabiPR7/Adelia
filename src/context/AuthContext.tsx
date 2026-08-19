@@ -19,6 +19,7 @@ interface AuthContextValue {
   profile: AppUser | null
   company: Company | null
   isLoading: boolean
+  catalogReady: boolean
   refreshProfile: () => Promise<void>
   refreshCompany: () => Promise<void>
   patchProfileGamification: (patch: Partial<AppUser['gamification']>) => void
@@ -131,11 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       company,
       isLoading,
+      catalogReady: catalogTick > 0,
       refreshProfile,
       refreshCompany,
       patchProfileGamification,
     }),
-    [user, profile, company, isLoading, refreshProfile, refreshCompany, patchProfileGamification, catalogTick],
+    [user, profile, company, isLoading, catalogTick, refreshProfile, refreshCompany, patchProfileGamification],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

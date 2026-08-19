@@ -12,8 +12,11 @@ dist
 dist-ssr
 *.local
 .env
+.env.*
+!.env.example
 serviceAccountKey.json
 *firebase-adminsdk*.json
+*.pem
 functions/lib
 functions/server
 functions/node_modules

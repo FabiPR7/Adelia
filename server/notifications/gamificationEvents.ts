@@ -28,6 +28,16 @@ export async function notifyGamificationChanges(
 
   const beforeXp = typeof beforeGamification.xp === 'number' ? beforeGamification.xp : 0
   const afterXp = typeof afterGamification.xp === 'number' ? afterGamification.xp : 0
+  const beforeMissions = new Set(allCompletedMissionIds(beforeGamification))
+  const afterMissions = allCompletedMissionIds(afterGamification)
+  const newMissionIds = afterMissions.filter((missionId) => !beforeMissions.has(missionId))
+  const beforeWeekKey = typeof beforeGamification.weekKey === 'string' ? beforeGamification.weekKey : ''
+  const beforeHasProgress = beforeMissions.size > 0 || beforeXp > 0 || beforeWeekKey.length > 0
+
+  if (!beforeHasProgress) {
+    return
+  }
+
   const [beforeLevel, afterLevel] = await Promise.all([
     getLevelForXpFromCatalog(beforeXp),
     getLevelForXpFromCatalog(afterXp),
@@ -49,14 +59,13 @@ export async function notifyGamificationChanges(
     })
   }
 
-  const beforeMissions = new Set(allCompletedMissionIds(beforeGamification))
-  const afterMissions = allCompletedMissionIds(afterGamification)
+  const looksLikeHistoryReplay = beforeMissions.size === 0 && newMissionIds.length > 1
 
-  for (const missionId of afterMissions) {
-    if (beforeMissions.has(missionId)) {
-      continue
-    }
+  if (looksLikeHistoryReplay) {
+    return
+  }
 
+  for (const missionId of newMissionIds) {
     const mission = await getMissionCatalogEntry(missionId) ?? {
       name: 'Misión completada',
       icon: '🏅',

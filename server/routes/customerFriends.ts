@@ -281,11 +281,11 @@ function searchTokens(value: string): string[] {
   return foldSearchText(value).split(/\s+/).filter(Boolean)
 }
 
-function tokenMatchesHaystack(token: string, name: string, email: string, nameParts: string[]): boolean {
+function tokenMatchesHaystack(token: string, name: string, nameParts: string[]): boolean {
   if (!token) {
     return false
   }
-  if (name.includes(token) || email.includes(token)) {
+  if (name.includes(token)) {
     return true
   }
   return nameParts.some((part) => part.startsWith(token) || (part.length >= 3 && token.startsWith(part)))
@@ -296,21 +296,19 @@ function customerSearchScore(
   queryText: string,
 ): number {
   const name = foldSearchText(typeof data.displayName === 'string' ? data.displayName : '')
-  const email = foldSearchText(typeof data.email === 'string' ? data.email : '')
-  const localPart = email.split('@')[0] ?? ''
   const nameParts = searchTokens(name)
   const queryParts = searchTokens(queryText)
 
   if (queryParts.length === 0) {
     return 0
   }
-  if (!queryParts.every((token) => tokenMatchesHaystack(token, name, email, nameParts))) {
+  if (!queryParts.every((token) => tokenMatchesHaystack(token, name, nameParts))) {
     return 0
   }
-  if (name === queryText || email === queryText) {
+  if (name === queryText) {
     return 100
   }
-  if (name.startsWith(queryText) || localPart.startsWith(queryText)) {
+  if (name.startsWith(queryText)) {
     return 80
   }
   if (nameParts.some((part) => part.startsWith(queryParts[0] ?? ''))) {
@@ -322,7 +320,7 @@ function customerSearchScore(
 async function listCustomerUserDocs() {
   const snapshot = await adminDb.collection(COLLECTIONS.users)
     .where('role', '==', 'customer')
-    .limit(2000)
+    .limit(400)
     .get()
   return snapshot.docs
 }
@@ -330,8 +328,8 @@ async function listCustomerUserDocs() {
 router.get('/search', async (req: Request, res: Response) => {
   try {
     const user = await verifyCustomerUid(req)
-    const queryText = foldSearchText(String(req.query.q ?? ''))
-    if (queryText.length < 2) {
+    const queryText = foldSearchText(String(req.query.q ?? '')).slice(0, 40)
+    if (queryText.length < 3) {
       res.json({ results: [] })
       return
     }

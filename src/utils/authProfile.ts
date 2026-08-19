@@ -31,10 +31,20 @@ export async function resolveMustChangePassword(
 }
 
 export function resolveSafeRedirect(redirect: string | null | undefined): string | null {
-  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) {
+  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//') || redirect.includes('\\')) {
     return null
   }
-
+  if (/[\t\n\r]/.test(redirect) || redirect.includes('://')) {
+    return null
+  }
+  try {
+    const parsed = new URL(redirect, 'https://adeliareservas.com')
+    if (parsed.origin !== 'https://adeliareservas.com' || parsed.username || parsed.password) {
+      return null
+    }
+  } catch {
+    return null
+  }
   return redirect
 }
 

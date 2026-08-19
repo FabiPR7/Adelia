@@ -9,6 +9,7 @@ export const COLLECTIONS = {
   friendRequests: 'friendRequests',
   friendFavorites: 'friendFavorites',
   reservationInvites: 'reservationInvites',
+  reservationChallenges: 'reservationChallenges',
   userGamification: 'userGamification',
   companyGamification: 'companyGamification',
   promotionClaims: 'promotionClaims',

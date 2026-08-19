@@ -1,27 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CelebrationEvent, CelebrationProgress } from '../utils/gamificationCelebration'
 import {
-  applyProgressToReceipts,
-  buildCelebrationEvents,
   mergeCelebrationReceipts,
+  missionCelebrationEvents,
+  missionReceiptsForProgress,
   readCelebrationReceipts,
-  receiptsToSnapshot,
+  unseenMissionCompletions,
   writeCelebrationReceipts,
 } from '../utils/gamificationCelebration'
 
 interface UseGamificationCelebrationsOptions {
   userId?: string
-  userName: string
-  xp: number
-  level: number
-  levelTitle: string
   weeklyCompleted: string[]
   monthlyCompleted: string[]
   completedMissions: string[]
   celebratedMissionIds: string[]
-  celebrationsBootstrapped: boolean
+  weekKey: string
+  monthKey: string
   enabled: boolean
-  hydrated: boolean
+  ready: boolean
   paused?: boolean
   onPersistReceipts?: (payload: {
     missionIds: string[]
@@ -29,37 +26,32 @@ interface UseGamificationCelebrationsOptions {
   }) => void
 }
 
-function progressFingerprint(xp: number, progress: CelebrationProgress, seenMissions: string[]): string {
-  return [
-    xp,
-    [...progress.weeklyCompleted].sort().join(','),
-    [...progress.monthlyCompleted].sort().join(','),
-    [...progress.completedMissions].sort().join(','),
-    [...seenMissions].sort().join(','),
-  ].join('|')
+function rememberLocalReceipts(userId: string, missionIds: string[]) {
+  const current = readCelebrationReceipts(userId)
+  writeCelebrationReceipts(userId, mergeCelebrationReceipts(current, {
+    bootstrapped: true,
+    missionIds,
+  }))
 }
 
 export function useGamificationCelebrations({
   userId,
-  userName,
-  xp,
-  level,
-  levelTitle,
   weeklyCompleted,
   monthlyCompleted,
   completedMissions,
   celebratedMissionIds,
-  celebrationsBootstrapped,
+  weekKey,
+  monthKey,
   enabled,
-  hydrated,
+  ready,
   paused = false,
   onPersistReceipts,
 }: UseGamificationCelebrationsOptions) {
   const [queue, setQueue] = useState<CelebrationEvent[]>([])
   const [activeEvent, setActiveEvent] = useState<CelebrationEvent | null>(null)
-  const [rankJustImproved, setRankJustImproved] = useState(false)
-  const [levelJustUp, setLevelJustUp] = useState(false)
-  const lastFingerprintRef = useRef<string | null>(null)
+  const primedUserRef = useRef<string | null>(null)
+  const absorbingInitialRef = useRef(false)
+  const seenRef = useRef<Set<string>>(new Set())
   const persistRef = useRef(onPersistReceipts)
   persistRef.current = onPersistReceipts
 
@@ -74,76 +66,104 @@ export function useGamificationCelebrations({
   }, [])
 
   useEffect(() => {
-    if (!enabled || !userId || !hydrated) {
+    if (!userId) {
+      primedUserRef.current = null
+      absorbingInitialRef.current = false
+      seenRef.current = new Set()
+      setQueue([])
+      setActiveEvent(null)
       return
     }
 
-    const local = readCelebrationReceipts(userId)
-    const receipts = mergeCelebrationReceipts(local, {
-      bootstrapped: celebrationsBootstrapped,
-      missionIds: celebratedMissionIds,
-    })
-
-    if (!receipts.bootstrapped) {
-      lastFingerprintRef.current = null
+    if (!enabled || !ready) {
       return
     }
 
-    const fingerprint = progressFingerprint(xp, progress, receipts.missionIds)
-    if (lastFingerprintRef.current === fingerprint) {
+    const receipts = missionReceiptsForProgress(progress, weekKey, monthKey)
+    const rawIds = [...weeklyCompleted, ...monthlyCompleted, ...completedMissions]
+
+    if (primedUserRef.current !== userId) {
+      primedUserRef.current = userId
+      const localIds = readCelebrationReceipts(userId).missionIds
+      seenRef.current = new Set([
+        ...localIds,
+        ...celebratedMissionIds,
+        ...receipts,
+        ...rawIds,
+      ])
+      absorbingInitialRef.current = receipts.length === 0 && rawIds.length === 0
+      const missionIds = [...seenRef.current]
+      rememberLocalReceipts(userId, missionIds)
+      const alreadyStored = receipts.every((key) => celebratedMissionIds.includes(key))
+        && rawIds.every((id) => celebratedMissionIds.includes(id))
+      if (!alreadyStored && missionIds.length > 0) {
+        persistRef.current?.({
+          missionIds,
+          bootstrapped: true,
+        })
+      }
       return
     }
 
-    const events = buildCelebrationEvents(
-      receiptsToSnapshot(receipts),
-      userName,
-      xp,
-      level,
-      levelTitle,
+    if (absorbingInitialRef.current) {
+      for (const key of receipts) {
+        seenRef.current.add(key)
+      }
+      for (const id of rawIds) {
+        seenRef.current.add(id)
+      }
+      absorbingInitialRef.current = receipts.length === 0 && rawIds.length === 0
+      if (!absorbingInitialRef.current) {
+        rememberLocalReceipts(userId, [...seenRef.current])
+        persistRef.current?.({
+          missionIds: [...seenRef.current],
+          bootstrapped: true,
+        })
+      }
+      return
+    }
+
+    const unseen = unseenMissionCompletions(
       progress,
-    ).filter((event) => event.kind !== 'level_up')
+      [...seenRef.current, ...celebratedMissionIds],
+      weekKey,
+      monthKey,
+    ).filter((item) => (
+      !seenRef.current.has(item.receiptKey) && !seenRef.current.has(item.id)
+    ))
 
-    lastFingerprintRef.current = fingerprint
-
-    if (events.length === 0) {
+    if (unseen.length === 0) {
       return
     }
 
-    const nextReceipts = applyProgressToReceipts(receipts, userName, xp, level, levelTitle, progress)
-    writeCelebrationReceipts(userId, nextReceipts)
+    for (const item of unseen) {
+      seenRef.current.add(item.receiptKey)
+      seenRef.current.add(item.id)
+    }
+
+    const missionIds = [...seenRef.current]
+    rememberLocalReceipts(userId, missionIds)
     persistRef.current?.({
-      missionIds: nextReceipts.missionIds,
+      missionIds,
       bootstrapped: true,
     })
 
-    if (events.some((event) => event.kind === 'rank_up')) {
-      setRankJustImproved(true)
-      window.setTimeout(() => setRankJustImproved(false), 4500)
-    }
-
-    if (level > receipts.lastCelebratedLevel && receipts.lastCelebratedLevel > 0) {
-      setLevelJustUp(true)
-      window.setTimeout(() => setLevelJustUp(false), 4500)
-    }
-
+    const events = missionCelebrationEvents(unseen)
     setQueue((current) => {
-      const seen = new Set(current.map((event) => event.id))
-      const fresh = events.filter((event) => !seen.has(event.id))
+      const seenEvents = new Set(current.map((event) => event.id))
+      const fresh = events.filter((event) => !seenEvents.has(event.id))
       return fresh.length > 0 ? [...current, ...fresh] : current
     })
   }, [
     celebratedMissionIds,
-    celebrationsBootstrapped,
     completedMissions,
     enabled,
-    hydrated,
-    level,
-    levelTitle,
+    monthKey,
     monthlyCompleted,
+    ready,
     userId,
-    userName,
+    weekKey,
     weeklyCompleted,
-    xp,
   ])
 
   useEffect(() => {
@@ -171,8 +191,8 @@ export function useGamificationCelebrations({
   return {
     activeEvent,
     dismissActive,
-    rankJustImproved,
-    levelJustUp,
+    rankJustImproved: false,
+    levelJustUp: false,
     hasCelebration: Boolean(activeEvent),
   }
 }

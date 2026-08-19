@@ -4,6 +4,7 @@ import { PROFILE_REWARDS } from '../data/gamificationLevels'
 import { useAuth } from '../context/AuthContext'
 import { updateCustomerGamification } from '../services/firestore'
 import { syncGamificationNotifications } from '../services/customerNotifications'
+import { mergeMonotonicCelebrations } from '../utils/gamificationCelebration'
 import type { Reservation } from '../types'
 import type { CustomerGamificationState, MissionProgress } from '../types/gamification'
 import { defaultGamificationState } from '../types/gamification'
@@ -30,6 +31,14 @@ interface UseCustomerGamificationOptions {
   enabled: boolean
 }
 
+function completedMissionIdsFromState(state: CustomerGamificationState): string[] {
+  return [...new Set([
+    ...state.weeklyCompleted,
+    ...state.monthlyCompleted,
+    ...state.completedMissions,
+  ])]
+}
+
 export function useCustomerGamification({
   reservations,
   favoriteSlugs,
@@ -42,12 +51,15 @@ export function useCustomerGamification({
     profile?.gamification ?? defaultGamificationState(),
   )
   const [syncing, setSyncing] = useState(false)
+  const [evaluatedTick, setEvaluatedTick] = useState(0)
   const persistedRef = useRef<string>('')
 
   useEffect(() => {
-    if (profile?.gamification) {
-      setState(profile.gamification)
+    if (!profile?.gamification) {
+      return
     }
+
+    setState((current) => mergeMonotonicCelebrations(current, profile.gamification))
   }, [profile?.gamification])
 
   const weekKey = getWeekKey()
@@ -157,6 +169,7 @@ export function useCustomerGamification({
       reservations,
       favoriteSlugs,
     )
+    setEvaluatedTick((tick) => tick + 1)
 
     const fingerprint = JSON.stringify({
       xp: nextState.xp,
@@ -193,14 +206,20 @@ export function useCustomerGamification({
     }
 
     persistedRef.current = fingerprint
-    setState(nextState)
+    const merged = mergeMonotonicCelebrations(evaluationState, nextState)
+    setState(merged)
     setSyncing(true)
 
     const beforeGamification = { ...evaluationState }
 
-    void updateCustomerGamification(user.uid, nextState)
+    void updateCustomerGamification(user.uid, merged)
       .then(async () => {
-        await syncGamificationNotifications(beforeGamification)
+        const beforeIds = new Set(completedMissionIdsFromState(beforeGamification))
+        const newIds = completedMissionIdsFromState(merged).filter((id) => !beforeIds.has(id))
+        const looksLikeHistoryReplay = beforeIds.size === 0 && newIds.length > 1
+        if (newIds.length > 0 && !looksLikeHistoryReplay) {
+          await syncGamificationNotifications(beforeGamification)
+        }
         return refreshProfile()
       })
       .catch(() => {
@@ -233,6 +252,7 @@ export function useCustomerGamification({
     weeklyBonus,
     unlockedRewards,
     syncing,
+    evaluatedTick,
     weeklyFeaturedCategory: context.weeklyFeaturedCategory,
   }
 }

@@ -26,6 +26,7 @@
     "optimize-levels": "node scripts/optimize-level-assets.mjs"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/leaflet": "^1.9.22",
@@ -43,6 +44,7 @@
     "@stripe/react-stripe-js": "^6.8.1",
     "@stripe/stripe-js": "^9.13.0",
     "@tailwindcss/vite": "^4.3.3",
+    "canvas-confetti": "^1.9.4",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -50,6 +52,7 @@
     "firebase-admin": "^14.2.0",
     "framer-motion": "^13.0.0",
     "leaflet": "^1.9.4",
+    "lucide-react": "^1.31.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

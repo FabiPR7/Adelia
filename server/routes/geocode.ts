@@ -10,7 +10,7 @@ interface PhotonFeature {
 
 router.get('/', async (req, res) => {
   try {
-    const query = String(req.query.q ?? '').trim()
+    const query = String(req.query.q ?? '').trim().slice(0, 80)
 
     if (query.length < 2) {
       res.status(400).json({ error: 'Indica una dirección o ciudad.' })

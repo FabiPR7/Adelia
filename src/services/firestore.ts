@@ -13,6 +13,7 @@ import {
   updateDoc,
   where,
   writeBatch,
+  deleteField,
 } from 'firebase/firestore'
 import { db, auth } from '../config/firebase'
 import type {
@@ -76,20 +77,6 @@ export async function syncCompanyLoginIndex(
   })
 }
 
-async function getCompanyAuthEmail(companyId: string): Promise<string | null> {
-  try {
-    const credentialsSnap = await getDoc(doc(db, 'companyCredentials', companyId))
-
-    if (!credentialsSnap.exists()) {
-      return null
-    }
-
-    return (credentialsSnap.data().authEmail as string | undefined) ?? null
-  } catch {
-    return null
-  }
-}
-
 export async function resolveLoginAuthEmail(username: string): Promise<string> {
   const trimmed = username.trim()
 
@@ -97,33 +84,22 @@ export async function resolveLoginAuthEmail(username: string): Promise<string> {
     throw new Error('Indica tu nombre de usuario.')
   }
 
-  const normalized = slugify(trimmed)
-  const loginSnap = await getDoc(doc(db, 'logins', normalized))
+  const response = await fetch(`${API_BASE}/api/auth/resolve-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ loginName: trimmed }),
+  })
 
-  if (loginSnap.exists()) {
-    const authEmail = loginSnap.data().authEmail as string | undefined
-
-    if (authEmail) {
-      return authEmail
-    }
+  if (!response.ok) {
+    throw new Error('Nombre o contraseña incorrectos.')
   }
 
-  const companyBySlug = await getDocs(
-    query(collection(db, 'companies'), where('slug', '==', normalized)),
-  )
-
-  if (!companyBySlug.empty) {
-    const companyId = companyBySlug.docs[0].id
-    const credentialsAuthEmail = await getCompanyAuthEmail(companyId)
-
-    if (credentialsAuthEmail) {
-      return credentialsAuthEmail
-    }
-
-    return slugToAuthEmail(normalized)
+  const data = (await response.json()) as { authEmail?: string }
+  if (!data.authEmail) {
+    throw new Error('Nombre o contraseña incorrectos.')
   }
 
-  return slugToAuthEmail(normalized)
+  return data.authEmail
 }
 
 export async function ensureCompanyLoginIndex(companyId: string): Promise<void> {
@@ -145,6 +121,12 @@ export async function ensureCompanyLoginIndex(companyId: string): Promise<void> 
 
   if (!loginName || !authEmail) {
     return
+  }
+
+  if ('loginPassword' in credentialsSnap.data()) {
+    await updateDoc(doc(db, 'companyCredentials', companyId), {
+      loginPassword: deleteField(),
+    }).catch(() => undefined)
   }
 
   await syncCompanyLoginIndex(loginName, authEmail, companyId)
@@ -279,6 +261,21 @@ function mapUserProfileRecord(
   }
 }
 
+function parseCelebratedLevel(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.trunc(value)
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.trunc(parsed)
+    }
+  }
+
+  return null
+}
+
 function parseGamificationData(data: Record<string, unknown>): CustomerGamificationState {
   const base = defaultGamificationState()
   const raw = data.gamification
@@ -355,9 +352,7 @@ function parseGamificationData(data: Record<string, unknown>): CustomerGamificat
       && !Array.isArray(gamification.ladderCompletionsByCompany)
         ? (gamification.ladderCompletionsByCompany as Record<string, number>)
         : {},
-    lastCelebratedLevel: typeof gamification.lastCelebratedLevel === 'number'
-      ? gamification.lastCelebratedLevel
-      : null,
+    lastCelebratedLevel: parseCelebratedLevel(gamification.lastCelebratedLevel),
     celebratedMissionIds: Array.isArray(gamification.celebratedMissionIds)
       ? (gamification.celebratedMissionIds as unknown[]).filter((id): id is string => (
         typeof id === 'string' && id.trim().length > 0
@@ -760,7 +755,7 @@ export async function getAdminCompanies(): Promise<AdminCompany[]> {
       return {
         ...company,
         loginName: (credentials?.loginName as string) ?? company.name,
-        loginPassword: (credentials?.loginPassword as string) ?? '—',
+        loginPassword: '—',
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'es'))

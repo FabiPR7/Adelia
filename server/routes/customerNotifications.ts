@@ -148,12 +148,17 @@ router.post('/gamification-sync', async (req: Request, res: Response) => {
       return
     }
 
+    const statsSnap = await adminDb.collection('userGamification').doc(uid).get()
+    const afterState = statsSnap.data()?.state && typeof statsSnap.data()?.state === 'object'
+      ? statsSnap.data()?.state as FirebaseFirestore.DocumentData
+      : userSnap.data()?.gamification
+
     await notifyGamificationChanges(
       uid,
       beforeGamification && typeof beforeGamification === 'object'
         ? { gamification: beforeGamification as FirebaseFirestore.DocumentData }
-        : undefined,
-      userSnap.data()!,
+        : { gamification: afterState ?? {} },
+      { gamification: afterState ?? {} },
     )
 
     res.json({ ok: true })

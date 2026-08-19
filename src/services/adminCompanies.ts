@@ -111,7 +111,6 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
 
   batch.set(doc(db, 'companyCredentials', companyId), {
     loginName: name,
-    loginPassword: password,
     authEmail: email,
     ownerUid,
     mustChangePassword: true,

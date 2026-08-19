@@ -40,7 +40,16 @@ function mediaItems(value: unknown): Array<{ url: string; type: 'image' | 'video
     const record = item as Record<string, unknown>
     const url = typeof record.url === 'string' ? record.url.trim() : ''
     const type = record.type === 'video' ? 'video' : record.type === 'image' ? 'image' : null
-    return url && type ? [{ url, type }] : []
+    if (!url || !type) return []
+    try {
+      const parsed = new URL(url)
+      const host = parsed.hostname.toLowerCase()
+      const allowed = parsed.protocol === 'https:'
+        && (host === 'res.cloudinary.com' || host.endsWith('.cloudinary.com'))
+      return allowed ? [{ url: parsed.toString(), type }] : []
+    } catch {
+      return []
+    }
   })
 }
 
@@ -48,7 +57,7 @@ function reviewInput(body: unknown) {
   const data = body && typeof body === 'object' ? body as Record<string, unknown> : {}
   const companyId = String(data.companyId ?? '').trim()
   const reservationId = String(data.reservationId ?? '').trim()
-  const comment = String(data.comment ?? '').trim()
+  const comment = String(data.comment ?? '').trim().slice(0, 2000)
   const rating = ratingValue(data.rating)
   const media = mediaItems(data.mediaItems)
   if (!companyId || !reservationId || comment.length < 10) {
@@ -82,11 +91,12 @@ async function assertReservationOwnership(
   const snap = await adminDb.collection('reservations').doc(reservationId).get()
   const data = snap.data()
   const ownedByUid = typeof data?.customerUid === 'string' && data.customerUid === uid
-  const ownedByEmail = String(data?.clientEmail ?? '').trim().toLowerCase() === email
+  const ownedByUnlinkedEmail = !data?.customerUid
+    && String(data?.clientEmail ?? '').trim().toLowerCase() === email
   if (
     !snap.exists
     || data?.companyId !== companyId
-    || (!ownedByUid && !ownedByEmail)
+    || (!ownedByUid && !ownedByUnlinkedEmail)
     || data?.status !== 'confirmed'
   ) {
     throw new Error('Solo puedes reseñar una reserva confirmada que pertenezca a tu cuenta.')

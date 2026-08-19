@@ -15,6 +15,7 @@ import reservationEmailRouter from './routes/reservationEmail.ts'
 import customerNotificationsRouter from './routes/customerNotifications.ts'
 import customerFriendsRouter from './routes/customerFriends.ts'
 import customerReservationInvitesRouter from './routes/customerReservationInvites.ts'
+import customerReservationChallengesRouter from './routes/customerReservationChallenges.ts'
 import customerGamificationRouter from './routes/customerGamification.ts'
 import customerReviewsRouter from './routes/customerReviews.ts'
 import companyGamificationRouter from './routes/companyGamification.ts'
@@ -22,55 +23,39 @@ import companyNotificationsRouter from './routes/companyNotifications.ts'
 import { handleStripeWebhook } from './routes/stripeWebhook.ts'
 import { canUseAdminSdk } from './firebase-admin.ts'
 import { verifyAdmin } from './auth/verifyRequest.ts'
-
-const DEFAULT_CORS_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:4173',
-  'https://adeliareservas.com',
-  'https://www.adeliareservas.com',
-]
-
-function isAllowedOrigin(origin: string): boolean {
-  const configured = (process.env.CORS_ORIGINS ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean)
-  if ([...DEFAULT_CORS_ORIGINS, ...configured].includes(origin)) {
-    return true
-  }
-
-  try {
-    const { hostname, protocol } = new URL(origin)
-    return (
-      (hostname === 'localhost' && (protocol === 'http:' || protocol === 'https:'))
-      || (protocol === 'https:' && (
-        hostname.endsWith('.web.app')
-        || hostname.endsWith('.firebaseapp.com')
-      ))
-    )
-  } catch {
-    return false
-  }
-}
+import { isAllowedOrigin } from './security/origins.ts'
+import { securityHeaders } from './security/headers.ts'
+import { sanitizeRequest } from './security/sanitize.ts'
+import { apiRateLimit } from './security/rateLimit.ts'
+import { InputError } from './security/validate.ts'
 
 export function createApp() {
   const app = express()
+  app.disable('x-powered-by')
+  app.set('trust proxy', 1)
 
+  app.use(securityHeaders)
   app.use(cors({
     origin(origin, callback) {
       callback(null, !origin || isAllowedOrigin(origin))
     },
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Internal-Secret'],
+    maxAge: 600,
   }))
 
   app.post(
     '/api/stripe/webhook',
-    express.raw({ type: 'application/json' }),
+    express.raw({ type: 'application/json', limit: '1mb' }),
     (req, res) => {
       void handleStripeWebhook(req, res)
     },
   )
 
-  app.use(express.json())
+  app.use(express.json({ limit: '256kb' }))
+  app.use(express.urlencoded({ extended: false, limit: '32kb' }))
+  app.use(sanitizeRequest)
+  app.use(apiRateLimit)
 
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -94,10 +79,17 @@ export function createApp() {
   app.use('/api/customer/notifications', customerNotificationsRouter)
   app.use('/api/customer/friends', customerFriendsRouter)
   app.use('/api/customer/reservation-invites', customerReservationInvitesRouter)
+  app.use('/api/customer/reservation-challenges', customerReservationChallengesRouter)
   app.use('/api/customer/gamification', customerGamificationRouter)
   app.use('/api/company', companyGamificationRouter)
   app.use('/api/company', companyNotificationsRouter)
   app.use('/api/customer/reviews', customerReviewsRouter)
+
+  app.use('/api', (req, res) => {
+    res.status(404).json({
+      error: `No existe ${req.method} ${req.originalUrl}. Reinicia npm run dev.`,
+    })
+  })
 
   app.use(
     (
@@ -106,10 +98,12 @@ export function createApp() {
       res: express.Response,
       _next: express.NextFunction,
     ) => {
+      if (error instanceof InputError) {
+        res.status(400).json({ error: error.message })
+        return
+      }
       console.error('API error:', error)
-      const message =
-        error instanceof Error ? error.message : 'Error interno del servidor.'
-      res.status(500).json({ error: message })
+      res.status(500).json({ error: 'Error interno del servidor.' })
     },
   )
 

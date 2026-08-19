@@ -32,7 +32,7 @@ import { getGamificationLevelByNumber } from '../data/gamificationLevels'
 import type { Reservation } from '../types'
 import type { ClaimedPromotionRecord } from '../types/gamification'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
-import { buildVerifiedReservationCounts } from '../utils/gamificationProgress'
+import { buildVerifiedReservationCounts, getWeekKey } from '../utils/gamificationProgress'
 import { mergeTokenCredits } from '../data/inventoryItems'
 import { buildPendingReservationCounts } from '../utils/promotionReservationProgress'
 import { resolvePromotionHighlight } from '../utils/promotionOffer'
@@ -45,8 +45,9 @@ import type { CompanyLadderRuntime } from '../utils/promotionReservationProgress
 import type { CustomerGamificationView } from '../hooks/useCustomerGamification'
 import type { LevelUpStep } from '../hooks/useLevelUpCelebration'
 import {
-  bootstrapCelebrationReceipts,
   mergeCelebrationReceipts,
+  missionReceiptsForProgress,
+  missionReceiptsToMigrate,
   readCelebrationReceipts,
   writeCelebrationReceipts,
   type CelebrationEvent,
@@ -89,7 +90,7 @@ interface CustomerGamificationContextValue extends CustomerGamificationView {
 const CustomerGamificationContext = createContext<CustomerGamificationContextValue | null>(null)
 
 export function CustomerGamificationProvider({ children }: { children: ReactNode }) {
-  const { user, profile, refreshProfile, patchProfileGamification } = useAuth()
+  const { user, profile, refreshProfile, patchProfileGamification, catalogReady } = useAuth()
   const isCustomer = profile?.role === 'customer'
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -97,7 +98,10 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
   const [storedClaims, setStoredClaims] = useState<ClaimedPromotionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [previewStep, setPreviewStep] = useState<LevelUpStep | null>(null)
+  const [celebrationReady, setCelebrationReady] = useState(false)
   const lastRewardNotificationRef = useRef('')
+  const catchUpKeyRef = useRef('')
+  const evaluatedTickAtLoadRef = useRef<number | null>(null)
 
   const refreshGamificationData = useCallback(async (options?: { silent?: boolean }) => {
     if (!isCustomer || !profile?.email) {
@@ -141,13 +145,41 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     favoriteSlugs,
     restaurants,
     promotionCompanyIds,
-    enabled: isCustomer,
+    enabled: isCustomer && !loading,
   })
 
   const hydrated = Boolean(isCustomer && user?.uid && profile)
+  const weekKey = gamification.state.weekKey || getWeekKey()
+  const monthKey = gamification.state.monthKey || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 
   useEffect(() => {
     if (!hydrated || !user?.uid || !profile) {
+      setCelebrationReady(false)
+      catchUpKeyRef.current = ''
+      evaluatedTickAtLoadRef.current = null
+      return
+    }
+
+    if (loading) {
+      if (evaluatedTickAtLoadRef.current === null) {
+        evaluatedTickAtLoadRef.current = gamification.evaluatedTick
+      }
+      return
+    }
+
+    if (!catalogReady) {
+      return
+    }
+
+    if (evaluatedTickAtLoadRef.current === null) {
+      evaluatedTickAtLoadRef.current = gamification.evaluatedTick
+    }
+
+    if (gamification.evaluatedTick <= evaluatedTickAtLoadRef.current) {
+      return
+    }
+
+    if (celebrationReady) {
       return
     }
 
@@ -156,85 +188,91 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       monthlyCompleted: gamification.state.monthlyCompleted,
       completedMissions: gamification.state.completedMissions,
     }
-    const local = readCelebrationReceipts(user.uid)
-    const merged = mergeCelebrationReceipts(local, {
-      bootstrapped: gamification.state.celebrationsBootstrapped,
-      lastCelebratedLevel: gamification.state.lastCelebratedLevel ?? 0,
-      missionIds: gamification.state.celebratedMissionIds,
-    })
+    const receipts = missionReceiptsForProgress(progress, weekKey, monthKey)
+    const migrateKeys = missionReceiptsToMigrate(
+      progress,
+      gamification.state.celebratedMissionIds,
+      weekKey,
+      monthKey,
+    )
+    const lastLevel = Math.max(
+      gamification.state.lastCelebratedLevel ?? 0,
+      user?.uid ? readCelebrationReceipts(user.uid).lastCelebratedLevel : 0,
+    )
+    const celebrated = gamification.state.celebratedMissionIds
+    const currentLevel = gamification.level.level
+    const needsLevelCatchUp = lastLevel < currentLevel
+    const needsMissionBootstrap = !gamification.state.celebrationsBootstrapped
+      || (celebrated.length === 0 && receipts.length > 0)
+    const missionIds = [...new Set([
+      ...celebrated,
+      ...migrateKeys,
+      ...(needsMissionBootstrap ? receipts : []),
+    ])]
+    const needsCatchUp = needsLevelCatchUp || needsMissionBootstrap || migrateKeys.length > 0
 
-    if (merged.bootstrapped) {
-      writeCelebrationReceipts(user.uid, merged)
-
-      if (!gamification.state.celebrationsBootstrapped) {
-        const level = Math.max(merged.lastCelebratedLevel, gamification.level.level)
+    if (needsCatchUp) {
+      const level = Math.max(lastLevel, currentLevel)
+      const catchUpKey = `${user.uid}:${level}:${missionIds.join(',')}`
+      if (catchUpKeyRef.current !== catchUpKey) {
+        catchUpKeyRef.current = catchUpKey
         patchProfileGamification({
           lastCelebratedLevel: level,
-          celebratedMissionIds: merged.missionIds,
+          celebratedMissionIds: missionIds,
           celebrationsBootstrapped: true,
         })
+        writeCelebrationReceipts(user.uid, mergeCelebrationReceipts(readCelebrationReceipts(user.uid), {
+          bootstrapped: true,
+          lastCelebratedLevel: level,
+          missionIds,
+        }))
         void acknowledgeCelebrations({
           level,
-          missionIds: merged.missionIds,
+          missionIds,
           bootstrapped: true,
         })
       }
-
       return
     }
 
-    const next = bootstrapCelebrationReceipts(
-      profile.displayName ?? '',
-      gamification.state.xp,
-      gamification.level.level,
-      gamification.level.title,
-      progress,
-      {
-        lastCelebratedLevel: gamification.state.lastCelebratedLevel ?? 0,
-        missionIds: gamification.state.celebratedMissionIds,
-      },
-    )
-
-    writeCelebrationReceipts(user.uid, next)
-    patchProfileGamification({
-      lastCelebratedLevel: next.lastCelebratedLevel,
-      celebratedMissionIds: next.missionIds,
-      celebrationsBootstrapped: true,
-    })
-    void acknowledgeCelebrations({
-      level: next.lastCelebratedLevel,
-      missionIds: next.missionIds,
-      bootstrapped: true,
-    })
+    setCelebrationReady(true)
   }, [
+    catalogReady,
+    celebrationReady,
+    gamification.evaluatedTick,
     gamification.level.level,
-    gamification.level.title,
     gamification.state.celebratedMissionIds,
     gamification.state.celebrationsBootstrapped,
     gamification.state.completedMissions,
     gamification.state.lastCelebratedLevel,
     gamification.state.monthlyCompleted,
     gamification.state.weeklyCompleted,
-    gamification.state.xp,
     hydrated,
+    loading,
+    monthKey,
     patchProfileGamification,
     profile,
     user?.uid,
+    weekKey,
   ])
 
   const persistMissionReceipts = useCallback((payload: {
     missionIds: string[]
     bootstrapped: boolean
   }) => {
+    const missionIds = [...new Set([
+      ...gamification.state.celebratedMissionIds,
+      ...payload.missionIds,
+    ])]
     patchProfileGamification({
-      celebratedMissionIds: payload.missionIds,
+      celebratedMissionIds: missionIds,
       celebrationsBootstrapped: payload.bootstrapped,
     })
     void acknowledgeCelebrations({
-      missionIds: payload.missionIds,
+      missionIds,
       bootstrapped: payload.bootstrapped,
     })
-  }, [patchProfileGamification])
+  }, [gamification.state.celebratedMissionIds, patchProfileGamification])
 
   const persistLevelReceipt = useCallback((level: number, missionIds: string[]) => {
     patchProfileGamification({
@@ -242,14 +280,26 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       celebratedMissionIds: missionIds,
       celebrationsBootstrapped: true,
     })
-  }, [patchProfileGamification])
+    if (user?.uid) {
+      writeCelebrationReceipts(user.uid, mergeCelebrationReceipts(readCelebrationReceipts(user.uid), {
+        bootstrapped: true,
+        lastCelebratedLevel: level,
+        missionIds,
+      }))
+    }
+    void acknowledgeCelebrations({
+      level,
+      missionIds,
+      bootstrapped: true,
+    })
+  }, [patchProfileGamification, user?.uid])
 
   const levelUpCelebration = useLevelUpCelebration({
     userId: user?.uid,
     gamification: gamification.state,
     currentLevel: gamification.level.level,
     enabled: isCustomer,
-    hydrated,
+    ready: celebrationReady,
     refreshProfile,
     onAcknowledgedLevel: persistLevelReceipt,
   })
@@ -258,17 +308,14 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
 
   const celebrations = useGamificationCelebrations({
     userId: user?.uid,
-    userName: profile?.displayName ?? '',
-    xp: gamification.state.xp,
-    level: gamification.level.level,
-    levelTitle: gamification.level.title,
     weeklyCompleted: gamification.state.weeklyCompleted,
     monthlyCompleted: gamification.state.monthlyCompleted,
     completedMissions: gamification.state.completedMissions,
     celebratedMissionIds: gamification.state.celebratedMissionIds,
-    celebrationsBootstrapped: gamification.state.celebrationsBootstrapped,
+    weekKey,
+    monthKey,
     enabled: isCustomer,
-    hydrated,
+    ready: celebrationReady,
     paused: Boolean(activeLevelUpStep),
     onPersistReceipts: persistMissionReceipts,
   })
