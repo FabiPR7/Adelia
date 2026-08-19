@@ -9,3 +9,8 @@ export {
   processDueNotifications,
 } from './triggers.ts'
 export { adminCreateCompany } from './adminCompanyManagement.ts'
+export {
+  createReservation,
+  cancelReservation,
+  checkReservationAvailability,
+} from './reservationManagement.ts'

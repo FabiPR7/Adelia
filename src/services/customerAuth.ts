@@ -37,6 +37,7 @@ export interface RegisterCustomerInput {
   password: string
   displayName: string
   phone: string
+  recaptchaToken?: string
 }
 
 function requireCustomerPhone(phone: string): string {
