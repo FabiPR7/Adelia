@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import type {
-  CompanyReview,
   ReviewTaggedProduct,
   ReviewTaggedPromotion,
 } from '../types/review'
@@ -85,13 +84,6 @@ function ReviewTaggedLinks({
       ))}
     </div>
   )
-}
-
-export function getReviewTags(review: CompanyReview) {
-  return {
-    taggedProducts: review.taggedProducts ?? [],
-    taggedPromotions: review.taggedPromotions ?? [],
-  }
 }
 
 export default ReviewTaggedLinks
