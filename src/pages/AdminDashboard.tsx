@@ -6,6 +6,24 @@ import { createCompany, deleteCompany, updateCompany } from '../services/adminCo
 import { logout } from '../services/auth'
 import type { AdminCompany } from '../types'
 import { ADELIA_LOGO_URL } from '../constants/brand'
+import AdminKpiCard from '../components/admin/AdminKpiCard'
+import AdminGrowthLineChart from '../components/admin/AdminGrowthLineChart'
+import AdminGeographicBarChart from '../components/admin/AdminGeographicBarChart'
+import AdminAnalyticsFilters from '../components/admin/AdminAnalyticsFilters'
+import {
+  getAdminStats,
+  getUserGrowthData,
+  getCompanyGrowthData,
+  getUsersByCountry,
+  getCompaniesByCountry,
+  getAllCountries,
+  type AdminStats,
+  type UserGrowthData,
+  type CompanyGrowthData,
+  type GeographicData,
+  type TimeRange,
+  type DateRangeFilter,
+} from '../services/adminAnalytics'
 import styles from './AdminDashboard.module.css'
 
 interface CompanyFormState {
@@ -47,6 +65,19 @@ function AdminDashboard() {
   const [companyToDelete, setCompanyToDelete] = useState<AdminCompany | null>(null)
   const [isDeletingCompany, setIsDeletingCompany] = useState(false)
 
+  // Analytics state
+  const [currentView, setCurrentView] = useState<'analytics' | 'companies'>('analytics')
+  const [stats, setStats] = useState<AdminStats | null>(null)
+  const [userGrowth, setUserGrowth] = useState<UserGrowthData>({ labels: [], values: [] })
+  const [companyGrowth, setCompanyGrowth] = useState<CompanyGrowthData>({ labels: [], values: [] })
+  const [usersByCountry, setUsersByCountry] = useState<GeographicData[]>([])
+  const [companiesByCountry, setCompaniesByCountry] = useState<GeographicData[]>([])
+  const [availableCountries, setAvailableCountries] = useState<string[]>([])
+  const [timeRange, setTimeRange] = useState<TimeRange>('month')
+  const [countryFilter, setCountryFilter] = useState<string>('')
+  const [customDateRange, setCustomDateRange] = useState<DateRangeFilter | undefined>(undefined)
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
+
   const loadCompanies = async () => {
     setIsLoading(true)
     setError(null)
@@ -69,9 +100,53 @@ function AdminDashboard() {
     }
   }
 
+  const loadAnalytics = async () => {
+    setIsLoadingAnalytics(true)
+    setError(null)
+
+    try {
+      const [
+        statsData,
+        userGrowthData,
+        companyGrowthData,
+        usersGeoData,
+        companiesGeoData,
+        countries,
+      ] = await Promise.all([
+        getAdminStats(),
+        getUserGrowthData(timeRange, customDateRange),
+        getCompanyGrowthData(timeRange, customDateRange),
+        getUsersByCountry(countryFilter || undefined),
+        getCompaniesByCountry(countryFilter || undefined),
+        getAllCountries(),
+      ])
+
+      setStats(statsData)
+      setUserGrowth(userGrowthData)
+      setCompanyGrowth(companyGrowthData)
+      setUsersByCountry(usersGeoData)
+      setCompaniesByCountry(companiesGeoData)
+      setAvailableCountries(countries)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudieron cargar las estadísticas.',
+      )
+    } finally {
+      setIsLoadingAnalytics(false)
+    }
+  }
+
   useEffect(() => {
     void loadCompanies()
   }, [])
+
+  useEffect(() => {
+    if (currentView === 'analytics') {
+      void loadAnalytics()
+    }
+  }, [currentView, timeRange, countryFilter, customDateRange])
 
   const openCreateForm = () => {
     setEditingCompany(null)
@@ -191,7 +266,7 @@ function AdminDashboard() {
           <img src={ADELIA_LOGO_URL} alt="Adelia" className={styles.logo} />
           <div>
             <h1>Panel Admin</h1>
-            <p>Gestión de empresas</p>
+            <p>Gestión y estadísticas</p>
           </div>
         </div>
         <button type="button" className={styles.logoutButton} onClick={() => setLogoutConfirmOpen(true)}>
@@ -199,29 +274,145 @@ function AdminDashboard() {
         </button>
       </header>
 
-      <main className={styles.main}>
-        <div className={styles.toolbar}>
-          <div>
-            <h2>Empresas registradas</h2>
-            <p>{companies.length} empresa(s) activa(s)</p>
-          </div>
-          <button type="button" className={styles.createButton} onClick={openCreateForm}>
-            + Nueva empresa
-          </button>
-        </div>
+      <nav className={styles.nav}>
+        <button
+          type="button"
+          className={`${styles.navButton} ${currentView === 'analytics' ? styles.navButtonActive : ''}`}
+          onClick={() => setCurrentView('analytics')}
+        >
+          📊 Analytics
+        </button>
+        <button
+          type="button"
+          className={`${styles.navButton} ${currentView === 'companies' ? styles.navButtonActive : ''}`}
+          onClick={() => setCurrentView('companies')}
+        >
+          🏢 Empresas
+        </button>
+      </nav>
 
+      <main className={styles.main}>
         {error && <div className={styles.error}>{error}</div>}
         {success && <div className={styles.success}>{success}</div>}
 
-        {isLoading ? (
-          <p className={styles.loadingText}>Cargando empresas…</p>
-        ) : companies.length === 0 ? (
-          <div className={styles.empty}>
-            <p>No hay empresas todavía. Crea la primera.</p>
-          </div>
-        ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
+        {currentView === 'analytics' && (
+          <>
+            <div className={styles.analyticsSection}>
+              <h2 className={styles.sectionTitle}>Estadísticas generales</h2>
+              
+              {isLoadingAnalytics ? (
+                <p className={styles.loadingText}>Cargando estadísticas…</p>
+              ) : stats ? (
+                <>
+                  <div className={styles.kpiGrid}>
+                    <AdminKpiCard
+                      title="Total Usuarios"
+                      value={stats.totalCustomers}
+                      subtitle="Clientes registrados"
+                      trend={{
+                        value: stats.newUsersThisMonth,
+                        label: 'este mes',
+                        positive: true,
+                      }}
+                      icon="👥"
+                    />
+                    <AdminKpiCard
+                      title="Nuevos Hoy"
+                      value={stats.newUsersToday}
+                      subtitle="Usuarios nuevos hoy"
+                      trend={{
+                        value: stats.newUsersThisWeek,
+                        label: 'esta semana',
+                        positive: true,
+                      }}
+                      icon="✨"
+                    />
+                    <AdminKpiCard
+                      title="Total Empresas"
+                      value={stats.totalCompanies}
+                      subtitle="Restaurantes activos"
+                      trend={{
+                        value: stats.newCompaniesThisMonth,
+                        label: 'este mes',
+                        positive: true,
+                      }}
+                      icon="🏢"
+                    />
+                    <AdminKpiCard
+                      title="Empresas Nuevas"
+                      value={stats.newCompaniesToday}
+                      subtitle="Registradas hoy"
+                      trend={{
+                        value: stats.newCompaniesThisWeek,
+                        label: 'esta semana',
+                        positive: true,
+                      }}
+                      icon="🎯"
+                    />
+                  </div>
+
+                  <AdminAnalyticsFilters
+                    timeRange={timeRange}
+                    onTimeRangeChange={setTimeRange}
+                    countryFilter={countryFilter}
+                    onCountryFilterChange={setCountryFilter}
+                    availableCountries={availableCountries}
+                    customDateRange={customDateRange}
+                    onCustomDateRangeChange={setCustomDateRange}
+                  />
+
+                  <div className={styles.chartsGrid}>
+                    <AdminGrowthLineChart
+                      title="Crecimiento de Usuarios"
+                      data={userGrowth}
+                      color="#2e7d6b"
+                    />
+                    <AdminGrowthLineChart
+                      title="Crecimiento de Empresas"
+                      data={companyGrowth}
+                      color="#8b6914"
+                    />
+                  </div>
+
+                  <div className={styles.chartsGrid}>
+                    <AdminGeographicBarChart
+                      title="Usuarios por País"
+                      data={usersByCountry}
+                      color="#2e7d6b"
+                    />
+                    <AdminGeographicBarChart
+                      title="Empresas por País"
+                      data={companiesByCountry}
+                      color="#8b6914"
+                    />
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </>
+        )}
+
+        {currentView === 'companies' && (
+          <>
+            <div className={styles.toolbar}>
+              <div>
+                <h2>Empresas registradas</h2>
+                <p>{companies.length} empresa(s) activa(s)</p>
+              </div>
+              <button type="button" className={styles.createButton} onClick={openCreateForm}>
+                + Nueva empresa
+              </button>
+            </div>
+
+            {isLoading ? (
+              <p className={styles.loadingText}>Cargando empresas…</p>
+            ) : companies.length === 0 ? (
+              <div className={styles.empty}>
+                <p>No hay empresas todavía. Crea la primera.</p>
+              </div>
+            ) : (
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
               <thead>
                 <tr>
                   <th>Empresa</th>
@@ -292,8 +483,10 @@ function AdminDashboard() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </main>
 
