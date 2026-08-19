@@ -203,18 +203,18 @@ function UserRegisterPage() {
           </label>
 
           <ul className={styles.passwordRequirements} aria-live="polite">
-            {PASSWORD_REQUIREMENTS.map((requirement) => {
-              const met = passwordChecks[requirement.key]
-
+            {passwordChecks.slice(0, 4).map((check, index) => {
+              const requirement = PASSWORD_REQUIREMENTS[index]
+              
               return (
                 <li
                   key={requirement.key}
-                  className={met ? styles.requirementMet : styles.requirementPending}
+                  className={check.met ? styles.requirementMet : styles.requirementPending}
                 >
                   <span className={styles.requirementIcon} aria-hidden="true">
-                    {met ? '✓' : '○'}
+                    {check.met ? '✓' : '○'}
                   </span>
-                  {requirement.label}
+                  {check.label}
                 </li>
               )
             })}
