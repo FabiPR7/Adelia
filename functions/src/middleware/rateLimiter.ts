@@ -268,8 +268,10 @@ export async function checkRateLimit(
     )
   }
 
-  // Opcional: Añadir headers de rate limit (para debugging)
-  console.log(`Rate limit - ${endpoint}: ${result.remaining} requests remaining`)
+  // Opcional: Log solo en desarrollo (evitar information disclosure)
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`Rate limit - ${endpoint}: ${result.remaining} requests remaining`)
+  }
 }
 
 /**
