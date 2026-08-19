@@ -1,5 +1,13 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import {
+  MAX_FILE_SIZE,
+  MAX_IMAGE_WIDTH,
+  MAX_IMAGE_HEIGHT,
+  isAllowedImageType,
+  isAllowedImageExtension,
+  formatFileSize,
+} from '../constants/fileUpload'
 import styles from './ImageUploader.module.css'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -73,8 +81,35 @@ function ImageUploader({
       return
     }
 
-    if (!file.type.startsWith('image/')) {
-      setError('Selecciona un archivo de imagen válido.')
+    if (!isAllowedImageType(file.type)) {
+      setError('Solo se permiten imágenes JPG, PNG o WEBP.')
+      return
+    }
+
+    if (!isAllowedImageExtension(file.name)) {
+      setError('Extensión de archivo no permitida.')
+      return
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`Archivo demasiado grande. Máximo ${formatFileSize(MAX_FILE_SIZE)}.`)
+      return
+    }
+
+    try {
+      const img = new Image()
+      const objectUrl = URL.createObjectURL(file)
+      img.src = objectUrl
+
+      await img.decode()
+      URL.revokeObjectURL(objectUrl)
+
+      if (img.width > MAX_IMAGE_WIDTH || img.height > MAX_IMAGE_HEIGHT) {
+        setError(`Dimensiones demasiado grandes. Máximo ${MAX_IMAGE_WIDTH}x${MAX_IMAGE_HEIGHT}px.`)
+        return
+      }
+    } catch {
+      setError('No se pudo validar la imagen.')
       return
     }
 
