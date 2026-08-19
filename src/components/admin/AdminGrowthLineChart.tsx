@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import styles from './AdminGrowthLineChart.module.css'
 
 interface AdminGrowthLineChartProps {
@@ -18,6 +19,7 @@ function AdminGrowthLineChart({
   data, 
   color = '#2e7d6b'
 }: AdminGrowthLineChartProps) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string; value: number } | null>(null)
   const plotWidth = WIDTH - PADDING.left - PADDING.right
   const plotHeight = HEIGHT - PADDING.top - PADDING.bottom
 
@@ -103,15 +105,25 @@ function AdminGrowthLineChart({
 
           {/* Data points */}
           {data.values.map((value, index) => (
-            <circle
-              key={`${index}-${value}`}
-              cx={xAt(index)}
-              cy={yAt(value)}
-              r="4"
-              fill={color}
-              stroke="#ffffff"
-              strokeWidth="2"
-            />
+            <g key={`${index}-${value}`}>
+              <circle
+                cx={xAt(index)}
+                cy={yAt(value)}
+                r="4"
+                fill={color}
+                stroke="#ffffff"
+                strokeWidth="2"
+              />
+              <circle
+                cx={xAt(index)}
+                cy={yAt(value)}
+                r="12"
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setTooltip({ x: xAt(index), y: yAt(value), label: data.labels[index], value })}
+                onMouseLeave={() => setTooltip(null)}
+              />
+            </g>
           ))}
 
           {/* X-axis labels */}
@@ -140,6 +152,19 @@ function AdminGrowthLineChart({
             )
           })}
         </svg>
+      )}
+
+      {tooltip && (
+        <div
+          className={styles.tooltip}
+          style={{
+            left: `${(tooltip.x / WIDTH) * 100}%`,
+            top: `${(tooltip.y / HEIGHT) * 100}%`,
+          }}
+        >
+          <div className={styles.tooltipLabel}>{tooltip.label}</div>
+          <div className={styles.tooltipValue}>{tooltip.value}</div>
+        </div>
       )}
     </div>
   )

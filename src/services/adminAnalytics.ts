@@ -11,6 +11,11 @@ export interface AdminStats {
   newCompaniesToday: number
   newCompaniesThisWeek: number
   newCompaniesThisMonth: number
+  // Comparativas con periodo anterior
+  userGrowthRate: number // % crecimiento mes vs mes anterior
+  companyGrowthRate: number // % crecimiento mes vs mes anterior
+  previousMonthUsers: number
+  previousMonthCompanies: number
 }
 
 export interface UserGrowthData {
@@ -110,6 +115,8 @@ export async function getAdminStats(): Promise<AdminStats> {
   weekAgo.setDate(weekAgo.getDate() - 7)
   const monthAgo = new Date(today)
   monthAgo.setMonth(monthAgo.getMonth() - 1)
+  const twoMonthsAgo = new Date(today)
+  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
 
   const [usersSnap, companiesSnap] = await Promise.all([
     getDocs(collection(db, 'users')),
@@ -123,11 +130,22 @@ export async function getAdminStats(): Promise<AdminStats> {
   
   const newUsersToday = users.filter(u => u.createdAt >= today).length
   const newUsersThisWeek = users.filter(u => u.createdAt >= weekAgo).length
-  const newUsersThisMonth = users.filter(u => u.createdAt >= monthAgo).length
+  const newUsersThisMonth = users.filter(u => u.createdAt >= monthAgo && u.createdAt < today).length
+  const previousMonthUsers = users.filter(u => u.createdAt >= twoMonthsAgo && u.createdAt < monthAgo).length
   
   const newCompaniesToday = companies.filter(c => c.createdAt >= today).length
   const newCompaniesThisWeek = companies.filter(c => c.createdAt >= weekAgo).length
-  const newCompaniesThisMonth = companies.filter(c => c.createdAt >= monthAgo).length
+  const newCompaniesThisMonth = companies.filter(c => c.createdAt >= monthAgo && c.createdAt < today).length
+  const previousMonthCompanies = companies.filter(c => c.createdAt >= twoMonthsAgo && c.createdAt < monthAgo).length
+
+  // Calcular tasas de crecimiento
+  const userGrowthRate = previousMonthUsers > 0
+    ? ((newUsersThisMonth - previousMonthUsers) / previousMonthUsers) * 100
+    : newUsersThisMonth > 0 ? 100 : 0
+
+  const companyGrowthRate = previousMonthCompanies > 0
+    ? ((newCompaniesThisMonth - previousMonthCompanies) / previousMonthCompanies) * 100
+    : newCompaniesThisMonth > 0 ? 100 : 0
 
   return {
     totalUsers: users.length,
@@ -139,6 +157,10 @@ export async function getAdminStats(): Promise<AdminStats> {
     newCompaniesToday,
     newCompaniesThisWeek,
     newCompaniesThisMonth,
+    userGrowthRate: Math.round(userGrowthRate * 10) / 10,
+    companyGrowthRate: Math.round(companyGrowthRate * 10) / 10,
+    previousMonthUsers,
+    previousMonthCompanies,
   }
 }
 

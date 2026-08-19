@@ -10,6 +10,10 @@ import AdminKpiCard from '../components/admin/AdminKpiCard'
 import AdminGrowthLineChart from '../components/admin/AdminGrowthLineChart'
 import AdminGeographicBarChart from '../components/admin/AdminGeographicBarChart'
 import AdminAnalyticsFilters from '../components/admin/AdminAnalyticsFilters'
+import AdminKpiSkeleton from '../components/admin/AdminKpiSkeleton'
+import AdminChartSkeleton from '../components/admin/AdminChartSkeleton'
+import AdminEmptyState from '../components/admin/AdminEmptyState'
+import AdminErrorState from '../components/admin/AdminErrorState'
 import {
   getAdminStats,
   getUserGrowthData,
@@ -24,6 +28,15 @@ import {
   type TimeRange,
   type DateRangeFilter,
 } from '../services/adminAnalytics'
+import {
+  exportStatsToCSV,
+  exportGrowthDataToCSV,
+  exportGeographicDataToCSV,
+} from '../utils/exportAnalytics'
+import {
+  saveAnalyticsFilters,
+  loadAnalyticsFilters,
+} from '../utils/analyticsStorage'
 import styles from './AdminDashboard.module.css'
 
 interface CompanyFormState {
@@ -73,10 +86,13 @@ function AdminDashboard() {
   const [usersByCountry, setUsersByCountry] = useState<GeographicData[]>([])
   const [companiesByCountry, setCompaniesByCountry] = useState<GeographicData[]>([])
   const [availableCountries, setAvailableCountries] = useState<string[]>([])
-  const [timeRange, setTimeRange] = useState<TimeRange>('month')
-  const [countryFilter, setCountryFilter] = useState<string>('')
   const [customDateRange, setCustomDateRange] = useState<DateRangeFilter | undefined>(undefined)
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
+
+  // Load filters from localStorage
+  const savedFilters = loadAnalyticsFilters()
+  const [timeRange, setTimeRange] = useState<TimeRange>(savedFilters?.timeRange ?? 'month')
+  const [countryFilter, setCountryFilter] = useState<string>(savedFilters?.countryFilter ?? '')
 
   const loadCompanies = async () => {
     setIsLoading(true)
@@ -127,12 +143,13 @@ function AdminDashboard() {
       setUsersByCountry(usersGeoData)
       setCompaniesByCountry(companiesGeoData)
       setAvailableCountries(countries)
+      setError(null)
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'No se pudieron cargar las estadísticas.',
-      )
+      const errorMessage = err instanceof Error
+        ? err.message
+        : 'No se pudieron cargar las estadísticas.'
+      setError(errorMessage)
+      console.error('Error loading analytics:', err)
     } finally {
       setIsLoadingAnalytics(false)
     }
@@ -147,6 +164,11 @@ function AdminDashboard() {
       void loadAnalytics()
     }
   }, [currentView, timeRange, countryFilter, customDateRange])
+
+  // Save filters when they change
+  useEffect(() => {
+    saveAnalyticsFilters({ timeRange, countryFilter })
+  }, [timeRange, countryFilter])
 
   const openCreateForm = () => {
     setEditingCompany(null)
@@ -259,6 +281,32 @@ function AdminDashboard() {
     await logout()
   }
 
+  const handleRefreshAnalytics = () => {
+    void loadAnalytics()
+  }
+
+  const handleExportStats = () => {
+    if (stats) {
+      exportStatsToCSV(stats)
+    }
+  }
+
+  const handleExportUserGrowth = () => {
+    exportGrowthDataToCSV(userGrowth, 'usuarios')
+  }
+
+  const handleExportCompanyGrowth = () => {
+    exportGrowthDataToCSV(companyGrowth, 'empresas')
+  }
+
+  const handleExportUsersByCountry = () => {
+    exportGeographicDataToCSV(usersByCountry, 'usuarios')
+  }
+
+  const handleExportCompaniesByCountry = () => {
+    exportGeographicDataToCSV(companiesByCountry, 'empresas')
+  }
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -292,16 +340,51 @@ function AdminDashboard() {
       </nav>
 
       <main className={styles.main}>
-        {error && <div className={styles.error}>{error}</div>}
         {success && <div className={styles.success}>{success}</div>}
 
         {currentView === 'analytics' && (
           <>
             <div className={styles.analyticsSection}>
-              <h2 className={styles.sectionTitle}>Estadísticas generales</h2>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>Estadísticas generales</h2>
+                <div className={styles.sectionActions}>
+                  <button
+                    type="button"
+                    className={styles.refreshButton}
+                    onClick={handleRefreshAnalytics}
+                    disabled={isLoadingAnalytics}
+                  >
+                    🔄 Actualizar
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.exportButton}
+                    onClick={handleExportStats}
+                    disabled={isLoadingAnalytics || !stats}
+                  >
+                    📥 Exportar CSV
+                  </button>
+                </div>
+              </div>
               
-              {isLoadingAnalytics ? (
-                <p className={styles.loadingText}>Cargando estadísticas…</p>
+              {error ? (
+                <AdminErrorState
+                  message={error}
+                  onRetry={handleRefreshAnalytics}
+                />
+              ) : isLoadingAnalytics ? (
+                <>
+                  <div className={styles.kpiGrid}>
+                    <AdminKpiSkeleton />
+                    <AdminKpiSkeleton />
+                    <AdminKpiSkeleton />
+                    <AdminKpiSkeleton />
+                  </div>
+                  <div className={styles.chartsGrid}>
+                    <AdminChartSkeleton />
+                    <AdminChartSkeleton />
+                  </div>
+                </>
               ) : stats ? (
                 <>
                   <div className={styles.kpiGrid}>
@@ -312,20 +395,20 @@ function AdminDashboard() {
                       trend={{
                         value: stats.newUsersThisMonth,
                         label: 'este mes',
-                        positive: true,
+                        positive: stats.userGrowthRate >= 0,
                       }}
                       icon="👥"
                     />
                     <AdminKpiCard
-                      title="Nuevos Hoy"
-                      value={stats.newUsersToday}
-                      subtitle="Usuarios nuevos hoy"
+                      title="Crecimiento"
+                      value={Math.abs(stats.userGrowthRate)}
+                      subtitle={`${stats.userGrowthRate >= 0 ? 'Aumento' : 'Disminución'} vs mes anterior`}
                       trend={{
-                        value: stats.newUsersThisWeek,
-                        label: 'esta semana',
-                        positive: true,
+                        value: stats.previousMonthUsers,
+                        label: 'mes anterior',
+                        positive: stats.userGrowthRate >= 0,
                       }}
-                      icon="✨"
+                      icon={stats.userGrowthRate >= 0 ? '📈' : '📉'}
                     />
                     <AdminKpiCard
                       title="Total Empresas"
@@ -334,20 +417,20 @@ function AdminDashboard() {
                       trend={{
                         value: stats.newCompaniesThisMonth,
                         label: 'este mes',
-                        positive: true,
+                        positive: stats.companyGrowthRate >= 0,
                       }}
                       icon="🏢"
                     />
                     <AdminKpiCard
-                      title="Empresas Nuevas"
-                      value={stats.newCompaniesToday}
-                      subtitle="Registradas hoy"
+                      title="Crecimiento"
+                      value={Math.abs(stats.companyGrowthRate)}
+                      subtitle={`${stats.companyGrowthRate >= 0 ? 'Aumento' : 'Disminución'} vs mes anterior`}
                       trend={{
-                        value: stats.newCompaniesThisWeek,
-                        label: 'esta semana',
-                        positive: true,
+                        value: stats.previousMonthCompanies,
+                        label: 'mes anterior',
+                        positive: stats.companyGrowthRate >= 0,
                       }}
-                      icon="🎯"
+                      icon={stats.companyGrowthRate >= 0 ? '📈' : '📉'}
                     />
                   </div>
 
@@ -361,38 +444,86 @@ function AdminDashboard() {
                   />
 
                   <div className={styles.chartsGrid}>
-                    <AdminGrowthLineChart
-                      title="Crecimiento de Usuarios"
-                      data={userGrowth}
-                      color="#2e7d6b"
-                    />
-                    <AdminGrowthLineChart
-                      title="Crecimiento de Empresas"
-                      data={companyGrowth}
-                      color="#8b6914"
-                    />
+                    <div className={styles.chartWithExport}>
+                      <AdminGrowthLineChart
+                        title="Crecimiento de Usuarios"
+                        data={userGrowth}
+                        color="#2e7d6b"
+                      />
+                      <button
+                        type="button"
+                        className={styles.chartExportButton}
+                        onClick={handleExportUserGrowth}
+                      >
+                        📥 Exportar
+                      </button>
+                    </div>
+                    <div className={styles.chartWithExport}>
+                      <AdminGrowthLineChart
+                        title="Crecimiento de Empresas"
+                        data={companyGrowth}
+                        color="#8b6914"
+                      />
+                      <button
+                        type="button"
+                        className={styles.chartExportButton}
+                        onClick={handleExportCompanyGrowth}
+                      >
+                        📥 Exportar
+                      </button>
+                    </div>
                   </div>
 
                   <div className={styles.chartsGrid}>
-                    <AdminGeographicBarChart
-                      title="Usuarios por País"
-                      data={usersByCountry}
-                      color="#2e7d6b"
-                    />
-                    <AdminGeographicBarChart
-                      title="Empresas por País"
-                      data={companiesByCountry}
-                      color="#8b6914"
-                    />
+                    <div className={styles.chartWithExport}>
+                      <AdminGeographicBarChart
+                        title="Usuarios por País"
+                        data={usersByCountry}
+                        color="#2e7d6b"
+                      />
+                      <button
+                        type="button"
+                        className={styles.chartExportButton}
+                        onClick={handleExportUsersByCountry}
+                      >
+                        📥 Exportar
+                      </button>
+                    </div>
+                    <div className={styles.chartWithExport}>
+                      <AdminGeographicBarChart
+                        title="Empresas por País"
+                        data={companiesByCountry}
+                        color="#8b6914"
+                      />
+                      <button
+                        type="button"
+                        className={styles.chartExportButton}
+                        onClick={handleExportCompaniesByCountry}
+                      >
+                        📥 Exportar
+                      </button>
+                    </div>
                   </div>
                 </>
-              ) : null}
+              ) : (
+                <AdminEmptyState
+                  icon="📊"
+                  title="No hay datos disponibles"
+                  description="No se pudieron cargar las estadísticas. Intenta actualizar o verifica tu conexión."
+                  action={{
+                    label: 'Intentar de nuevo',
+                    onClick: handleRefreshAnalytics,
+                  }}
+                />
+              )}
             </div>
           </>
         )}
 
         {currentView === 'companies' && (
           <>
+            {error && <div className={styles.errorBanner}>{error}</div>}
+
             <div className={styles.toolbar}>
               <div>
                 <h2>Empresas registradas</h2>

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import styles from './AdminGeographicBarChart.module.css'
 
 interface AdminGeographicBarChartProps {
@@ -17,6 +18,7 @@ function AdminGeographicBarChart({
   color = '#2e7d6b',
   maxBars = 10
 }: AdminGeographicBarChartProps) {
+  const [hoveredBar, setHoveredBar] = useState<string | null>(null)
   const displayData = data.slice(0, maxBars)
   const HEIGHT = Math.max(200, PADDING.top + PADDING.bottom + displayData.length * HEIGHT_PER_BAR)
   
@@ -81,8 +83,11 @@ function AdminGeographicBarChart({
                   y={y}
                   width={barWidth}
                   height={barHeight}
-                  fill={`url(#bar-grad-${title})`}
+                  fill={hoveredBar === item.country ? color : `url(#bar-grad-${title})`}
                   rx="4"
+                  style={{ cursor: 'pointer', transition: 'fill 0.2s' }}
+                  onMouseEnter={() => setHoveredBar(item.country)}
+                  onMouseLeave={() => setHoveredBar(null)}
                 >
                   <animate
                     attributeName="width"

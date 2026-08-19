@@ -1,0 +1,51 @@
+.skeleton {
+  background: #ffffff;
+  border: 1px solid #e8ddd3;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(107, 83, 68, 0.06);
+}
+
+.titlePlaceholder {
+  height: 16px;
+  width: 180px;
+  background: linear-gradient(90deg, #f0e8de 0%, #f9f6f2 50%, #f0e8de 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.chartArea {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 12px;
+  height: 200px;
+  padding: 20px 0;
+}
+
+.bar {
+  flex: 1;
+  background: linear-gradient(180deg, #e8ddd3 0%, #f0e8de 100%);
+  border-radius: 4px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
