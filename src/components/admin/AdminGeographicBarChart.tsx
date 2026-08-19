@@ -21,7 +21,6 @@ function AdminGeographicBarChart({
   const HEIGHT = Math.max(200, PADDING.top + PADDING.bottom + displayData.length * HEIGHT_PER_BAR)
   
   const plotWidth = WIDTH - PADDING.left - PADDING.right
-  const plotHeight = HEIGHT - PADDING.top - PADDING.bottom
 
   const maxValue = Math.max(1, ...displayData.map(d => d.count))
   const hasData = displayData.length > 0

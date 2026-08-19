@@ -8,7 +8,6 @@ interface AdminAnalyticsFiltersProps {
   countryFilter: string
   onCountryFilterChange: (country: string) => void
   availableCountries: string[]
-  customDateRange?: DateRangeFilter
   onCustomDateRangeChange?: (range: DateRangeFilter) => void
 }
 
@@ -18,7 +17,6 @@ function AdminAnalyticsFilters({
   countryFilter,
   onCountryFilterChange,
   availableCountries,
-  customDateRange,
   onCustomDateRangeChange,
 }: AdminAnalyticsFiltersProps) {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false)

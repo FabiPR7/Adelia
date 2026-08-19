@@ -7,7 +7,6 @@ interface AdminGrowthLineChartProps {
     values: number[]
   }
   color?: string
-  fillColor?: string
 }
 
 const WIDTH = 700
@@ -17,8 +16,7 @@ const PADDING = { top: 20, right: 16, bottom: 40, left: 40 }
 function AdminGrowthLineChart({ 
   title, 
   data, 
-  color = '#2e7d6b', 
-  fillColor = 'rgba(46, 125, 107, 0.15)' 
+  color = '#2e7d6b'
 }: AdminGrowthLineChartProps) {
   const plotWidth = WIDTH - PADDING.left - PADDING.right
   const plotHeight = HEIGHT - PADDING.top - PADDING.bottom

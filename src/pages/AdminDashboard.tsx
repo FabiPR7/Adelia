@@ -357,7 +357,6 @@ function AdminDashboard() {
                     countryFilter={countryFilter}
                     onCountryFilterChange={setCountryFilter}
                     availableCountries={availableCountries}
-                    customDateRange={customDateRange}
                     onCustomDateRangeChange={setCustomDateRange}
                   />
 

@@ -1,6 +1,5 @@
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore'
 import { db } from '../config/firebase'
-import type { AppUser, Company } from '../types'
 
 export interface AdminStats {
   totalUsers: number
