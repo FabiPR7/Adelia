@@ -19,7 +19,7 @@ const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || ''
 export function loadRecaptchaScript(): Promise<void> {
   return new Promise((resolve, reject) => {
     // Si ya está cargado, resolver inmediatamente
-    if (window.grecaptcha && window.grecaptcha.execute) {
+    if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') {
       resolve()
       return
     }
@@ -46,7 +46,7 @@ export function loadRecaptchaScript(): Promise<void> {
     script.onload = () => {
       // Esperar a que grecaptcha esté listo
       const checkReady = setInterval(() => {
-        if (window.grecaptcha && window.grecaptcha.execute) {
+        if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') {
           clearInterval(checkReady)
           resolve()
         }
@@ -109,9 +109,9 @@ export async function executeRecaptcha(action: string): Promise<string> {
  * @returns true si el token es válido
  */
 export async function verifyRecaptchaToken(
-  token: string,
-  expectedAction: string,
-  minScore: number = 0.5,
+  _token: string,
+  _expectedAction: string,
+  _minScore: number = 0.5,
 ): Promise<boolean> {
   // Esta función debe implementarse en Cloud Functions
   // Aquí solo está la firma para referencia

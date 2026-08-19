@@ -296,7 +296,7 @@ export function alertIfSlow(operation: string, durationMs: number, thresholdMs: 
  */
 export function traced(traceName: string) {
   return function (
-    target: any,
+    _target: any,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {

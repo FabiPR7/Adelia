@@ -86,10 +86,10 @@ function UserRegisterPage() {
     setIsLoading(true)
 
     try {
-      let recaptchaToken = ''
       if (recaptchaReady) {
         try {
-          recaptchaToken = await executeRecaptcha('register_google')
+          await executeRecaptcha('register_google')
+          // TODO: Enviar recaptchaToken al backend para verificación
         } catch (err) {
           console.error('Error ejecutando reCAPTCHA:', err)
           if (import.meta.env.PROD) {

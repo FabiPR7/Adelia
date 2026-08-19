@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   sanitizeInput,
-  ALLOWED_USER_PROFILE_FIELDS,
-  ALLOWED_COMPANY_PROFILE_FIELDS,
   sanitizeUserProfileUpdate,
   sanitizeCompanyProfileUpdate,
 } from '../securityHelpers'
