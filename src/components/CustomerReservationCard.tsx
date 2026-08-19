@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Swords } from 'lucide-react'
 import type { Reservation } from '../types'
 import type { ReservationInvite } from '../types/reservationInvites'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
@@ -25,6 +26,7 @@ interface CustomerReservationCardProps {
   onOpenInvites?: () => void
   onVerifyMinimumSpend?: (reservation: Reservation) => void
   onLeaveReview?: (reservation: Reservation) => void
+  onChallenge?: () => void
   hasReviewForRestaurant?: boolean
 }
 
@@ -63,6 +65,7 @@ function CustomerReservationCard({
   onOpenInvites,
   onVerifyMinimumSpend,
   onLeaveReview,
+  onChallenge,
   hasReviewForRestaurant = false,
 }: CustomerReservationCardProps) {
   const isGuest = variant === 'guest'
@@ -183,6 +186,20 @@ function CustomerReservationCard({
           ) : null}
 
           <div className={styles.actions}>
+            {isGuest && reservation.status !== 'cancelled' && onChallenge ? (
+              <button
+                type="button"
+                className={styles.challengeAction}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  onChallenge()
+                }}
+              >
+                <Swords size={14} aria-hidden="true" />
+                Retar
+              </button>
+            ) : null}
             {showReviewAction ? (
               <button
                 type="button"

@@ -22,6 +22,12 @@ function escapeHtml(value: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function safeTagId(value: string): string {
+  return /^[a-zA-Z0-9_-]{1,80}$/.test(value) ? value : ''
 }
 
 function markersToEditorHtml(comment: string): string {
@@ -33,14 +39,25 @@ function markersToEditorHtml(comment: string): string {
 
   html = html.replace(
     new RegExp(REVIEW_PRODUCT_TAG_PATTERN.source, 'g'),
-    (_full, boardId: string, nodeId: string, name: string) =>
-      `<span class="${styles.inlineTag}" contenteditable="false" data-tag-type="product" data-board-id="${boardId}" data-node-id="${nodeId}">${escapeHtml(name)}</span>`,
+    (_full, boardId: string, nodeId: string, name: string) => {
+      const safeBoard = safeTagId(boardId)
+      const safeNode = safeTagId(nodeId)
+      if (!safeBoard || !safeNode) {
+        return escapeHtml(name)
+      }
+      return `<span class="${styles.inlineTag}" contenteditable="false" data-tag-type="product" data-board-id="${safeBoard}" data-node-id="${safeNode}">${escapeHtml(name)}</span>`
+    },
   )
 
   html = html.replace(
     new RegExp(REVIEW_PROMO_TAG_PATTERN.source, 'g'),
-    (_full, promotionId: string, name: string) =>
-      `<span class="${styles.inlineTag}" contenteditable="false" data-tag-type="promotion" data-promotion-id="${promotionId}">${escapeHtml(name)}</span>`,
+    (_full, promotionId: string, name: string) => {
+      const safePromo = safeTagId(promotionId)
+      if (!safePromo) {
+        return escapeHtml(name)
+      }
+      return `<span class="${styles.inlineTag}" contenteditable="false" data-tag-type="promotion" data-promotion-id="${safePromo}">${escapeHtml(name)}</span>`
+    },
   )
 
   return html

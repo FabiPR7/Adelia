@@ -1,4 +1,5 @@
 import { adminDb } from '../firebase-admin.ts'
+import { slugToAuthEmail, slugify } from '../utils.ts'
 
 function slugify(value: string): string {
   return value
@@ -89,4 +90,49 @@ export function emailsMatch(storedEmail: string, submittedEmail: string): boolea
   const normalizedSubmitted = normalizeEmail(submittedEmail)
 
   return normalizedStored.length > 0 && normalizedStored === normalizedSubmitted
+}
+
+export async function resolveCompanyAuthEmail(loginName: string): Promise<string | null> {
+  const trimmed = loginName.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const normalized = slugify(trimmed)
+  const loginDoc = await adminDb.collection('logins').doc(normalized).get()
+  if (loginDoc.exists) {
+    const authEmail = loginDoc.data()?.authEmail as string | undefined
+    if (authEmail) {
+      return normalizeEmail(authEmail)
+    }
+  }
+
+  const byLoginName = await adminDb
+    .collection('logins')
+    .where('loginName', '==', trimmed)
+    .limit(1)
+    .get()
+  if (!byLoginName.empty) {
+    const authEmail = byLoginName.docs[0].data().authEmail as string | undefined
+    if (authEmail) {
+      return normalizeEmail(authEmail)
+    }
+  }
+
+  const companyBySlug = await adminDb
+    .collection('companies')
+    .where('slug', '==', normalized)
+    .limit(1)
+    .get()
+  if (!companyBySlug.empty) {
+    const companyId = companyBySlug.docs[0].id
+    const credentialsSnap = await adminDb.collection('companyCredentials').doc(companyId).get()
+    const credentialsEmail = credentialsSnap.data()?.authEmail as string | undefined
+    if (credentialsEmail) {
+      return normalizeEmail(credentialsEmail)
+    }
+    return slugToAuthEmail(normalized)
+  }
+
+  return null
 }

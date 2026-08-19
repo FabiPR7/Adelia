@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import CustomerReservationCard from '../../components/CustomerReservationCard'
 import CustomerReviewModal, { type CustomerReviewSubmitInput } from '../../components/CustomerReviewModal'
 import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
@@ -8,6 +8,7 @@ import { canCustomerVerifyMinimumSpend } from '../../utils/minimumSpendVerificat
 import { pendingTokenSpendForCompany, REVIEW_BOOST_ITEM_ID, inventoryQuantity } from '../../data/inventoryItems'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
+import { useReservationChallengeContext } from '../../context/ReservationChallengeContext'
 import { getPublicCompanyMenuNodes } from '../../services/companyMenu'
 import { fetchPublicPromotions, fetchPublicPromotionsBySlug, type PublicPromotion } from '../../services/publicPromotions'
 import {
@@ -110,6 +111,7 @@ function splitPlanItems(owned: Reservation[], accepted: ReservationInvite[]) {
 function CustomerReservationsTab() {
   const { user, profile, refreshProfile, patchProfileGamification } = useAuth()
   const { refreshGamificationData, state: gamificationState } = useCustomerGamificationContext()
+  const { challengeReservation, visibleChallenge, error: challengeError } = useReservationChallengeContext()
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [reservations, setReservations] = useState<Awaited<ReturnType<typeof getCustomerReservations>>>([])
   const [reviewsByCompanyId, setReviewsByCompanyId] = useState<Record<string, CompanyReview>>({})
@@ -129,6 +131,8 @@ function CustomerReservationsTab() {
   const [inviteModalReservationId, setInviteModalReservationId] = useState<string | null>(null)
   const [inviteActionId, setInviteActionId] = useState<string | null>(null)
   const [inviteError, setInviteError] = useState<string | null>(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
+  const resolvedChallengeRef = useRef('')
 
   const loadCustomerReviews = useCallback(async (
     reservationRows: Reservation[],
@@ -188,7 +192,26 @@ function CustomerReservationsTab() {
     return () => {
       cancelled = true
     }
-  }, [profile, user, loadCustomerReviews])
+  }, [profile, user, loadCustomerReviews, reloadNonce])
+
+  useEffect(() => {
+    if (visibleChallenge?.status !== 'resolved' || !visibleChallenge.id) {
+      return
+    }
+    if (resolvedChallengeRef.current === visibleChallenge.id) {
+      return
+    }
+    resolvedChallengeRef.current = visibleChallenge.id
+    setReloadNonce((value) => value + 1)
+    void refreshGamificationData({ silent: true })
+  }, [refreshGamificationData, visibleChallenge?.id, visibleChallenge?.status])
+
+  const handleChallenge = useCallback((invite: ReservationInvite) => {
+    if (!invite.reservationId.trim()) {
+      return
+    }
+    void challengeReservation(invite.reservationId).catch(() => undefined)
+  }, [challengeReservation])
 
   const restaurantById = useMemo(
     () => Object.fromEntries(restaurants.map((restaurant) => [restaurant.id, restaurant])),
@@ -402,6 +425,7 @@ function CustomerReservationsTab() {
         <p className={styles.eyebrow}>Tus planes</p>
         <h1>Mis reservas</h1>
         <p className={styles.lead}>Todo lo que tienes por vivir y lo que ya disfrutaste.</p>
+        {challengeError ? <p className={styles.inviteError}>{challengeError}</p> : null}
 
         <div className={styles.heroStats}>
           <div>
@@ -513,6 +537,7 @@ function CustomerReservationsTab() {
                   bucket={tab}
                   variant="guest"
                   hostName={item.invite.fromDisplayName}
+                  onChallenge={tab === 'upcoming' ? () => handleChallenge(item.invite) : undefined}
                 />
               )
             }

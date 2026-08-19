@@ -71,6 +71,136 @@ export function allCompletedMissionIds(progress: CelebrationProgress): string[] 
   ])
 }
 
+export function missionReceiptsForProgress(
+  progress: CelebrationProgress,
+  weekKey: string,
+  monthKey: string,
+): string[] {
+  return uniqueIds([
+    ...progress.weeklyCompleted.map((id) => `w:${weekKey}:${id}`),
+    ...progress.monthlyCompleted.map((id) => `m:${monthKey}:${id}`),
+    ...progress.completedMissions.map((id) => `h:${id}`),
+  ])
+}
+
+export function unseenMissionCompletions(
+  progress: CelebrationProgress,
+  celebratedIds: string[],
+  weekKey: string,
+  monthKey: string,
+): Array<{ id: string; receiptKey: string }> {
+  const seen = new Set(celebratedIds)
+  const unseen: Array<{ id: string; receiptKey: string }> = []
+
+  for (const id of progress.weeklyCompleted) {
+    const receiptKey = `w:${weekKey}:${id}`
+    if (!seen.has(receiptKey) && !seen.has(id)) {
+      unseen.push({ id, receiptKey })
+    }
+  }
+
+  for (const id of progress.monthlyCompleted) {
+    const receiptKey = `m:${monthKey}:${id}`
+    if (!seen.has(receiptKey) && !seen.has(id)) {
+      unseen.push({ id, receiptKey })
+    }
+  }
+
+  for (const id of progress.completedMissions) {
+    const receiptKey = `h:${id}`
+    if (!seen.has(receiptKey) && !seen.has(id)) {
+      unseen.push({ id, receiptKey })
+    }
+  }
+
+  return unseen
+}
+
+/** Recibos del periodo actual que ya se vieron con el id crudo antiguo. */
+export function missionReceiptsToMigrate(
+  progress: CelebrationProgress,
+  celebratedIds: string[],
+  weekKey: string,
+  monthKey: string,
+): string[] {
+  const seen = new Set(celebratedIds)
+  const hasWeeklyScoped = celebratedIds.some((id) => id.startsWith('w:'))
+  const hasMonthlyScoped = celebratedIds.some((id) => id.startsWith('m:'))
+  const hasHistoricalScoped = celebratedIds.some((id) => id.startsWith('h:'))
+  const keys: string[] = []
+
+  if (!hasWeeklyScoped) {
+    for (const id of progress.weeklyCompleted) {
+      const receiptKey = `w:${weekKey}:${id}`
+      if (!seen.has(receiptKey) && seen.has(id)) {
+        keys.push(receiptKey)
+      }
+    }
+  }
+
+  if (!hasMonthlyScoped) {
+    for (const id of progress.monthlyCompleted) {
+      const receiptKey = `m:${monthKey}:${id}`
+      if (!seen.has(receiptKey) && seen.has(id)) {
+        keys.push(receiptKey)
+      }
+    }
+  }
+
+  if (!hasHistoricalScoped) {
+    for (const id of progress.completedMissions) {
+      const receiptKey = `h:${id}`
+      if (!seen.has(receiptKey) && seen.has(id)) {
+        keys.push(receiptKey)
+      }
+    }
+  }
+
+  return uniqueIds(keys)
+}
+
+export function mergeMonotonicCelebrations<T extends {
+  lastCelebratedLevel?: number | null
+  celebratedMissionIds?: string[]
+  celebrationsBootstrapped?: boolean
+}>(current: T, incoming: T): T {
+  const currentLevel = typeof current.lastCelebratedLevel === 'number' ? current.lastCelebratedLevel : 0
+  const incomingLevel = typeof incoming.lastCelebratedLevel === 'number' ? incoming.lastCelebratedLevel : 0
+  const mergedLevel = Math.max(currentLevel, incomingLevel)
+
+  return {
+    ...incoming,
+    lastCelebratedLevel: mergedLevel > 0
+      ? mergedLevel
+      : (incoming.lastCelebratedLevel ?? current.lastCelebratedLevel ?? null),
+    celebratedMissionIds: uniqueIds([
+      ...(current.celebratedMissionIds ?? []),
+      ...(incoming.celebratedMissionIds ?? []),
+    ]),
+    celebrationsBootstrapped:
+      current.celebrationsBootstrapped === true || incoming.celebrationsBootstrapped === true,
+  }
+}
+
+export function missionCelebrationEvents(
+  unseen: Array<{ id: string; receiptKey: string }>,
+): CelebrationEvent[] {
+  return unseen.map(({ id, receiptKey }) => {
+    const { name, xp } = missionLabel(id)
+    return {
+      id: `mission:${receiptKey}`,
+      kind: 'mission_complete' as const,
+      title: '¡Misión completada!',
+      message: xp > 0
+        ? `${name} · +${xp.toLocaleString('es-ES')} XP`
+        : name,
+      missionName: name,
+      missionId: id,
+      xpGained: xp > 0 ? xp : undefined,
+    }
+  })
+}
+
 export function emptyCelebrationReceipts(): CelebrationReceipts {
   return {
     bootstrapped: false,

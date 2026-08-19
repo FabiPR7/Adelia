@@ -1,10 +1,11 @@
 import { Router, type Request, type Response } from 'express'
 import { verifySignedInUser } from '../auth/verifyRequest.ts'
 import { readGamificationFromDocs, userGamificationRef } from '../data/userGamification.ts'
-import { Timestamp } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import {
   emailsMatch,
   getCompanyContactEmail,
+  resolveCompanyAuthEmail,
   resolveCompanyIdFromLoginName,
 } from '../auth/companyLoginLookup.ts'
 import {
@@ -15,6 +16,7 @@ import {
 } from '../email/passwordResetEmail.ts'
 import { sendCustomerVerificationEmail } from '../email/customerVerificationEmail.ts'
 import { APP_URL, isValidClientEmail } from '../email/config.ts'
+import { InputError, asPassword, asTrimmed } from '../security/validate.ts'
 import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import { signInWithPasswordRest } from '../rest-firebase.ts'
 
@@ -164,7 +166,7 @@ router.post('/complete-initial-password-change', async (req: Request, res: Respo
     if (companyId) {
       await adminDb.collection('companyCredentials').doc(companyId).set(
         {
-          loginPassword: newPassword,
+          loginPassword: FieldValue.delete(),
           mustChangePassword: false,
           updatedAt: now,
         },
@@ -265,7 +267,7 @@ router.post('/change-initial-password', async (req: Request, res: Response) => {
     if (companyId) {
       await adminDb.collection('companyCredentials').doc(companyId).set(
         {
-          loginPassword: newPassword,
+          loginPassword: FieldValue.delete(),
           mustChangePassword: false,
           updatedAt: now,
         },
@@ -375,6 +377,31 @@ router.post('/customer/sync-phone-verification', async (req: Request, res: Respo
   }
 })
 
+router.post('/resolve-login', async (req: Request, res: Response) => {
+  try {
+    if (!canUseAdminSdk) {
+      res.status(503).json({ error: 'Inicio de sesión no disponible en este entorno.' })
+      return
+    }
+
+    const loginName = asTrimmed(req.body?.loginName, 80, 'El nombre de usuario')
+    const authEmail = await resolveCompanyAuthEmail(loginName)
+    if (!authEmail) {
+      res.status(401).json({ error: 'Nombre o contraseña incorrectos.' })
+      return
+    }
+
+    res.json({ authEmail })
+  } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
+    console.error('resolve-login error:', error)
+    res.status(500).json({ error: 'No se pudo iniciar sesión.' })
+  }
+})
+
 router.post('/forgot-password', async (req: Request, res: Response) => {
   try {
     if (!canUseAdminSdk) {
@@ -389,17 +416,13 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       email?: string
     }
 
-    if (!loginName?.trim() || !email?.trim()) {
-      res.status(400).json({ error: 'Indica el nombre de la empresa y el correo registrado.' })
-      return
-    }
-
-    if (!isValidClientEmail(email)) {
+    const companyLogin = asTrimmed(loginName, 80, 'El nombre de la empresa')
+    if (!email?.trim() || !isValidClientEmail(email)) {
       res.status(400).json({ error: 'Indica un correo válido.' })
       return
     }
 
-    const companyId = await resolveCompanyIdFromLoginName(loginName)
+    const companyId = await resolveCompanyIdFromLoginName(companyLogin)
 
     if (!companyId) {
       res.json({ success: true, message: GENERIC_FORGOT_SUCCESS })
@@ -444,6 +467,10 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
     res.json({ success: true, message: GENERIC_FORGOT_SUCCESS })
   } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
     console.error('forgot-password error:', error)
     res.status(500).json({ error: 'No se pudo procesar la solicitud.' })
   }
@@ -496,15 +523,12 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       newPassword?: string
     }
 
-    if (!token?.trim() || !newPassword) {
+    if (!token?.trim()) {
       res.status(400).json({ error: 'Indica el enlace y la nueva contraseña.' })
       return
     }
 
-    if (newPassword.length < 6) {
-      res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres.' })
-      return
-    }
+    const password = asPassword(newPassword)
 
     const record = await getPasswordResetTokenRecord(token.trim())
 
@@ -515,7 +539,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       return
     }
 
-    await adminAuth.updateUser(record.ownerUid, { password: newPassword })
+    await adminAuth.updateUser(record.ownerUid, { password })
     await adminAuth.setCustomUserClaims(record.ownerUid, { mustChangePassword: false })
 
     const now = Timestamp.now()
@@ -529,7 +553,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
     await adminDb.collection('companyCredentials').doc(record.companyId).set(
       {
-        loginPassword: newPassword,
+        loginPassword: FieldValue.delete(),
         mustChangePassword: false,
         updatedAt: now,
       },
@@ -540,10 +564,12 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
     res.json({ success: true })
   } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
     console.error('reset-password error:', error)
-    const message =
-      error instanceof Error ? error.message : 'No se pudo restablecer la contraseña.'
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: 'No se pudo restablecer la contraseña.' })
   }
 })
 

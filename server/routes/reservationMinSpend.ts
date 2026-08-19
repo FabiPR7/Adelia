@@ -62,11 +62,16 @@ router.post(
     }
 
     const reservation = reservationSnap.data()!
+    const reservationUid = typeof reservation.customerUid === 'string'
+      ? reservation.customerUid.trim()
+      : ''
     const reservationEmail = typeof reservation.clientEmail === 'string'
       ? reservation.clientEmail.trim().toLowerCase()
       : ''
 
-    if (reservationEmail !== customerEmail.toLowerCase()) {
+    const ownedByUid = reservationUid === customerUid
+    const ownedByUnlinkedEmail = !reservationUid && reservationEmail === customerEmail.toLowerCase()
+    if (!ownedByUid && !ownedByUnlinkedEmail) {
       res.status(403).json({ error: 'Esta reserva no pertenece a tu cuenta.' })
       return
     }

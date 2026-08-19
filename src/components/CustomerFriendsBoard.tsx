@@ -116,7 +116,7 @@ function CustomerFriendsBoard({
 
   useEffect(() => {
     const trimmed = addSubmittedQuery.trim()
-    if (trimmed.length < 2) {
+    if (trimmed.length < 3) {
       setAddSearchResults([])
       setAddSearchLoading(false)
       setAddSearchError(null)
@@ -185,7 +185,7 @@ function CustomerFriendsBoard({
 
   useEffect(() => {
     const trimmed = peopleQuery.trim()
-    if (trimmed.length < 2) {
+    if (trimmed.length < 3) {
       setPeopleResults([])
       setPeopleLoading(false)
       setPeopleError(null)

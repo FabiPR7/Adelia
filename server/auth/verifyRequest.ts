@@ -57,6 +57,26 @@ export async function verifyCompanyOwner(
   return user
 }
 
+export async function ensureCompanyOwner(
+  req: Request,
+  res: Response,
+  companyId: string,
+): Promise<boolean> {
+  try {
+    if (!companyId.trim()) {
+      res.status(400).json({ error: 'Restaurante no válido.' })
+      return false
+    }
+    await verifyCompanyOwner(req, companyId)
+    return true
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No autorizado.'
+    const status = message.includes('acceso') ? 403 : 401
+    res.status(status).json({ error: message })
+    return false
+  }
+}
+
 export async function verifyCompanyAccount(req: Request): Promise<VerifiedRequestUser & { companyId: string }> {
   const user = await verifyRequestUser(req)
   const companyId = typeof user.data.companyId === 'string' ? user.data.companyId.trim() : ''

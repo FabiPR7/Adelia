@@ -259,5 +259,16 @@ export function safeLegalReturnTo(value: string | null): string | null {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) {
     return null
   }
+  if (/[\t\n\r]/.test(value) || value.includes('://')) {
+    return null
+  }
+  try {
+    const parsed = new URL(value, 'https://adeliareservas.com')
+    if (parsed.origin !== 'https://adeliareservas.com' || parsed.username || parsed.password) {
+      return null
+    }
+  } catch {
+    return null
+  }
   return value
 }

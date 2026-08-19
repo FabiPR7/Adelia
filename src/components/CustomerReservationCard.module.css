@@ -291,10 +291,20 @@
   margin-top: 0.2rem;
 }
 
+.challengeAction {
+  border: none;
+  background: linear-gradient(135deg, #7c3aed, #db2777);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.28);
+  cursor: pointer;
+  gap: 0.35rem;
+}
+
 .primaryAction,
 .secondaryAction,
 .verifyAction,
-.reviewAction {
+.reviewAction,
+.challengeAction {
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { ReservationChallengeProvider } from '../context/ReservationChallengeContext'
 import CustomerBottomNav from './CustomerBottomNav'
 import CustomerNotificationsBell from './CustomerNotificationsBell'
 import CancellationPenaltyModal from './CancellationPenaltyModal'
@@ -13,16 +14,18 @@ function CustomerAppLayout() {
   }
 
   return (
-    <div className={styles.layout}>
-      <div className={styles.topBar}>
-        <CustomerNotificationsBell />
+    <ReservationChallengeProvider>
+      <div className={styles.layout}>
+        <div className={styles.topBar}>
+          <CustomerNotificationsBell />
+        </div>
+        <div className={styles.content}>
+          <Outlet />
+        </div>
+        <CustomerBottomNav />
+        <CancellationPenaltyModal />
       </div>
-      <div className={styles.content}>
-        <Outlet />
-      </div>
-      <CustomerBottomNav />
-      <CancellationPenaltyModal />
-    </div>
+    </ReservationChallengeProvider>
   )
 }
 

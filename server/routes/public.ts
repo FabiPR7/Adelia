@@ -26,12 +26,12 @@ import { readCompanyOps } from '../data/companyOps.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { consumeInventoryItem, numberRecord } from '../gamification/inventory.ts'
 import { DEPOSIT_PASS_ITEM_ID, EXTRA_PAX_ITEM_ID } from '../gamification/inventoryItems.ts'
-import {
-  isPromoLockedForBooking,
+import { isPromoLockedForBooking,
   previewCancellationPenalty,
   previewCancelShieldCount,
   PROMO_LOCK_BOOKING_MESSAGE,
 } from '../gamification/cancellationPenalty.ts'
+import { InputError, asDateYmd, asId, asInt, asOptionalTrimmed, asPlainText, asSlug } from '../security/validate.ts'
 
 const router = Router()
 
@@ -128,9 +128,15 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
 }
 
 async function getCompanyBySlug(slug: string) {
+  let normalized: string
+  try {
+    normalized = asSlug(slug)
+  } catch {
+    return null
+  }
   const snapshot = await adminDb
     .collection('companies')
-    .where('slug', '==', slug)
+    .where('slug', '==', normalized)
     .limit(1)
     .get()
 
@@ -143,9 +149,15 @@ async function getCompanyBySlug(slug: string) {
 }
 
 async function getCompanyRecordBySlug(slug: string) {
+  let normalized: string
+  try {
+    normalized = asSlug(slug)
+  } catch {
+    return null
+  }
   const snapshot = await adminDb
     .collection('companies')
-    .where('slug', '==', slug)
+    .where('slug', '==', normalized)
     .limit(1)
     .get()
 
@@ -285,12 +297,7 @@ router.post('/:slug/deposit-intent', async (req: Request, res: Response) => {
       return
     }
 
-    const pax = Number(req.body?.pax)
-
-    if (!Number.isFinite(pax) || pax < 1) {
-      res.status(400).json({ error: 'Indica el número de comensales.' })
-      return
-    }
+    const pax = asInt(req.body?.pax, 1, 50, 'El número de comensales')
 
     const depositMinPax = typeof record.data.depositMinPax === 'number'
       ? record.data.depositMinPax
@@ -339,6 +346,10 @@ router.post('/:slug/deposit-intent', async (req: Request, res: Response) => {
       paymentIntentId: payment.paymentIntentId,
     })
   } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
     console.error('Public deposit intent error:', error)
     res.status(500).json({ error: 'No se pudo preparar la fianza.' })
   }
@@ -506,18 +517,14 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
 
     const name = customer
       ? customer.displayName
-      : typeof clientName === 'string' ? clientName.trim() : ''
+      : asPlainText(clientName, 80, 'Tu nombre')
     const email = customer
       ? customer.email
       : typeof clientEmail === 'string' ? clientEmail.trim().toLowerCase() : ''
     const phone = customer
       ? customer.phone
-      : typeof clientPhone === 'string' ? clientPhone.trim() : ''
-
-    if (!name) {
-      res.status(400).json({ error: 'Indica tu nombre.' })
-      return
-    }
+      : asOptionalTrimmed(clientPhone, 30)
+    const notesText = asOptionalTrimmed(notes, 500).replace(/<[^>]*>/g, '')
 
     if (!isValidClientEmail(email)) {
       res.status(400).json({ error: 'Indica un correo electrónico válido.' })
@@ -529,33 +536,26 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       return
     }
 
-    if (typeof tableId !== 'string' || !tableId) {
-      res.status(400).json({ error: 'Selecciona una mesa.' })
-      return
-    }
-
-    if (typeof time !== 'string' || !time) {
+    const table = asId(tableId, 'La mesa')
+    const bookingTime = asOptionalTrimmed(time, 8)
+    if (!/^\d{2}:\d{2}$/.test(bookingTime)) {
       res.status(400).json({ error: 'Selecciona una hora.' })
       return
     }
 
-    const guestCount = Number(pax)
-
-    if (!Number.isFinite(guestCount) || guestCount < 1) {
-      res.status(400).json({ error: 'Indica el número de invitados.' })
-      return
-    }
+    const guestCount = asInt(pax, 1, 50, 'El número de invitados')
+    const bookingDate = asDateYmd(dateParam)
 
     let date: Date
 
     try {
-      date = parseBookingDate(String(dateParam ?? ''))
+      date = parseBookingDate(bookingDate)
     } catch {
       res.status(400).json({ error: 'Fecha inválida.' })
       return
     }
 
-    const tableSnap = await adminDb.collection('tables').doc(tableId).get()
+    const tableSnap = await adminDb.collection('tables').doc(table).get()
 
     if (!tableSnap.exists || tableSnap.data()?.companyId !== company.id) {
       res.status(400).json({ error: 'Mesa no válida.' })
@@ -598,10 +598,10 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       .filter((item) => isSameDay(item.startTime, date))
 
     try {
-      assertReservationStartInFuture(date, time)
+      assertReservationStartInFuture(date, bookingTime)
       assertReservationSlotValid(
-        tableId,
-        time,
+        table,
+        bookingTime,
         date,
         company.schedule,
         company.timeSlotMinutes,
@@ -618,7 +618,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       return
     }
 
-    const [hours, minutes] = time.split(':').map(Number)
+    const [hours, minutes] = bookingTime.split(':').map(Number)
     const startTime = new Date(date)
     startTime.setHours(hours, minutes, 0, 0)
     const endTime = new Date(startTime.getTime() + company.timeSlotMinutes * 60000)
@@ -666,12 +666,12 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
 
     const reservationData: Record<string, unknown> = {
       companyId: company.id,
-      tableId,
+      tableId: table,
       clientName: name,
       clientEmail: email,
       clientPhone: phone,
       pax: guestCount,
-      notes: typeof notes === 'string' ? notes.trim() : '',
+      notes: notesText,
       startTime: Timestamp.fromDate(startTime),
       endTime: Timestamp.fromDate(endTime),
       status: 'completed',
@@ -838,6 +838,10 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       ...(consumedInventory ? { inventory: consumedInventory } : {}),
     })
   } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
     console.error('Public reservation error:', error)
     res.status(500).json({ error: 'No se pudo crear la reserva.' })
   }
@@ -845,7 +849,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
 
 router.get('/cancel/preview', async (req: Request, res: Response) => {
   try {
-    const token = typeof req.query.token === 'string' ? req.query.token.trim() : ''
+    const token = typeof req.query.token === 'string' ? req.query.token.trim().slice(0, 80) : ''
 
     if (!token) {
       res.status(400).json({ error: 'Enlace de cancelación no válido.' })

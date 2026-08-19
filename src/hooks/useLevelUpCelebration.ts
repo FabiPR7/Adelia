@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { acknowledgeCelebrations } from '../services/firestore'
 import type { CustomerGamificationState } from '../types/gamification'
 import {
   mergeCelebrationReceipts,
@@ -17,7 +16,7 @@ interface UseLevelUpCelebrationOptions {
   gamification: CustomerGamificationState
   currentLevel: number
   enabled: boolean
-  hydrated: boolean
+  ready: boolean
   refreshProfile: () => Promise<void>
   onAcknowledgedLevel?: (level: number, missionIds: string[]) => void
 }
@@ -39,10 +38,16 @@ function buildLevelUpQueue(lastCelebrated: number, currentLevel: number): LevelU
   return queue
 }
 
-function effectiveCelebratedLevel(userId: string, lastCelebrated: number | null): number {
-  const local = readCelebrationReceipts(userId)
-  const serverLevel = typeof lastCelebrated === 'number' && lastCelebrated > 0 ? lastCelebrated : 0
-  return Math.max(local.lastCelebratedLevel, serverLevel)
+function rememberedLevel(userId: string): number {
+  return readCelebrationReceipts(userId).lastCelebratedLevel
+}
+
+function rememberLocalLevel(userId: string, level: number) {
+  const current = readCelebrationReceipts(userId)
+  writeCelebrationReceipts(userId, mergeCelebrationReceipts(current, {
+    bootstrapped: true,
+    lastCelebratedLevel: level,
+  }))
 }
 
 export function useLevelUpCelebration({
@@ -50,60 +55,73 @@ export function useLevelUpCelebration({
   gamification,
   currentLevel,
   enabled,
-  hydrated,
+  ready,
   refreshProfile,
   onAcknowledgedLevel,
 }: UseLevelUpCelebrationOptions) {
   const [queue, setQueue] = useState<LevelUpStep[]>([])
   const [activeStep, setActiveStep] = useState<LevelUpStep | null>(null)
   const [acknowledging, setAcknowledging] = useState(false)
-  const pendingKeyRef = useRef('')
-  const gamificationRef = useRef(gamification)
+  const primedUserRef = useRef<string | null>(null)
+  const seenLevelRef = useRef(0)
   const onAcknowledgedLevelRef = useRef(onAcknowledgedLevel)
 
-  gamificationRef.current = gamification
   onAcknowledgedLevelRef.current = onAcknowledgedLevel
 
   useEffect(() => {
-    if (!enabled || !userId) {
+    if (!userId) {
+      primedUserRef.current = null
+      seenLevelRef.current = 0
       setQueue([])
       setActiveStep(null)
-      pendingKeyRef.current = ''
       return
     }
 
-    if (!hydrated) {
+    if (!enabled || !ready) {
       return
     }
 
-    const bootstrapped =
-      gamification.celebrationsBootstrapped
-      || readCelebrationReceipts(userId).bootstrapped
+    const serverLast = typeof gamification.lastCelebratedLevel === 'number'
+      ? gamification.lastCelebratedLevel
+      : 0
+    const knownLast = Math.max(serverLast, rememberedLevel(userId), seenLevelRef.current)
 
-    if (!bootstrapped) {
+    if (primedUserRef.current !== userId) {
+      primedUserRef.current = userId
+      const baseline = Math.max(knownLast, currentLevel)
+      seenLevelRef.current = baseline
+      rememberLocalLevel(userId, baseline)
+      if (serverLast < currentLevel) {
+        onAcknowledgedLevelRef.current?.(
+          currentLevel,
+          gamification.celebratedMissionIds,
+        )
+      }
       return
     }
 
-    const lastCelebrated = effectiveCelebratedLevel(userId, gamification.lastCelebratedLevel)
-
-    if (lastCelebrated <= 0 || currentLevel <= lastCelebrated) {
+    if (currentLevel <= seenLevelRef.current) {
+      if (knownLast > seenLevelRef.current) {
+        seenLevelRef.current = knownLast
+      }
       return
     }
 
-    const pendingKey = `${lastCelebrated}->${currentLevel}`
-    if (pendingKeyRef.current === pendingKey) {
-      return
-    }
-
-    pendingKeyRef.current = pendingKey
-    setQueue(buildLevelUpQueue(lastCelebrated, currentLevel))
+    const previousSeen = seenLevelRef.current
+    seenLevelRef.current = currentLevel
+    rememberLocalLevel(userId, currentLevel)
+    setQueue(buildLevelUpQueue(previousSeen, currentLevel))
+    onAcknowledgedLevelRef.current?.(
+      currentLevel,
+      gamification.celebratedMissionIds,
+    )
   }, [
-    enabled,
-    userId,
-    hydrated,
-    gamification.celebrationsBootstrapped,
-    gamification.lastCelebratedLevel,
     currentLevel,
+    enabled,
+    gamification.celebratedMissionIds,
+    gamification.lastCelebratedLevel,
+    ready,
+    userId,
   ])
 
   useEffect(() => {
@@ -122,26 +140,12 @@ export function useLevelUpCelebration({
     }
 
     setAcknowledging(true)
-
-    const receipts = mergeCelebrationReceipts(readCelebrationReceipts(userId), {
-      bootstrapped: true,
-      lastCelebratedLevel: activeStep.toLevel,
-      missionIds: gamificationRef.current.celebratedMissionIds,
-    })
-    writeCelebrationReceipts(userId, receipts)
-    onAcknowledgedLevelRef.current?.(activeStep.toLevel, receipts.missionIds)
-
     try {
-      await acknowledgeCelebrations({
-        level: activeStep.toLevel,
-        missionIds: receipts.missionIds,
-        bootstrapped: true,
-      })
       await refreshProfile()
-      setActiveStep(null)
     } catch {
-      // Mantener el modal visible para reintentar.
+      // El recibo ya se persistió al mostrar la animación.
     } finally {
+      setActiveStep(null)
       setAcknowledging(false)
     }
   }, [activeStep, acknowledging, refreshProfile, userId])

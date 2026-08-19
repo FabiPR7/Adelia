@@ -18,6 +18,8 @@ export type NotificationType =
   | 'reservation_invite_accepted'
   | 'reservation_invite_rejected'
   | 'reservation_invite_cancelled'
+  | 'reservation_challenge_received'
+  | 'reservation_challenge_resolved'
   | 'mission_completed'
   | 'badge_unlocked'
   | 'level_up'

@@ -71,7 +71,7 @@ function parsePhotonFeatures(features: PhotonFeature[] | undefined) {
 
 router.get('/search', async (req, res) => {
   try {
-    const query = String(req.query.q ?? '').trim()
+    const query = String(req.query.q ?? '').trim().slice(0, 80)
 
     if (query.length < 2) {
       res.json({ suggestions: [] })

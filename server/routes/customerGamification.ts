@@ -140,16 +140,6 @@ function validateMonotonicGamification(
   }
 }
 
-function levelForXp(xp: number): number {
-  if (xp >= 10_000) return 7
-  if (xp >= 6_000) return 6
-  if (xp >= 3_200) return 5
-  if (xp >= 1_600) return 4
-  if (xp >= 800) return 3
-  if (xp >= 300) return 2
-  return 1
-}
-
 router.post('/sync', async (req: Request, res: Response) => {
   try {
     const customer = await verifyCustomerUid(req)
@@ -208,7 +198,7 @@ router.post('/acknowledge-level', async (req: Request, res: Response) => {
       const data = userSnap.data() ?? {}
       const gamification = readGamificationFromDocs(statsSnap.data(), data)
       const currentXp = numberValue(gamification.xp, numberValue(data.xp))
-      const currentLevel = levelForXp(currentXp)
+      const currentLevel = await getLevelForXpFromCatalog(currentXp)
       const previous = celebratedLevelValue(gamification.lastCelebratedLevel) ?? 0
       const requestedLevel = hasLevel ? Math.trunc(requestedLevelRaw) : previous
       const nextLevel = Math.max(previous, Math.min(requestedLevel, currentLevel))

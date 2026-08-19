@@ -73,7 +73,6 @@ function AdminDashboard() {
   const [editingCompany, setEditingCompany] = useState<AdminCompany | null>(null)
   const [form, setForm] = useState<CompanyFormState>(EMPTY_FORM)
   const [isSaving, setIsSaving] = useState(false)
-  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({})
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [companyToDelete, setCompanyToDelete] = useState<AdminCompany | null>(null)
   const [isDeletingCompany, setIsDeletingCompany] = useState(false)
@@ -194,13 +193,6 @@ function AdminDashboard() {
     setShowForm(false)
     setEditingCompany(null)
     setForm(EMPTY_FORM)
-  }
-
-  const togglePasswordVisibility = (companyId: string) => {
-    setVisiblePasswords((current) => ({
-      ...current,
-      [companyId]: !current[companyId],
-    }))
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -547,7 +539,7 @@ function AdminDashboard() {
                 <tr>
                   <th>Empresa</th>
                   <th>Nombre acceso</th>
-                  <th>Contraseña</th>
+                  <th>Acceso</th>
                   <th>Alta</th>
                   <th>Contacto</th>
                   <th aria-label="Acciones" />
@@ -562,35 +554,9 @@ function AdminDashboard() {
                     </td>
                     <td>{company.loginName}</td>
                     <td>
-                      <div className={styles.passwordCell}>
-                        {company.loginPassword === '—' ? (
-                          <>
-                            <span className={styles.missingPassword}>Sin registrar</span>
-                            <button
-                              type="button"
-                              className={styles.linkButton}
-                              onClick={() => openEditForm(company)}
-                            >
-                              Asignar
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <code>
-                              {visiblePasswords[company.id]
-                                ? company.loginPassword
-                                : '••••••••'}
-                            </code>
-                            <button
-                              type="button"
-                              className={styles.linkButton}
-                              onClick={() => togglePasswordVisibility(company.id)}
-                            >
-                              {visiblePasswords[company.id] ? 'Ocultar' : 'Ver'}
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      <span className={styles.subText}>
+                        Guardada en Firebase Auth. No se almacena en claro.
+                      </span>
                     </td>
                     <td>{formatRegisteredDate(company.createdAt)}</td>
                     <td>
