@@ -1,18 +1,12 @@
 {
   "indexes": [
     {
-      "collectionGroup": "notificationJobs",
+      "collectionGroup": "reservations",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "scheduledAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "notificationJobs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "reservationId", "order": "ASCENDING" },
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" },
+        { "fieldPath": "time", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
     },
@@ -21,7 +15,18 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "companyId", "order": "ASCENDING" },
-        { "fieldPath": "startTime", "order": "ASCENDING" }
+        { "fieldPath": "date", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reservations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tableId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" },
+        { "fieldPath": "time", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
       ]
     },
     {
@@ -29,59 +34,27 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "customerUid", "order": "ASCENDING" },
-        { "fieldPath": "startTime", "order": "ASCENDING" }
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
-      "collectionGroup": "reservations",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clientEmail", "order": "ASCENDING" },
-        { "fieldPath": "startTime", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "friendRequests",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "toUid", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "role", "order": "ASCENDING" },
-        { "fieldPath": "displayNameLower", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "friendRequests",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "fromUid", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "promotionClaims",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "customerUid", "order": "ASCENDING" },
-        { "fieldPath": "claimedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "promotionClaims",
+      "collectionGroup": "reviews",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "companyId", "order": "ASCENDING" },
-        { "fieldPath": "claimedAt", "order": "DESCENDING" }
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
-      "collectionGroup": "userFavorites",
+      "collectionGroup": "reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "rating", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reviews",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },
@@ -89,34 +62,27 @@
       ]
     },
     {
-      "collectionGroup": "reviewIndex",
+      "collectionGroup": "companies",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "customerUid", "order": "ASCENDING" },
+        { "fieldPath": "verified", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
-      "collectionGroup": "productClaims",
+      "collectionGroup": "companies",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "customerUid", "order": "ASCENDING" },
-        { "fieldPath": "verifiedAt", "order": "DESCENDING" }
+        { "fieldPath": "city", "order": "ASCENDING" },
+        { "fieldPath": "verified", "order": "ASCENDING" }
       ]
     },
     {
-      "collectionGroup": "promotions",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "active", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "users",
+      "collectionGroup": "companies",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "createdAt", "order": "ASCENDING" },
-        { "fieldPath": "role", "order": "ASCENDING" }
+        { "fieldPath": "cuisine", "order": "ASCENDING" },
+        { "fieldPath": "verified", "order": "ASCENDING" }
       ]
     },
     {
@@ -124,31 +90,83 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "role", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "companies",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "companies",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "country", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
       "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "homeCountry", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        { "fieldPath": "xp", "order": "DESCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "promotions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "startDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "read", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "securityEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "securityEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "severity", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "securityEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rateLimits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "resetAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "promotionClaims",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "claimedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "promotionClaims",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "claimedAt", "order": "DESCENDING" }
       ]
     }
-  ]
+  ],
+  "fieldOverrides": []
 }

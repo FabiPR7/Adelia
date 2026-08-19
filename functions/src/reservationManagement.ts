@@ -5,6 +5,8 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import * as admin from 'firebase-admin'
+import { checkRateLimit, RATE_LIMIT_CONFIGS } from './middleware/rateLimiter'
+import { incrementDistributedCounter } from './utils/distributedCounter'
 
 interface CreateReservationRequest {
   companyId: string
@@ -37,6 +39,9 @@ export const createReservation = onCall(
     maxInstances: 100,
   },
   async (request) => {
+    // 🛡️ RATE LIMITING - Previene DoS
+    await checkRateLimit(request, 'createReservation', RATE_LIMIT_CONFIGS.createReservation)
+
     const db = admin.firestore()
     const data = request.data as CreateReservationRequest
 
@@ -190,21 +195,21 @@ export const createReservation = onCall(
 
         transaction.create(reservationRef, reservationData)
 
-        // 8. Actualizar contador de reservas de la empresa (opcional)
-        const statsRef = db.collection('companies').doc(data.companyId).collection('stats').doc('reservations')
-        const statsSnap = await transaction.get(statsRef)
+        // 8. Actualizar contador de reservas de la empresa con DISTRIBUTED COUNTER
+        // Esto elimina el hot spot y permite 10,000+ escrituras/segundo
+        await incrementDistributedCounter(
+          transaction,
+          `companies/${data.companyId}/stats`,
+          'totalReservations',
+          1,
+          20 // 20 shards = ~10,000 reservas/segundo
+        )
 
-        if (statsSnap.exists) {
-          transaction.update(statsRef, {
-            totalReservations: admin.firestore.FieldValue.increment(1),
-            lastReservationAt: now,
-          })
-        } else {
-          transaction.set(statsRef, {
-            totalReservations: 1,
-            lastReservationAt: now,
-          })
-        }
+        // También actualizar lastReservationAt en documento normal
+        const statsMetaRef = db.collection('companies').doc(data.companyId).collection('stats').doc('_meta')
+        transaction.set(statsMetaRef, {
+          lastReservationAt: now,
+        }, { merge: true })
 
         // 9. Loguear evento de seguridad
         const securityEventRef = db.collection('securityEvents').doc()
@@ -262,6 +267,9 @@ export const cancelReservation = onCall(
     memory: '256MiB',
   },
   async (request) => {
+    // 🛡️ RATE LIMITING
+    await checkRateLimit(request, 'cancelReservation', RATE_LIMIT_CONFIGS.cancelReservation)
+
     const db = admin.firestore()
     const { reservationId, reason } = request.data as {
       reservationId: string
@@ -305,11 +313,14 @@ export const cancelReservation = onCall(
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         })
 
-        // Actualizar estadísticas
-        const statsRef = db.collection('companies').doc(reservation.companyId).collection('stats').doc('reservations')
-        transaction.update(statsRef, {
-          totalCancellations: admin.firestore.FieldValue.increment(1),
-        })
+        // Actualizar estadísticas con distributed counter
+        await incrementDistributedCounter(
+          transaction,
+          `companies/${reservation.companyId}/stats`,
+          'totalCancellations',
+          1,
+          10
+        )
       })
 
       return { success: true }
@@ -334,6 +345,9 @@ export const checkReservationAvailability = onCall(
     memory: '128MiB',
   },
   async (request) => {
+    // 🛡️ RATE LIMITING (más permisivo para lecturas)
+    await checkRateLimit(request, 'checkAvailability', RATE_LIMIT_CONFIGS.checkAvailability)
+
     const db = admin.firestore()
     const { companyId, dateIso, time } = request.data as {
       companyId: string

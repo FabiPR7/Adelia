@@ -14,3 +14,4 @@ export {
   cancelReservation,
   checkReservationAvailability,
 } from './reservationManagement.ts'
+export { cleanupRateLimitsScheduled } from './scheduledFunctions.ts'
