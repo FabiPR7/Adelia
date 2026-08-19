@@ -8,3 +8,4 @@ export {
   processScheduledNotifications,
   processDueNotifications,
 } from './triggers.ts'
+export { adminCreateCompany } from './adminCompanyManagement.ts'
