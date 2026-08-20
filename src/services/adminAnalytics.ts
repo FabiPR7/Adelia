@@ -1,5 +1,6 @@
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore'
+import { collection, getDocs, query, where, Timestamp, limit as firestoreLimit } from 'firebase/firestore'
 import { db } from '../config/firebase'
+import { getStatsCounters } from './statsCounters'
 
 export interface AdminStats {
   totalUsers: number
@@ -118,25 +119,37 @@ export async function getAdminStats(): Promise<AdminStats> {
   const twoMonthsAgo = new Date(today)
   twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
 
-  const [usersSnap, companiesSnap] = await Promise.all([
-    getDocs(collection(db, 'users')),
-    getDocs(collection(db, 'companies')),
+  // 🚀 OPTIMIZACIÓN: Usar contadores agregados (1 lectura en lugar de 11,000+)
+  const counters = await getStatsCounters()
+
+  // Solo consultar usuarios recientes para métricas de crecimiento
+  const [recentUsersSnap, recentCompaniesSnap] = await Promise.all([
+    getDocs(
+      query(
+        collection(db, 'users'),
+        where('createdAt', '>=', Timestamp.fromDate(twoMonthsAgo))
+      )
+    ),
+    getDocs(
+      query(
+        collection(db, 'companies'),
+        where('createdAt', '>=', Timestamp.fromDate(twoMonthsAgo))
+      )
+    ),
   ])
 
-  const users = usersSnap.docs.map(doc => mapUserDoc(doc.data()))
-  const companies = companiesSnap.docs.map(doc => mapCompanyDoc(doc.data()))
+  const recentUsers = recentUsersSnap.docs.map(doc => mapUserDoc(doc.data()))
+  const recentCompanies = recentCompaniesSnap.docs.map(doc => mapCompanyDoc(doc.data()))
 
-  const customers = users.filter(u => u.role === 'customer')
+  const newUsersToday = recentUsers.filter(u => u.createdAt >= today).length
+  const newUsersThisWeek = recentUsers.filter(u => u.createdAt >= weekAgo).length
+  const newUsersThisMonth = recentUsers.filter(u => u.createdAt >= monthAgo && u.createdAt < today).length
+  const previousMonthUsers = recentUsers.filter(u => u.createdAt >= twoMonthsAgo && u.createdAt < monthAgo).length
   
-  const newUsersToday = users.filter(u => u.createdAt >= today).length
-  const newUsersThisWeek = users.filter(u => u.createdAt >= weekAgo).length
-  const newUsersThisMonth = users.filter(u => u.createdAt >= monthAgo && u.createdAt < today).length
-  const previousMonthUsers = users.filter(u => u.createdAt >= twoMonthsAgo && u.createdAt < monthAgo).length
-  
-  const newCompaniesToday = companies.filter(c => c.createdAt >= today).length
-  const newCompaniesThisWeek = companies.filter(c => c.createdAt >= weekAgo).length
-  const newCompaniesThisMonth = companies.filter(c => c.createdAt >= monthAgo && c.createdAt < today).length
-  const previousMonthCompanies = companies.filter(c => c.createdAt >= twoMonthsAgo && c.createdAt < monthAgo).length
+  const newCompaniesToday = recentCompanies.filter(c => c.createdAt >= today).length
+  const newCompaniesThisWeek = recentCompanies.filter(c => c.createdAt >= weekAgo).length
+  const newCompaniesThisMonth = recentCompanies.filter(c => c.createdAt >= monthAgo && c.createdAt < today).length
+  const previousMonthCompanies = recentCompanies.filter(c => c.createdAt >= twoMonthsAgo && c.createdAt < monthAgo).length
 
   // Calcular tasas de crecimiento
   const userGrowthRate = previousMonthUsers > 0
@@ -148,9 +161,9 @@ export async function getAdminStats(): Promise<AdminStats> {
     : newCompaniesThisMonth > 0 ? 100 : 0
 
   return {
-    totalUsers: users.length,
-    totalCustomers: customers.length,
-    totalCompanies: companies.length,
+    totalUsers: counters.totalUsers,
+    totalCustomers: counters.totalCustomers,
+    totalCompanies: counters.totalCompanies,
     newUsersToday,
     newUsersThisWeek,
     newUsersThisMonth,
@@ -216,11 +229,23 @@ export async function getCompanyGrowthData(
 }
 
 export async function getUsersByCountry(countryFilter?: string): Promise<GeographicData[]> {
-  const usersSnap = await getDocs(collection(db, 'users'))
+  // 🚀 OPTIMIZACIÓN: Limitar a últimos 10,000 usuarios ordenados por fecha
+  // Si tienes más de 10k usuarios, considera agregar esto a los contadores por país
+  let q = query(
+    collection(db, 'users'),
+    where('role', '==', 'customer')
+  )
+
+  if (countryFilter) {
+    q = query(q, where('homeCountry', '==', countryFilter))
+  }
+
+  // Limitar a 10,000 usuarios más recientes
+  q = query(q, firestoreLimit(10000))
+
+  const usersSnap = await getDocs(q)
   
-  const users = usersSnap.docs
-    .map(doc => mapUserDoc(doc.data()))
-    .filter(u => u.role === 'customer')
+  const users = usersSnap.docs.map(doc => mapUserDoc(doc.data()))
 
   const grouped = users.reduce((acc, user) => {
     const country = user.country || 'Desconocido'
@@ -234,10 +259,21 @@ export async function getUsersByCountry(countryFilter?: string): Promise<Geograp
   return Object.entries(grouped)
     .map(([country, count]) => ({ country, count }))
     .sort((a, b) => b.count - a.count)
+    .slice(0, 50) // Top 50 países
 }
 
 export async function getCompaniesByCountry(countryFilter?: string): Promise<GeographicData[]> {
-  const companiesSnap = await getDocs(collection(db, 'companies'))
+  // 🚀 OPTIMIZACIÓN: Limitar a últimas 5,000 empresas
+  let q = query(collection(db, 'companies'))
+
+  if (countryFilter) {
+    q = query(q, where('country', '==', countryFilter))
+  }
+
+  // Limitar a 5,000 empresas más recientes
+  q = query(q, firestoreLimit(5000))
+
+  const companiesSnap = await getDocs(q)
   
   const companies = companiesSnap.docs.map(doc => mapCompanyDoc(doc.data()))
 
@@ -253,6 +289,7 @@ export async function getCompaniesByCountry(countryFilter?: string): Promise<Geo
   return Object.entries(grouped)
     .map(([country, count]) => ({ country, count }))
     .sort((a, b) => b.count - a.count)
+    .slice(0, 50) // Top 50 países
 }
 
 function groupByDate(
@@ -310,9 +347,10 @@ function getMonthName(month: number): string {
 }
 
 export async function getAllCountries(): Promise<string[]> {
+  // 🚀 OPTIMIZACIÓN: Limitar búsqueda de países
   const [usersSnap, companiesSnap] = await Promise.all([
-    getDocs(collection(db, 'users')),
-    getDocs(collection(db, 'companies')),
+    getDocs(query(collection(db, 'users'), firestoreLimit(5000))),
+    getDocs(query(collection(db, 'companies'), firestoreLimit(2000))),
   ])
 
   const countries = new Set<string>()

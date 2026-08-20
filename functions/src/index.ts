@@ -15,3 +15,16 @@ export {
   checkReservationAvailability,
 } from './reservationManagement.ts'
 export { cleanupRateLimitsScheduled } from './scheduledFunctions.ts'
+
+// Stats counters triggers for optimized analytics
+export {
+  onUserCreate,
+  onUserDelete,
+  onCompanyCreate,
+  onCompanyDelete,
+  onReservationCreate,
+  onReservationDelete,
+  onReviewCreate,
+  onReviewDelete,
+  recalculateAllCounters
+} from './triggers/statsCounters.ts'
