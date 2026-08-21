@@ -2,8 +2,6 @@ import adelinaCoinUrl from '../assets/adelina.webp'
 
 export { adelinaCoinUrl }
 
-export const ADELINA_LABEL = 'Adelinas'
-
 export type AdelinaIconKind = 'adelina' | 'adelina-review'
 
 export function isAdelinaIcon(icon: string): icon is AdelinaIconKind {

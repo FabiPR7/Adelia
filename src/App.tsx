@@ -30,6 +30,7 @@ const CustomerMissionsTab = lazy(() => import('./pages/customer/CustomerMissions
 const CustomerProfileTab = lazy(() => import('./pages/customer/CustomerProfileTab'))
 const CustomerReservationsTab = lazy(() => import('./pages/customer/CustomerReservationsTab'))
 const CustomerNotificationsTab = lazy(() => import('./pages/customer/CustomerNotificationsTab'))
+const CustomerChangePasswordPage = lazy(() => import('./pages/customer/CustomerChangePasswordPage'))
 const CompanyDashboard = lazy(() => import('./pages/CompanyDashboard'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 
@@ -160,6 +161,7 @@ function App() {
         <Route path="notificaciones" element={<Suspense fallback={<RouteFallback />}><CustomerNotificationsTab /></Suspense>} />
         <Route path="perfil" element={<Suspense fallback={<RouteFallback />}><CustomerProfileTab /></Suspense>} />
       </Route>
+      <Route path="/cuenta/cambiar-contrasena" element={<Suspense fallback={<RouteFallback />}><CustomerChangePasswordPage /></Suspense>} />
       <Route path="/cuenta/entrar" element={<UserLoginPage />} />
       <Route
         path="/cuenta/registro"

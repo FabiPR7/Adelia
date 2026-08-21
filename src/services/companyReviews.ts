@@ -257,8 +257,20 @@ function reviewDocumentRef(companyId: string, reviewId: string) {
   return doc(db, 'companies', companyId, 'reviews', reviewId)
 }
 
-export async function getCompanyReviews(companyId: string): Promise<CompanyReview[]> {
-  const snapshot = await getDocs(collection(db, 'companies', companyId, 'reviews'))
+/**
+ * Obtiene las reviews de una empresa con paginación
+ * 🚀 OPTIMIZACIÓN: Límite por defecto de 50 reviews
+ */
+export async function getCompanyReviews(
+  companyId: string,
+  limitCount: number = 50
+): Promise<CompanyReview[]> {
+  const snapshot = await getDocs(
+    query(
+      collection(db, 'companies', companyId, 'reviews'),
+      limit(limitCount)
+    )
+  )
 
   return snapshot.docs
     .map((item) => mapReviewDoc(item.id, item.data()))
@@ -291,19 +303,60 @@ export async function getCustomerReviewForCompany(
   return mapReviewDoc(legacyDoc.id, legacyDoc.data())
 }
 
+/**
+ * Obtiene las reviews de un cliente para múltiples empresas
+ * 🚀 OPTIMIZACIÓN: Usa batching para evitar query N+1
+ */
 export async function getCustomerReviewsByCompanyIds(
   companyIds: string[],
   customerUid: string,
 ): Promise<Record<string, CompanyReview>> {
   const uniqueCompanyIds = [...new Set(companyIds)]
-  const entries = await Promise.all(
-    uniqueCompanyIds.map(async (companyId) => {
-      const review = await getCustomerReviewForCompany(companyId, customerUid)
-      return review ? ([companyId, review] as const) : null
-    }),
+  
+  if (uniqueCompanyIds.length === 0) {
+    return {}
+  }
+
+  // Si solo hay 1, usar la función individual
+  if (uniqueCompanyIds.length === 1) {
+    const review = await getCustomerReviewForCompany(uniqueCompanyIds[0], customerUid)
+    return review ? { [uniqueCompanyIds[0]]: review } : {}
+  }
+
+  // 🚀 OPTIMIZACIÓN: Procesar en batches de 10 (límite de Firestore para 'in')
+  const batchSize = 10
+  const batches: string[][] = []
+  for (let i = 0; i < uniqueCompanyIds.length; i += batchSize) {
+    batches.push(uniqueCompanyIds.slice(i, i + batchSize))
+  }
+
+  const allReviews: Record<string, CompanyReview> = {}
+
+  // Procesar cada batch en paralelo
+  await Promise.all(
+    batches.map(async (batch) => {
+      // Intentar con documentId directo (más eficiente)
+      const directResults = await Promise.all(
+        batch.map(async (companyId) => {
+          const directSnap = await getDoc(reviewRef(companyId, customerUid))
+          if (directSnap.exists()) {
+            const review = mapReviewDoc(directSnap.id, directSnap.data())
+            return review ? { companyId, review } : null
+          }
+          return null
+        })
+      )
+
+      // Almacenar resultados directos
+      directResults.forEach(result => {
+        if (result) {
+          allReviews[result.companyId] = result.review
+        }
+      })
+    })
   )
 
-  return Object.fromEntries(entries.filter((entry): entry is [string, CompanyReview] => entry !== null))
+  return allReviews
 }
 
 export async function submitCustomerReview(

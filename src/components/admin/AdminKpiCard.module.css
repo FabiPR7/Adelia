@@ -1,0 +1,82 @@
+.card {
+  background: #ffffff;
+  border: 1px solid #e8ddd3;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(107, 83, 68, 0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(107, 83, 68, 0.12);
+}
+
+.header {
+  margin-bottom: 16px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  font-size: 24px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b5344;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mainValue {
+  font-size: 36px;
+  font-weight: 700;
+  color: #2e1f14;
+  line-height: 1;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #8a7a6e;
+  margin-top: 4px;
+}
+
+.trend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #f4ede6;
+}
+
+.trendValue {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.trendLabel {
+  font-size: 12px;
+  color: #8a7a6e;
+}
+
+.trendPositive .trendValue {
+  color: #2e7d6b;
+}
+
+.trendNegative .trendValue {
+  color: #c0392b;
+}

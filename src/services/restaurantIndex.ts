@@ -1,4 +1,4 @@
-import { doc, getDocs, collection, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDocs, collection, setDoc, serverTimestamp, query, limit, where } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 
@@ -71,15 +71,24 @@ export async function syncRestaurantIndexFromCompany(
   await setDoc(doc(db, 'restaurantIndex', company.id), restaurantIndexPayload(company), { merge: true })
 }
 
-export async function fetchRestaurantIndex(): Promise<PublicDiscoveryRestaurant[]> {
+/**
+ * Obtiene el índice de restaurantes para búsqueda pública
+ * 🚀 OPTIMIZACIÓN: Limita a 1000 restaurantes con perfil completo
+ */
+export async function fetchRestaurantIndex(limitCount: number = 1000): Promise<PublicDiscoveryRestaurant[]> {
   try {
-    const snapshot = await getDocs(collection(db, 'restaurantIndex'))
+    // Solo obtener restaurantes con perfil completo
+    const snapshot = await getDocs(
+      query(
+        collection(db, 'restaurantIndex'),
+        where('hasProfile', '==', true),
+        limit(limitCount)
+      )
+    )
+    
     return snapshot.docs
       .map((item) => {
         const data = item.data()
-        if (data.hasProfile === false) {
-          return null
-        }
         return {
           id: item.id,
           name: typeof data.name === 'string' ? data.name : '',
@@ -98,7 +107,8 @@ export async function fetchRestaurantIndex(): Promise<PublicDiscoveryRestaurant[
         } satisfies PublicDiscoveryRestaurant
       })
       .filter((item): item is PublicDiscoveryRestaurant => item !== null && Boolean(item.name && item.slug))
-  } catch {
+  } catch (error) {
+    console.error('Error fetching restaurant index:', error)
     return []
   }
 }

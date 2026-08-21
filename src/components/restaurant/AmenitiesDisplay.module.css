@@ -1,0 +1,207 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* Tipos de Establecimiento */
+.typesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.typeBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.typeIcon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.typeLabel {
+  font-size: 14px;
+}
+
+/* Vista Completa - Grid de Amenities */
+.amenitiesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.amenityCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.amenityCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.amenityCardDisabled {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  opacity: 0.7;
+}
+
+.amenityIconWrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.amenityIcon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.prohibitedOverlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 36px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.amenityLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  text-align: center;
+}
+
+.amenityStatus {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.statusActive {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.statusInactive {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Vista Compacta - Iconos pequeños en línea */
+.compactContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.compactIcon {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.compactIcon:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.compactIcon .icon {
+  font-size: 20px;
+  line-height: 1;
+  filter: brightness(1.2) saturate(1.2);
+}
+
+.compactIconDisabled {
+  opacity: 0.5;
+  background: #f8fafc;
+}
+
+.compactIconDisabled .icon {
+  filter: grayscale(1) brightness(1.2);
+}
+
+.prohibitedSign {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .amenitiesGrid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+
+  .amenityCard {
+    padding: 12px;
+  }
+
+  .amenityIcon {
+    font-size: 28px;
+  }
+
+  .prohibitedOverlay {
+    font-size: 32px;
+  }
+
+  .compactIcon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .compactIcon .icon {
+    font-size: 18px;
+  }
+
+  .prohibitedSign {
+    font-size: 24px;
+  }
+}

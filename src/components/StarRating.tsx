@@ -75,5 +75,3 @@ export function StarRatingInput({ value, onChange, disabled = false }: StarRatin
 }
 
 export default StarRating
-
-export { StarRating }

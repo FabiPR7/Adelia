@@ -290,6 +290,9 @@ function CustomerProfileTab() {
           <Link to="/cuenta/completar-perfil?edit=1" className={styles.secondaryBtn}>
             Editar preferencias
           </Link>
+          <Link to="/cuenta/cambiar-contrasena" className={styles.secondaryBtn}>
+            Cambiar contraseña
+          </Link>
           <button type="button" className={styles.logoutBtn} onClick={() => void logout()}>
             Cerrar sesión
           </button>

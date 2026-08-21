@@ -6,7 +6,7 @@ import {
 } from '../data/inventoryItems'
 import { formatCentsAsEuros } from '../utils/minimumSpendVerification'
 import type { PublicPromotion } from '../services/publicPromotions'
-import { resolveActiveLadderPromotionId, sortCompanyLadderPromotions } from '../utils/promotionReservationProgress'
+import { sortCompanyLadderPromotions } from '../utils/promotionReservationProgress'
 import styles from './ApplyMesaTokenModal.module.css'
 
 interface ApplyMesaTokenModalProps {
@@ -136,12 +136,4 @@ export default function ApplyMesaTokenModal({
       </section>
     </div>
   )
-}
-
-export function resolveTokenTargetPromotionId(
-  ladderPromotions: PublicPromotion[],
-  activeByCompany: Record<string, string>,
-  companyId: string,
-): string | null {
-  return resolveActiveLadderPromotionId(companyId, ladderPromotions, activeByCompany)
 }

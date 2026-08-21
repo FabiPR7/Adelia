@@ -1,0 +1,50 @@
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: #fff8f5;
+  border: 2px solid #f5d4c8;
+  border-radius: 12px;
+}
+
+.icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #b54a4a;
+  margin: 0 0 8px 0;
+}
+
+.message {
+  font-size: 14px;
+  color: #8a7a6e;
+  max-width: 400px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.retryButton {
+  margin-top: 20px;
+  padding: 10px 24px;
+  background: #b54a4a;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.retryButton:hover {
+  background: #9a3e3e;
+}

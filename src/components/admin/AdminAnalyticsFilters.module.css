@@ -1,0 +1,137 @@
+.filters {
+  background: #ffffff;
+  border: 1px solid #e8ddd3;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(107, 83, 68, 0.06);
+  margin-bottom: 24px;
+}
+
+.filterGroup {
+  margin-bottom: 20px;
+}
+
+.filterGroup:last-child {
+  margin-bottom: 0;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2e1f14;
+  margin-bottom: 12px;
+}
+
+.buttonGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filterButton {
+  padding: 8px 16px;
+  border: 1px solid #d4c4b4;
+  background: #ffffff;
+  color: #6b5344;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filterButton:hover {
+  background: #f9f6f2;
+  border-color: #b8a896;
+}
+
+.filterButton.active {
+  background: #2e7d6b;
+  color: #ffffff;
+  border-color: #2e7d6b;
+}
+
+.filterButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.customDatePicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  background: #f9f6f2;
+  border-radius: 8px;
+  align-items: flex-end;
+}
+
+.dateInputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dateLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b5344;
+}
+
+.dateInput {
+  padding: 8px 12px;
+  border: 1px solid #d4c4b4;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #2e1f14;
+  background: #ffffff;
+  font-family: inherit;
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: #2e7d6b;
+  box-shadow: 0 0 0 3px rgba(46, 125, 107, 0.1);
+}
+
+.applyButton {
+  padding: 8px 20px;
+  background: #2e7d6b;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.applyButton:hover:not(:disabled) {
+  background: #256a5a;
+}
+
+.applyButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select {
+  width: 100%;
+  max-width: 300px;
+  padding: 10px 14px;
+  border: 1px solid #d4c4b4;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #2e1f14;
+  background: #ffffff;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #2e7d6b;
+  box-shadow: 0 0 0 3px rgba(46, 125, 107, 0.1);
+}

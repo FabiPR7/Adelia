@@ -33,6 +33,7 @@ export interface CompanySettingsPayload {
   mainPhotoIndex: number
   videos: string[]
   characteristics: string[]
+  amenities?: import('./amenities').RestaurantAmenities
   timeSlotMinutes: number
   /** A partir de este número de comensales se pedirá fianza (null = desactivado). */
   depositMinPax: number | null

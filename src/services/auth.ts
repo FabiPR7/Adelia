@@ -8,21 +8,28 @@ import {
 import { auth } from '../config/firebase'
 import { resolveLoginAuthEmail } from './firestore'
 import { syncInitialPasswordChange } from './authApi'
+import {
+  checkAccountLocked,
+  recordFailedLoginAttempt,
+  resetLoginAttempts,
+  getLockedUntilTime,
+  formatLockoutMessage,
+} from './authSecurity'
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/email-already-in-use': 'Ya existe una cuenta con este email.',
-  'auth/invalid-email': 'El email no es válido.',
+  'auth/invalid-email': 'Email o contraseña incorrectos.',
   'auth/user-disabled': 'Esta cuenta ha sido deshabilitada.',
-  'auth/user-not-found': 'Nombre o contraseña incorrectos.',
-  'auth/wrong-password': 'Nombre o contraseña incorrectos.',
-  'auth/invalid-credential': 'Nombre o contraseña incorrectos.',
-  'auth/weak-password': 'La nueva contraseña es demasiado débil.',
+  'auth/user-not-found': 'Email o contraseña incorrectos.',
+  'auth/wrong-password': 'Email o contraseña incorrectos.',
+  'auth/invalid-credential': 'Email o contraseña incorrectos.',
+  'auth/weak-password': 'La contraseña debe tener al menos 8 caracteres e incluir mayúsculas, minúsculas y números.',
   'auth/too-many-requests':
     'Demasiados intentos fallidos. Inténtalo de nuevo más tarde.',
   'auth/network-request-failed':
     'Error de conexión. Comprueba tu internet e inténtalo de nuevo.',
   'auth/requires-recent-login':
-    'Vuelve a iniciar sesión e inténtalo de nuevo.',
+    'Por seguridad, vuelve a iniciar sesión e inténtalo de nuevo.',
 }
 
 export function getAuthErrorMessage(error: unknown): string {
@@ -43,9 +50,27 @@ export function getAuthErrorMessage(error: unknown): string {
 }
 
 export async function loginWithUsername(username: string, password: string) {
-  const email = await resolveLoginAuthEmail(username)
-  const credential = await signInWithEmailAndPassword(auth, email, password)
-  return credential.user
+  const identifier = username.trim().toLowerCase()
+  
+  const isLocked = await checkAccountLocked(identifier)
+  if (isLocked) {
+    const lockedUntil = await getLockedUntilTime(identifier)
+    if (lockedUntil) {
+      throw new Error(formatLockoutMessage(lockedUntil))
+    }
+  }
+  
+  try {
+    const email = await resolveLoginAuthEmail(username)
+    const credential = await signInWithEmailAndPassword(auth, email, password)
+    
+    await resetLoginAttempts(identifier)
+    
+    return credential.user
+  } catch (error) {
+    await recordFailedLoginAttempt(identifier)
+    throw error
+  }
 }
 
 export async function logout() {

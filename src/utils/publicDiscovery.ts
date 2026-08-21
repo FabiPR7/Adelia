@@ -16,6 +16,7 @@ export interface PublicDiscoveryRestaurant {
   longitude: number | null
   photoUrl: string
   characteristics: string[]
+  amenities?: import('../types/amenities').RestaurantAmenities
   searchText: string
   reviewCount: number
   reviewRatingSum: number

@@ -33,6 +33,7 @@ service cloud.firestore {
     }
 
     match /logins/{loginId} {
+      // Empresas pueden leer su propio login, admins todo
       allow get: if isAdmin() || (
         isSignedIn()
         && resource.data.companyId is string
@@ -68,6 +69,11 @@ service cloud.firestore {
     }
 
     match /passwordResetTokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    match /rateLimits/{limitId} {
+      // Solo Cloud Functions pueden leer/escribir
       allow read, write: if false;
     }
 
@@ -177,30 +183,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    function isValidPublicReservation() {
-      let data = request.resource.data;
-      return data.companyId is string
-        && data.tableId is string
-        && data.clientName is string
-        && data.clientName.size() > 0
-        && data.clientEmail is string
-        && data.clientEmail.size() > 0
-        && data.clientPhone is string
-        && data.clientPhone.size() > 0
-        && data.pax is int
-        && data.pax >= 1
-        && data.pax <= 50
-        && data.status == 'completed'
-        && data.startTime is timestamp
-        && data.endTime is timestamp
-        && data.cancelToken is string
-        && data.cancelToken.size() > 0
-        && data.notes is string;
-    }
-
     function isValidCompanyOwnerUpdate() {
       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      return !changedKeys.hasAny(['slug', 'ownerUid', 'createdAt', 'promotionPin'])
+      // promotionPin ya no está en el documento principal, está en /private/promotionPin
+      return !changedKeys.hasAny(['slug', 'ownerUid', 'createdAt'])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0;
     }
@@ -244,11 +230,6 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         isCompanyOwner(companyId)
         && isValidCompanyOwnerUpdate()
-      ) || (
-        isCompanyOwner(companyId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['promotionPin'])
-        && ('promotionPin' in resource.data)
-        && !('promotionPin' in request.resource.data)
       );
 
       match /private/{privateDoc} {
@@ -295,7 +276,9 @@ service cloud.firestore {
           isCompanyOwner(companyId)
           && isValidCompanyReviewReplyUpdate(companyId)
         );
-        allow delete: if isCompanyOwner(companyId) || isAdmin();
+        // Solo admin puede borrar reviews para mantener credibilidad del sistema
+        // Las empresas pueden responder pero no eliminar reseñas negativas
+        allow delete: if isAdmin();
       }
 
       match /notifications/{notificationId} {
@@ -435,9 +418,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+<<<<<<< HEAD
+    match /securityEvents/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+=======
     match /userGamification/{userId} {
       allow read: if isSelf(userId) || isAdmin();
       allow write: if false;
+>>>>>>> d523230a43eeed419471680ff32f7f9dd61cdcfc
     }
   }
 }

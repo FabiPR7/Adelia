@@ -7,6 +7,7 @@ import {
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
 import FavoriteButton from './FavoriteButton'
+import AmenitiesDisplay from './restaurant/AmenitiesDisplay'
 import styles from './RestaurantPreviewSheet.module.css'
 
 interface RestaurantPreviewSheetProps {
@@ -99,6 +100,14 @@ function RestaurantPreviewSheet({
               ))}
             </div>
           )}
+
+          <div className={styles.amenitiesSection}>
+            <AmenitiesDisplay 
+              amenities={restaurant.amenities}
+              compact={true}
+              showTypes={false}
+            />
+          </div>
 
           <div className={styles.actions}>
             <Link to={`/reservar/${restaurant.slug}`} className={styles.primaryButton}>

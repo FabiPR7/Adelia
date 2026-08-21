@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
+import DOMPurify from 'dompurify'
 import type { ReviewTaggedProduct, ReviewTaggedPromotion } from '../types/review'
 import {
   REVIEW_PRODUCT_TAG_PATTERN,
@@ -189,7 +190,11 @@ function ReviewCommentEditor({
       return
     }
 
-    editor.innerHTML = markersToEditorHtml(comment)
+    const html = markersToEditorHtml(comment)
+    editor.innerHTML = DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['span'],
+      ALLOWED_ATTR: ['data-tag-type', 'data-board-id', 'data-node-id', 'data-promotion-id', 'class'],
+    })
   }, [editorRef])
 
   useEffect(() => {

@@ -24,12 +24,20 @@ import {
 } from './customerAuthApi'
 import { normalizePhoneE164 } from '../utils/customerRouting'
 import { formatSpanishPhoneForStorage, isValidSpanishPhone } from '../utils/helpers'
+import {
+  checkAccountLocked,
+  recordFailedLoginAttempt,
+  resetLoginAttempts,
+  getLockedUntilTime,
+  formatLockoutMessage,
+} from './authSecurity'
 
 export interface RegisterCustomerInput {
   email: string
   password: string
   displayName: string
   phone: string
+  recaptchaToken?: string
 }
 
 function requireCustomerPhone(phone: string): string {
@@ -170,27 +178,44 @@ export async function finalizeEmailRegistration(): Promise<void> {
 }
 
 export async function loginCustomer(email: string, password: string): Promise<User> {
-  const credential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password)
-
-  if (!credential.user.emailVerified) {
-    await sendCustomerVerificationEmail(credential.user).catch(() => {
-      // Puede fallar por rate limit; igual bloqueamos el acceso.
-    })
-    await signOut(auth)
-    throw new Error(
-      'Confirma tu email antes de entrar. Revisa tu bandeja (y spam) y vuelve a intentarlo.',
-    )
+  const identifier = email.trim().toLowerCase()
+  
+  const isLocked = await checkAccountLocked(identifier)
+  if (isLocked) {
+    const lockedUntil = await getLockedUntilTime(identifier)
+    if (lockedUntil) {
+      throw new Error(formatLockoutMessage(lockedUntil))
+    }
   }
+  
+  try {
+    const credential = await signInWithEmailAndPassword(auth, identifier, password)
 
-  const profile = await getUserProfile(credential.user.uid).catch(() => null)
-  const role = profile?.role
+    if (!credential.user.emailVerified) {
+      await sendCustomerVerificationEmail(credential.user).catch(() => {
+        // Puede fallar por rate limit; igual bloqueamos el acceso.
+      })
+      await signOut(auth)
+      throw new Error(
+        'Confirma tu email antes de entrar. Revisa tu bandeja (y spam) y vuelve a intentarlo.',
+      )
+    }
 
-  if (role !== 'customer') {
-    await signOut(auth)
-    throw new Error('Esta cuenta no es de cliente. Usa el acceso de empresas.')
+    const profile = await getUserProfile(credential.user.uid).catch(() => null)
+    const role = profile?.role
+
+    if (role !== 'customer') {
+      await signOut(auth)
+      throw new Error('Esta cuenta no es de cliente. Usa el acceso de empresas.')
+    }
+
+    await resetLoginAttempts(identifier)
+    
+    return credential.user
+  } catch (error) {
+    await recordFailedLoginAttempt(identifier)
+    throw error
   }
-
-  return credential.user
 }
 
 export async function resendCustomerVerificationEmail(): Promise<void> {

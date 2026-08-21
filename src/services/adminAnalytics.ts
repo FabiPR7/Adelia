@@ -1,0 +1,369 @@
+import { collection, getDocs, query, where, Timestamp, limit as firestoreLimit } from 'firebase/firestore'
+import { db } from '../config/firebase'
+import { getStatsCounters } from './statsCounters'
+
+export interface AdminStats {
+  totalUsers: number
+  totalCustomers: number
+  totalCompanies: number
+  newUsersToday: number
+  newUsersThisWeek: number
+  newUsersThisMonth: number
+  newCompaniesToday: number
+  newCompaniesThisWeek: number
+  newCompaniesThisMonth: number
+  // Comparativas con periodo anterior
+  userGrowthRate: number // % crecimiento mes vs mes anterior
+  companyGrowthRate: number // % crecimiento mes vs mes anterior
+  previousMonthUsers: number
+  previousMonthCompanies: number
+}
+
+export interface UserGrowthData {
+  labels: string[]
+  values: number[]
+}
+
+export interface CompanyGrowthData {
+  labels: string[]
+  values: number[]
+}
+
+export interface GeographicData {
+  country: string
+  count: number
+}
+
+export type TimeRange = 
+  | 'today'
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'semester'
+  | 'year'
+  | 'custom'
+
+export interface DateRangeFilter {
+  startDate: Date
+  endDate: Date
+}
+
+function getDateRangeForTimeRange(range: TimeRange): DateRangeFilter {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  
+  switch (range) {
+    case 'today':
+      return {
+        startDate: today,
+        endDate: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+      }
+    
+    case 'week': {
+      const weekAgo = new Date(today)
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      return { startDate: weekAgo, endDate: today }
+    }
+    
+    case 'month': {
+      const monthAgo = new Date(today)
+      monthAgo.setMonth(monthAgo.getMonth() - 1)
+      return { startDate: monthAgo, endDate: today }
+    }
+    
+    case 'quarter': {
+      const quarterAgo = new Date(today)
+      quarterAgo.setMonth(quarterAgo.getMonth() - 3)
+      return { startDate: quarterAgo, endDate: today }
+    }
+    
+    case 'semester': {
+      const semesterAgo = new Date(today)
+      semesterAgo.setMonth(semesterAgo.getMonth() - 6)
+      return { startDate: semesterAgo, endDate: today }
+    }
+    
+    case 'year': {
+      const yearAgo = new Date(today)
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1)
+      return { startDate: yearAgo, endDate: today }
+    }
+    
+    default:
+      return { startDate: today, endDate: today }
+  }
+}
+
+function mapUserDoc(data: Record<string, unknown>): { role: string; createdAt: Date; country: string } {
+  return {
+    role: (data.role as string) ?? 'customer',
+    createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+    country: (data.homeCountry as string) ?? 'Unknown',
+  }
+}
+
+function mapCompanyDoc(data: Record<string, unknown>): { createdAt: Date; country: string } {
+  return {
+    createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+    country: (data.country as string) ?? 'Unknown',
+  }
+}
+
+export async function getAdminStats(): Promise<AdminStats> {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const weekAgo = new Date(today)
+  weekAgo.setDate(weekAgo.getDate() - 7)
+  const monthAgo = new Date(today)
+  monthAgo.setMonth(monthAgo.getMonth() - 1)
+  const twoMonthsAgo = new Date(today)
+  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+
+  // 🚀 OPTIMIZACIÓN: Usar contadores agregados (1 lectura en lugar de 11,000+)
+  const counters = await getStatsCounters()
+
+  // Solo consultar usuarios recientes para métricas de crecimiento
+  const [recentUsersSnap, recentCompaniesSnap] = await Promise.all([
+    getDocs(
+      query(
+        collection(db, 'users'),
+        where('createdAt', '>=', Timestamp.fromDate(twoMonthsAgo))
+      )
+    ),
+    getDocs(
+      query(
+        collection(db, 'companies'),
+        where('createdAt', '>=', Timestamp.fromDate(twoMonthsAgo))
+      )
+    ),
+  ])
+
+  const recentUsers = recentUsersSnap.docs.map(doc => mapUserDoc(doc.data()))
+  const recentCompanies = recentCompaniesSnap.docs.map(doc => mapCompanyDoc(doc.data()))
+
+  const newUsersToday = recentUsers.filter(u => u.createdAt >= today).length
+  const newUsersThisWeek = recentUsers.filter(u => u.createdAt >= weekAgo).length
+  const newUsersThisMonth = recentUsers.filter(u => u.createdAt >= monthAgo && u.createdAt < today).length
+  const previousMonthUsers = recentUsers.filter(u => u.createdAt >= twoMonthsAgo && u.createdAt < monthAgo).length
+  
+  const newCompaniesToday = recentCompanies.filter(c => c.createdAt >= today).length
+  const newCompaniesThisWeek = recentCompanies.filter(c => c.createdAt >= weekAgo).length
+  const newCompaniesThisMonth = recentCompanies.filter(c => c.createdAt >= monthAgo && c.createdAt < today).length
+  const previousMonthCompanies = recentCompanies.filter(c => c.createdAt >= twoMonthsAgo && c.createdAt < monthAgo).length
+
+  // Calcular tasas de crecimiento
+  const userGrowthRate = previousMonthUsers > 0
+    ? ((newUsersThisMonth - previousMonthUsers) / previousMonthUsers) * 100
+    : newUsersThisMonth > 0 ? 100 : 0
+
+  const companyGrowthRate = previousMonthCompanies > 0
+    ? ((newCompaniesThisMonth - previousMonthCompanies) / previousMonthCompanies) * 100
+    : newCompaniesThisMonth > 0 ? 100 : 0
+
+  return {
+    totalUsers: counters.totalUsers,
+    totalCustomers: counters.totalCustomers,
+    totalCompanies: counters.totalCompanies,
+    newUsersToday,
+    newUsersThisWeek,
+    newUsersThisMonth,
+    newCompaniesToday,
+    newCompaniesThisWeek,
+    newCompaniesThisMonth,
+    userGrowthRate: Math.round(userGrowthRate * 10) / 10,
+    companyGrowthRate: Math.round(companyGrowthRate * 10) / 10,
+    previousMonthUsers,
+    previousMonthCompanies,
+  }
+}
+
+export async function getUserGrowthData(
+  timeRange: TimeRange,
+  customRange?: DateRangeFilter
+): Promise<UserGrowthData> {
+  const dateRange = customRange ?? getDateRangeForTimeRange(timeRange)
+  
+  const usersSnap = await getDocs(
+    query(
+      collection(db, 'users'),
+      where('createdAt', '>=', Timestamp.fromDate(dateRange.startDate)),
+      where('createdAt', '<=', Timestamp.fromDate(dateRange.endDate))
+    )
+  )
+
+  const users = usersSnap.docs
+    .map(doc => mapUserDoc(doc.data()))
+    .filter(u => u.role === 'customer')
+
+  // Group by date
+  const grouped = groupByDate(users.map(u => u.createdAt), timeRange)
+  
+  return {
+    labels: grouped.labels,
+    values: grouped.values,
+  }
+}
+
+export async function getCompanyGrowthData(
+  timeRange: TimeRange,
+  customRange?: DateRangeFilter
+): Promise<CompanyGrowthData> {
+  const dateRange = customRange ?? getDateRangeForTimeRange(timeRange)
+  
+  const companiesSnap = await getDocs(
+    query(
+      collection(db, 'companies'),
+      where('createdAt', '>=', Timestamp.fromDate(dateRange.startDate)),
+      where('createdAt', '<=', Timestamp.fromDate(dateRange.endDate))
+    )
+  )
+
+  const companies = companiesSnap.docs.map(doc => mapCompanyDoc(doc.data()))
+
+  const grouped = groupByDate(companies.map(c => c.createdAt), timeRange)
+  
+  return {
+    labels: grouped.labels,
+    values: grouped.values,
+  }
+}
+
+export async function getUsersByCountry(countryFilter?: string): Promise<GeographicData[]> {
+  // 🚀 OPTIMIZACIÓN: Limitar a últimos 10,000 usuarios ordenados por fecha
+  // Si tienes más de 10k usuarios, considera agregar esto a los contadores por país
+  let q = query(
+    collection(db, 'users'),
+    where('role', '==', 'customer')
+  )
+
+  if (countryFilter) {
+    q = query(q, where('homeCountry', '==', countryFilter))
+  }
+
+  // Limitar a 10,000 usuarios más recientes
+  q = query(q, firestoreLimit(10000))
+
+  const usersSnap = await getDocs(q)
+  
+  const users = usersSnap.docs.map(doc => mapUserDoc(doc.data()))
+
+  const grouped = users.reduce((acc, user) => {
+    const country = user.country || 'Desconocido'
+    if (countryFilter && country !== countryFilter) {
+      return acc
+    }
+    acc[country] = (acc[country] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  return Object.entries(grouped)
+    .map(([country, count]) => ({ country, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50) // Top 50 países
+}
+
+export async function getCompaniesByCountry(countryFilter?: string): Promise<GeographicData[]> {
+  // 🚀 OPTIMIZACIÓN: Limitar a últimas 5,000 empresas
+  let q = query(collection(db, 'companies'))
+
+  if (countryFilter) {
+    q = query(q, where('country', '==', countryFilter))
+  }
+
+  // Limitar a 5,000 empresas más recientes
+  q = query(q, firestoreLimit(5000))
+
+  const companiesSnap = await getDocs(q)
+  
+  const companies = companiesSnap.docs.map(doc => mapCompanyDoc(doc.data()))
+
+  const grouped = companies.reduce((acc, company) => {
+    const country = company.country || 'Desconocido'
+    if (countryFilter && country !== countryFilter) {
+      return acc
+    }
+    acc[country] = (acc[country] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  return Object.entries(grouped)
+    .map(([country, count]) => ({ country, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50) // Top 50 países
+}
+
+function groupByDate(
+  dates: Date[],
+  timeRange: TimeRange
+): { labels: string[]; values: number[] } {
+  if (dates.length === 0) {
+    return { labels: [], values: [] }
+  }
+
+  const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime())
+  const grouped: Record<string, number> = {}
+
+  for (const date of sorted) {
+    let key: string
+    
+    switch (timeRange) {
+      case 'today':
+      case 'week':
+        // Group by day
+        key = `${date.getDate()}/${date.getMonth() + 1}`
+        break
+      
+      case 'month':
+      case 'quarter':
+        // Group by day
+        key = `${date.getDate()}/${date.getMonth() + 1}`
+        break
+      
+      case 'semester':
+      case 'year':
+        // Group by month
+        key = `${getMonthName(date.getMonth())} ${date.getFullYear()}`
+        break
+      
+      default:
+        key = date.toISOString().split('T')[0]
+    }
+    
+    grouped[key] = (grouped[key] || 0) + 1
+  }
+
+  const labels = Object.keys(grouped)
+  const values = Object.values(grouped)
+
+  return { labels, values }
+}
+
+function getMonthName(month: number): string {
+  const months = [
+    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+  ]
+  return months[month]
+}
+
+export async function getAllCountries(): Promise<string[]> {
+  // 🚀 OPTIMIZACIÓN: Limitar búsqueda de países
+  const [usersSnap, companiesSnap] = await Promise.all([
+    getDocs(query(collection(db, 'users'), firestoreLimit(5000))),
+    getDocs(query(collection(db, 'companies'), firestoreLimit(2000))),
+  ])
+
+  const countries = new Set<string>()
+
+  usersSnap.docs.forEach(doc => {
+    const country = (doc.data().homeCountry as string) ?? ''
+    if (country) countries.add(country)
+  })
+
+  companiesSnap.docs.forEach(doc => {
+    const country = (doc.data().country as string) ?? ''
+    if (country) countries.add(country)
+  })
+
+  return Array.from(countries).sort()
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, useEffect, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { auth } from '../config/firebase'
@@ -13,6 +13,7 @@ import {
   isPasswordValid,
   PASSWORD_REQUIREMENTS,
 } from '../utils/passwordValidation'
+import { loadRecaptchaScript, executeRecaptcha } from '../services/recaptcha'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
 import LegalLinks from '../components/LegalLinks'
@@ -31,6 +32,20 @@ function UserRegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [acceptedLegal, setAcceptedLegal] = useState(false)
+  const [recaptchaReady, setRecaptchaReady] = useState(false)
+
+  useEffect(() => {
+    loadRecaptchaScript()
+      .then(() => setRecaptchaReady(true))
+      .catch(err => {
+        console.error('Error cargando reCAPTCHA:', err)
+        if (import.meta.env.PROD) {
+          setError('Error cargando protección anti-bots. Recarga la página.')
+        } else {
+          setRecaptchaReady(true)
+        }
+      })
+  }, [])
 
   const passwordChecks = useMemo(
     () => getPasswordChecks(password, confirmPassword),
@@ -71,6 +86,20 @@ function UserRegisterPage() {
     setIsLoading(true)
 
     try {
+      if (recaptchaReady) {
+        try {
+          await executeRecaptcha('register_google')
+          // TODO: Enviar recaptchaToken al backend para verificación
+        } catch (err) {
+          console.error('Error ejecutando reCAPTCHA:', err)
+          if (import.meta.env.PROD) {
+            setError('Error en verificación anti-bots. Intenta de nuevo.')
+            setIsLoading(false)
+            return
+          }
+        }
+      }
+
       const googleResult = await signInCustomerWithGoogle()
       const currentUser = auth.currentUser
       if (currentUser && (googleResult === 'created' || googleResult === 'existing')) {
@@ -109,7 +138,21 @@ function UserRegisterPage() {
     setIsLoading(true)
 
     try {
-      await registerCustomerAndSignOut({ email, password, displayName, phone })
+      let recaptchaToken = ''
+      if (recaptchaReady) {
+        try {
+          recaptchaToken = await executeRecaptcha('register')
+        } catch (err) {
+          console.error('Error ejecutando reCAPTCHA:', err)
+          if (import.meta.env.PROD) {
+            setError('Error en verificación anti-bots. Intenta de nuevo.')
+            setIsLoading(false)
+            return
+          }
+        }
+      }
+
+      await registerCustomerAndSignOut({ email, password, displayName, phone, recaptchaToken })
       navigate(`/cuenta/verificar-email?email=${encodeURIComponent(email.trim().toLowerCase())}`, {
         replace: true,
       })
@@ -203,18 +246,18 @@ function UserRegisterPage() {
           </label>
 
           <ul className={styles.passwordRequirements} aria-live="polite">
-            {PASSWORD_REQUIREMENTS.map((requirement) => {
-              const met = passwordChecks[requirement.key]
-
+            {passwordChecks.slice(0, 4).map((check, index) => {
+              const requirement = PASSWORD_REQUIREMENTS[index]
+              
               return (
                 <li
                   key={requirement.key}
-                  className={met ? styles.requirementMet : styles.requirementPending}
+                  className={check.met ? styles.requirementMet : styles.requirementPending}
                 >
                   <span className={styles.requirementIcon} aria-hidden="true">
-                    {met ? '✓' : '○'}
+                    {check.met ? '✓' : '○'}
                   </span>
-                  {requirement.label}
+                  {check.label}
                 </li>
               )
             })}
