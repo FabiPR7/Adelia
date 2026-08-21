@@ -21,7 +21,6 @@ import {
   updateCompanySettings,
 } from '../../services/firestore'
 import type { Company, CompanySettingsPayload, SettingsSection, TableInput } from '../../types'
-import type { RestaurantAmenities } from '../../types/amenities'
 import { DEFAULT_AMENITIES } from '../../types/amenities'
 import {
   createNamedFloorPlan,
