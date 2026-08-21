@@ -15,9 +15,9 @@ import AdminChartSkeleton from '../components/admin/AdminChartSkeleton'
 import AdminEmptyState from '../components/admin/AdminEmptyState'
 import AdminErrorState from '../components/admin/AdminErrorState'
 import TabNavigation, { type AdminTab } from '../components/admin/TabNavigation'
-// import FinancialKpiCard from '../components/admin/FinancialKpiCard'
-// import RevenueChart from '../components/admin/RevenueChart'
-// import TopCompaniesTable from '../components/admin/TopCompaniesTable'
+import FinancialKpiCard from '../components/admin/FinancialKpiCard'
+import RevenueChart from '../components/admin/RevenueChart'
+import TopCompaniesTable from '../components/admin/TopCompaniesTable'
 import {
   getAdminStats,
   getUserGrowthData,
@@ -37,16 +37,16 @@ import {
   exportGrowthDataToCSV,
   exportGeographicDataToCSV,
 } from '../utils/exportAnalytics'
-// import {
-//   getFinancialStats,
-//   getRevenueByPeriod,
-//   getTopCompaniesByRevenue,
-//   getDepositStats,
-//   type FinancialStats,
-//   type RevenueByPeriod,
-//   type TopCompanyByRevenue,
-//   type DepositStats,
-// } from '../services/adminFinancialAnalytics'
+import {
+  getFinancialStats,
+  getRevenueByPeriod,
+  getTopCompaniesByRevenue,
+  getDepositStats,
+  type FinancialStats,
+  type RevenueByPeriod,
+  type TopCompanyByRevenue,
+  type DepositStats,
+} from '../services/adminFinancialAnalytics'
 import {
   saveAnalyticsFilters,
   loadAnalyticsFilters,
@@ -103,12 +103,12 @@ function AdminDashboard() {
   const [customDateRange, setCustomDateRange] = useState<DateRangeFilter | undefined>(undefined)
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
 
-  // Financial analytics state (commented for now, ready for future use)
-  // const [financialStats, setFinancialStats] = useState<FinancialStats | null>(null)
-  // const [revenueData, setRevenueData] = useState<RevenueByPeriod>({ labels: [], revenue: [], deposits: [], refunds: [] })
-  // const [topCompanies, setTopCompanies] = useState<TopCompanyByRevenue[]>([])
-  // const [depositStats, setDepositStats] = useState<DepositStats | null>(null)
-  // const [isLoadingFinancials, setIsLoadingFinancials] = useState(false)
+  // Financial analytics state
+  const [financialStats, setFinancialStats] = useState<FinancialStats | null>(null)
+  const [revenueData, setRevenueData] = useState<RevenueByPeriod>({ labels: [], revenue: [], deposits: [], refunds: [] })
+  const [topCompanies, setTopCompanies] = useState<TopCompanyByRevenue[]>([])
+  const [depositStats, setDepositStats] = useState<DepositStats | null>(null)
+  const [isLoadingFinancials, setIsLoadingFinancials] = useState(false)
 
   // Load filters from localStorage
   const savedFilters = loadAnalyticsFilters()
@@ -191,32 +191,32 @@ function AdminDashboard() {
     saveAnalyticsFilters({ timeRange, countryFilter })
   }, [timeRange, countryFilter])
 
-  // const loadFinancialData = async () => {
-  //   setIsLoadingFinancials(true)
-  //   try {
-  //     const [financials, revenue, topComps, deposits] = await Promise.all([
-  //       getFinancialStats(),
-  //       getRevenueByPeriod('month', 30),
-  //       getTopCompaniesByRevenue(10),
-  //       getDepositStats(),
-  //     ])
+  const loadFinancialData = async () => {
+    setIsLoadingFinancials(true)
+    try {
+      const [financials, revenue, topComps, deposits] = await Promise.all([
+        getFinancialStats(),
+        getRevenueByPeriod('month', 30),
+        getTopCompaniesByRevenue(10),
+        getDepositStats(),
+      ])
 
-  //     setFinancialStats(financials)
-  //     setRevenueData(revenue)
-  //     setTopCompanies(topComps)
-  //     setDepositStats(deposits)
-  //   } catch (err) {
-  //     console.error('Error loading financial data:', err)
-  //   } finally {
-  //     setIsLoadingFinancials(false)
-  //   }
-  // }
+      setFinancialStats(financials)
+      setRevenueData(revenue)
+      setTopCompanies(topComps)
+      setDepositStats(deposits)
+    } catch (err) {
+      console.error('Error loading financial data:', err)
+    } finally {
+      setIsLoadingFinancials(false)
+    }
+  }
 
-  // useEffect(() => {
-  //   if (activeTab === 'finances') {
-  //     void loadFinancialData()
-  //   }
-  // }, [activeTab])
+  useEffect(() => {
+    if (activeTab === 'finances') {
+      void loadFinancialData()
+    }
+  }, [activeTab])
 
   const openCreateForm = () => {
     setEditingCompany(null)
@@ -378,7 +378,7 @@ function AdminDashboard() {
       <main className={styles.main}>
         {success && <div className={styles.success}>{success}</div>}
 
-        {currentView === 'analytics' && (
+        {currentView === 'analytics' && activeTab === 'overview' && (
           <>
             <div className={styles.analyticsSection}>
               <div className={styles.sectionHeader}>
@@ -549,6 +549,98 @@ function AdminDashboard() {
                   action={{
                     label: 'Intentar de nuevo',
                     onClick: handleRefreshAnalytics,
+                  }}
+                />
+              )}
+            </div>
+          </>
+        )}
+
+        {currentView === 'analytics' && activeTab === 'finances' && (
+          <>
+            <div className={styles.analyticsSection}>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>Análisis Financiero</h2>
+                <div className={styles.sectionActions}>
+                  <button
+                    type="button"
+                    className={styles.refreshButton}
+                    onClick={loadFinancialData}
+                    disabled={isLoadingFinancials}
+                  >
+                    🔄 Actualizar
+                  </button>
+                </div>
+              </div>
+
+              {isLoadingFinancials ? (
+                <>
+                  <div className={styles.kpiGrid}>
+                    <AdminKpiSkeleton />
+                    <AdminKpiSkeleton />
+                    <AdminKpiSkeleton />
+                    <AdminKpiSkeleton />
+                  </div>
+                  <div className={styles.chartsGrid}>
+                    <AdminChartSkeleton />
+                  </div>
+                </>
+              ) : financialStats ? (
+                <>
+                  <div className={styles.kpiGrid}>
+                    <FinancialKpiCard
+                      title="Revenue Total"
+                      value={`$${financialStats.totalRevenue.toLocaleString()}`}
+                      icon="💰"
+                      color="green"
+                      subtitle={`${financialStats.totalTransactions} transacciones`}
+                    />
+                    <FinancialKpiCard
+                      title="Fianzas Cobradas"
+                      value={`$${financialStats.totalDeposits.toLocaleString()}`}
+                      icon="🏦"
+                      color="blue"
+                      subtitle={depositStats ? `${depositStats.depositSuccessRate.toFixed(1)}% tasa éxito` : ''}
+                    />
+                    <FinancialKpiCard
+                      title="MRR (Ingresos Recurrentes)"
+                      value={`$${financialStats.monthlyRecurringRevenue.toLocaleString()}`}
+                      icon="📊"
+                      color="purple"
+                      subtitle="Promedio mensual"
+                    />
+                    <FinancialKpiCard
+                      title="Valor Promedio Reserva"
+                      value={`$${financialStats.averageReservationValue.toFixed(2)}`}
+                      icon="🎯"
+                      color="orange"
+                      subtitle={`${financialStats.conversionRate.toFixed(1)}% conversión`}
+                    />
+                  </div>
+
+                  <div className={styles.chartsGrid}>
+                    <div className={styles.chartCard}>
+                      <RevenueChart
+                        labels={revenueData.labels}
+                        revenue={revenueData.revenue}
+                        deposits={revenueData.deposits}
+                        refunds={revenueData.refunds}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={styles.tableSection}>
+                    <h3>Top 10 Empresas por Revenue</h3>
+                    <TopCompaniesTable companies={topCompanies} isLoading={isLoadingFinancials} />
+                  </div>
+                </>
+              ) : (
+                <AdminEmptyState
+                  title="No hay datos financieros"
+                  description="No se encontraron transacciones o pagos registrados"
+                  action={{
+                    label: 'Actualizar',
+                    onClick: loadFinancialData,
                   }}
                 />
               )}
