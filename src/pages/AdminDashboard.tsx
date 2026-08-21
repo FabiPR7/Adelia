@@ -14,6 +14,10 @@ import AdminKpiSkeleton from '../components/admin/AdminKpiSkeleton'
 import AdminChartSkeleton from '../components/admin/AdminChartSkeleton'
 import AdminEmptyState from '../components/admin/AdminEmptyState'
 import AdminErrorState from '../components/admin/AdminErrorState'
+import TabNavigation, { type AdminTab } from '../components/admin/TabNavigation'
+import FinancialKpiCard from '../components/admin/FinancialKpiCard'
+import RevenueChart from '../components/admin/RevenueChart'
+import TopCompaniesTable from '../components/admin/TopCompaniesTable'
 import {
   getAdminStats,
   getUserGrowthData,
@@ -33,6 +37,16 @@ import {
   exportGrowthDataToCSV,
   exportGeographicDataToCSV,
 } from '../utils/exportAnalytics'
+import {
+  getFinancialStats,
+  getRevenueByPeriod,
+  getTopCompaniesByRevenue,
+  getDepositStats,
+  type FinancialStats,
+  type RevenueByPeriod,
+  type TopCompanyByRevenue,
+  type DepositStats,
+} from '../services/adminFinancialAnalytics'
 import {
   saveAnalyticsFilters,
   loadAnalyticsFilters,
@@ -78,6 +92,7 @@ function AdminDashboard() {
   const [isDeletingCompany, setIsDeletingCompany] = useState(false)
 
   // Analytics state
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview')
   const [currentView, setCurrentView] = useState<'analytics' | 'companies'>('analytics')
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [userGrowth, setUserGrowth] = useState<UserGrowthData>({ labels: [], values: [] })
@@ -87,6 +102,13 @@ function AdminDashboard() {
   const [availableCountries, setAvailableCountries] = useState<string[]>([])
   const [customDateRange, setCustomDateRange] = useState<DateRangeFilter | undefined>(undefined)
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
+
+  // Financial analytics state
+  const [financialStats, setFinancialStats] = useState<FinancialStats | null>(null)
+  const [revenueData, setRevenueData] = useState<RevenueByPeriod>({ labels: [], revenue: [], deposits: [], refunds: [] })
+  const [topCompanies, setTopCompanies] = useState<TopCompanyByRevenue[]>([])
+  const [depositStats, setDepositStats] = useState<DepositStats | null>(null)
+  const [isLoadingFinancials, setIsLoadingFinancials] = useState(false)
 
   // Load filters from localStorage
   const savedFilters = loadAnalyticsFilters()
@@ -168,6 +190,33 @@ function AdminDashboard() {
   useEffect(() => {
     saveAnalyticsFilters({ timeRange, countryFilter })
   }, [timeRange, countryFilter])
+
+  const loadFinancialData = async () => {
+    setIsLoadingFinancials(true)
+    try {
+      const [financials, revenue, topComps, deposits] = await Promise.all([
+        getFinancialStats(),
+        getRevenueByPeriod('month', 30),
+        getTopCompaniesByRevenue(10),
+        getDepositStats(),
+      ])
+
+      setFinancialStats(financials)
+      setRevenueData(revenue)
+      setTopCompanies(topComps)
+      setDepositStats(deposits)
+    } catch (err) {
+      console.error('Error loading financial data:', err)
+    } finally {
+      setIsLoadingFinancials(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'finances') {
+      void loadFinancialData()
+    }
+  }, [activeTab])
 
   const openCreateForm = () => {
     setEditingCompany(null)
@@ -314,22 +363,17 @@ function AdminDashboard() {
         </button>
       </header>
 
-      <nav className={styles.nav}>
-        <button
-          type="button"
-          className={`${styles.navButton} ${currentView === 'analytics' ? styles.navButtonActive : ''}`}
-          onClick={() => setCurrentView('analytics')}
-        >
-          📊 Analytics
-        </button>
-        <button
-          type="button"
-          className={`${styles.navButton} ${currentView === 'companies' ? styles.navButtonActive : ''}`}
-          onClick={() => setCurrentView('companies')}
-        >
-          🏢 Empresas
-        </button>
-      </nav>
+      <TabNavigation 
+        activeTab={activeTab} 
+        onTabChange={(tab) => {
+          setActiveTab(tab)
+          if (tab === 'companies') {
+            setCurrentView('companies')
+          } else {
+            setCurrentView('analytics')
+          }
+        }} 
+      />
 
       <main className={styles.main}>
         {success && <div className={styles.success}>{success}</div>}
