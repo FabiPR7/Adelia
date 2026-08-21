@@ -1,25 +1,30 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { searchWorldCities, type CitySuggestion } from '../services/citySearch'
+import { detectUserLocation } from '../services/geolocation'
 import styles from './CityAutocomplete.module.css'
 
 interface CityAutocompleteProps {
   value: CitySuggestion | null
   onChange: (city: CitySuggestion | null) => void
+  onLocationDetected?: (location: { city: string; country: string; latitude: number; longitude: number }) => void
   placeholder?: string
   label?: string
   className?: string
   variant?: 'default' | 'form'
   compact?: boolean
+  showLocationButton?: boolean
 }
 
 function CityAutocomplete({
   value,
   onChange,
+  onLocationDetected,
   placeholder = 'Ciudad…',
   label = 'Zona',
   className,
   variant = 'default',
   compact = false,
+  showLocationButton = true,
 }: CityAutocompleteProps) {
   const listboxId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -29,6 +34,7 @@ function CityAutocomplete({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(-1)
+  const [detectingLocation, setDetectingLocation] = useState(false)
 
   useEffect(() => {
     setInputValue(value?.label ?? '')
@@ -127,6 +133,46 @@ function CityAutocomplete({
     setError(null)
   }
 
+  const handleDetectLocation = async () => {
+    setDetectingLocation(true)
+    setError(null)
+
+    try {
+      const location = await detectUserLocation()
+
+      if (!location) {
+        setError('No se pudo detectar tu ubicación. Verifica los permisos del navegador.')
+        return
+      }
+
+      // Crear un CitySuggestion con la ubicación detectada
+      const citySuggestion: CitySuggestion = {
+        id: `detected-${location.latitude}-${location.longitude}`,
+        name: location.city || location.municipality,
+        region: location.municipality,
+        country: location.country,
+        label: `${location.city || location.municipality}, ${location.country}`,
+      }
+
+      selectSuggestion(citySuggestion)
+
+      // Notificar las coordenadas al componente padre si es necesario
+      if (onLocationDetected) {
+        onLocationDetected({
+          city: location.city || location.municipality,
+          country: location.country,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        })
+      }
+    } catch (err) {
+      console.error('Error detectando ubicación:', err)
+      setError('No se pudo detectar tu ubicación.')
+    } finally {
+      setDetectingLocation(false)
+    }
+  }
+
   const handleInputChange = (nextValue: string) => {
     setInputValue(nextValue)
 
@@ -177,6 +223,18 @@ function CityAutocomplete({
       <label className={styles.field}>
         <span className={compact ? styles.srOnly : styles.label}>{label}</span>
         <div className={styles.inputWrap}>
+          {showLocationButton && (
+            <button
+              type="button"
+              className={styles.locationButton}
+              onClick={handleDetectLocation}
+              disabled={detectingLocation}
+              title="Detectar mi ubicación"
+              aria-label="Detectar mi ubicación"
+            >
+              {detectingLocation ? '⏳' : '📍'}
+            </button>
+          )}
           <input
             type="search"
             value={inputValue}

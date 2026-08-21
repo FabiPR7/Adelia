@@ -15,9 +15,9 @@ import AdminChartSkeleton from '../components/admin/AdminChartSkeleton'
 import AdminEmptyState from '../components/admin/AdminEmptyState'
 import AdminErrorState from '../components/admin/AdminErrorState'
 import TabNavigation, { type AdminTab } from '../components/admin/TabNavigation'
-import FinancialKpiCard from '../components/admin/FinancialKpiCard'
-import RevenueChart from '../components/admin/RevenueChart'
-import TopCompaniesTable from '../components/admin/TopCompaniesTable'
+// import FinancialKpiCard from '../components/admin/FinancialKpiCard'
+// import RevenueChart from '../components/admin/RevenueChart'
+// import TopCompaniesTable from '../components/admin/TopCompaniesTable'
 import {
   getAdminStats,
   getUserGrowthData,
@@ -37,16 +37,16 @@ import {
   exportGrowthDataToCSV,
   exportGeographicDataToCSV,
 } from '../utils/exportAnalytics'
-import {
-  getFinancialStats,
-  getRevenueByPeriod,
-  getTopCompaniesByRevenue,
-  getDepositStats,
-  type FinancialStats,
-  type RevenueByPeriod,
-  type TopCompanyByRevenue,
-  type DepositStats,
-} from '../services/adminFinancialAnalytics'
+// import {
+//   getFinancialStats,
+//   getRevenueByPeriod,
+//   getTopCompaniesByRevenue,
+//   getDepositStats,
+//   type FinancialStats,
+//   type RevenueByPeriod,
+//   type TopCompanyByRevenue,
+//   type DepositStats,
+// } from '../services/adminFinancialAnalytics'
 import {
   saveAnalyticsFilters,
   loadAnalyticsFilters,
@@ -103,12 +103,12 @@ function AdminDashboard() {
   const [customDateRange, setCustomDateRange] = useState<DateRangeFilter | undefined>(undefined)
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
 
-  // Financial analytics state
-  const [financialStats, setFinancialStats] = useState<FinancialStats | null>(null)
-  const [revenueData, setRevenueData] = useState<RevenueByPeriod>({ labels: [], revenue: [], deposits: [], refunds: [] })
-  const [topCompanies, setTopCompanies] = useState<TopCompanyByRevenue[]>([])
-  const [depositStats, setDepositStats] = useState<DepositStats | null>(null)
-  const [isLoadingFinancials, setIsLoadingFinancials] = useState(false)
+  // Financial analytics state (commented for now, ready for future use)
+  // const [financialStats, setFinancialStats] = useState<FinancialStats | null>(null)
+  // const [revenueData, setRevenueData] = useState<RevenueByPeriod>({ labels: [], revenue: [], deposits: [], refunds: [] })
+  // const [topCompanies, setTopCompanies] = useState<TopCompanyByRevenue[]>([])
+  // const [depositStats, setDepositStats] = useState<DepositStats | null>(null)
+  // const [isLoadingFinancials, setIsLoadingFinancials] = useState(false)
 
   // Load filters from localStorage
   const savedFilters = loadAnalyticsFilters()
@@ -191,32 +191,32 @@ function AdminDashboard() {
     saveAnalyticsFilters({ timeRange, countryFilter })
   }, [timeRange, countryFilter])
 
-  const loadFinancialData = async () => {
-    setIsLoadingFinancials(true)
-    try {
-      const [financials, revenue, topComps, deposits] = await Promise.all([
-        getFinancialStats(),
-        getRevenueByPeriod('month', 30),
-        getTopCompaniesByRevenue(10),
-        getDepositStats(),
-      ])
+  // const loadFinancialData = async () => {
+  //   setIsLoadingFinancials(true)
+  //   try {
+  //     const [financials, revenue, topComps, deposits] = await Promise.all([
+  //       getFinancialStats(),
+  //       getRevenueByPeriod('month', 30),
+  //       getTopCompaniesByRevenue(10),
+  //       getDepositStats(),
+  //     ])
 
-      setFinancialStats(financials)
-      setRevenueData(revenue)
-      setTopCompanies(topComps)
-      setDepositStats(deposits)
-    } catch (err) {
-      console.error('Error loading financial data:', err)
-    } finally {
-      setIsLoadingFinancials(false)
-    }
-  }
+  //     setFinancialStats(financials)
+  //     setRevenueData(revenue)
+  //     setTopCompanies(topComps)
+  //     setDepositStats(deposits)
+  //   } catch (err) {
+  //     console.error('Error loading financial data:', err)
+  //   } finally {
+  //     setIsLoadingFinancials(false)
+  //   }
+  // }
 
-  useEffect(() => {
-    if (activeTab === 'finances') {
-      void loadFinancialData()
-    }
-  }, [activeTab])
+  // useEffect(() => {
+  //   if (activeTab === 'finances') {
+  //     void loadFinancialData()
+  //   }
+  // }, [activeTab])
 
   const openCreateForm = () => {
     setEditingCompany(null)

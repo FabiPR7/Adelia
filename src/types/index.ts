@@ -88,6 +88,7 @@ export interface Company {
   stripePayoutsEnabled: boolean
   stripeDetailsSubmitted: boolean
   createdAt: Date
+  amenities?: import('./amenities').RestaurantAmenities
 }
 
 export interface AdminCompany extends Company {

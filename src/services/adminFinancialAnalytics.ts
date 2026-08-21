@@ -3,9 +3,9 @@
  * Incluye métricas de pagos, fianzas, revenue, transacciones, etc.
  */
 
-import { collection, getDocs, query, where, Timestamp, orderBy, limit as firestoreLimit } from 'firebase/firestore'
+import { collection, getDocs, query, where, Timestamp, limit as firestoreLimit } from 'firebase/firestore'
 import { db } from '../config/firebase'
-import { getStatsCounters } from './statsCounters'
+// import { getStatsCounters } from './statsCounters'
 
 export interface FinancialStats {
   totalRevenue: number
@@ -56,7 +56,7 @@ export interface DepositStats {
  */
 export async function getFinancialStats(): Promise<FinancialStats> {
   try {
-    const counters = await getStatsCounters()
+    // const counters = await getStatsCounters()
 
     // Query limitada de reservas recientes con pagos
     const now = new Date()
@@ -138,7 +138,7 @@ export async function getFinancialStats(): Promise<FinancialStats> {
  * Obtiene revenue por período (día, semana, mes)
  */
 export async function getRevenueByPeriod(
-  period: 'day' | 'week' | 'month' = 'month',
+  _period: 'day' | 'week' | 'month' = 'month',
   limitDays: number = 30
 ): Promise<RevenueByPeriod> {
   try {
@@ -203,7 +203,7 @@ export async function getTopCompaniesByRevenue(limitCount: number = 10): Promise
       )
     )
 
-    const companyRevenue: Record<string, { name: string; revenue: number; count: number }> = {}
+    // const companyRevenue: Record<string, { name: string; revenue: number; count: number }> = {}
 
     // Para cada empresa, obtener sus reservas recientes
     const companyPromises = companiesSnap.docs.slice(0, 50).map(async (companyDoc) => {

@@ -4,6 +4,7 @@ import CharacteristicPicker from '../../components/CharacteristicPicker'
 import CityAutocomplete from '../../components/CityAutocomplete'
 import LocationMapPicker from '../../components/LocationMapPicker'
 import MediaGalleryUploader from '../../components/MediaGalleryUploader'
+import AmenitiesEditor from '../../components/company/AmenitiesEditor'
 import { useAuth } from '../../context/AuthContext'
 import {
   COMPANY_CHARACTERISTIC_OPTIONS,
@@ -20,6 +21,8 @@ import {
   updateCompanySettings,
 } from '../../services/firestore'
 import type { Company, CompanySettingsPayload, SettingsSection, TableInput } from '../../types'
+import type { RestaurantAmenities } from '../../types/amenities'
+import { DEFAULT_AMENITIES } from '../../types/amenities'
 import {
   createNamedFloorPlan,
   defaultFloorPlan,
@@ -142,6 +145,7 @@ function companyToForm(company: Company): CompanySettingsPayload {
     mainPhotoIndex: company.mainPhotoIndex ?? 0,
     videos: company.videos ?? [],
     characteristics: company.characteristics ?? [],
+    amenities: company.amenities ?? DEFAULT_AMENITIES,
     timeSlotMinutes: company.timeSlotMinutes,
     depositMinPax: company.depositMinPax ?? null,
     depositPerGuestCents: company.depositPerGuestCents ?? null,
@@ -972,6 +976,12 @@ const CompanySettings = forwardRef(function CompanySettings(
               selected={form.characteristics}
               maxSelected={MAX_COMPANY_CHARACTERISTICS}
               onChange={(characteristics) => setForm({ ...form, characteristics })}
+            />
+          </div>
+          <div className={styles.fullWidth}>
+            <AmenitiesEditor
+              amenities={form.amenities ?? DEFAULT_AMENITIES}
+              onChange={(amenities) => setForm({ ...form, amenities })}
             />
           </div>
         </div>

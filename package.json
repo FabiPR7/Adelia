@@ -45,6 +45,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "@vitest/ui": "^4.1.11",
     "concurrently": "^10.0.4",
+    "firebase-tools": "^15.28.1",
     "happy-dom": "^20.11.2",
     "jsdom": "^29.1.1",
     "sharp": "^0.35.3",
