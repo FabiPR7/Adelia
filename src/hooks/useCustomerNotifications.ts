@@ -9,13 +9,13 @@ import {
   subscribeCustomerNotifications,
 } from '../services/customerNotifications'
 
-export function useCustomerNotifications() {
+export function useCustomerNotifications(enabled = true) {
   const { user, profile } = useAuth()
   const [notifications, setNotifications] = useState<CustomerNotification[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user?.uid || profile?.role !== 'customer') {
+    if (!enabled || !user?.uid || profile?.role !== 'customer') {
       setNotifications([])
       setLoading(false)
       return
@@ -38,16 +38,10 @@ export function useCustomerNotifications() {
       },
     )
 
-    void fetchCustomerNotifications()
-      .then((payload) => {
-        setNotifications(payload.notifications)
-      })
-      .catch(() => undefined)
-
     return () => {
       unsubscribeNotifications()
     }
-  }, [user?.uid, profile?.role])
+  }, [enabled, user?.uid, profile?.role])
 
   const markRead = useCallback(async (notificationId: string) => {
     setNotifications((current) =>

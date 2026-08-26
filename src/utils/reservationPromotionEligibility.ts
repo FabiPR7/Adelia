@@ -19,7 +19,7 @@ export function reservationHasMinimumSpendRequirement(reservation: Reservation):
   )
 }
 
-/** Reservas confirmadas que suman progreso en promos por reservas. */
+/** Reservas confirmadas que suman progreso en ofertas por reserva o consumo. */
 export function countsForPromotionProgress(reservation: Reservation): boolean {
   if (reservation.status !== 'confirmed') {
     return false

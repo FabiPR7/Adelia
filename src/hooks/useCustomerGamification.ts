@@ -9,6 +9,7 @@ import type { Reservation } from '../types'
 import type { CustomerGamificationState, MissionProgress } from '../types/gamification'
 import { defaultGamificationState } from '../types/gamification'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
+import type { CustomerVerifiedConsumption } from '../types/verifiedConsumption'
 import {
   buildMissionProgressList,
   computeWeeklyBonusProgress,
@@ -20,6 +21,7 @@ import {
   processGamificationRewards,
   rotateMonthlyMissions,
   rotateWeeklyMissions,
+  syncGamificationPeriods,
   type GamificationContext,
 } from '../utils/gamificationProgress'
 
@@ -28,6 +30,7 @@ interface UseCustomerGamificationOptions {
   favoriteSlugs: string[]
   restaurants: PublicDiscoveryRestaurant[]
   promotionCompanyIds: Set<string>
+  consumptions: CustomerVerifiedConsumption[]
   enabled: boolean
 }
 
@@ -44,6 +47,7 @@ export function useCustomerGamification({
   favoriteSlugs,
   restaurants,
   promotionCompanyIds,
+  consumptions,
   enabled,
 }: UseCustomerGamificationOptions) {
   const { user, profile, refreshProfile } = useAuth()
@@ -68,21 +72,28 @@ export function useCustomerGamification({
   const context = useMemo((): GamificationContext => {
     const restaurantZones = new Map<string, string>()
     const restaurantCategories = new Map<string, string[]>()
+    const restaurantVenueTypes = new Map<string, string[]>()
+    const restaurantReservationModes = new Map<string, 'required' | 'optional' | 'none'>()
 
     for (const restaurant of restaurants) {
       restaurantZones.set(restaurant.id, restaurant.municipality || restaurant.location)
       restaurantCategories.set(restaurant.id, restaurant.characteristics ?? [])
+      restaurantVenueTypes.set(restaurant.id, restaurant.venueTypes ?? [])
+      restaurantReservationModes.set(restaurant.id, restaurant.reservationMode)
     }
 
     return {
       reservations,
+      consumptions,
       favoriteSlugs,
       promotionCompanyIds,
       restaurantZones,
       restaurantCategories,
+      restaurantVenueTypes,
+      restaurantReservationModes,
       weeklyFeaturedCategory: getWeeklyFeaturedCategory(),
     }
-  }, [reservations, favoriteSlugs, promotionCompanyIds, restaurants, weekKey])
+  }, [reservations, consumptions, favoriteSlugs, promotionCompanyIds, restaurants, weekKey])
 
   const weeklyMissions = useMemo(() => rotateWeeklyMissions(), [weekKey])
   const monthlyMissions = useMemo(() => rotateMonthlyMissions(), [monthKey])
@@ -100,14 +111,10 @@ export function useCustomerGamification({
     [state.completedMissions],
   )
 
-  const evaluationState = useMemo((): CustomerGamificationState => {
-    const sameWeek = state.weekKey === weekKey
-
-    return {
-      ...state,
-      favoriteSlugsAtWeekStart: sameWeek ? state.favoriteSlugsAtWeekStart : favoriteSlugs,
-    }
-  }, [state, weekKey, favoriteSlugs])
+  const evaluationState = useMemo(
+    () => syncGamificationPeriods(state, favoriteSlugs),
+    [state, favoriteSlugs],
+  )
 
   const weeklyProgress = useMemo(
     () =>
@@ -168,6 +175,7 @@ export function useCustomerGamification({
       historicalProgress,
       reservations,
       favoriteSlugs,
+      consumptions,
     )
     setEvaluatedTick((tick) => tick + 1)
 
@@ -239,6 +247,7 @@ export function useCustomerGamification({
     monthlyProgress,
     historicalProgress,
     reservations,
+    consumptions,
   ])
 
   return {

@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   increment,
+  limit,
   orderBy,
   query,
   runTransaction,
@@ -32,7 +33,7 @@ function mapCompanyClient(id: string, data: Record<string, unknown>): CompanyCli
 
 export async function getCompanyClients(companyId: string): Promise<CompanyClient[]> {
   const clientsRef = collection(db, 'companies', companyId, 'clients')
-  const snapshot = await getDocs(query(clientsRef, orderBy('lastReservationDate', 'desc')))
+  const snapshot = await getDocs(query(clientsRef, orderBy('lastReservationDate', 'desc'), limit(200)))
 
   return snapshot.docs.map((clientDoc) =>
     mapCompanyClient(clientDoc.id, clientDoc.data() as Record<string, unknown>),

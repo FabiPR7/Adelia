@@ -15,11 +15,16 @@ export interface RestaurantIndexDoc {
   photoUrl: string
   logoUrl: string
   characteristics: string[]
+  venueTypes: string[]
+  amenities: string[]
+  priceRange: string
   searchText: string
   reviewCount: number
   reviewRatingSum: number
   reviewAdelinas: number
+  reservationMode?: 'required' | 'optional' | 'none'
   hasProfile: boolean
+  discoveryFeatured?: boolean
   updatedAt: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp
 }
 
@@ -37,8 +42,15 @@ export function buildRestaurantIndexPayload(
 ): RestaurantIndexDoc {
   const photos = Array.isArray(data.photos) ? data.photos.filter((item): item is string => typeof item === 'string') : []
   const characteristics = Array.isArray(data.characteristics)
-    ? data.characteristics.filter((item): item is string => typeof item === 'string').slice(0, 8)
+    ? data.characteristics.filter((item): item is string => typeof item === 'string').slice(0, 10)
     : []
+  const venueTypes = Array.isArray(data.venueTypes)
+    ? data.venueTypes.filter((item): item is string => typeof item === 'string').slice(0, 3)
+    : []
+  const amenities = Array.isArray(data.amenities)
+    ? data.amenities.filter((item): item is string => typeof item === 'string').slice(0, 40)
+    : []
+  const priceRange = typeof data.priceRange === 'string' ? data.priceRange : ''
   const logoUrl = asString(data.logoUrl)
   const photoUrl = photos[0] ?? logoUrl
   const name = asString(data.name)
@@ -62,15 +74,32 @@ export function buildRestaurantIndexPayload(
     photoUrl,
     logoUrl,
     characteristics,
-    searchText: [name, location, municipality, country, description, ...characteristics]
+    venueTypes,
+    amenities,
+    priceRange,
+    searchText: [name, location, municipality, country, description, priceRange, ...characteristics, ...venueTypes, ...amenities]
       .join(' ')
       .toLowerCase(),
     reviewCount: typeof data.reviewCount === 'number' ? data.reviewCount : 0,
     reviewRatingSum: typeof data.reviewRatingSum === 'number' ? data.reviewRatingSum : 0,
     reviewAdelinas: typeof data.reviewAdelinas === 'number' ? data.reviewAdelinas : 0,
+    reservationMode: data.reservationMode === 'required' || data.reservationMode === 'none'
+      ? data.reservationMode
+      : 'optional',
     hasProfile: Boolean(
-      description || municipality || postalCode || country || characteristics.length || photos.length || videos.length,
+      description
+      || municipality
+      || postalCode
+      || country
+      || characteristics.length
+      || venueTypes.length
+      || amenities.length
+      || photos.length
+      || videos.length,
     ),
+    ...(typeof data.discoveryFeatured === 'boolean'
+      ? { discoveryFeatured: data.discoveryFeatured === true }
+      : {}),
     updatedAt: FieldValue.serverTimestamp(),
   }
 }

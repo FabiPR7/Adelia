@@ -8,12 +8,13 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useLocation } from 'react-router-dom'
 import LevelUpCelebrationModal from '../components/LevelUpCelebrationModal'
 import GamificationCelebrationToast from '../components/GamificationCelebrationToast'
 import { useAuth } from './AuthContext'
 import { useFavoriteRestaurants } from './FavoriteRestaurantsContext'
 import { listPromotionClaims } from '../services/promotionClaims'
-import { fetchPublicDiscoveryRestaurants } from '../services/publicDiscovery'
+import { fetchRestaurantIndexByIds } from '../services/restaurantIndex'
 import {
   acknowledgeCelebrations,
   getCustomerReservations,
@@ -22,6 +23,9 @@ import {
   applyInventoryReservationToken,
   useInventoryItem,
   claimSeasonInventoryPack,
+  registerPromotionConsumption,
+  fetchCustomerConsumptions,
+  type RegisterConsumptionInput,
 } from '../services/firestore'
 import { fetchPublicPromotions, type PublicPromotion } from '../services/publicPromotions'
 import { useCustomerGamification } from '../hooks/useCustomerGamification'
@@ -37,13 +41,11 @@ import { mergeTokenCredits } from '../data/inventoryItems'
 import { buildPendingReservationCounts } from '../utils/promotionReservationProgress'
 import { resolvePromotionHighlight } from '../utils/promotionOffer'
 import { isCustomerPromoLocked, PROMO_LOCK_CLAIM_MESSAGE } from '../data/cancellationPenalties'
-import {
-  mergeDemoReservationCounts,
-  mergeDemoPromotions,
-} from '../data/demoNearbyPromotions'
+import { mergeDemoReservationCounts } from '../data/demoNearbyPromotions'
 import type { CompanyLadderRuntime } from '../utils/promotionReservationProgress'
 import type { CustomerGamificationView } from '../hooks/useCustomerGamification'
 import type { LevelUpStep } from '../hooks/useLevelUpCelebration'
+import type { CustomerVerifiedConsumption } from '../types/verifiedConsumption'
 import {
   mergeCelebrationReceipts,
   missionReceiptsForProgress,
@@ -57,6 +59,7 @@ interface CustomerGamificationContextValue extends CustomerGamificationView {
   previewLevelUpCelebration: () => void
   loading: boolean
   reservations: Reservation[]
+  consumptions: CustomerVerifiedConsumption[]
   restaurants: PublicDiscoveryRestaurant[]
   verifiedReservationCounts: Record<string, number>
   pendingReservationCounts: Record<string, number>
@@ -82,6 +85,11 @@ interface CustomerGamificationContextValue extends CustomerGamificationView {
     remainderCents: number
     requiredCents: number
   }>
+  registerPromotionConsumption: (
+    companyId: string,
+    payload: RegisterConsumptionInput,
+    promotionId?: string,
+  ) => Promise<void>
   useOwnedInventoryItem: (itemId: string) => Promise<string>
   claimSeasonPack: (pack: 'weekly_bonus' | 'weekly_clear' | 'monthly_clear') => Promise<void>
   refreshGamificationData: (options?: { silent?: boolean }) => Promise<void>
@@ -91,9 +99,12 @@ const CustomerGamificationContext = createContext<CustomerGamificationContextVal
 
 export function CustomerGamificationProvider({ children }: { children: ReactNode }) {
   const { user, profile, refreshProfile, patchProfileGamification, catalogReady } = useAuth()
+  const { pathname } = useLocation()
   const isCustomer = profile?.role === 'customer'
+  const inCustomerApp = pathname.startsWith('/app')
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [reservations, setReservations] = useState<Reservation[]>([])
+  const [consumptions, setConsumptions] = useState<CustomerVerifiedConsumption[]>([])
   const [promotionCompanyIds, setPromotionCompanyIds] = useState<Set<string>>(new Set())
   const [storedClaims, setStoredClaims] = useState<ClaimedPromotionRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -104,7 +115,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
   const evaluatedTickAtLoadRef = useRef<number | null>(null)
 
   const refreshGamificationData = useCallback(async (options?: { silent?: boolean }) => {
-    if (!isCustomer || !profile?.email) {
+    if (!isCustomer || !inCustomerApp || !profile?.email) {
       setLoading(false)
       return
     }
@@ -114,25 +125,30 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     }
 
     try {
-      const [restaurantData, reservationData, promotions, claims] = await Promise.all([
-        fetchPublicDiscoveryRestaurants(),
+      const [reservationData, consumptionData, claims, publicPromotions] = await Promise.all([
         getCustomerReservations(profile.email, user?.uid),
-        fetchPublicPromotions().catch(() => (
-          import.meta.env.DEV ? mergeDemoPromotions([]) : []
-        )),
+        fetchCustomerConsumptions().catch(() => [] as CustomerVerifiedConsumption[]),
         user?.uid ? listPromotionClaims(user.uid) : Promise.resolve([]),
+        fetchPublicPromotions().catch(() => [] as PublicPromotion[]),
       ])
+      const restaurantData = await fetchRestaurantIndexByIds(
+        [
+          ...reservationData.map((reservation) => reservation.companyId),
+          ...consumptionData.map((consumption) => consumption.companyId),
+        ],
+      )
 
       setRestaurants(restaurantData)
       setReservations(reservationData)
-      setPromotionCompanyIds(new Set(promotions.map((promotion) => promotion.companyId)))
+      setConsumptions(consumptionData)
+      setPromotionCompanyIds(new Set(publicPromotions.map((promotion) => promotion.companyId).filter(Boolean)))
       setStoredClaims(claims)
     } finally {
       if (!options?.silent) {
         setLoading(false)
       }
     }
-  }, [isCustomer, profile?.email, user?.uid])
+  }, [inCustomerApp, isCustomer, profile?.email, user?.uid])
 
   useEffect(() => {
     void refreshGamificationData()
@@ -142,13 +158,14 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
 
   const gamification = useCustomerGamification({
     reservations,
+    consumptions,
     favoriteSlugs,
     restaurants,
     promotionCompanyIds,
-    enabled: isCustomer && !loading,
+    enabled: isCustomer && inCustomerApp && !loading,
   })
 
-  const hydrated = Boolean(isCustomer && user?.uid && profile)
+  const hydrated = Boolean(isCustomer && inCustomerApp && user?.uid && profile)
   const weekKey = gamification.state.weekKey || getWeekKey()
   const monthKey = gamification.state.monthKey || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 
@@ -298,7 +315,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     userId: user?.uid,
     gamification: gamification.state,
     currentLevel: gamification.level.level,
-    enabled: isCustomer,
+    enabled: isCustomer && inCustomerApp,
     ready: celebrationReady,
     refreshProfile,
     onAcknowledgedLevel: persistLevelReceipt,
@@ -314,13 +331,13 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     celebratedMissionIds: gamification.state.celebratedMissionIds,
     weekKey,
     monthKey,
-    enabled: isCustomer,
+    enabled: isCustomer && inCustomerApp,
     ready: celebrationReady,
     paused: Boolean(activeLevelUpStep),
     onPersistReceipts: persistMissionReceipts,
   })
 
-  const { unreadNotifications } = useCustomerNotifications()
+  const { unreadNotifications } = useCustomerNotifications(inCustomerApp && isCustomer)
 
   useEffect(() => {
     if (!isCustomer) {
@@ -516,6 +533,22 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     return result
   }, [patchProfileGamification, profile, refreshGamificationData, refreshProfile, user])
 
+  const registerPromotionConsumptionVisit = useCallback(async (
+    companyId: string,
+    payload: RegisterConsumptionInput,
+    promotionId?: string,
+  ) => {
+    if (!user || !profile) {
+      throw new Error('Debes iniciar sesión como cliente.')
+    }
+    const result = await registerPromotionConsumption(companyId, payload, promotionId)
+    patchProfileGamification({
+      tokenCreditsByCompany: result.tokenCreditsByCompany,
+    })
+    await refreshProfile()
+    await refreshGamificationData({ silent: true })
+  }, [patchProfileGamification, profile, refreshGamificationData, refreshProfile, user])
+
   const useOwnedInventoryItem = useCallback(async (itemId: string) => {
     if (!user || !profile) {
       throw new Error('Debes iniciar sesión como cliente.')
@@ -550,6 +583,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       ...gamification,
       loading,
       reservations,
+      consumptions,
       restaurants,
       verifiedReservationCounts,
       pendingReservationCounts,
@@ -558,6 +592,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       claimPromotion,
       claimTimeLimitedPromotion,
       applyReservationToken,
+      registerPromotionConsumption: registerPromotionConsumptionVisit,
       useOwnedInventoryItem,
       claimSeasonPack,
       refreshGamificationData,
@@ -573,6 +608,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       gamification,
       loading,
       reservations,
+      consumptions,
       restaurants,
       verifiedReservationCounts,
       pendingReservationCounts,
@@ -581,6 +617,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       claimPromotion,
       claimTimeLimitedPromotion,
       applyReservationToken,
+      registerPromotionConsumptionVisit,
       useOwnedInventoryItem,
       claimSeasonPack,
       refreshGamificationData,

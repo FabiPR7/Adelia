@@ -4,6 +4,7 @@ import { verifyCustomerUid } from '../auth/verifyRequest.ts'
 import { createRateLimit } from '../middleware/rateLimit.ts'
 import { resolveCompanyPromotionPin } from '../utils/companyPromotionPin.ts'
 import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
+import { parseCompanyReservationMode } from '../utils.ts'
 
 const router = Router()
 const validatePinRateLimit = createRateLimit(10, 60_000)
@@ -47,6 +48,7 @@ export interface PublicPromotionPayload {
   currentRedemptions: number
   detail: string
   highlight: string
+  reservationMode: 'required' | 'optional' | 'none'
 }
 
 function normalizeOffer(data: FirebaseFirestore.DocumentData): PromotionOfferConfig | null {
@@ -124,7 +126,7 @@ function formatOfferBadge(offer: PromotionOfferConfig): string {
 }
 
 function formatReservationCount(count: number): string {
-  return `${count} reserva${count === 1 ? '' : 's'}`
+  return count === 1 ? '1 reserva o consumo' : `${count} reservas o consumos`
 }
 
 function buildHighlight(
@@ -177,60 +179,70 @@ function buildDetail(data: FirebaseFirestore.DocumentData): string {
   return ''
 }
 
-async function loadPromotionsForCompany(
-  companyDoc: FirebaseFirestore.QueryDocumentSnapshot,
-): Promise<PublicPromotionPayload[]> {
-  const companyData = companyDoc.data()
-  const promotionsSnapshot = await companyDoc.ref
-    .collection('promotions')
-    .where('active', '==', true)
-    .get()
-
+function companyPhotoFromData(companyData: FirebaseFirestore.DocumentData): string {
   const photos = Array.isArray(companyData.photos) ? companyData.photos : []
   const logoUrl = (companyData.logoUrl as string) ?? ''
   const mainPhotoIndex = typeof companyData.mainPhotoIndex === 'number'
     ? Math.max(0, Math.min(photos.length - 1, companyData.mainPhotoIndex))
     : 0
-  const companyPhotoUrl = (photos[mainPhotoIndex] as string) ?? (photos[0] as string) ?? logoUrl
+  return (photos[mainPhotoIndex] as string) ?? (photos[0] as string) ?? logoUrl
+}
 
-  return promotionsSnapshot.docs.map((promotionDoc) => {
-    const data = promotionDoc.data()
-    const offer = normalizeOffer(data)
-    const productRefs = normalizeProductRefs(data)
-    const productPhoto = productRefs.find((ref) => ref.photoUrl.trim())?.photoUrl ?? ''
+function mapPromotionPayload(
+  promotionDoc: FirebaseFirestore.QueryDocumentSnapshot,
+  companyDoc: FirebaseFirestore.DocumentSnapshot,
+): PublicPromotionPayload {
+  const companyData = companyDoc.data() ?? {}
+  const data = promotionDoc.data()
+  const offer = normalizeOffer(data)
+  const productRefs = normalizeProductRefs(data)
+  const companyPhotoUrl = companyPhotoFromData(companyData)
+  const productPhoto = productRefs.find((ref) => ref.photoUrl.trim())?.photoUrl ?? ''
 
-    return {
-      id: promotionDoc.id,
-      companyId: companyDoc.id,
-      companyName: (companyData.name as string) ?? 'Restaurante',
-      companySlug: (companyData.slug as string) ?? '',
-      companyPhotoUrl,
-      companyLatitude: typeof companyData.latitude === 'number' ? companyData.latitude : null,
-      companyLongitude: typeof companyData.longitude === 'number' ? companyData.longitude : null,
-      type: (data.type as string) ?? 'time_limited',
-      title: (data.title as string) ?? '',
-      description: (data.description as string) ?? '',
-      photoUrl: (data.photoUrl as string) ?? productPhoto ?? companyPhotoUrl,
-      offer,
-      productRefs,
-      requiredReservations: typeof data.requiredReservations === 'number'
-        ? data.requiredReservations
-        : null,
-      minimumSpendEnabled: data.minimumSpendEnabled === true,
-      minimumSpendCents: typeof data.minimumSpendCents === 'number'
-        ? data.minimumSpendCents
-        : null,
-      activeFromTime: (data.activeFromTime as string) ?? '',
-      activeToTime: (data.activeToTime as string) ?? '',
-      arrivalWindowMinutes: typeof data.arrivalWindowMinutes === 'number'
-        ? data.arrivalWindowMinutes
-        : null,
-      maxRedemptions: typeof data.maxRedemptions === 'number' ? data.maxRedemptions : null,
-      currentRedemptions: typeof data.currentRedemptions === 'number' ? data.currentRedemptions : 0,
-      detail: buildDetail(data),
-      highlight: buildHighlight(data, offer),
-    }
-  })
+  return {
+    id: promotionDoc.id,
+    companyId: companyDoc.id,
+    companyName: (companyData.name as string) ?? 'Restaurante',
+    companySlug: (companyData.slug as string) ?? '',
+    companyPhotoUrl,
+    companyLatitude: typeof companyData.latitude === 'number' ? companyData.latitude : null,
+    companyLongitude: typeof companyData.longitude === 'number' ? companyData.longitude : null,
+    type: (data.type as string) ?? 'time_limited',
+    title: (data.title as string) ?? '',
+    description: (data.description as string) ?? '',
+    photoUrl: (data.photoUrl as string) ?? productPhoto ?? companyPhotoUrl,
+    offer,
+    productRefs,
+    requiredReservations: typeof data.requiredReservations === 'number'
+      ? data.requiredReservations
+      : null,
+    minimumSpendEnabled: data.minimumSpendEnabled === true,
+    minimumSpendCents: typeof data.minimumSpendCents === 'number'
+      ? data.minimumSpendCents
+      : null,
+    activeFromTime: (data.activeFromTime as string) ?? '',
+    activeToTime: (data.activeToTime as string) ?? '',
+    arrivalWindowMinutes: typeof data.arrivalWindowMinutes === 'number'
+      ? data.arrivalWindowMinutes
+      : null,
+    maxRedemptions: typeof data.maxRedemptions === 'number' ? data.maxRedemptions : null,
+    currentRedemptions: typeof data.currentRedemptions === 'number' ? data.currentRedemptions : 0,
+    detail: buildDetail(data),
+    highlight: buildHighlight(data, offer),
+    reservationMode: parseCompanyReservationMode(companyData.reservationMode),
+  }
+}
+
+async function loadPromotionsForCompany(
+  companyDoc: FirebaseFirestore.QueryDocumentSnapshot,
+): Promise<PublicPromotionPayload[]> {
+  const promotionsSnapshot = await companyDoc.ref
+    .collection('promotions')
+    .where('active', '==', true)
+    .limit(40)
+    .get()
+
+  return promotionsSnapshot.docs.map((promotionDoc) => mapPromotionPayload(promotionDoc, companyDoc))
 }
 
 router.post('/validate-pin', validatePinRateLimit, async (req: Request, res: Response) => {
@@ -275,23 +287,25 @@ router.get('/', async (_req: Request, res: Response) => {
     const activeSnap = await adminDb
       .collectionGroup('promotions')
       .where('active', '==', true)
-      .limit(40)
+      .limit(80)
       .get()
 
-    const companyIds = [...new Set(activeSnap.docs.map((docSnap) => docSnap.ref.parent.parent?.id).filter(Boolean))] as string[]
+    const companyIds = [...new Set(
+      activeSnap.docs.map((docSnap) => docSnap.ref.parent.parent?.id).filter(Boolean),
+    )] as string[]
     const companySnaps = await Promise.all(
       companyIds.map((companyId) => adminDb.collection('companies').doc(companyId).get()),
     )
     const companiesById = new Map(companySnaps.filter((snap) => snap.exists).map((snap) => [snap.id, snap]))
 
-    const promotions: PublicPromotionPayload[] = []
-    for (const companySnap of companiesById.values()) {
-      promotions.push(...await loadPromotionsForCompany(companySnap))
-    }
+    const promotions = activeSnap.docs.flatMap((promotionDoc) => {
+      const companyId = promotionDoc.ref.parent.parent?.id
+      const companySnap = companyId ? companiesById.get(companyId) : undefined
+      return companySnap ? [mapPromotionPayload(promotionDoc, companySnap)] : []
+    })
 
     promotions.sort((left, right) => left.companyName.localeCompare(right.companyName, 'es'))
-
-    res.json({ promotions: promotions.slice(0, 12) })
+    res.json({ promotions })
   } catch (error) {
     console.error('Public promotions error:', error)
     res.status(500).json({ error: 'No se pudieron cargar las promociones.' })

@@ -1,3 +1,5 @@
+import { calendarDateKey, madridDateTime, madridTimeInput } from './madridDateTime'
+
 const AUTH_DOMAIN = 'adelia.app'
 
 export function generateUuid(): string {
@@ -48,6 +50,16 @@ export function getPublicMenuBoardUrl(slug: string, boardId: string): string {
   return path
 }
 
+export function getPublicPromotionLandingUrl(slug: string, promotionId: string): string {
+  const path = `/reservar/${encodeURIComponent(slug)}/promo/${encodeURIComponent(promotionId)}`
+
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${path}`
+  }
+
+  return path
+}
+
 export function slugify(value: string): string {
   return value
     .trim()
@@ -83,16 +95,11 @@ export function formatTimeSpanish(date: Date): string {
 }
 
 export function dateToTimeInput(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${hours}:${minutes}`
+  return madridTimeInput(date)
 }
 
 export function combineDateAndTime(date: Date, time: string): Date {
-  const [hours, minutes] = time.split(':').map(Number)
-  const result = new Date(date)
-  result.setHours(hours, minutes, 0, 0)
-  return result
+  return madridDateTime(calendarDateKey(date), time)
 }
 
 export function addMinutes(date: Date, minutes: number): Date {
@@ -105,6 +112,14 @@ export function isSameDay(a: Date, b: Date): boolean {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
   )
+}
+
+export function shiftCalendarMonth(date: Date, offset: number): Date {
+  const year = date.getFullYear()
+  const month = date.getMonth() + offset
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  const day = Math.min(date.getDate(), lastDay)
+  return new Date(year, month, day, date.getHours(), date.getMinutes(), 0, 0)
 }
 
 export function startOfDay(date: Date): Date {

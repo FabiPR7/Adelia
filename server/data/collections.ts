@@ -22,6 +22,7 @@ export const COLLECTIONS = {
   missionCatalog: 'missionCatalog',
   levelCatalog: 'levelCatalog',
   gameConfig: 'gameConfig',
+  saasSubscriptions: 'saasSubscriptions',
 } as const
 
 export function friendshipId(uidA: string, uidB: string): string {

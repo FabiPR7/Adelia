@@ -47,6 +47,7 @@ export interface AppUser {
   foodPreferences: string[]
   onboardingCompleted: boolean
   authProvider: 'password' | 'google.com'
+  blocked: boolean
 }
 
 export interface Company {
@@ -69,7 +70,12 @@ export interface Company {
   mainPhotoIndex: number
   videos: string[]
   characteristics: string[]
+  venueTypes: string[]
+  amenities: string[]
+  priceRange: import('../data/companyProfileFacilities').CompanyPriceRange
   timeSlotMinutes: number
+  /** Cómo acepta reservas el local: obligatorio, opcional o sin reservas. */
+  reservationMode: import('../data/companyReservationMode').CompanyReservationMode
   depositMinPax: number | null
   depositPerGuestCents: number | null
   depositEnabled: boolean
@@ -87,12 +93,16 @@ export interface Company {
   stripeChargesEnabled: boolean
   stripePayoutsEnabled: boolean
   stripeDetailsSubmitted: boolean
+  planId: import('../data/companyPlans').CompanyPlanId
+  planBilling: import('../data/companyPlans').CompanyPlanBilling | null
+  planStartedAt: Date | null
+  planLastPaidAt: Date | null
+  discoveryFeatured: boolean
   createdAt: Date
 }
 
 export interface AdminCompany extends Company {
   loginName: string
-  loginPassword: string
 }
 
 export type ReservationStatus = 'confirmed' | 'cancelled' | 'completed'
@@ -167,17 +177,34 @@ export interface ReservationFormData {
 export interface CreateCompanyPayload {
   name: string
   location: string
+  municipality?: string
+  postalCode?: string
+  country?: string
   phone: string
+  contactEmail?: string
   website?: string
   password: string
+  planId?: import('../data/companyPlans').CompanyPlanId
+  planBilling?: import('../data/companyPlans').CompanyPlanBilling | null
+  planStartedAt?: Date | null
+  discoveryFeatured?: boolean
 }
 
 export interface UpdateCompanyPayload {
   name?: string
   location?: string
+  municipality?: string
+  postalCode?: string
+  country?: string
   phone?: string
+  contactEmail?: string
   website?: string
   password?: string
+  planId?: import('../data/companyPlans').CompanyPlanId
+  planBilling?: import('../data/companyPlans').CompanyPlanBilling | null
+  planStartedAt?: Date | null
+  planLastPaidAt?: Date | 'now' | 'clear'
+  discoveryFeatured?: boolean
 }
 
 export type {
@@ -224,6 +251,7 @@ export type {
   MenuNodeInput,
 } from './company'
 export {
+  hasMenuPdf,
   SCHEDULE_DAY_KEYS,
   SCHEDULE_DAY_LABELS,
   SETTINGS_SECTIONS,
@@ -237,6 +265,7 @@ export {
   defaultCompanyEmailTemplates,
   isClientsTab,
   isSettingsTab,
+  isSettingsEditorTab,
   FLOOR_PLAN_ELEMENT_LABELS,
   createFloorPlanElement,
   defaultFloorPlan,

@@ -1,10 +1,15 @@
 import {
   collection,
+  deleteField,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
+  limit,
   query,
   serverTimestamp,
+  setDoc,
+  Timestamp,
   updateDoc,
   where,
   writeBatch,
@@ -19,8 +24,11 @@ import type {
 import { defaultTurns, parseFloorPlans, withFloorPlans, defaultCompanyEmailTemplates } from '../types/company'
 import { defaultCompanyQrBranding } from '../utils/qrBranding'
 import { defaultSchedule, slugify, slugToAuthEmail } from '../utils/helpers'
+import { nextCompanySubscription, parseCompanyPlanId } from '../data/companyPlans'
 import { syncCompanyLoginIndex } from './firestore'
 import { restaurantIndexPayload } from './restaurantIndex'
+import { requireAuthPassword } from '../utils/passwordValidation'
+import { assertNoSecretFields } from '../utils/secretFields'
 
 const AUTH_API_KEY = import.meta.env.VITE_FIREBASE_API_KEY
 
@@ -70,10 +78,16 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
   const phone = payload.phone.trim()
   const website = payload.website?.trim() ?? ''
   const password = payload.password
+  const municipality = payload.municipality?.trim() ?? ''
+  const postalCode = payload.postalCode?.trim() ?? ''
+  const country = payload.country?.trim() || 'España'
+  const contactEmail = payload.contactEmail?.trim() ?? ''
 
   if (!name || !location || !phone || !password) {
     throw new Error('Faltan campos obligatorios.')
   }
+
+  requireAuthPassword(password)
 
   const slug = slugify(name)
   const email = slugToAuthEmail(slug)
@@ -85,6 +99,19 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
   const companyId = companyRef.id
   const loginId = slugify(name)
   const now = serverTimestamp()
+  const subscription = nextCompanySubscription({
+    currentPlanId: 'free',
+    currentStartedAt: null,
+    nextPlanId: payload.planId,
+    nextBilling: payload.planBilling,
+    nextStartedAt: payload.planStartedAt,
+  })
+  const startedAtWrite =
+    subscription.planStartedAt instanceof Date
+      ? Timestamp.fromDate(subscription.planStartedAt)
+      : subscription.planStartedAt === 'now'
+        ? now
+        : undefined
 
   const batch = writeBatch(db)
 
@@ -95,8 +122,17 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
     phone,
     website,
     location,
-    timeSlotMinutes: 120,
-    schedule: defaultSchedule(),
+    municipality,
+    postalCode,
+    country,
+    contactEmail,
+        timeSlotMinutes: 120,
+        reservationMode: 'optional',
+        schedule: defaultSchedule(),
+    planId: subscription.planId,
+    planBilling: subscription.planBilling,
+    ...(startedAtWrite ? { planStartedAt: startedAtWrite } : {}),
+    discoveryFeatured: payload.discoveryFeatured === true,
     createdAt: now,
   })
 
@@ -109,13 +145,15 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
     createdAt: now,
   })
 
-  batch.set(doc(db, 'companyCredentials', companyId), {
+  const credentialsPayload = {
     loginName: name,
     authEmail: email,
     ownerUid,
     mustChangePassword: true,
     updatedAt: now,
-  })
+  }
+  assertNoSecretFields(credentialsPayload, 'companyCredentials')
+  batch.set(doc(db, 'companyCredentials', companyId), credentialsPayload)
 
   batch.set(doc(db, 'logins', loginId), {
     loginName: name,
@@ -138,7 +176,11 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
     name,
     slug,
     location,
-  }))
+    municipality,
+    country,
+    postalCode,
+    discoveryFeatured: payload.discoveryFeatured === true,
+  }, { persistFeatured: true }))
 
   await batch.commit()
 
@@ -151,11 +193,11 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
       phone,
       website,
       location,
-      contactEmail: '',
+      contactEmail,
       logoUrl: '',
-      municipality: '',
-      country: 'España',
-      postalCode: '',
+      municipality,
+      country,
+      postalCode,
       latitude: null,
       longitude: null,
       description: '',
@@ -163,7 +205,11 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
       mainPhotoIndex: 0,
       videos: [],
       characteristics: [],
+      venueTypes: [],
+      amenities: [],
+      priceRange: '',
       timeSlotMinutes: 120,
+      reservationMode: 'optional',
       depositMinPax: null,
       depositPerGuestCents: null,
       depositEnabled: false,
@@ -180,6 +226,16 @@ export async function createCompany(payload: CreateCompanyPayload): Promise<{
       stripeChargesEnabled: false,
       stripePayoutsEnabled: false,
       stripeDetailsSubmitted: false,
+      planId: subscription.planId,
+      planBilling: subscription.planBilling,
+      planStartedAt:
+        subscription.planStartedAt instanceof Date
+          ? subscription.planStartedAt
+          : subscription.planStartedAt === 'now'
+            ? new Date()
+            : null,
+      planLastPaidAt: null,
+      discoveryFeatured: payload.discoveryFeatured === true,
       createdAt: new Date(),
     },
     loginName: name,
@@ -195,6 +251,8 @@ export async function updateCompany(
   const updates: Record<string, unknown> = {}
   const credentialsUpdates: Record<string, unknown> = {
     updatedAt: serverTimestamp(),
+    loginPassword: deleteField(),
+    password: deleteField(),
   }
 
   if (payload.name?.trim()) {
@@ -206,7 +264,7 @@ export async function updateCompany(
     updates.location = payload.location.trim()
   }
 
-  if (payload.phone?.trim()) {
+  if (payload.phone !== undefined) {
     updates.phone = payload.phone.trim()
   }
 
@@ -214,8 +272,84 @@ export async function updateCompany(
     updates.website = payload.website.trim()
   }
 
+  if (payload.contactEmail !== undefined) {
+    updates.contactEmail = payload.contactEmail.trim()
+  }
+
+  if (payload.municipality !== undefined) {
+    updates.municipality = payload.municipality.trim()
+  }
+
+  if (payload.postalCode !== undefined) {
+    updates.postalCode = payload.postalCode.trim()
+  }
+
+  if (payload.country !== undefined) {
+    updates.country = payload.country.trim()
+  }
+
+  const subscription = nextCompanySubscription({
+    currentPlanId: parseCompanyPlanId(company.planId),
+    currentBilling: company.planBilling,
+    currentStartedAt: company.planStartedAt,
+    nextPlanId: payload.planId ?? company.planId,
+    nextBilling: payload.planBilling,
+    nextStartedAt: payload.planStartedAt,
+  })
+  updates.planId = subscription.planId
+  updates.planBilling = subscription.planBilling
+  if (subscription.planStartedAt === 'clear') {
+    updates.planStartedAt = deleteField()
+  } else if (subscription.planStartedAt instanceof Date) {
+    updates.planStartedAt = Timestamp.fromDate(subscription.planStartedAt)
+  } else if (subscription.planStartedAt === 'now') {
+    updates.planStartedAt = serverTimestamp()
+  }
+
+  if (subscription.planId === 'free' || payload.planLastPaidAt === 'clear') {
+    updates.planLastPaidAt = deleteField()
+  } else if (payload.planLastPaidAt === 'now') {
+    updates.planLastPaidAt = serverTimestamp()
+  } else if (payload.planLastPaidAt instanceof Date) {
+    updates.planLastPaidAt = Timestamp.fromDate(payload.planLastPaidAt)
+  }
+
+  if (payload.discoveryFeatured !== undefined) {
+    updates.discoveryFeatured = payload.discoveryFeatured
+  }
+
   if (Object.keys(updates).length > 0) {
     await updateDoc(doc(db, 'companies', companyId), updates)
+    await setDoc(
+      doc(db, 'restaurantIndex', companyId),
+      restaurantIndexPayload({
+        id: companyId,
+        name: (updates.name as string) ?? company.name,
+        slug: company.slug,
+        location: (updates.location as string) ?? company.location,
+        municipality: (updates.municipality as string) ?? company.municipality,
+        country: (updates.country as string) ?? company.country,
+        postalCode: (updates.postalCode as string) ?? company.postalCode,
+        latitude: company.latitude,
+        longitude: company.longitude,
+        logoUrl: company.logoUrl,
+        photos: company.photos,
+        videos: company.videos,
+        characteristics: company.characteristics,
+        venueTypes: company.venueTypes,
+        amenities: company.amenities,
+        priceRange: company.priceRange,
+        description: company.description,
+        reviewCount: company.reviewCount,
+        reviewRatingSum: company.reviewRatingSum,
+        reviewAdelinas: company.reviewAdelinas,
+        discoveryFeatured:
+          payload.discoveryFeatured !== undefined
+            ? payload.discoveryFeatured
+            : company.discoveryFeatured,
+      }, { persistFeatured: true }),
+      { merge: true },
+    )
   }
 
   const nextLoginName = (payload.name?.trim() || company.loginName).trim()
@@ -253,22 +387,59 @@ export async function updateCompany(
       location: (updates.location as string) ?? company.location,
       phone: (updates.phone as string) ?? company.phone,
       website: (updates.website as string) ?? company.website,
+      contactEmail: (updates.contactEmail as string) ?? company.contactEmail,
+      municipality: (updates.municipality as string) ?? company.municipality,
+      postalCode: (updates.postalCode as string) ?? company.postalCode,
+      country: (updates.country as string) ?? company.country,
+      planId: subscription.planId,
+      planBilling: subscription.planBilling,
+      planStartedAt:
+        subscription.planStartedAt === 'clear'
+          ? null
+          : subscription.planStartedAt instanceof Date
+            ? subscription.planStartedAt
+            : subscription.planStartedAt === 'now'
+              ? new Date()
+              : company.planStartedAt,
+      planLastPaidAt:
+        subscription.planId === 'free' || payload.planLastPaidAt === 'clear'
+          ? null
+          : payload.planLastPaidAt === 'now'
+            ? new Date()
+            : payload.planLastPaidAt instanceof Date
+              ? payload.planLastPaidAt
+              : company.planLastPaidAt,
+      discoveryFeatured:
+        payload.discoveryFeatured !== undefined
+          ? payload.discoveryFeatured
+          : company.discoveryFeatured,
     },
     loginName: nextLoginName,
   }
 }
 
 export async function deleteCompany(companyId: string, company: AdminCompany): Promise<void> {
+  async function deleteMatching(collectionName: string) {
+    for (;;) {
+      const snapshot = await getDocs(
+        query(collection(db, collectionName), where('companyId', '==', companyId), limit(400)),
+      )
+      if (snapshot.empty) {
+        break
+      }
+      const chunk = writeBatch(db)
+      snapshot.docs.forEach((item) => chunk.delete(item.ref))
+      await chunk.commit()
+      if (snapshot.size < 400) {
+        break
+      }
+    }
+  }
+
+  await deleteMatching('reservations')
+  await deleteMatching('tables')
+
   const batch = writeBatch(db)
-
-  const [reservations, tables] = await Promise.all([
-    getDocs(query(collection(db, 'reservations'), where('companyId', '==', companyId))),
-    getDocs(query(collection(db, 'tables'), where('companyId', '==', companyId))),
-  ])
-
-  reservations.docs.forEach((item) => batch.delete(item.ref))
-  tables.docs.forEach((item) => batch.delete(item.ref))
-
   batch.delete(doc(db, 'companies', companyId))
   batch.delete(doc(db, 'companyCredentials', companyId))
   batch.delete(doc(db, 'users', company.ownerUid))
@@ -276,6 +447,14 @@ export async function deleteCompany(companyId: string, company: AdminCompany): P
   batch.delete(doc(db, 'restaurantIndex', companyId))
   batch.delete(doc(db, 'companies', companyId, 'private', 'ops'))
   batch.delete(doc(db, 'companies', companyId, 'private', 'promotionPin'))
-
   await batch.commit()
+}
+
+export async function countCompanyMenuBoards(companyId: string): Promise<number> {
+  try {
+    const snap = await getCountFromServer(collection(db, 'companies', companyId, 'menuBoards'))
+    return snap.data().count
+  } catch {
+    return 0
+  }
 }

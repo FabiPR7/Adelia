@@ -61,6 +61,9 @@ import {
   inventoryQuantity,
 } from '../data/inventoryItems'
 import {
+  companyAcceptsReservations,
+} from '../data/companyReservationMode'
+import {
   areFloorPlansEnabled,
   enabledFloorPlans,
   parseFloorPlans,
@@ -242,10 +245,13 @@ function PublicBookingPage() {
   }, [company, loadAvailability, pageView])
 
   useEffect(() => {
+    if (!company || !companyAcceptsReservations(company.reservationMode)) {
+      return
+    }
     if (searchParams.get('reservar') === '1') {
       setPageView('booking')
     }
-  }, [searchParams])
+  }, [company, searchParams])
 
   useEffect(() => {
     if (profile?.role !== 'customer') {
@@ -485,6 +491,9 @@ function PublicBookingPage() {
   }, [navigate, slug])
 
   const openBookingFlow = useCallback(() => {
+    if (!companyAcceptsReservations(company?.reservationMode)) {
+      return
+    }
     setPageView('booking')
     setStep('pick')
     const params = new URLSearchParams(location.search)
@@ -493,7 +502,7 @@ function PublicBookingPage() {
       { pathname: `/reservar/${slug}`, search: params.toString() },
       { replace: true },
     )
-  }, [location.search, navigate, slug])
+  }, [company?.reservationMode, location.search, navigate, slug])
 
   const trySelectPromoSlot = (time: string, availableTimes: string[]): boolean => {
     if (!activePromo || !isPromoTimeConstrained(activePromo)) {

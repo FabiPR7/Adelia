@@ -30,15 +30,25 @@ function evaluateFriendMission(
 
   switch (mission.id) {
     case 'debut_gastronomico':
-      return { current: reservations, completed: reservations >= 1 }
+    case 'club_10_mesas':
+    case 'socio_veterano':
+    case 'maraton_gastro':
+    case 'leyenda_restaurante':
+    case 'centurion_mesas':
+    case 'llama_eterna':
+      return { current: reservations, completed: reservations >= mission.target }
+    case 'primer_consumo_libre':
+    case 'consumidor_habitual':
+      return { current: Math.round(reservations * 0.4), completed: Math.round(reservations * 0.4) >= mission.target }
+    case 'primer_gasto_minimo':
+    case 'cazador_minimos':
+    case 'primera_carta_productos':
+      return { current: Math.round(reservations * 0.3), completed: Math.round(reservations * 0.3) >= mission.target }
+    case 'ruta_de_bar':
+    case 'ruta_de_restaurante':
+      return { current: Math.round(venues * 0.4), completed: Math.round(venues * 0.4) >= mission.target }
     case 'corazon_favorito':
       return { current: friend.foodPreferences.length > 0 ? 1 : 0, completed: friend.foodPreferences.length > 0 }
-    case 'almuerzo_sol':
-    case 'cena_especial':
-    case 'martes_valiente':
-    case 'mesa_para_dos':
-    case 'reserva_relampago_logro':
-    case 'reserva_planificada':
     case 'mesa_grande':
       return { current: reservations >= mission.target ? mission.target : Math.min(reservations, mission.target), completed: reservations >= mission.target }
     case 'primera_opinion':
@@ -61,10 +71,6 @@ function evaluateFriendMission(
       return { current: redemptions, completed: redemptions >= 5 }
     case 'coleccionista_premios':
       return { current: redemptions, completed: redemptions >= 8 }
-    case 'club_10_mesas':
-      return { current: reservations, completed: reservations >= 10 }
-    case 'racha_mensual':
-      return { current: Math.min(reservations, 3), completed: reservations >= 3 }
     case 'cazador_ofertas':
       return { current: Math.min(Math.round(reservations * 0.35), 3), completed: Math.round(reservations * 0.35) >= 3 }
     case 'nomada_digital':
@@ -77,16 +83,6 @@ function evaluateFriendMission(
       return { current: venues, completed: venues >= 20 }
     case 'corona_gastro':
       return { current: venues, completed: venues >= 40 }
-    case 'socio_veterano':
-      return { current: reservations, completed: reservations >= 25 }
-    case 'maraton_gastro':
-      return { current: reservations, completed: reservations >= 30 }
-    case 'leyenda_restaurante':
-      return { current: reservations, completed: reservations >= 50 }
-    case 'centurion_mesas':
-      return { current: reservations, completed: reservations >= 100 }
-    case 'llama_eterna':
-      return { current: reservations, completed: reservations >= 75 }
     case 'infiltrado_hosteleria':
     case 'titan_hosteleria':
       return { current: paxTotal, completed: paxTotal >= mission.target }

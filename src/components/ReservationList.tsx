@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { dateToTimeInput, formatTimeSpanish, isReservationStartInPast, startOfDay } from '../utils/helpers'
+import { dateToTimeInput, formatTimeSpanish, isPastCalendarDate, isReservationStartInPast, startOfDay } from '../utils/helpers'
 import type { Reservation } from '../types'
 import styles from './ReservationList.module.css'
 
@@ -7,6 +7,7 @@ interface ReservationListProps {
   reservations: Reservation[]
   tableMeta: Record<string, { name: string; capacity: number }>
   selectedDate: Date
+  canCreate?: boolean
   onAdd: () => void
   onEdit: (reservation: Reservation) => void
   onDelete: (reservation: Reservation) => void
@@ -23,6 +24,7 @@ function ReservationList({
   reservations,
   tableMeta,
   selectedDate,
+  canCreate = true,
   onAdd,
   onEdit,
   onDelete,
@@ -44,6 +46,10 @@ function ReservationList({
 
   const isFutureDay =
     startOfDay(selectedDate).getTime() > startOfDay(new Date()).getTime()
+  const isPastDay = isPastCalendarDate(selectedDate)
+
+  const isReservationLocked = (reservation: Reservation) =>
+    isReservationStartInPast(selectedDate, dateToTimeInput(reservation.startTime))
 
   const attendanceHours = useMemo(() => {
     if (isFutureDay) {
@@ -82,9 +88,11 @@ function ReservationList({
           <span className={styles.countBadge}>
             {activeCount} activa{activeCount === 1 ? '' : 's'}
           </span>
-          <button type="button" className={styles.addButton} onClick={onAdd}>
-            + Nueva
-          </button>
+          {canCreate ? (
+            <button type="button" className={styles.addButton} onClick={onAdd}>
+              + Nueva
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -162,10 +170,16 @@ function ReservationList({
 
       {reservations.length === 0 ? (
         <div className={styles.empty}>
-          <p>No hay reservas para este día.</p>
-          <button type="button" className={styles.addButton} onClick={onAdd}>
-            Crear primera reserva
-          </button>
+          <p>
+            {isPastDay
+              ? 'No hay reservas en este día anterior.'
+              : 'No hay reservas para este día.'}
+          </p>
+          {canCreate ? (
+            <button type="button" className={styles.addButton} onClick={onAdd}>
+              Crear primera reserva
+            </button>
+          ) : null}
         </div>
       ) : filteredReservations.length === 0 ? (
         <div className={styles.empty}>
@@ -196,6 +210,7 @@ function ReservationList({
             {filteredReservations.map((reservation) => {
               const table = tableMeta[reservation.tableId]
               const isCancelled = reservation.status === 'cancelled'
+              const isLocked = isReservationLocked(reservation)
 
               return (
                 <li
@@ -223,22 +238,28 @@ function ReservationList({
                       </div>
                     </div>
                     <span className={styles.cellActions}>
-                      <button
-                        type="button"
-                        className={styles.iconButton}
-                        onClick={() => onEdit(reservation)}
-                        aria-label={`Editar reserva de ${reservation.clientName}`}
-                      >
-                        ✎
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                        onClick={() => onDelete(reservation)}
-                        aria-label={`Eliminar reserva de ${reservation.clientName}`}
-                      >
-                        🗑
-                      </button>
+                      {isLocked ? (
+                        <span className={styles.lockedHint}>Solo asistencia</span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className={styles.iconButton}
+                            onClick={() => onEdit(reservation)}
+                            aria-label={`Editar reserva de ${reservation.clientName}`}
+                          >
+                            ✎
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.iconButton} ${styles.iconButtonDanger}`}
+                            onClick={() => onDelete(reservation)}
+                            aria-label={`Eliminar reserva de ${reservation.clientName}`}
+                          >
+                            🗑
+                          </button>
+                        </>
+                      )}
                     </span>
                   </div>
                 </li>

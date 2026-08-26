@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import MenuPdfViewer from '../components/menu/MenuPdfViewer'
 import MenuPreview from '../components/menu/MenuPreview'
 import MenuPromotionsFab from '../components/MenuPromotionsFab'
 import { fetchPublicMenu, type PublicBookingCompany } from '../services/publicApi'
-import type { MenuBoard, MenuNode } from '../types/company'
+import { companyAcceptsReservations, restaurantReserveCtaShortLabel } from '../data/companyReservationMode'
+import { hasMenuPdf, type MenuBoard, type MenuNode } from '../types/company'
 import styles from './PublicMenuViewPage.module.css'
 
 function PublicMenuViewPage() {
@@ -11,7 +13,6 @@ function PublicMenuViewPage() {
   const [searchParams] = useSearchParams()
   const highlightProductId = searchParams.get('producto')
   const menuHref = `/reservar/${slug}/carta`
-  const reserveHref = `/reservar/${slug}?reservar=1`
 
   const [company, setCompany] = useState<PublicBookingCompany | null>(null)
   const [boards, setBoards] = useState<MenuBoard[]>([])
@@ -80,6 +81,10 @@ function PublicMenuViewPage() {
     )
   }
 
+  const reserveHref = companyAcceptsReservations(company.reservationMode)
+    ? `/reservar/${slug}?reservar=1`
+    : `/reservar/${slug}`
+
   return (
     <div className={styles.page}>
       <header className={styles.toolbar}>
@@ -87,17 +92,28 @@ function PublicMenuViewPage() {
           ← Cartas
         </Link>
         <Link to={reserveHref} className={styles.reserveLink}>
-          Reservar
+          {restaurantReserveCtaShortLabel(company.reservationMode)}
         </Link>
       </header>
 
-      <MenuPreview
-        board={board}
-        nodes={boardNodes}
-        restaurantName={company.name}
-        fullscreen
-        highlightProductId={highlightProductId}
-      />
+      {hasMenuPdf(board) ? (
+        <main className={styles.pdfMain}>
+          <MenuPdfViewer
+            pdfUrl={board.pdfUrl}
+            pdfPages={board.pdfPages}
+            fileName={board.pdfFileName}
+            title={board.name}
+          />
+        </main>
+      ) : (
+        <MenuPreview
+          board={board}
+          nodes={boardNodes}
+          restaurantName={company.name}
+          fullscreen
+          highlightProductId={highlightProductId}
+        />
+      )}
 
       <MenuPromotionsFab slug={slug} />
     </div>

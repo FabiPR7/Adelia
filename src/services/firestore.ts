@@ -1,11 +1,11 @@
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
   getDoc,
-  getDocFromServer,
   getDocs,
+  limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -14,6 +14,7 @@ import {
   where,
   writeBatch,
   deleteField,
+  type QueryConstraint,
 } from 'firebase/firestore'
 import { db, auth } from '../config/firebase'
 import type {
@@ -31,7 +32,7 @@ import type {
 } from '../types'
 import { defaultGamificationState } from '../types/gamification'
 import type { CustomerGamificationState, ClaimedPromotionRecord } from '../types/gamification'
-import type { VerifiedConsumptionRecord } from '../types/verifiedConsumption'
+import type { CustomerVerifiedConsumption, VerifiedConsumptionRecord } from '../types/verifiedConsumption'
 import { parseCompanyReviewStats } from '../types/review'
 import { mapVerifiedConsumptionDoc } from '../utils/productReports'
 import type { PublicPromotion } from './publicPromotions'
@@ -46,12 +47,28 @@ import {
   computeReservationCountsByMonth as computeReservationCountsByMonthUtil,
 } from '../utils/reservationSlots'
 import { combineDateAndTime, dateToIsoDate, defaultSchedule, generateUuid, isSameDay, slugToAuthEmail, slugify } from '../utils/helpers'
+import { MAX_COMPANY_CHARACTERISTICS } from '../data/companyCharacteristics'
+import { parseCompanyReservationMode } from '../data/companyReservationMode'
+import { parseCompanyProfileFacilities } from '../data/companyProfileFacilities'
+import {
+  ADMIN_COMPANY_LIST_LIMIT,
+  COMPANY_RESERVATION_QUERY_LIMIT,
+  COMPANY_RESERVATION_RANGE_LIMIT,
+  COMPANY_TABLE_LIMIT,
+  CUSTOMER_RESERVATION_LIMIT,
+  dayBounds,
+  RESERVATION_QUERY_CACHE_MS,
+} from './firestoreQuery'
+import {
+  parseCompanyPlanBilling,
+  parseCompanyPlanId,
+  parseCompanyPlanStartedAt,
+} from '../data/companyPlans'
 import { normalizeCompanySchedule } from '../utils/schedule'
 import {
   normalizeCompanySettingsPayload,
 } from '../utils/companyValidation'
-import { notifyReservationCancelledNotification, notifyReservationConfirmationEmail, notifyReservationReceivedEmail, syncReservationClient } from './reservationEmailApi'
-import { upsertCompanyClientFromReservation } from './companyClients'
+import { notifyReservationCancelledNotification, notifyReservationConfirmationEmail } from './reservationEmailApi'
 import type { QrBrandingConfig, QrBrandingKind } from '../types/company'
 import {
   normalizeQrBrandingConfig,
@@ -77,7 +94,7 @@ export async function syncCompanyLoginIndex(
   })
 }
 
-export async function resolveLoginAuthEmail(username: string): Promise<string> {
+export async function resolveLoginAuthEmail(username: string, password: string): Promise<string> {
   const trimmed = username.trim()
 
   if (!trimmed) {
@@ -87,7 +104,7 @@ export async function resolveLoginAuthEmail(username: string): Promise<string> {
   const response = await fetch(`${API_BASE}/api/auth/resolve-login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ loginName: trimmed }),
+    body: JSON.stringify({ loginName: trimmed, password }),
   })
 
   if (!response.ok) {
@@ -123,9 +140,10 @@ export async function ensureCompanyLoginIndex(companyId: string): Promise<void> 
     return
   }
 
-  if ('loginPassword' in credentialsSnap.data()) {
+  if ('loginPassword' in credentialsSnap.data() || 'password' in credentialsSnap.data()) {
     await updateDoc(doc(db, 'companyCredentials', companyId), {
       loginPassword: deleteField(),
+      password: deleteField(),
     }).catch(() => undefined)
   }
 
@@ -135,8 +153,8 @@ export async function ensureCompanyLoginIndex(companyId: string): Promise<void> 
 /** Sincroniza el índice de acceso de todas las empresas (solo admin). */
 export async function syncAllCompanyLoginIndexes(): Promise<void> {
   const [companiesSnap, credentialsSnap] = await Promise.all([
-    getDocs(collection(db, 'companies')),
-    getDocs(collection(db, 'companyCredentials')),
+    getDocs(query(collection(db, 'companies'), limit(ADMIN_COMPANY_LIST_LIMIT))),
+    getDocs(query(collection(db, 'companyCredentials'), limit(ADMIN_COMPANY_LIST_LIMIT))),
   ])
 
   const credentialsByCompanyId = Object.fromEntries(
@@ -171,7 +189,7 @@ export async function getUserProfile(uid: string): Promise<AppUser | null> {
     let stats: Record<string, unknown> | undefined
     try {
       const statsRef = doc(db, 'userGamification', uid)
-      const statsSnap = await getDocFromServer(statsRef).catch(() => getDoc(statsRef))
+      const statsSnap = await getDoc(statsRef)
       stats = statsSnap.data() as Record<string, unknown> | undefined
     } catch {
       stats = undefined
@@ -192,6 +210,9 @@ export async function getUserProfile(uid: string): Promise<AppUser | null> {
 
 async function withFavoriteSlugs(uid: string, profile: AppUser | null): Promise<AppUser | null> {
   if (!profile || profile.role !== 'customer') {
+    return profile
+  }
+  if (Array.isArray(profile.favoriteSlugs) && profile.favoriteSlugs.length > 0) {
     return profile
   }
   const slugs = await listUserFavoriteSlugs(uid)
@@ -258,6 +279,7 @@ function mapUserProfileRecord(
       data.onboardingCompleted === true
       || (data.onboardingCompleted == null && Boolean(data.displayName)),
     authProvider: data.authProvider === 'google.com' ? 'google.com' : 'password',
+    blocked: data.blocked === true,
   }
 }
 
@@ -314,6 +336,18 @@ function parseGamificationData(data: Record<string, unknown>): CustomerGamificat
     textReviewsCount: typeof gamification.textReviewsCount === 'number'
       ? gamification.textReviewsCount
       : 0,
+    reviewsWithPhotoCountAtWeekStart: typeof gamification.reviewsWithPhotoCountAtWeekStart === 'number'
+      ? gamification.reviewsWithPhotoCountAtWeekStart
+      : undefined,
+    textReviewsCountAtWeekStart: typeof gamification.textReviewsCountAtWeekStart === 'number'
+      ? gamification.textReviewsCountAtWeekStart
+      : undefined,
+    reviewsWithPhotoCountAtMonthStart: typeof gamification.reviewsWithPhotoCountAtMonthStart === 'number'
+      ? gamification.reviewsWithPhotoCountAtMonthStart
+      : undefined,
+    redemptionsCountAtMonthStart: typeof gamification.redemptionsCountAtMonthStart === 'number'
+      ? gamification.redemptionsCountAtMonthStart
+      : undefined,
     reviewedReservationIds: Array.isArray(gamification.reviewedReservationIds)
       ? (gamification.reviewedReservationIds as string[])
       : [],
@@ -518,6 +552,45 @@ export async function acknowledgeLevelCelebration(
   }
 }
 
+export async function fetchCustomerLeaderboard(
+  scope: 'country' | 'world' = 'world',
+): Promise<Array<{
+  uid: string
+  displayName: string
+  xp: number
+  photoUrl: string
+  homeCountry: string
+  homeCity: string
+  isYou: boolean
+  rank: number
+}>> {
+  const currentUser = auth.currentUser
+  if (!currentUser) {
+    return []
+  }
+  const token = await currentUser.getIdToken()
+  const response = await fetch(
+    `${API_BASE}/api/customer/gamification/leaderboard?scope=${encodeURIComponent(scope)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!response.ok) {
+    throw new Error('No se pudo cargar el ranking.')
+  }
+  const payload = await response.json() as {
+    entries?: Array<{
+      uid: string
+      displayName: string
+      xp: number
+      photoUrl: string
+      homeCountry: string
+      homeCity: string
+      isYou: boolean
+      rank: number
+    }>
+  }
+  return payload.entries ?? []
+}
+
 async function callCustomerGamificationApi(
   path: string,
   body: Record<string, unknown>,
@@ -576,6 +649,112 @@ export async function applyInventoryReservationToken(
       ? (data.pendingTokenSpend as CustomerGamificationState['pendingTokenSpend'])
       : [],
   }
+}
+
+export interface RegisterConsumptionInput {
+  pin: string
+  mode: 'products' | 'total' | 'skip'
+  declaredTotalCents?: number
+  productSelections?: Array<{ nodeId: string; quantity: number }>
+}
+
+export async function registerPromotionConsumption(
+  companyId: string,
+  payload: RegisterConsumptionInput,
+  promotionId?: string,
+): Promise<{
+  visits: number
+  tokenCreditsByCompany: Record<string, number>
+}> {
+  const data = await callCustomerGamificationApi('/promotions/register-consumption', {
+    companyId,
+    promotionId,
+    pin: payload.pin,
+    mode: payload.mode,
+    declaredTotalCents: payload.declaredTotalCents,
+    productSelections: payload.productSelections,
+  })
+  return {
+    visits: typeof data.visits === 'number' ? data.visits : 1,
+    tokenCreditsByCompany: data.tokenCreditsByCompany && typeof data.tokenCreditsByCompany === 'object'
+      ? data.tokenCreditsByCompany as Record<string, number>
+      : {},
+  }
+}
+
+export async function fetchCustomerConsumptions(): Promise<CustomerVerifiedConsumption[]> {
+  const currentUser = auth.currentUser
+  if (!currentUser) {
+    throw new Error('Debes iniciar sesión como cliente.')
+  }
+  const token = await currentUser.getIdToken()
+  const response = await fetch(`${API_BASE}/api/customer/gamification/consumptions`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string
+    consumptions?: unknown
+  }
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cargar tu consumo.')
+  }
+
+  return Array.isArray(data.consumptions)
+    ? data.consumptions.flatMap((item) => {
+      if (!item || typeof item !== 'object') {
+        return []
+      }
+      const row = item as Record<string, unknown>
+      const id = typeof row.id === 'string' ? row.id : ''
+      const companyId = typeof row.companyId === 'string' ? row.companyId : ''
+      const verifiedAt = typeof row.verifiedAt === 'string' ? row.verifiedAt : ''
+      if (!id || !companyId || !verifiedAt) {
+        return []
+      }
+      const mode = row.mode === 'products' || row.mode === 'skip' ? row.mode : 'total'
+      const source = row.source === 'walk_in' ? 'walk_in' : 'reservation'
+      return [{
+        id,
+        companyId,
+        companyName: typeof row.companyName === 'string' && row.companyName.trim()
+          ? row.companyName.trim()
+          : 'Restaurante',
+        companySlug: typeof row.companySlug === 'string' ? row.companySlug : '',
+        photoUrl: typeof row.photoUrl === 'string' ? row.photoUrl : '',
+        verifiedAt,
+        visitAt: typeof row.visitAt === 'string' ? row.visitAt : verifiedAt,
+        totalCents: typeof row.totalCents === 'number' ? row.totalCents : 0,
+        mode,
+        source,
+        promotionId: typeof row.promotionId === 'string' ? row.promotionId : null,
+        promotionTitle: typeof row.promotionTitle === 'string' ? row.promotionTitle : null,
+        minimumSpendCents: typeof row.minimumSpendCents === 'number'
+          ? Math.max(0, Math.round(row.minimumSpendCents))
+          : 0,
+        lineItems: Array.isArray(row.lineItems)
+          ? row.lineItems.flatMap((line) => {
+            if (!line || typeof line !== 'object') {
+              return []
+            }
+            const entry = line as Record<string, unknown>
+            const name = typeof entry.name === 'string' ? entry.name : ''
+            const quantity = typeof entry.quantity === 'number' ? entry.quantity : 0
+            if (!name || quantity < 1) {
+              return []
+            }
+            return [{
+              name,
+              quantity,
+              lineTotalCents: typeof entry.lineTotalCents === 'number' ? entry.lineTotalCents : 0,
+            }]
+          })
+          : [],
+        meetsMinimumSpend: row.meetsMinimumSpend === true,
+      } satisfies CustomerVerifiedConsumption]
+    })
+    : []
 }
 
 export async function useInventoryItem(itemId: string): Promise<{
@@ -678,14 +857,21 @@ export async function getCompanyCredentialsMustChange(
   return null
 }
 
-export async function getCompanyById(id: string): Promise<Company | null> {
+export async function getCompanyById(
+  id: string,
+  options?: { includePrivateOps?: boolean },
+): Promise<Company | null> {
   const snapshot = await getDoc(doc(db, 'companies', id))
 
   if (!snapshot.exists()) {
     return null
   }
 
-  return mergeCompanyPrivateOps(mapCompany(snapshot.id, snapshot.data()))
+  const company = mapCompany(snapshot.id, snapshot.data())
+  if (options?.includePrivateOps === false) {
+    return company
+  }
+  return mergeCompanyPrivateOps(company)
 }
 
 async function mergeCompanyPrivateOps(company: Company): Promise<Company> {
@@ -726,11 +912,11 @@ export async function getCompanyBySlug(slug: string): Promise<Company | null> {
   }
 
   const docSnap = snapshot.docs[0]
-  return mergeCompanyPrivateOps(mapCompany(docSnap.id, docSnap.data()))
+  return mapCompany(docSnap.id, docSnap.data())
 }
 
 export async function getAllCompanies(): Promise<Company[]> {
-  const snapshot = await getDocs(collection(db, 'companies'))
+  const snapshot = await getDocs(query(collection(db, 'companies'), limit(ADMIN_COMPANY_LIST_LIMIT)))
 
   return snapshot.docs
     .map((item) => mapCompany(item.id, item.data()))
@@ -739,13 +925,27 @@ export async function getAllCompanies(): Promise<Company[]> {
 
 export async function getAdminCompanies(): Promise<AdminCompany[]> {
   const [companiesSnapshot, credentialsSnapshot] = await Promise.all([
-    getDocs(collection(db, 'companies')),
-    getDocs(collection(db, 'companyCredentials')),
+    getDocs(query(collection(db, 'companies'), limit(ADMIN_COMPANY_LIST_LIMIT))),
+    getDocs(query(collection(db, 'companyCredentials'), limit(ADMIN_COMPANY_LIST_LIMIT))),
   ])
 
   const credentialsByCompanyId = Object.fromEntries(
     credentialsSnapshot.docs.map((item) => [item.id, item.data()]),
   )
+
+  const leftoverSecrets = credentialsSnapshot.docs.filter((item) =>
+    'loginPassword' in item.data() || 'password' in item.data(),
+  )
+  if (leftoverSecrets.length > 0) {
+    const batch = writeBatch(db)
+    leftoverSecrets.slice(0, ADMIN_COMPANY_LIST_LIMIT).forEach((item) => {
+      batch.update(item.ref, {
+        loginPassword: deleteField(),
+        password: deleteField(),
+      })
+    })
+    void batch.commit().catch(() => undefined)
+  }
 
   return companiesSnapshot.docs
     .map((item) => {
@@ -755,26 +955,109 @@ export async function getAdminCompanies(): Promise<AdminCompany[]> {
       return {
         ...company,
         loginName: (credentials?.loginName as string) ?? company.name,
-        loginPassword: '—',
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'es'))
 }
 
-export async function getReservationsByCompany(companyId: string): Promise<Reservation[]> {
-  const snapshot = await getDocs(
-    query(collection(db, 'reservations'), where('companyId', '==', companyId)),
-  )
+export interface CompanyReservationQuery {
+  from?: Date
+  to?: Date
+  clientEmail?: string
+  limitCount?: number
+  skipCache?: boolean
+}
 
-  return snapshot.docs
-    .map((item) => mapReservation(item.id, item.data()))
-    .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+const reservationQueryCache = new Map<string, { at: number; rows: Reservation[] }>()
+
+export function invalidateCompanyReservationCache(companyId?: string) {
+  if (!companyId) {
+    reservationQueryCache.clear()
+    return
+  }
+  for (const key of [...reservationQueryCache.keys()]) {
+    if (key.startsWith(`${companyId}:`) || key.startsWith('customer:')) {
+      reservationQueryCache.delete(key)
+    }
+  }
+}
+
+function inTimeRange(value: Date, from?: Date, to?: Date) {
+  const time = value.getTime()
+  if (from && time < from.getTime()) {
+    return false
+  }
+  if (to && time >= to.getTime()) {
+    return false
+  }
+  return true
+}
+
+export async function getReservationsByCompany(
+  companyId: string,
+  options?: CompanyReservationQuery,
+): Promise<Reservation[]> {
+  const fromMs = options?.from?.getTime() ?? 0
+  const toMs = options?.to?.getTime() ?? 0
+  const emailKey = options?.clientEmail?.trim().toLowerCase() ?? ''
+  const cacheKey = `${companyId}:${fromMs}:${toMs}:${emailKey}:${options?.limitCount ?? 'all'}`
+  const cached = reservationQueryCache.get(cacheKey)
+  if (!options?.skipCache && cached && Date.now() - cached.at < RESERVATION_QUERY_CACHE_MS) {
+    return cached.rows
+  }
+
+  const constraints: QueryConstraint[] = [where('companyId', '==', companyId)]
+  if (options?.from) {
+    constraints.push(where('startTime', '>=', Timestamp.fromDate(options.from)))
+  }
+  if (options?.to) {
+    constraints.push(where('startTime', '<', Timestamp.fromDate(options.to)))
+  }
+  if (emailKey) {
+    constraints.push(where('clientEmail', '==', emailKey))
+  }
+  constraints.push(orderBy('startTime', 'asc'))
+  const ranged = Boolean(options?.from || options?.to)
+  const cap = ranged ? COMPANY_RESERVATION_RANGE_LIMIT : COMPANY_RESERVATION_QUERY_LIMIT
+  const maxRows = Math.min(options?.limitCount ?? cap, cap)
+  constraints.push(limit(maxRows))
+
+  let snapshot
+  try {
+    snapshot = await getDocs(query(collection(db, 'reservations'), ...constraints))
+  } catch {
+    snapshot = await getDocs(query(
+      collection(db, 'reservations'),
+      where('companyId', '==', companyId),
+      limit(maxRows),
+    ))
+  }
+
+  let rows = snapshot.docs.map((item) => mapReservation(item.id, item.data()))
+  if (options?.from || options?.to || emailKey) {
+    rows = rows.filter((row) => {
+      if (emailKey && row.clientEmail.trim().toLowerCase() !== emailKey) {
+        return false
+      }
+      return inTimeRange(row.startTime, options?.from, options?.to)
+    })
+  }
+
+  rows.sort((left, right) => left.startTime.getTime() - right.startTime.getTime())
+  reservationQueryCache.set(cacheKey, { at: Date.now(), rows })
+  return rows
 }
 
 export async function getVerifiedConsumptionsByCompany(
   companyId: string,
 ): Promise<VerifiedConsumptionRecord[]> {
-  const snapshot = await getDocs(collection(db, 'companies', companyId, 'verifiedConsumptions'))
+  const snapshot = await getDocs(
+    query(
+      collection(db, 'companies', companyId, 'verifiedConsumptions'),
+      orderBy('verifiedAt', 'desc'),
+      limit(100),
+    ),
+  ).catch(() => getDocs(query(collection(db, 'companies', companyId, 'verifiedConsumptions'), limit(100))))
 
   return snapshot.docs
     .map((item) => mapVerifiedConsumptionDoc(item.id, item.data()))
@@ -787,25 +1070,53 @@ export async function getCustomerReservations(
   uid?: string,
 ): Promise<Reservation[]> {
   const normalizedEmail = email.trim().toLowerCase()
+  const cacheKey = `customer:${uid ?? ''}:${normalizedEmail}`
+  const cached = reservationQueryCache.get(cacheKey)
+  if (cached && Date.now() - cached.at < RESERVATION_QUERY_CACHE_MS) {
+    return cached.rows
+  }
+
   const byId = new Map<string, Reservation>()
+  let uidQuerySucceeded = false
 
   if (uid) {
     try {
       const uidSnapshot = await getDocs(
-        query(collection(db, 'reservations'), where('customerUid', '==', uid)),
+        query(
+          collection(db, 'reservations'),
+          where('customerUid', '==', uid),
+          orderBy('createdAt', 'desc'),
+          limit(CUSTOMER_RESERVATION_LIMIT),
+        ),
       )
       uidSnapshot.docs.forEach((item) => {
         byId.set(item.id, mapReservation(item.id, item.data()))
       })
+      uidQuerySucceeded = true
     } catch {
-      // Índice o reglas aún no publicadas: se intenta por email.
+      try {
+        const uidSnapshot = await getDocs(
+          query(collection(db, 'reservations'), where('customerUid', '==', uid), limit(CUSTOMER_RESERVATION_LIMIT)),
+        )
+        uidSnapshot.docs.forEach((item) => {
+          byId.set(item.id, mapReservation(item.id, item.data()))
+        })
+        uidQuerySucceeded = true
+      } catch {
+        // Índice o reglas aún no publicadas: se intenta por email.
+      }
     }
   }
 
-  if (normalizedEmail) {
+  if (normalizedEmail && (!uidQuerySucceeded || byId.size === 0) && byId.size < CUSTOMER_RESERVATION_LIMIT) {
     try {
       const snapshot = await getDocs(
-        query(collection(db, 'reservations'), where('clientEmail', '==', normalizedEmail)),
+        query(
+          collection(db, 'reservations'),
+          where('clientEmail', '==', normalizedEmail),
+          orderBy('createdAt', 'desc'),
+          limit(CUSTOMER_RESERVATION_LIMIT),
+        ),
       )
       snapshot.docs.forEach((item) => {
         if (!byId.has(item.id)) {
@@ -813,11 +1124,28 @@ export async function getCustomerReservations(
         }
       })
     } catch {
-      // Sin permiso o índice pendiente.
+      try {
+        const snapshot = await getDocs(
+          query(
+            collection(db, 'reservations'),
+            where('clientEmail', '==', normalizedEmail),
+            limit(CUSTOMER_RESERVATION_LIMIT),
+          ),
+        )
+        snapshot.docs.forEach((item) => {
+          if (!byId.has(item.id)) {
+            byId.set(item.id, mapReservation(item.id, item.data()))
+          }
+        })
+      } catch {
+        // Sin permiso o índice pendiente.
+      }
     }
   }
 
-  return [...byId.values()].sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
+  const rows = [...byId.values()].sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
+  reservationQueryCache.set(cacheKey, { at: Date.now(), rows })
+  return rows
 }
 
 export function filterReservationsForDate(
@@ -842,8 +1170,11 @@ export async function getReservationsForDate(
   date: Date,
   cachedReservations?: Reservation[],
 ): Promise<Reservation[]> {
-  const all = cachedReservations ?? (await getReservationsByCompany(companyId))
-  return filterReservationsForDate(all, date)
+  if (cachedReservations) {
+    return filterReservationsForDate(cachedReservations, date)
+  }
+  const { start, end } = dayBounds(date)
+  return getReservationsByCompany(companyId, { from: start, to: end })
 }
 
 function reservationFormToTimes(
@@ -912,6 +1243,7 @@ export async function createReservation(
       }
 
       if (response.ok && data.id) {
+        invalidateCompanyReservationCache(companyId)
         return {
           id: data.id,
           companyId,
@@ -929,142 +1261,16 @@ export async function createReservation(
         }
       }
 
-      if (response.status >= 400 && response.status < 500 && data.error) {
-        throw new Error(data.error)
-      }
+      throw new Error(data.error || 'No se pudo crear la reserva.')
     } catch (apiError) {
       if (apiError instanceof Error && apiError.message.trim()) {
         throw apiError
       }
+      throw new Error('No se pudo crear la reserva.')
     }
   }
 
-  const cancelToken = generateUuid()
-
-  const docRef = await addDoc(collection(db, 'reservations'), {
-    companyId,
-    tableId: form.tableId,
-    clientName: form.clientName.trim(),
-    clientEmail: form.clientEmail.trim(),
-    clientPhone: form.clientPhone.trim(),
-    pax: form.pax,
-    startTime: Timestamp.fromDate(startTime),
-    endTime: Timestamp.fromDate(endTime),
-    status: bookingStatus,
-    notes: '',
-    cancelToken,
-    createdAt: serverTimestamp(),
-  })
-
-  if (form.clientEmail.trim()) {
-    await upsertCompanyClientFromReservation(companyId, docRef.id, {
-      clientEmail: form.clientEmail,
-      clientName: form.clientName,
-      clientPhone: form.clientPhone,
-      reservationDate: new Date(),
-    }).catch(() => syncReservationClient(docRef.id))
-  }
-
-  if (form.clientEmail.trim()) {
-    await notifyReservationReceivedEmail(docRef.id)
-  }
-
-  return {
-    id: docRef.id,
-    companyId,
-    tableId: form.tableId,
-    clientName: form.clientName.trim(),
-    clientEmail: form.clientEmail.trim(),
-    clientPhone: form.clientPhone.trim(),
-    pax: form.pax,
-    startTime,
-    endTime,
-    status: bookingStatus,
-    notes: '',
-    cancelToken,
-    createdAt: new Date(),
-  }
-}
-
-export interface PublicReservationInput {
-  clientName: string
-  clientEmail: string
-  clientPhone: string
-  pax: number
-  tableId: string
-  time: string
-  notes: string
-}
-
-export async function createPublicReservation(
-  companyId: string,
-  date: Date,
-  input: PublicReservationInput,
-  durationMinutes: number,
-  schedule: Company['schedule'],
-  cachedDayReservations?: Reservation[],
-): Promise<Reservation> {
-  const dayReservations =
-    cachedDayReservations ?? (await getReservationsForDate(companyId, date))
-
-  assertReservationSlotValid(
-    input.tableId,
-    input.time,
-    date,
-    schedule,
-    durationMinutes,
-    durationMinutes,
-    dayReservations,
-    undefined,
-    'completed',
-  )
-
-  const form: ReservationFormData = {
-    clientName: input.clientName,
-    clientEmail: input.clientEmail,
-    clientPhone: input.clientPhone,
-    pax: Math.trunc(input.pax),
-    tableId: input.tableId,
-    time: input.time,
-    status: 'completed',
-  }
-
-  const { startTime, endTime } = reservationFormToTimes(date, form, durationMinutes)
-  const cancelToken = generateUuid()
-
-  const docRef = await addDoc(collection(db, 'reservations'), {
-    companyId,
-    tableId: input.tableId,
-    clientName: input.clientName.trim(),
-    clientEmail: input.clientEmail.trim(),
-    clientPhone: input.clientPhone.trim(),
-    pax: Math.trunc(input.pax),
-    notes: input.notes.trim(),
-    startTime: Timestamp.fromDate(startTime),
-    endTime: Timestamp.fromDate(endTime),
-    status: 'completed',
-    cancelToken,
-    createdAt: serverTimestamp(),
-  })
-
-  await syncReservationClient(docRef.id)
-  await notifyReservationReceivedEmail(docRef.id)
-
-  return {
-    id: docRef.id,
-    companyId,
-    tableId: input.tableId,
-    clientName: input.clientName.trim(),
-    clientEmail: input.clientEmail.trim(),
-    clientPhone: input.clientPhone.trim(),
-    pax: Math.trunc(input.pax),
-    notes: input.notes.trim(),
-    startTime,
-    endTime,
-    status: 'completed',
-    cancelToken,
-    createdAt: new Date(),
-  }
+  throw new Error('Inicia sesión para crear la reserva.')
 }
 
 export async function updateReservation(
@@ -1105,6 +1311,7 @@ export async function updateReservation(
   })
 
   const existing = dayReservations.find((item) => item.id === reservationId)
+  invalidateCompanyReservationCache(companyId)
 
   return {
     id: reservationId,
@@ -1140,6 +1347,7 @@ export async function updateReservationStatus(
   }
 
   await updateDoc(doc(db, 'reservations', reservationId), update)
+  invalidateCompanyReservationCache()
 
   if (status === 'confirmed') {
     await notifyReservationConfirmationEmail(reservationId)
@@ -1159,6 +1367,7 @@ export async function updateReservationPromotionVisitStatus(
 
 export async function deleteReservation(reservationId: string): Promise<void> {
   await deleteDoc(doc(db, 'reservations', reservationId))
+  invalidateCompanyReservationCache()
 }
 
 export async function getReservationCountsByMonth(
@@ -1167,8 +1376,13 @@ export async function getReservationCountsByMonth(
   month: number,
   cachedReservations?: Reservation[],
 ): Promise<Record<number, number>> {
-  const all = cachedReservations ?? (await getReservationsByCompany(companyId))
-  return computeReservationCountsByMonth(all, year, month)
+  if (cachedReservations) {
+    return computeReservationCountsByMonth(cachedReservations, year, month)
+  }
+  const start = new Date(year, month, 1)
+  const end = new Date(year, month + 1, 1)
+  const rows = await getReservationsByCompany(companyId, { from: start, to: end })
+  return computeReservationCountsByMonth(rows, year, month)
 }
 
 export async function getTableNamesByCompany(
@@ -1180,7 +1394,7 @@ export async function getTableNamesByCompany(
 
 export async function getTablesByCompany(companyId: string): Promise<RestaurantTable[]> {
   const snapshot = await getDocs(
-    query(collection(db, 'tables'), where('companyId', '==', companyId)),
+    query(collection(db, 'tables'), where('companyId', '==', companyId), limit(COMPANY_TABLE_LIMIT)),
   )
 
   return snapshot.docs
@@ -1238,7 +1452,11 @@ export async function updateCompanySettings(
     mainPhotoIndex: normalizedPayload.mainPhotoIndex,
     videos: normalizedPayload.videos,
     characteristics: normalizedPayload.characteristics,
+    venueTypes: normalizedPayload.venueTypes,
+    amenities: normalizedPayload.amenities,
+    priceRange: normalizedPayload.priceRange,
     timeSlotMinutes: normalizedPayload.timeSlotMinutes,
+    reservationMode: normalizedPayload.reservationMode,
     depositMinPax: normalizedPayload.depositMinPax,
     depositPerGuestCents: normalizedPayload.depositPerGuestCents,
     depositEnabled: normalizedPayload.depositEnabled,
@@ -1286,10 +1504,7 @@ export async function updateCompanyEmailTemplates(
     updatedAt: serverTimestamp(),
   }
 
-  await Promise.all([
-    setDoc(doc(db, 'companies', companyId, 'private', 'ops'), payload, { merge: true }),
-    updateDoc(doc(db, 'companies', companyId), payload),
-  ])
+  await setDoc(doc(db, 'companies', companyId, 'private', 'ops'), payload, { merge: true })
 }
 
 export async function updateCompanyFloorPlan(
@@ -1334,7 +1549,7 @@ export async function replaceCompanyTables(
   tables: TableInput[],
 ): Promise<void> {
   const existing = await getDocs(
-    query(collection(db, 'tables'), where('companyId', '==', companyId)),
+    query(collection(db, 'tables'), where('companyId', '==', companyId), limit(COMPANY_TABLE_LIMIT)),
   )
 
   const batch = writeBatch(db)
@@ -1380,10 +1595,20 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
       ? Math.max(0, Math.min(4, Math.trunc(data.mainPhotoIndex)))
       : 0,
     videos: Array.isArray(data.videos) ? (data.videos as string[]).slice(0, 2) : [],
-    characteristics: Array.isArray(data.characteristics)
-      ? (data.characteristics as string[]).slice(0, 5)
-      : [],
+    ...(() => {
+      const rawCharacteristics = Array.isArray(data.characteristics)
+        ? (data.characteristics as string[]).slice(0, 20)
+        : []
+      const parsed = parseCompanyProfileFacilities(data, rawCharacteristics)
+      return {
+        characteristics: parsed.characteristics.slice(0, MAX_COMPANY_CHARACTERISTICS),
+        venueTypes: parsed.venueTypes,
+        amenities: parsed.amenities,
+        priceRange: parsed.priceRange,
+      }
+    })(),
     timeSlotMinutes: (data.timeSlotMinutes as number) ?? 120,
+    reservationMode: parseCompanyReservationMode(data.reservationMode),
     depositMinPax: typeof data.depositMinPax === 'number' && data.depositMinPax > 0
       ? Math.trunc(data.depositMinPax)
       : null,
@@ -1407,6 +1632,16 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
     stripeChargesEnabled: data.stripeChargesEnabled === true,
     stripePayoutsEnabled: data.stripePayoutsEnabled === true,
     stripeDetailsSubmitted: data.stripeDetailsSubmitted === true,
+    ...(() => {
+      const planId = parseCompanyPlanId(data.planId)
+      return {
+        planId,
+        planBilling: parseCompanyPlanBilling(data.planBilling, planId),
+        planStartedAt: planId === 'free' ? null : parseCompanyPlanStartedAt(data.planStartedAt),
+        planLastPaidAt: planId === 'free' ? null : parseCompanyPlanStartedAt(data.planLastPaidAt),
+        discoveryFeatured: data.discoveryFeatured === true,
+      }
+    })(),
     createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
   }
 }

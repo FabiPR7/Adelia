@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { createStripeClient, getStripeWebhookSecret } from '../stripe/config.ts'
 import { syncCompanyStripeStatus } from '../stripe/connect.ts'
+import { handleSaasStripeEvent } from '../stripe/saasBilling.ts'
 
 export async function handleStripeWebhook(req: Request, res: Response): Promise<void> {
   const webhookSecret = getStripeWebhookSecret()
@@ -37,6 +38,8 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
         await syncCompanyStripeStatus(companyId, account.id)
       }
     }
+
+    await handleSaasStripeEvent(event)
   } catch (error) {
     console.error('Stripe webhook handler error:', error)
     res.status(500).send('Error procesando webhook.')

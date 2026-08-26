@@ -193,7 +193,14 @@ function ReviewCommentEditor({
     const html = markersToEditorHtml(comment)
     editor.innerHTML = DOMPurify.sanitize(html, {
       ALLOWED_TAGS: ['span'],
-      ALLOWED_ATTR: ['data-tag-type', 'data-board-id', 'data-node-id', 'data-promotion-id', 'class'],
+      ALLOWED_ATTR: [
+        'data-tag-type',
+        'data-board-id',
+        'data-node-id',
+        'data-promotion-id',
+        'class',
+        'contenteditable',
+      ],
     })
   }, [editorRef])
 

@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { collection, getDocs, limit, query, where } from 'firebase/firestore'
 import { db } from '../config/firebase'
 
 export interface ProductClaimRecord {
@@ -13,7 +13,11 @@ export interface ProductClaimRecord {
 export async function listProductClaims(customerUid: string): Promise<ProductClaimRecord[]> {
   try {
     const snapshot = await getDocs(
-      query(collection(db, 'productClaims'), where('customerUid', '==', customerUid)),
+      query(
+        collection(db, 'productClaims'),
+        where('customerUid', '==', customerUid),
+        limit(100),
+      ),
     )
     return snapshot.docs.map((item) => {
       const data = item.data()

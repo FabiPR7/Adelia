@@ -41,6 +41,10 @@ export function buildPromotionBookingHref(
   return `/reservar/${encodeURIComponent(companySlug)}?${params.toString()}`
 }
 
+export function buildPromotionLandingPath(companySlug: string, promotionId: string): string {
+  return `/reservar/${encodeURIComponent(companySlug)}/promo/${encodeURIComponent(promotionId)}`
+}
+
 export function getAttendanceDayBlockMessage(
   promotion: PublicPromotion,
   selectedDate: Date,

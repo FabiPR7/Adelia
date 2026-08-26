@@ -64,10 +64,10 @@
 .heroStats {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.65rem;
   margin-top: 1rem;
-  max-width: 16rem;
+  max-width: 24rem;
 }
 
 .heroStats div {
@@ -269,6 +269,136 @@
   color: #b91c1c;
 }
 
+.subTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin: 0.35rem 0.85rem 0.85rem;
+  padding: 0.3rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(107, 83, 68, 0.08);
+}
+
+.consumptionSection {
+  margin: 0 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.registerBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 1rem 1.05rem;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid rgba(107, 83, 68, 0.08);
+  box-shadow: 0 10px 24px rgba(35, 28, 22, 0.06);
+}
+
+.registerBar h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--color-brown);
+}
+
+.registerBar p {
+  margin: 0.35rem 0 0;
+  max-width: 28rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.registerCta {
+  border: none;
+  border-radius: 999px;
+  padding: 0.7rem 1.1rem;
+  background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(255, 79, 143, 0.24);
+}
+
+.picker {
+  padding: 1rem;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid rgba(107, 83, 68, 0.1);
+}
+
+.pickerSearch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.pickerSearch input {
+  border: 1px solid rgba(107, 83, 68, 0.16);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.95rem;
+}
+
+.pickerList {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.pickerRow {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(107, 83, 68, 0.1);
+  border-radius: 14px;
+  padding: 0.7rem 0.8rem;
+  background: #fff8f4;
+  cursor: pointer;
+}
+
+.pickerRow strong {
+  display: block;
+  color: var(--color-brown);
+}
+
+.pickerRow span {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.pickerEmpty,
+.consumptionStatus {
+  margin: 0.65rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.pickerCancel {
+  margin-top: 0.75rem;
+  border: 1px solid rgba(107, 83, 68, 0.14);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 @media (min-width: 900px) {
   .page {
     max-width: 760px;
@@ -282,7 +412,9 @@
     padding: 1.75rem 1.5rem 1.5rem;
   }
 
-  .tabs {
+  .tabs,
+  .subTabs,
+  .consumptionSection {
     margin-left: 1.5rem;
     margin-right: 1.5rem;
   }
@@ -328,9 +460,11 @@
   }
 
   .tabs,
+  .subTabs,
   .list,
   .empty,
-  .pendingInvites {
+  .pendingInvites,
+  .consumptionSection {
     margin-left: 2rem;
     margin-right: 2rem;
   }

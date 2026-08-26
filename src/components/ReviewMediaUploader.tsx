@@ -1,7 +1,9 @@
 import { useId, useRef, useState, type ChangeEvent } from 'react'
 import type { ReviewMediaItem } from '../types/review'
-import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../utils/cloudinaryUrl'
+import { VIDEO_FILE_ACCEPT } from '../constants/fileUpload'
+import { CLOUDINARY_DISPLAY, cloudinaryVideoPosterUrl, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../utils/cloudinaryUrl'
 import { getCloudinaryResourceType, uploadToCloudinary } from '../utils/cloudinaryUpload'
+import { prepareVideoForUpload } from '../utils/videoMedia'
 import styles from './ReviewMediaUploader.module.css'
 
 const MAX_MEDIA_ITEMS = 6
@@ -41,7 +43,10 @@ function ReviewMediaUploader({ value, onChange, disabled = false }: ReviewMediaU
           throw new Error('Solo puedes subir fotos o vídeos.')
         }
 
-        const url = await uploadToCloudinary(file, resourceType)
+        const fileToUpload = resourceType === 'video'
+          ? await prepareVideoForUpload(file)
+          : file
+        const url = await uploadToCloudinary(fileToUpload, resourceType)
         uploadedItems.push({ url, type: resourceType })
       }
 
@@ -71,7 +76,7 @@ function ReviewMediaUploader({ value, onChange, disabled = false }: ReviewMediaU
         ref={inputRef}
         id={inputId}
         type="file"
-        accept="image/*,video/*"
+        accept={`image/*,${VIDEO_FILE_ACCEPT}`}
         multiple
         className={styles.hiddenInput}
         onChange={(event) => void handleFileChange(event)}
@@ -92,6 +97,7 @@ function ReviewMediaUploader({ value, onChange, disabled = false }: ReviewMediaU
                 ) : (
                   <video
                     src={optimizeCloudinaryVideoUrl(item.url)}
+                    poster={cloudinaryVideoPosterUrl(item.url) || undefined}
                     className={styles.mediaPreview}
                     controls
                     muted
@@ -121,7 +127,7 @@ function ReviewMediaUploader({ value, onChange, disabled = false }: ReviewMediaU
           onClick={() => inputRef.current?.click()}
           disabled={disabled || isUploading}
         >
-          {isUploading ? 'Subiendo…' : 'Añadir foto o vídeo'}
+          {isUploading ? 'Preparando y subiendo…' : 'Añadir foto o vídeo'}
         </button>
       ) : null}
 

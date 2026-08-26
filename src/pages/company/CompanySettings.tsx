@@ -4,6 +4,7 @@ import CharacteristicPicker from '../../components/CharacteristicPicker'
 import CityAutocomplete from '../../components/CityAutocomplete'
 import LocationMapPicker from '../../components/LocationMapPicker'
 import MediaGalleryUploader from '../../components/MediaGalleryUploader'
+import ProfileToggleGrid from '../../components/ProfileToggleGrid'
 import { useAuth } from '../../context/AuthContext'
 import {
   COMPANY_CHARACTERISTIC_OPTIONS,
@@ -11,6 +12,13 @@ import {
   MAX_COMPANY_PHOTOS,
   MAX_COMPANY_VIDEOS,
 } from '../../data/companyCharacteristics'
+import { companyVideoUploadHint } from '../../constants/fileUpload'
+import {
+  COMPANY_AMENITIES,
+  COMPANY_PRICE_RANGES,
+  COMPANY_VENUE_TYPES,
+  MAX_COMPANY_VENUE_TYPES,
+} from '../../data/companyProfileFacilities'
 import {
   ensureCompanyLoginIndex,
   getFirestoreErrorMessage,
@@ -64,6 +72,11 @@ import CompanyStripeConnectPanel from './CompanyStripeConnectPanel'
 import type { CompanyStripeStatus } from '../../services/companyStripe'
 import { normalizeMainPhotoIndex } from '../../utils/companyPhotos'
 import {
+  COMPANY_RESERVATION_MODE_OPTIONS,
+  parseCompanyReservationMode,
+  reservationModeHint,
+} from '../../data/companyReservationMode'
+import {
   applySectionSnapshot,
   createAllSectionSnapshots,
   createSectionSnapshot,
@@ -74,7 +87,9 @@ import styles from './CompanySettings.module.css'
 
 const FloorPlanEditor = lazy(() => import('../../components/FloorPlanEditor'))
 
-const SETTINGS_SECTION_IDS = SETTINGS_SECTIONS.map((section) => section.id)
+const SETTINGS_SECTION_IDS = SETTINGS_SECTIONS
+  .map((section) => section.id)
+  .filter((id): id is Exclude<SettingsSection, 'menu' | 'plan'> => id !== 'menu' && id !== 'plan')
 
 interface CompanySettingsProps {
   activeSection: SettingsSection
@@ -142,7 +157,11 @@ function companyToForm(company: Company): CompanySettingsPayload {
     mainPhotoIndex: company.mainPhotoIndex ?? 0,
     videos: company.videos ?? [],
     characteristics: company.characteristics ?? [],
+    venueTypes: company.venueTypes ?? [],
+    amenities: company.amenities ?? [],
+    priceRange: company.priceRange ?? '',
     timeSlotMinutes: company.timeSlotMinutes,
+    reservationMode: parseCompanyReservationMode(company.reservationMode),
     depositMinPax: company.depositMinPax ?? null,
     depositPerGuestCents: company.depositPerGuestCents ?? null,
     depositEnabled: company.depositEnabled ?? Boolean(company.depositMinPax && company.depositMinPax > 0),
@@ -436,7 +455,13 @@ const CompanySettings = forwardRef(function CompanySettings(
     setError(null)
     setSuccess(null)
 
-    const timeSlotMinutes = parseTimeSlotMinutesForSave(timeSlotMinutesInput)
+    if (!form) {
+      return false
+    }
+
+    const timeSlotMinutes = form.reservationMode === 'none'
+      ? (parseTimeSlotMinutesForSave(timeSlotMinutesInput) ?? form.timeSlotMinutes ?? 120)
+      : parseTimeSlotMinutesForSave(timeSlotMinutesInput)
 
     if (timeSlotMinutes === null) {
       setError('La duración debe ser un número entre 1 y 240 minutos.')
@@ -450,19 +475,21 @@ const CompanySettings = forwardRef(function CompanySettings(
       return false
     }
 
-    const depositError = validateReservationDepositSettings(
-      form.depositEnabled,
-      form.depositMinPax,
-      form.depositPerGuestCents,
-      form.depositCancellationHours,
-    )
+    const depositError = form.reservationMode === 'none'
+      ? null
+      : validateReservationDepositSettings(
+        form.depositEnabled,
+        form.depositMinPax,
+        form.depositPerGuestCents,
+        form.depositCancellationHours,
+      )
 
     if (depositError) {
       setError(depositError)
       return false
     }
 
-    if (form.depositEnabled && !stripeReadyForDeposits) {
+    if (form.reservationMode !== 'none' && form.depositEnabled && !stripeReadyForDeposits) {
       setError('Completa la conexión con Stripe antes de activar las fianzas.')
       return false
     }
@@ -503,6 +530,12 @@ const CompanySettings = forwardRef(function CompanySettings(
 
     setError(null)
     setSuccess(null)
+
+    const unnamedTables = tables.filter((table) => !table.name.trim())
+    if (unnamedTables.length > 0) {
+      setError('Pon un nombre a todas las mesas antes de guardar.')
+      return false
+    }
 
     const validTables = tables.filter((table) => table.name.trim())
 
@@ -875,75 +908,148 @@ const CompanySettings = forwardRef(function CompanySettings(
       <section className={sectionCardClass('profile', activeSection)}>
         <header className={styles.cardHeader}>
           <h2>Perfil del local</h2>
-          <p>Ubicación, descripción, galería y características visibles para tus clientes.</p>
+          <p>Ubicación compacta, tipo de local, servicios y hasta 10 características.</p>
         </header>
-        <div className={`${styles.grid} ${styles.contactGrid}`}>
-          <div className={styles.cityField}>
-            <CityAutocomplete
-              value={selectedMunicipality}
-              onChange={(city) => {
-                setSelectedMunicipality(city)
-                setForm({
-                  ...form,
-                  municipality: city?.name ?? '',
-                  country: city?.country || form.country,
-                })
-              }}
-              label="Municipio"
-              placeholder="Ej. Madrid"
-              variant="form"
+
+        <div className={styles.profileLayout}>
+          <div className={styles.profileBlock}>
+            <h3>Ubicación</h3>
+            <div className={styles.locationSplit}>
+              <div className={styles.locationFields}>
+                <div className={styles.cityField}>
+                  <CityAutocomplete
+                    value={selectedMunicipality}
+                    onChange={(city) => {
+                      setSelectedMunicipality(city)
+                      setForm({
+                        ...form,
+                        municipality: city?.name ?? '',
+                        country: city?.country || form.country,
+                      })
+                    }}
+                    label="Municipio"
+                    placeholder="Ej. Madrid"
+                    variant="form"
+                    compact
+                  />
+                </div>
+                <div className={styles.locationFieldsRow}>
+                  <label>
+                    Código postal
+                    <input
+                      value={form.postalCode}
+                      onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+                      placeholder="28001"
+                      inputMode="numeric"
+                      maxLength={10}
+                    />
+                  </label>
+                  <label>
+                    País
+                    <input
+                      value={form.country}
+                      onChange={(e) => setForm({ ...form, country: e.target.value })}
+                      placeholder="España"
+                      maxLength={60}
+                    />
+                  </label>
+                </div>
+                <p className={styles.mapFieldHint}>
+                  Obligatorio para aparecer en Adelia. Marca la entrada exacta en el mapa.
+                </p>
+              </div>
+              <div className={styles.mapSquareBlock}>
+                <LocationMapPicker
+                  compact
+                  square
+                  value={toGeoCoordinates(form.latitude, form.longitude)}
+                  geocodeQuery={[form.location, form.municipality, form.country].filter(Boolean).join(', ')}
+                  onChange={(coords) => {
+                    setForm({
+                      ...form,
+                      latitude: coords.lat,
+                      longitude: coords.lng,
+                    })
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.profileBlock}>
+            <ProfileToggleGrid
+              label="Tipo de local"
+              hint="Elige hasta 3. Un sitio puede ser restaurante y bar a la vez."
+              options={COMPANY_VENUE_TYPES}
+              selected={form.venueTypes}
+              maxSelected={MAX_COMPANY_VENUE_TYPES}
+              onChange={(venueTypes) => setForm({ ...form, venueTypes })}
             />
           </div>
-          <label>
-            Código postal
-            <input
-              value={form.postalCode}
-              onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-              placeholder="28001"
-              inputMode="numeric"
-              maxLength={10}
-            />
-          </label>
-          <label>
-            País
-            <input
-              value={form.country}
-              onChange={(e) => setForm({ ...form, country: e.target.value })}
-              placeholder="España"
-              maxLength={60}
-            />
-          </label>
-          <div className={styles.fullWidth}>
-            <span className={styles.mapFieldLabel}>Ubicación en el mapa</span>
-            <p className={styles.mapFieldHint}>
-              Obligatorio para aparecer en Adelia. Marca la entrada exacta de tu local.
-            </p>
-            <LocationMapPicker
-              value={toGeoCoordinates(form.latitude, form.longitude)}
-              geocodeQuery={[form.location, form.municipality, form.country].filter(Boolean).join(', ')}
-              onChange={(coords) => {
-                setForm({
-                  ...form,
-                  latitude: coords.lat,
-                  longitude: coords.lng,
-                })
-              }}
+
+          <div className={styles.profileBlock}>
+            <div className={styles.priceHeader}>
+              <span className={styles.priceLabel}>Precio medio</span>
+              <span className={styles.priceHint}>Opcional. Lo verán los clientes.</span>
+            </div>
+            <div className={styles.priceRow} role="group" aria-label="Rango de precio">
+              {COMPANY_PRICE_RANGES.map((option) => {
+                const isOn = form.priceRange === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`${styles.priceChip} ${isOn ? styles.priceChipOn : ''}`}
+                    aria-pressed={isOn}
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        priceRange: isOn ? '' : option.id,
+                      })
+                    }
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.hint}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className={styles.profileBlock}>
+            <ProfileToggleGrid
+              label="Servicios"
+              hint="Activa solo lo que tiene tu local: parking, wifi, pagos, accesibilidad…"
+              options={COMPANY_AMENITIES}
+              selected={form.amenities}
+              onChange={(amenities) => setForm({ ...form, amenities })}
             />
           </div>
-          <label className={styles.fullWidth}>
+
+          <div className={styles.profileBlock}>
+            <CharacteristicPicker
+              options={COMPANY_CHARACTERISTIC_OPTIONS}
+              selected={form.characteristics}
+              maxSelected={MAX_COMPANY_CHARACTERISTICS}
+              onChange={(characteristics) => setForm({ ...form, characteristics })}
+            />
+          </div>
+
+          <label className={styles.profileBlock}>
             Descripción
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={5}
+              rows={3}
               maxLength={2000}
-              placeholder="Cuéntanos qué hace especial a tu restaurante…"
+              placeholder="Qué hace especial a tu restaurante…"
             />
           </label>
-          <div className={styles.fullWidth}>
+
+          <div className={styles.profileMedia}>
             <MediaGalleryUploader
               label="Fotos del local"
-              hint={`Máximo ${MAX_COMPANY_PHOTOS} fotos. Marca una como principal para la página de reservas.`}
+              hint={`Máximo ${MAX_COMPANY_PHOTOS} fotos. Marca una como principal.`}
               urls={form.photos}
               maxItems={MAX_COMPANY_PHOTOS}
               mediaType="image"
@@ -955,23 +1061,13 @@ const CompanySettings = forwardRef(function CompanySettings(
                 mainPhotoIndex: normalizeMainPhotoIndex(form.mainPhotoIndex, photos.length),
               })}
             />
-          </div>
-          <div className={styles.fullWidth}>
             <MediaGalleryUploader
               label="Vídeos del local"
-              hint={`Máximo ${MAX_COMPANY_VIDEOS} vídeos.`}
+              hint={companyVideoUploadHint(MAX_COMPANY_VIDEOS)}
               urls={form.videos}
               maxItems={MAX_COMPANY_VIDEOS}
               mediaType="video"
               onChange={(videos) => setForm({ ...form, videos })}
-            />
-          </div>
-          <div className={styles.fullWidth}>
-            <CharacteristicPicker
-              options={COMPANY_CHARACTERISTIC_OPTIONS}
-              selected={form.characteristics}
-              maxSelected={MAX_COMPANY_CHARACTERISTICS}
-              onChange={(characteristics) => setForm({ ...form, characteristics })}
             />
           </div>
         </div>
@@ -981,31 +1077,58 @@ const CompanySettings = forwardRef(function CompanySettings(
       <section className={sectionCardClass('reservation-settings', activeSection)}>
         <header className={styles.cardHeader}>
           <h2>Reservas y horario</h2>
-          <p>Duración por reserva, fianza por comensales y días de apertura.</p>
+          <p>Cómo aceptas reservas, duración, fianza por comensales y días de apertura.</p>
         </header>
-        <label className={styles.inlineField}>
-          Duración de cada reserva (minutos)
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={timeSlotMinutesInput}
-            onChange={(e) => {
-              const digits = sanitizeTimeSlotMinutesInput(e.target.value)
+        <fieldset className={styles.reservationMode}>
+          <legend className={styles.reservationModeLegend}>Reserva</legend>
+          <div className={styles.reservationModeOptions} role="radiogroup" aria-label="Modo de reserva">
+            {COMPANY_RESERVATION_MODE_OPTIONS.map((option) => {
+              const selected = form.reservationMode === option.id
+              return (
+                <label
+                  key={option.id}
+                  className={`${styles.reservationModeOption} ${selected ? styles.reservationModeOptionOn : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="reservation-mode"
+                    value={option.id}
+                    checked={selected}
+                    onChange={() => setForm({ ...form, reservationMode: option.id })}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              )
+            })}
+          </div>
+          <p className={styles.reservationModeHint}>{reservationModeHint(form.reservationMode)}</p>
+        </fieldset>
+        {form.reservationMode !== 'none' ? (
+          <label className={styles.inlineField}>
+            Duración de cada reserva (minutos)
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={timeSlotMinutesInput}
+              onChange={(e) => {
+                const digits = sanitizeTimeSlotMinutesInput(e.target.value)
 
-              if (!digits) {
-                setTimeSlotMinutesInput('')
-                return
-              }
+                if (!digits) {
+                  setTimeSlotMinutesInput('')
+                  return
+                }
 
-              const parsed = Math.min(MAX_TIME_SLOT_MINUTES, Number(digits))
-              setTimeSlotMinutesInput(String(parsed))
-              setForm({ ...form, timeSlotMinutes: parsed })
-            }}
-            placeholder="120"
-          />
-        </label>
+                const parsed = Math.min(MAX_TIME_SLOT_MINUTES, Number(digits))
+                setTimeSlotMinutesInput(String(parsed))
+                setForm({ ...form, timeSlotMinutes: parsed })
+              }}
+              placeholder="120"
+            />
+          </label>
+        ) : null}
 
+        {form.reservationMode !== 'none' ? (
         <div className={styles.depositBlock}>
           <header className={styles.depositBlockHeader}>
             <h3>Fianzas con Stripe</h3>
@@ -1189,6 +1312,7 @@ const CompanySettings = forwardRef(function CompanySettings(
             ) : null}
           </div>
         </div>
+        ) : null}
 
         <div className={styles.scheduleBlock}>
           <h3>Horario semanal</h3>

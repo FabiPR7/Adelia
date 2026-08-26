@@ -382,6 +382,61 @@
   line-height: 1.4;
 }
 
+.photoCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.photoCardButton {
+  flex: 1 1 6.5rem;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-brown);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.photoCardButtonPrimary {
+  background: var(--color-brown);
+  border-color: var(--color-brown);
+  color: var(--color-white);
+}
+
+.photoCardButton:hover:not(:disabled) {
+  background: var(--color-cream);
+}
+
+.photoCardButtonPrimary:hover:not(:disabled) {
+  background: var(--color-brown);
+  filter: brightness(1.06);
+}
+
+.photoCardButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.promoQrPreview {
+  width: 7.5rem;
+  height: auto;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(74, 51, 72, 0.12);
+}
+
+.scanPreviewOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  overflow: auto;
+}
+
 .photoUploaderWrap {
   padding: 0.15rem;
 }

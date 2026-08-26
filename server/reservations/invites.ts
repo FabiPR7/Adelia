@@ -251,8 +251,8 @@ export async function listInvitesForUser(uid: string): Promise<{
   sent: ReservationInviteRecord[]
 }> {
   const [incomingSnap, outgoingSnap] = await Promise.all([
-    adminDb.collection(COLLECTIONS.reservationInvites).where('toUid', '==', uid).get(),
-    adminDb.collection(COLLECTIONS.reservationInvites).where('fromUid', '==', uid).get(),
+    adminDb.collection(COLLECTIONS.reservationInvites).where('toUid', '==', uid).limit(40).get(),
+    adminDb.collection(COLLECTIONS.reservationInvites).where('fromUid', '==', uid).limit(40).get(),
   ])
 
   const incoming = incomingSnap.docs.map((docSnap) => mapReservationInvite(docSnap.id, docSnap.data()))
@@ -275,6 +275,7 @@ export async function listInvitesForReservation(
   const snapshot = await adminDb
     .collection(COLLECTIONS.reservationInvites)
     .where('reservationId', '==', reservationId)
+    .limit(20)
     .get()
 
   const invites = snapshot.docs.map((docSnap) => mapReservationInvite(docSnap.id, docSnap.data()))
@@ -389,6 +390,7 @@ export async function cancelInvitesForReservation(reservationId: string): Promis
   const snapshot = await adminDb
     .collection(COLLECTIONS.reservationInvites)
     .where('reservationId', '==', reservationId)
+    .limit(20)
     .get()
 
   if (snapshot.empty) {

@@ -29,7 +29,7 @@ export default function PromotionClaimTicketModal({
         <div className={styles.ticketHeader}>
           <span className={styles.ticketEmoji} aria-hidden="true">🎉</span>
           <h2 id="claim-ticket-title">¡Felicidades por tu fidelidad!</h2>
-          <p>Has completado las reservas necesarias. Este es tu premio.</p>
+          <p>Has completado las reservas o consumos necesarios. Este es tu premio.</p>
         </div>
 
         <div className={styles.prizeBlock}>

@@ -33,7 +33,11 @@ export interface CompanySettingsPayload {
   mainPhotoIndex: number
   videos: string[]
   characteristics: string[]
+  venueTypes: string[]
+  amenities: string[]
+  priceRange: import('../data/companyProfileFacilities').CompanyPriceRange
   timeSlotMinutes: number
+  reservationMode: import('../data/companyReservationMode').CompanyReservationMode
   /** A partir de este número de comensales se pedirá fianza (null = desactivado). */
   depositMinPax: number | null
   /** Importe de fianza por comensal en céntimos (null = desactivado). */
@@ -634,7 +638,7 @@ export const PROMOTION_TYPE_LABELS: Record<PromotionType, string> = {
 }
 
 export const PROMOTION_TYPE_HINTS: Record<PromotionType, string> = {
-  reservation_ladder: 'Ofertas escalables: el cliente canjea primero la de menos reservas o condiciones.',
+  reservation_ladder: 'Ofertas escalables: el cliente canjea primero la de menos reservas o consumos.',
   time_limited: 'Activa solo en un tramo horario concreto.',
   attendance: 'El cliente debe presentarse en un plazo; si no viene, se libera el cupo.',
 }
@@ -713,7 +717,7 @@ export function validatePromotionInput(
         || !Number.isFinite(input.requiredReservations)
         || input.requiredReservations < 1
       ) {
-        return 'Indica cuántas reservas se requieren (mínimo 1).'
+        return 'Indica cuántas reservas o consumos se requieren (mínimo 1).'
       }
 
       if (input.active) {
@@ -726,7 +730,11 @@ export function validatePromotionInput(
         )
 
         if (conflict) {
-          return `Ya hay una oferta activa que requiere ${input.requiredReservations} reservas.`
+          return `Ya hay una oferta activa que requiere ${
+            input.requiredReservations === 1
+              ? '1 reserva o consumo'
+              : `${input.requiredReservations} reservas o consumos`
+          }.`
         }
       }
     } else if (
@@ -734,7 +742,7 @@ export function validatePromotionInput(
       && Number.isFinite(input.requiredReservations)
       && input.requiredReservations < 0
     ) {
-      return 'Las reservas requeridas no pueden ser negativas.'
+      return 'Las reservas o consumos requeridos no pueden ser negativos.'
     }
   }
 
@@ -839,6 +847,9 @@ export interface MenuBoard {
   active: boolean
   sortOrder: number
   template: MenuTemplateConfig
+  pdfUrl: string
+  pdfFileName: string
+  pdfPages: number
   createdAt: Date
   updatedAt: Date
 }
@@ -848,6 +859,13 @@ export interface MenuBoardInput {
   active: boolean
   sortOrder: number
   template: MenuTemplateConfig
+  pdfUrl?: string
+  pdfFileName?: string
+  pdfPages?: number
+}
+
+export function hasMenuPdf(board: Pick<MenuBoard, 'pdfUrl'> | null | undefined): boolean {
+  return Boolean(board?.pdfUrl?.trim())
 }
 
 export interface MenuNode {
@@ -912,8 +930,9 @@ export type SettingsSection =
   | 'reservation-settings'
   | 'tables'
   | 'menu'
+  | 'plan'
 
-export type CompanySettingsSection = Exclude<SettingsSection, 'menu'>
+export type CompanySettingsSection = Exclude<SettingsSection, 'menu' | 'plan'>
 
 export type ReportsSection = 'reports-reservations' | 'reports-clients' | 'reports-products' | 'reports-reviews'
 
@@ -944,10 +963,11 @@ export const COMPITE_SECTIONS: { id: CompiteSection; label: string; hint: string
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: string }[] = [
   { id: 'contact', label: 'Contacto', hint: 'Datos y logo' },
-  { id: 'profile', label: 'Perfil', hint: 'Ficha del local' },
-  { id: 'reservation-settings', label: 'Reservas y horario', hint: 'Duración y días' },
+  { id: 'profile', label: 'Perfil', hint: 'Ubicación, servicios y estilo' },
+  { id: 'reservation-settings', label: 'Reservas y horario', hint: 'Modo, duración y días' },
   { id: 'tables', label: 'Mesas', hint: 'Capacidad y mapa' },
-  { id: 'menu', label: 'Carta', hint: 'Productos y diseño' },
+  { id: 'menu', label: 'Carta', hint: 'Productos, diseño y PDF' },
+  { id: 'plan', label: 'Plan', hint: 'Suscripción y límites' },
 ]
 
 export function isClientsTab(tab: CompanyTab): tab is ClientsSection {
@@ -979,6 +999,13 @@ export function isSettingsTab(tab: CompanyTab): tab is SettingsSection {
     && tab !== 'help'
 }
 
+export function isSettingsEditorTab(tab: CompanyTab): tab is CompanySettingsSection {
+  return tab === 'contact'
+    || tab === 'profile'
+    || tab === 'reservation-settings'
+    || tab === 'tables'
+}
+
 export const SCHEDULE_DAY_KEYS = [
   'monday',
   'tuesday',
@@ -1008,7 +1035,7 @@ export function defaultTurns(): ServiceTurn[] {
 
 export type QrLogoMode = 'adelia' | 'restaurant' | 'none'
 
-export type QrBrandingKind = 'booking' | 'menu'
+export type QrBrandingKind = 'booking' | 'menu' | 'promotion'
 
 export interface QrBrandingConfig {
   logoMode: QrLogoMode
@@ -1022,4 +1049,5 @@ export interface QrBrandingConfig {
 export interface CompanyQrBranding {
   booking: QrBrandingConfig
   menu: QrBrandingConfig
+  promotion: QrBrandingConfig
 }

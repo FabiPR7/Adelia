@@ -7,9 +7,9 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { onAuthStateChanged, type User } from 'firebase/auth'
+import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { auth } from '../config/firebase'
-import { getCompanyById, getCompanyCredentialsMustChange, getUserProfile, ensureCompanyLoginIndex } from '../services/firestore'
+import { getCompanyById, getCompanyCredentialsMustChange, getUserProfile } from '../services/firestore'
 import { loadGameCatalog } from '../services/gameCatalog'
 import { resolveMustChangePassword } from '../utils/authProfile'
 import type { AppUser, Company } from '../types'
@@ -23,6 +23,7 @@ interface AuthContextValue {
   refreshProfile: () => Promise<void>
   refreshCompany: () => Promise<void>
   patchProfileGamification: (patch: Partial<AppUser['gamification']>) => void
+  patchProfileFavorites: (favoriteSlugs: string[]) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -32,7 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AppUser | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [catalogTick, setCatalogTick] = useState(0)
 
   const loadProfile = useCallback(async (currentUser: User | null) => {
     if (!currentUser) {
@@ -49,12 +49,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    if (userProfile.blocked) {
+      await signOut(auth)
+      setProfile(null)
+      setCompany(null)
+      return
+    }
+
     const [credentialsMustChange, companyData] = await Promise.all([
       userProfile.companyId
         ? getCompanyCredentialsMustChange(userProfile.companyId).catch(() => null)
         : Promise.resolve(null),
       userProfile.companyId
-        ? getCompanyById(userProfile.companyId).catch(() => null)
+        ? getCompanyById(userProfile.companyId, {
+            includePrivateOps: userProfile.role === 'company',
+          }).catch(() => null)
         : Promise.resolve(null),
     ])
 
@@ -65,12 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
     setProfile(resolvedProfile)
     setCompany(companyData)
-
-    if (userProfile.companyId) {
-      void ensureCompanyLoginIndex(userProfile.companyId).catch(() => {
-        // El login también resuelve el acceso por nombre público de la empresa.
-      })
-    }
   }, [])
 
   const refreshCompany = useCallback(async () => {
@@ -105,11 +108,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  useEffect(() => {
-    void loadGameCatalog().finally(() => {
-      setCatalogTick((value) => value + 1)
+  const patchProfileFavorites = useCallback((favoriteSlugs: string[]) => {
+    setProfile((current) => {
+      if (!current || current.role !== 'customer') {
+        return current
+      }
+
+      return {
+        ...current,
+        favoriteSlugs,
+      }
     })
   }, [])
+
+  useEffect(() => {
+    if (profile?.role !== 'customer') {
+      return
+    }
+    void loadGameCatalog()
+  }, [profile?.role])
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -132,12 +149,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       company,
       isLoading,
-      catalogReady: catalogTick > 0,
+      catalogReady: true,
       refreshProfile,
       refreshCompany,
       patchProfileGamification,
+      patchProfileFavorites,
     }),
-    [user, profile, company, isLoading, catalogTick, refreshProfile, refreshCompany, patchProfileGamification],
+    [
+      user,
+      profile,
+      company,
+      isLoading,
+      refreshProfile,
+      refreshCompany,
+      patchProfileGamification,
+      patchProfileFavorites,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

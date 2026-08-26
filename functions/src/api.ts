@@ -15,8 +15,11 @@ async function getApp(): Promise<Express> {
 export const api = onRequest(
   {
     region: 'europe-southwest1',
-    memory: '256MiB',
+    memory: '512MiB',
+    cpu: 1,
     timeoutSeconds: 60,
+    maxInstances: 200,
+    concurrency: 20,
   },
   async (req, res) => {
     const app = await getApp()

@@ -3,23 +3,20 @@ import L from 'leaflet'
 import { adelinaCoinUrl } from '../constants/adelina'
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, getMapTileConfig } from '../constants/mapConfig'
 import {
-  DISCOVERY_NEARBY_MAX_KM,
   formatDistanceKm,
   type GeoCoordinates,
 } from '../utils/geo'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import {
   formatDiscoveryRatingBadge,
-  getDiscoveryAverageRating,
-  pickNearbyRestaurants,
+  restaurantsForDiscoveryMap,
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
-import { getAdelinaSlotStates } from '../types/review'
 import styles from './NearbyRestaurantsMap.module.css'
 import 'leaflet/dist/leaflet.css'
 
-const MAP_CARD_SIZE: [number, number] = [84, 102]
-const MAP_CARD_ANCHOR: [number, number] = [42, 102]
+const MAP_CARD_SIZE: [number, number] = [96, 104]
+const MAP_CARD_ANCHOR: [number, number] = [48, 104]
 
 interface NearbyRestaurantsMapProps {
   restaurants: PublicDiscoveryRestaurant[]
@@ -50,7 +47,7 @@ function createYouIcon(): L.DivIcon {
 }
 
 function createRestaurantCardIcon(
-  restaurant: PublicDiscoveryRestaurant & { distanceKm: number },
+  restaurant: PublicDiscoveryRestaurant & { distanceKm?: number },
   variant: 'default' | 'featured' | 'selected',
 ): L.DivIcon {
   const photo = restaurant.photoUrl.trim()
@@ -59,21 +56,12 @@ function createRestaurantCardIcon(
   const name = escapeHtml(restaurant.name)
   const initial = escapeHtml(restaurant.name.charAt(0).toUpperCase() || 'R')
   const rating = formatDiscoveryRatingBadge(restaurant)
-  const slots = getAdelinaSlotStates(
-    getDiscoveryAverageRating(restaurant),
-    restaurant.reviewCount,
-  )
-  const coinsHtml = slots
-    .map((state) => (
-      `<img class="${state === 'full' ? styles.coinOn : styles.coinOff}" src="${adelinaCoinUrl}" alt="" draggable="false" />`
-    ))
-    .join('')
   const photoHtml = photo
     ? `<img class="${styles.cardPhotoImg}" src="${escapeHtml(photo)}" alt="" draggable="false" />`
     : `<span class="${styles.cardFallback}">${initial}</span>`
   const ratingHtml = rating
-    ? `<b>${escapeHtml(rating)}</b>`
-    : `<span>Nueva</span>`
+    ? `<span class="${styles.cardRating}"><img class="${styles.cardCoin}" src="${adelinaCoinUrl}" alt="" draggable="false" /><b>${escapeHtml(rating)}</b></span>`
+    : ''
 
   return L.divIcon({
     className: [
@@ -86,14 +74,9 @@ function createRestaurantCardIcon(
         <div class="${styles.cardStack}">
           <div class="${styles.cardPhoto}">
             ${photoHtml}
-            <span class="${styles.cardDistance}">${escapeHtml(formatDistanceKm(restaurant.distanceKm))}</span>
-          </div>
-          <div class="${styles.cardBody}">
-            <strong>${name}</strong>
-            <span class="${styles.cardAdelinas}">
-              <span class="${styles.cardCoins}">${coinsHtml}</span>
-              ${ratingHtml}
-            </span>
+            <span class="${styles.cardName}">${name}</span>
+            ${ratingHtml}
+            ${typeof restaurant.distanceKm === 'number' ? `<span class="${styles.cardDistance}">${escapeHtml(formatDistanceKm(restaurant.distanceKm))}</span>` : ''}
           </div>
         </div>
         <span class="${styles.cardPointer}" aria-hidden="true"></span>
@@ -127,12 +110,10 @@ function NearbyRestaurantsMap({
   const origin = userCoords ?? homeCoords
   const originKind = userCoords ? 'gps' : homeCoords ? 'home' : null
 
-  const nearby = useMemo(() => {
-    if (!origin) {
-      return []
-    }
-    return pickNearbyRestaurants(restaurants, origin, DISCOVERY_NEARBY_MAX_KM)
-  }, [origin, restaurants])
+  const nearby = useMemo(
+    () => restaurantsForDiscoveryMap(restaurants, origin),
+    [origin, restaurants],
+  )
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
@@ -176,7 +157,7 @@ function NearbyRestaurantsMap({
 
     layerGroup.clearLayers()
 
-    if (!origin) {
+    if (!origin && nearby.length === 0) {
       lastFitKeyRef.current = ''
       const idleTimer = window.setTimeout(() => {
         map.setView([DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng], DEFAULT_MAP_ZOOM)
@@ -185,28 +166,30 @@ function NearbyRestaurantsMap({
       return () => window.clearTimeout(idleTimer)
     }
 
-    const youMarker = L.marker([origin.lat, origin.lng], {
-      icon: createYouIcon(),
-      interactive: false,
-      zIndexOffset: 1200,
-    }).bindTooltip(originKind === 'gps' ? 'Estás aquí' : 'Tu zona', {
-      direction: 'top',
-      offset: [0, -10],
-    })
-    layerGroup.addLayer(youMarker)
+    if (origin) {
+      const youMarker = L.marker([origin.lat, origin.lng], {
+        icon: createYouIcon(),
+        interactive: false,
+        zIndexOffset: 1200,
+      }).bindTooltip(originKind === 'gps' ? 'Estás aquí' : 'Tu zona', {
+        direction: 'top',
+        offset: [0, -10],
+      })
+      layerGroup.addLayer(youMarker)
 
-    L.circle([origin.lat, origin.lng], {
-      radius: 900,
-      color: '#2563eb',
-      weight: 1,
-      opacity: 0.35,
-      fillColor: '#2563eb',
-      fillOpacity: 0.08,
-    }).addTo(layerGroup)
+      L.circle([origin.lat, origin.lng], {
+        radius: 900,
+        color: '#2563eb',
+        weight: 1,
+        opacity: 0.35,
+        fillColor: '#2563eb',
+        fillOpacity: 0.08,
+      }).addTo(layerGroup)
+    }
 
-    const points: L.LatLngExpression[] = [[origin.lat, origin.lng]]
+    const points: L.LatLngExpression[] = origin ? [[origin.lat, origin.lng]] : []
 
-    nearby.slice(0, 12).forEach((restaurant, index) => {
+    nearby.forEach((restaurant, index) => {
       const selected = restaurant.slug === selectedSlug
       const featured = index < 3
       const marker = L.marker(
@@ -231,13 +214,16 @@ function NearbyRestaurantsMap({
       points.push([restaurant.latitude as number, restaurant.longitude as number])
     })
 
-    const fitKey = `${origin.lat},${origin.lng}|${nearby.map((item) => item.slug).join(',')}`
+    const fitKey = `${origin ? `${origin.lat},${origin.lng}` : 'no-origin'}|${nearby.map((item) => item.slug).join(',')}`
     const shouldFit = lastFitKeyRef.current !== fitKey
     lastFitKeyRef.current = fitKey
 
     const frameTimer = window.setTimeout(() => {
       map.invalidateSize()
       if (!shouldFit) {
+        return
+      }
+      if (points.length === 0) {
         return
       }
       if (points.length === 1) {
@@ -256,13 +242,15 @@ function NearbyRestaurantsMap({
   }, [nearby, origin, originKind, selectedSlug])
 
   const hasOrigin = Boolean(origin)
-  const subtitle = !hasOrigin
-    ? 'Activa la ubicación para verte en el mapa y resaltar los locales de alrededor.'
-    : nearby.length === 0
-      ? 'Aún no hay restaurantes con ubicación cerca de este punto.'
-      : originKind === 'gps'
-        ? `${nearby.length} ${nearby.length === 1 ? 'restaurante' : 'restaurantes'} cerca de ti.`
-        : `${nearby.length} ${nearby.length === 1 ? 'restaurante' : 'restaurantes'} cerca de tu zona.`
+  const subtitle = nearby.length === 0
+    ? hasOrigin
+      ? 'Con estos filtros no hay locales con ubicación cerca.'
+      : 'Activa la ubicación para verte en el mapa, o mira los locales con pin.'
+    : hasOrigin
+      ? originKind === 'gps'
+        ? `${nearby.length} ${nearby.length === 1 ? 'local' : 'locales'} cerca de ti.`
+        : `${nearby.length} ${nearby.length === 1 ? 'local' : 'locales'} cerca de tu zona.`
+      : `${nearby.length} ${nearby.length === 1 ? 'local' : 'locales'} en el mapa.`
 
   return (
     <section className={styles.section} aria-labelledby="nearby-map-title">
@@ -289,7 +277,7 @@ function NearbyRestaurantsMap({
           aria-label="Mapa con tu ubicación y restaurantes cercanos"
         />
 
-        {!hasOrigin ? (
+        {!hasOrigin && nearby.length === 0 ? (
           <div className={styles.overlay}>
             <p>Para ver dónde estás y qué hay cerca, permite tu ubicación o completa tu zona en el perfil.</p>
             <button type="button" className={styles.overlayButton} onClick={onRequestGps} disabled={locating}>
@@ -302,32 +290,6 @@ function NearbyRestaurantsMap({
       </div>
 
       {locationError ? <p className={styles.error}>{locationError}</p> : null}
-
-      {nearby.length > 0 ? (
-        <ul className={styles.list}>
-          {nearby.slice(0, 6).map((restaurant, index) => (
-            <li key={restaurant.slug}>
-              <button
-                type="button"
-                className={`${styles.listItem} ${restaurant.slug === selectedSlug ? styles.listItemActive : ''}`}
-                onClick={() => onOpenRestaurant(restaurant)}
-              >
-                <span className={styles.listRank}>{index + 1}</span>
-                <span className={styles.listCopy}>
-                  <strong>{restaurant.name}</strong>
-                  <span>{restaurant.municipality || restaurant.location || 'Cerca'}</span>
-                </span>
-                <b>{formatDistanceKm(restaurant.distanceKm)}</b>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      <p className={styles.legend}>
-        <span><i className={styles.legendYou} /> Tú</span>
-        <span><i className={styles.legendPlace} /> Tarjeta del restaurante</span>
-      </p>
     </section>
   )
 }

@@ -18,7 +18,7 @@ const QUICK_ACCENTS = ['coral', 'gold', 'magenta', 'sunset'] as const
 
 function CustomerProfileTab() {
   const { profile, user } = useAuth()
-  const { favoriteSlugs, toggleFavorite } = useFavoriteRestaurants()
+  const { favoriteSlugs, isUpdatingFavorite, toggleFavorite } = useFavoriteRestaurants()
   const {
     loading,
     reservations,
@@ -128,10 +128,9 @@ function CustomerProfileTab() {
           </div>
 
           <p className={styles.progressHint}>
-            {progressPercent}% al siguiente nivel
-            {xpToNext != null
-              ? ` · faltan ${xpToNext.toLocaleString('es-ES')} XP`
-              : null}
+            {xpToNext == null
+              ? 'Has alcanzado el rango máximo'
+              : `${progressPercent}% al siguiente nivel · faltan ${xpToNext.toLocaleString('es-ES')} XP`}
           </p>
         </section>
 
@@ -161,8 +160,8 @@ function CustomerProfileTab() {
           </Link>
           <Link to="/app/reservas" className={`${styles.quickCard} ${styles.quick_gold}`}>
             <span className={styles.quickIcon} aria-hidden="true">📅</span>
-            <strong>Reservas</strong>
-            <span>Por ir y hechas</span>
+            <strong>Reservas y consumo</strong>
+            <span>Por ir, hechas y visitas</span>
           </Link>
           <Link to="/app/promociones" className={`${styles.quickCard} ${styles.quick_magenta}`}>
             <span className={styles.quickIcon} aria-hidden="true">🎁</span>
@@ -272,6 +271,8 @@ function CustomerProfileTab() {
                       type="button"
                       className={styles.unfavorite}
                       onClick={() => toggleFavorite(restaurant.slug)}
+                      disabled={isUpdatingFavorite(restaurant.slug)}
+                      aria-busy={isUpdatingFavorite(restaurant.slug)}
                       aria-label={`Quitar ${restaurant.name} de favoritos`}
                     >
                       ✕

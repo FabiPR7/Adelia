@@ -7,6 +7,8 @@ import {
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
 import FavoriteButton from './FavoriteButton'
+import { getAmenityLabel, getVenueTypeLabel } from '../data/companyProfileFacilities'
+import { restaurantReserveCtaLabel } from '../data/companyReservationMode'
 import styles from './RestaurantDiscoveryCard.module.css'
 
 interface RestaurantDiscoveryCardProps {
@@ -23,7 +25,11 @@ function RestaurantDiscoveryCard({
   const imageUrl = restaurant.photoUrl
     ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoThumb)
     : ''
-  const visibleCharacteristics = restaurant.characteristics.slice(0, 3)
+  const visibleTags = [
+    ...restaurant.venueTypes.slice(0, 1).map(getVenueTypeLabel),
+    ...restaurant.amenities.slice(0, 2).map(getAmenityLabel),
+    ...restaurant.characteristics,
+  ].slice(0, 3)
   const ratingBadge = formatDiscoveryRatingBadge(restaurant)
 
   return (
@@ -56,11 +62,11 @@ function RestaurantDiscoveryCard({
         </div>
 
         <div className={styles.footerOverlay}>
-          {visibleCharacteristics.length > 0 ? (
+          {visibleTags.length > 0 ? (
             <div className={styles.tags}>
-              {visibleCharacteristics.map((characteristic) => (
-                <span key={characteristic} className={styles.tag}>
-                  {characteristic}
+              {visibleTags.map((tag) => (
+                <span key={tag} className={styles.tag}>
+                  {tag}
                 </span>
               ))}
             </div>
@@ -71,7 +77,7 @@ function RestaurantDiscoveryCard({
             className={styles.reserveButton}
             onClick={(event) => event.stopPropagation()}
           >
-            Reservar mesa
+            {restaurantReserveCtaLabel(restaurant.reservationMode)}
           </Link>
         </div>
       </div>

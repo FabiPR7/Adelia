@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
-import * as admin from 'firebase-admin'
+import { FieldValue } from 'firebase-admin/firestore'
+import { adminAuth, adminDb } from '../server/firebase-admin.ts'
 
 interface CreateCompanyPayload {
   name: string
@@ -7,6 +8,8 @@ interface CreateCompanyPayload {
   phone: string
   website?: string
   password: string
+  planId?: 'free' | 'basic' | 'premium' | 'premium_plus'
+  planBilling?: 'monthly' | 'perpetual' | null
 }
 
 function slugify(text: string): string {
@@ -54,8 +57,7 @@ export const adminCreateCompany = onCall(
     }
 
     // Verificar que el usuario es admin
-    const userDoc = await admin
-      .firestore()
+    const userDoc = await adminDb
       .collection('users')
       .doc(request.auth.uid)
       .get()
@@ -69,7 +71,7 @@ export const adminCreateCompany = onCall(
 
     // Validar payload
     const data = request.data as CreateCompanyPayload
-    const { name, location, phone, website, password } = data
+    const { name, location, phone, website, password, planId, planBilling } = data
 
     if (!name?.trim() || !location?.trim() || !phone?.trim() || !password) {
       throw new HttpsError('invalid-argument', 'Faltan campos obligatorios.')
@@ -79,8 +81,7 @@ export const adminCreateCompany = onCall(
     const email = slugToAuthEmail(slug)
 
     // Verificar que el slug no exista
-    const existingCompany = await admin
-      .firestore()
+    const existingCompany = await adminDb
       .collection('companies')
       .where('slug', '==', slug)
       .limit(1)
@@ -92,21 +93,24 @@ export const adminCreateCompany = onCall(
 
     try {
       // Crear usuario de Firebase Auth con Admin SDK (privilegiado)
-      const userRecord = await admin.auth().createUser({
+      const userRecord = await adminAuth.createUser({
         email,
         password,
         emailVerified: true,
       })
 
       const ownerUid = userRecord.uid
-      const now = admin.firestore.FieldValue.serverTimestamp()
+      const now = FieldValue.serverTimestamp()
+      const nextPlanId =
+        planId === 'basic' || planId === 'premium' || planId === 'premium_plus' ? planId : 'free'
+      const nextBilling =
+        nextPlanId === 'free' ? null : planBilling === 'perpetual' ? 'perpetual' : 'monthly'
 
-      // Crear empresa en Firestore
-      const companyRef = admin.firestore().collection('companies').doc()
+      const companyRef = adminDb.collection('companies').doc()
       const companyId = companyRef.id
       const loginId = slug
 
-      const batch = admin.firestore().batch()
+      const batch = adminDb.batch()
 
       // Documento de empresa
       batch.set(companyRef, {
@@ -118,7 +122,11 @@ export const adminCreateCompany = onCall(
         location: location.trim(),
         photoUrl: '',
         timeSlotMinutes: 120,
+        reservationMode: 'optional',
         schedule: defaultSchedule(),
+        planId: nextPlanId,
+        planBilling: nextBilling,
+        ...(nextPlanId === 'free' ? {} : { planStartedAt: now }),
         turns: defaultTurns(),
         floorPlan: { tables: [], walls: [] },
         floorPlans: [{ tables: [], walls: [] }],
@@ -144,7 +152,7 @@ export const adminCreateCompany = onCall(
       })
 
       // Documento de usuario
-      batch.set(admin.firestore().collection('users').doc(ownerUid), {
+      batch.set(adminDb.collection('users').doc(ownerUid), {
         email,
         role: 'company',
         companyId,
@@ -170,7 +178,7 @@ export const adminCreateCompany = onCall(
       })
 
       // Documento de login
-      batch.set(admin.firestore().collection('logins').doc(loginId), {
+      batch.set(adminDb.collection('logins').doc(loginId), {
         authEmail: email,
         loginName: slug,
         role: 'company',
@@ -179,9 +187,11 @@ export const adminCreateCompany = onCall(
       })
 
       // Credenciales de empresa
-      batch.set(admin.firestore().collection('companyCredentials').doc(companyId), {
+      batch.set(adminDb.collection('companyCredentials').doc(companyId), {
         loginName: slug,
-        loginPassword: '—',
+        authEmail: email,
+        ownerUid,
+        mustChangePassword: true,
         updatedAt: now,
       })
 

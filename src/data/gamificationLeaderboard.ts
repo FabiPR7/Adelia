@@ -46,6 +46,7 @@ function enrichEntry(
         entry.level || levelDef.level,
         entry.missionsCompleted,
         entry.streak,
+        entry.reservationsTotal,
       ),
   }
 }
@@ -327,6 +328,32 @@ export function getUserRank(
   return buildLeaderboardWithUser(userName, userXp, userLevel, userLevelTitle, options).find(
     (entry) => entry.isYou,
   )?.rank ?? 13
+}
+
+export function leaderboardFromLiveRows(
+  rows: Array<{
+    uid: string
+    displayName: string
+    xp: number
+    photoUrl: string
+    homeCountry: string
+    homeCity: string
+    isYou: boolean
+  }>,
+): LeaderboardEntry[] {
+  return sortAndRank(rows.map((row) => enrichEntry({
+    id: row.uid,
+    displayName: row.displayName,
+    xp: row.xp,
+    level: 0,
+    levelTitle: '',
+    photoUrl: row.photoUrl || undefined,
+    homeCountry: row.homeCountry || 'España',
+    homeCity: row.homeCity,
+    isYou: row.isYou,
+    missionsCompleted: 0,
+    streak: 0,
+  })), Math.max(rows.length, 1))
 }
 
 export function leaderboardEntryToFriendProfile(entry: LeaderboardEntry): import('../types/friends').FriendProfile {

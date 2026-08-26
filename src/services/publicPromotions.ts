@@ -27,6 +27,7 @@ export interface PublicPromotion {
   currentRedemptions: number
   detail: string
   highlight: string
+  reservationMode?: import('../data/companyReservationMode').CompanyReservationMode
 }
 
 export async function fetchPublicPromotions(): Promise<PublicPromotion[]> {
@@ -82,4 +83,12 @@ export async function fetchPublicPromotionsBySlug(slug: string): Promise<PublicP
 
   const payload = (await response.json()) as { promotions?: PublicPromotion[] }
   return payload.promotions ?? []
+}
+
+export async function fetchPublicPromotionBySlug(
+  slug: string,
+  promotionId: string,
+): Promise<PublicPromotion | null> {
+  const promotions = await fetchPublicPromotionsBySlug(slug)
+  return promotions.find((promotion) => promotion.id === promotionId) ?? null
 }

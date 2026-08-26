@@ -30,9 +30,21 @@ import {
   type SeasonPackKind,
 } from '../gamification/inventoryItems.ts'
 import { getLevelForXpFromCatalog } from '../data/gameCatalog.ts'
+import { createRateLimit } from '../middleware/rateLimit.ts'
+import { resolveCompanyPromotionPin } from '../utils/companyPromotionPin.ts'
+import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
+import { parseCompanyReservationMode } from '../utils.ts'
+import { resolveConsumptionCapture } from '../utils/consumptionCapture.ts'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import {
+  evaluateWalkInConsumption,
+  mapVerifiedConsumptionDoc,
+  resolveCompanyCardFields,
+} from '../utils/verifiedConsumption.ts'
 
 const router = Router()
-const MAX_REWARD_DELTA = 500
+const MAX_REWARD_DELTA = 8000
+const registerConsumptionRateLimit = createRateLimit(10, 60_000, 'register-consumption')
 
 function numberValue(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
@@ -139,6 +151,71 @@ function validateMonotonicGamification(
     pendingTokenSpend: Array.isArray(current.pendingTokenSpend) ? current.pendingTokenSpend : [],
   }
 }
+
+router.get('/leaderboard', async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    const scope = req.query.scope === 'country' ? 'country' : 'world'
+    const statsSnap = await adminDb
+      .collection('userGamification')
+      .orderBy('xp', 'desc')
+      .limit(80)
+      .get()
+    const userSnaps = await Promise.all(
+      statsSnap.docs.map((docSnap) => adminDb.collection('users').doc(docSnap.id).get()),
+    )
+    const selfSnap = await adminDb.collection('users').doc(customer.uid).get()
+    const selfCountry = String(selfSnap.data()?.homeCountry ?? selfSnap.data()?.country ?? 'España')
+
+    const entries = statsSnap.docs.flatMap((docSnap, index) => {
+      const userSnap = userSnaps[index]
+      const userData = userSnap.data()
+      if (!userSnap.exists || userData?.role !== 'customer' || userData?.blocked === true) {
+        return []
+      }
+      const country = String(userData.homeCountry ?? userData.country ?? 'España')
+      if (scope === 'country' && country !== selfCountry) {
+        return []
+      }
+      const xp = numberValue(docSnap.data().xp)
+      return [{
+        uid: docSnap.id,
+        displayName: String(userData.displayName ?? 'Foodie'),
+        xp,
+        photoUrl: typeof userData.photoUrl === 'string' ? userData.photoUrl : '',
+        homeCountry: country,
+        homeCity: typeof userData.homeCity === 'string' ? userData.homeCity : '',
+        isYou: docSnap.id === customer.uid,
+      }]
+    })
+
+    if (!entries.some((entry) => entry.isYou)) {
+      const selfXp = numberValue(selfSnap.data()?.xp)
+      entries.push({
+        uid: customer.uid,
+        displayName: String(selfSnap.data()?.displayName ?? 'Tú'),
+        xp: selfXp,
+        photoUrl: typeof selfSnap.data()?.photoUrl === 'string' ? selfSnap.data()?.photoUrl : '',
+        homeCountry: selfCountry,
+        homeCity: typeof selfSnap.data()?.homeCity === 'string' ? selfSnap.data()?.homeCity : '',
+        isYou: true,
+      })
+      entries.sort((left, right) => right.xp - left.xp)
+    }
+
+    res.json({
+      scope,
+      entries: entries.slice(0, 50).map((entry, index) => ({
+        ...entry,
+        rank: index + 1,
+        level: 0,
+      })),
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo cargar el ranking.'
+    res.status(message.includes('cliente') ? 401 : 500).json({ error: message })
+  }
+})
 
 router.post('/sync', async (req: Request, res: Response) => {
   try {
@@ -247,8 +324,19 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
       companyRef.collection('promotions').doc(promotionId).get(),
       companyRef.collection('promotions')
         .where('active', '==', true)
+        .limit(40)
         .get(),
-      adminDb.collection('reservations').where('clientEmail', '==', customer.email).get(),
+      adminDb.collection('reservations')
+        .where('companyId', '==', companyId)
+        .where('clientEmail', '==', customer.email)
+        .orderBy('startTime', 'desc')
+        .limit(200)
+        .get()
+        .catch(() => adminDb.collection('reservations')
+          .where('companyId', '==', companyId)
+          .where('clientEmail', '==', customer.email)
+          .limit(200)
+          .get()),
     ])
     const promotion = promotionSnap.data()
     if (
@@ -258,6 +346,13 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
       || promotion?.type !== 'reservation_ladder'
     ) {
       res.status(404).json({ error: 'Promoción no encontrada.' })
+      return
+    }
+
+    const maxRedemptions = typeof promotion.maxRedemptions === 'number' ? promotion.maxRedemptions : null
+    const currentRedemptions = typeof promotion.currentRedemptions === 'number' ? promotion.currentRedemptions : 0
+    if (maxRedemptions != null && maxRedemptions > 0 && currentRedemptions >= maxRedemptions) {
+      res.status(409).json({ error: 'Esta promoción ya no tiene plazas.' })
       return
     }
 
@@ -287,7 +382,7 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
         && (item as Record<string, unknown>).promotionId === promotionId
       )).length
       if (confirmedCount < required * (priorClaims + 1)) {
-        throw new Error('Aún no has completado las reservas necesarias.')
+        throw new Error('Aún no has completado las reservas o consumos necesarios.')
       }
       const ladderIds = ladderPromotionsSnap.docs
         .filter((docSnap) => docSnap.data().type === 'reservation_ladder')
@@ -356,6 +451,9 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
       if (!wrote) {
         throw new Error('Este premio ya fue canjeado para tus visitas actuales.')
       }
+      transaction.update(promotionSnap.ref, {
+        currentRedemptions: FieldValue.increment(1),
+      })
     })
 
     if (claimId) {
@@ -496,7 +594,7 @@ router.post('/inventory/apply-token', async (req: Request, res: Response) => {
     const companyRef = adminDb.collection('companies').doc(companyId)
     const [companySnap, promotionsSnap] = await Promise.all([
       companyRef.get(),
-      companyRef.collection('promotions').where('active', '==', true).get(),
+      companyRef.collection('promotions').where('active', '==', true).limit(40).get(),
     ])
     if (!companySnap.exists) {
       res.status(404).json({ error: 'Restaurante no encontrado.' })
@@ -531,6 +629,9 @@ router.post('/inventory/apply-token', async (req: Request, res: Response) => {
       const activeDoc = ladderDocs.find((docSnap) => docSnap.id === activeId) ?? ladderDocs[0]
       const requiredCents = promoMinimumFromPromotionData(activeDoc.data() as Record<string, unknown>)
       const cover = spendCoverForItem(item, requiredCents)
+      if (!cover.coversFully) {
+        throw new Error('Esta carta no cubre el gasto mínimo de la oferta. No se ha gastado ninguna carta.')
+      }
       if (
         requiredCents > 0
         && item.kind === 'reservation_token'
@@ -542,37 +643,18 @@ router.post('/inventory/apply-token', async (req: Request, res: Response) => {
 
       const consumed = consumeInventoryItem(current, itemId, 1)
       const visits = Math.max(1, Math.trunc(item.visitValue ?? 1))
-      let next = consumed
-      if (cover.coversFully) {
-        const credits = numberRecord(consumed.tokenCreditsByCompany)
-        credits[companyId] = (credits[companyId] ?? 0) + visits
-        next = {
-          ...consumed,
-          tokenCreditsByCompany: credits,
-        }
-      } else {
-        const pending = parsePendingTokenSpend(consumed.pendingTokenSpend)
-        pending.push({
-          id: `tok-${companyId.slice(0, 8)}-${Date.now().toString(36)}`,
-          companyId,
-          itemId,
-          visits,
-          coverCents: cover.coverCents,
-          remainderCents: cover.remainderCents,
-          requiredCents,
-          createdAt: new Date().toISOString(),
-        })
-        next = {
-          ...consumed,
-          pendingTokenSpend: pending.slice(-20),
-        }
+      const credits = numberRecord(consumed.tokenCreditsByCompany)
+      credits[companyId] = (credits[companyId] ?? 0) + visits
+      const next = {
+        ...consumed,
+        tokenCreditsByCompany: credits,
       }
 
       writeGamification(transaction, customer.uid, next)
       return {
         visits,
         coverCents: cover.coverCents,
-        remainderCents: cover.remainderCents,
+        remainderCents: 0,
         requiredCents,
         inventory: numberRecord(next.inventory),
         tokenCreditsByCompany: numberRecord(next.tokenCreditsByCompany),
@@ -588,7 +670,210 @@ router.post('/inventory/apply-token', async (req: Request, res: Response) => {
       : message === PROMO_LOCK_CLAIM_MESSAGE
         || message.includes('gasto mínimo')
         || message.includes('sin mínimo')
+        || message.includes('cubre el gasto')
         || message.includes('quedan cartas')
+        ? 403
+        : 500
+    res.status(status).json({ error: message })
+  }
+})
+
+router.get('/consumptions', async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    const snapshot = await adminDb.collectionGroup('verifiedConsumptions')
+      .where('customerUid', '==', customer.uid)
+      .orderBy('verifiedAt', 'desc')
+      .limit(200)
+      .get()
+
+    const items = snapshot.docs.map((docSnap) => mapVerifiedConsumptionDoc(
+      docSnap.id,
+      docSnap.data() as Record<string, unknown>,
+      docSnap.ref.parent.parent?.id ?? '',
+    ))
+
+    const missingCompanyIds = [...new Set(
+      items
+        .filter((item) => item.companyId && (!item.photoUrl || item.companyName === 'Restaurante'))
+        .map((item) => item.companyId),
+    )]
+
+    if (missingCompanyIds.length > 0) {
+      const companySnaps = await Promise.all(
+        missingCompanyIds.map((id) => adminDb.collection('companies').doc(id).get()),
+      )
+      const cardsById = new Map(
+        companySnaps
+          .filter((snap) => snap.exists)
+          .map((snap) => [snap.id, resolveCompanyCardFields(snap.data())]),
+      )
+
+      for (const item of items) {
+        const card = cardsById.get(item.companyId)
+        if (!card) {
+          continue
+        }
+        if (item.companyName === 'Restaurante') {
+          item.companyName = card.companyName
+        }
+        if (!item.companySlug) {
+          item.companySlug = card.companySlug
+        }
+        if (!item.photoUrl) {
+          item.photoUrl = card.photoUrl
+        }
+      }
+    }
+
+    res.json({ consumptions: items })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo cargar el consumo.'
+    const status = message.includes('cliente') ? 401 : 500
+    res.status(status).json({ error: message })
+  }
+})
+
+router.post('/promotions/register-consumption', registerConsumptionRateLimit, async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    const companyId = String(req.body?.companyId ?? '').trim()
+    const promotionId = String(req.body?.promotionId ?? '').trim()
+    const pin = normalizePromotionPinCode(String(req.body?.pin ?? ''))
+
+    if (!companyId) {
+      res.status(400).json({ error: 'Restaurante no válido.' })
+      return
+    }
+
+    if (pin.length !== 4) {
+      res.status(400).json({ error: 'El código PIN debe tener 4 dígitos.' })
+      return
+    }
+
+    const companyRef = adminDb.collection('companies').doc(companyId)
+    const [companySnap, promotionsSnap] = await Promise.all([
+      companyRef.get(),
+      companyRef.collection('promotions').where('active', '==', true).limit(40).get(),
+    ])
+    if (!companySnap.exists) {
+      res.status(404).json({ error: 'Restaurante no encontrado.' })
+      return
+    }
+
+    const companyData = companySnap.data()!
+    const reservationRequired = parseCompanyReservationMode(companyData.reservationMode) === 'required'
+    const ladderDocs = promotionsSnap.docs
+      .filter((docSnap) => docSnap.data().type === 'reservation_ladder')
+      .sort((left, right) => (
+        numberValue(left.data().requiredReservations) - numberValue(right.data().requiredReservations)
+      ))
+    const targetPromotion = promotionId
+      ? ladderDocs.find((docSnap) => docSnap.id === promotionId) ?? null
+      : ladderDocs[0] ?? null
+    const requiredCents = targetPromotion
+      ? promoMinimumFromPromotionData(targetPromotion.data() as Record<string, unknown>)
+      : 0
+
+    const capture = await resolveConsumptionCapture({
+      companyRef,
+      mode: req.body?.mode,
+      declaredTotalCents: req.body?.declaredTotalCents,
+      productSelections: req.body?.productSelections,
+      requireDetails: requiredCents > 0,
+    })
+    const currentPin = await resolveCompanyPromotionPin(companyRef, companyData)
+    const decision = evaluateWalkInConsumption({
+      pinMatches: currentPin === pin,
+      reservationRequired,
+      ladderPromotionIds: ladderDocs.map((docSnap) => docSnap.id),
+      requestedPromotionId: promotionId,
+      captureError: 'error' in capture ? capture.error : null,
+      requiredCents,
+      totalCents: 'error' in capture ? 0 : capture.totalCents,
+    })
+
+    if (!decision.ok) {
+      res.status(decision.status).json({ error: decision.error })
+      return
+    }
+
+    if ('error' in capture) {
+      res.status(400).json({ error: capture.error })
+      return
+    }
+
+    const userRef = adminDb.collection('users').doc(customer.uid)
+    const statsRef = userGamificationRef(customer.uid)
+    const card = resolveCompanyCardFields(companyData)
+    const promotionTitle = typeof targetPromotion?.data().title === 'string'
+      ? String(targetPromotion.data().title).trim()
+      : ''
+
+    let registered: { visits: number; tokenCreditsByCompany: Record<string, number> }
+
+    if (decision.grantCredit) {
+      registered = await adminDb.runTransaction(async (transaction) => {
+        const [userSnap, statsSnap] = await Promise.all([
+          transaction.get(userRef),
+          transaction.get(statsRef),
+        ])
+        const current = readGamificationFromDocs(statsSnap.data(), userSnap.data())
+        assertCustomerCanUsePromos(current)
+        const credits = numberRecord(current.tokenCreditsByCompany)
+        credits[companyId] = (credits[companyId] ?? 0) + 1
+        const next = {
+          ...current,
+          tokenCreditsByCompany: credits,
+        }
+        writeGamification(transaction, customer.uid, next)
+        return {
+          visits: 1,
+          tokenCreditsByCompany: credits,
+        }
+      })
+    } else {
+      const [userSnap, statsSnap] = await Promise.all([userRef.get(), statsRef.get()])
+      const current = readGamificationFromDocs(statsSnap.data(), userSnap.data())
+      registered = {
+        visits: 0,
+        tokenCreditsByCompany: numberRecord(current.tokenCreditsByCompany),
+      }
+    }
+
+    const verifiedAt = Timestamp.now()
+    const consumptionId = `consume-${customer.uid.slice(0, 8)}-${Date.now().toString(36)}`
+    const clientName = typeof customer.data.displayName === 'string'
+      ? customer.data.displayName
+      : ''
+    await companyRef.collection('verifiedConsumptions').doc(consumptionId).set({
+      reservationId: consumptionId,
+      companyId,
+      customerUid: customer.uid,
+      clientName,
+      clientEmail: customer.email,
+      pax: 0,
+      reservationStartTime: verifiedAt,
+      promotionId: decision.promotionId,
+      promotionTitle: promotionTitle || null,
+      minimumSpendCents: requiredCents,
+      mode: capture.mode,
+      totalCents: capture.totalCents,
+      lineItems: capture.lineItems,
+      verifiedAt,
+      meetsMinimumSpend: requiredCents <= 0 || capture.totalCents >= requiredCents,
+      source: 'walk_in',
+      companyName: card.companyName,
+      companySlug: card.companySlug,
+      photoUrl: card.photoUrl,
+    })
+
+    res.json(registered)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo registrar el consumo.'
+    const status = message.includes('cliente')
+      ? 401
+      : message === PROMO_LOCK_CLAIM_MESSAGE
         ? 403
         : 500
     res.status(status).json({ error: message })

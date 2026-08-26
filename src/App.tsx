@@ -10,8 +10,12 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import PublicLegalPage from './pages/PublicLegalPage'
 import PublicDiscoveryPage from './pages/PublicDiscoveryPage'
 import CompanyLandingPage from './pages/CompanyLandingPage'
+import CompanyPlansPage from './pages/CompanyPlansPage'
+import CompanyPlanCheckoutSuccessPage from './pages/CompanyPlanCheckoutSuccessPage'
+import CompanySignupPage from './pages/CompanySignupPage'
 import UserLoginPage from './pages/UserLoginPage'
 import UserRegisterPage from './pages/UserRegisterPage'
+import UserForgotPasswordPage from './pages/UserForgotPasswordPage'
 import CustomerAppLayout from './components/CustomerAppLayout'
 import CustomerGate from './components/CustomerGate'
 import VerifyEmailPage from './pages/VerifyEmailPage'
@@ -23,6 +27,7 @@ const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
 const PublicMenuPage = lazy(() => import('./pages/PublicMenuPage'))
 const PublicMenuViewPage = lazy(() => import('./pages/PublicMenuViewPage'))
 const PublicRestaurantPromotionsPage = lazy(() => import('./pages/PublicRestaurantPromotionsPage'))
+const PublicPromotionLandingPage = lazy(() => import('./pages/PublicPromotionLandingPage'))
 const PublicCancelReservation = lazy(() => import('./pages/PublicCancelReservation'))
 const CustomerExploreTab = lazy(() => import('./pages/customer/CustomerExploreTab'))
 const CustomerPromotionsTab = lazy(() => import('./pages/customer/CustomerPromotionsTab'))
@@ -134,6 +139,8 @@ function App() {
         path="/restablecer-contrasena"
         element={<ResetPasswordPage />}
       />
+      <Route path="/cuenta/olvide-contrasena" element={<UserForgotPasswordPage />} />
+      <Route path="/cuenta/restablecer-contrasena" element={<ResetPasswordPage />} />
       <Route
         path="/"
         element={<PublicDiscoveryPage />}
@@ -141,6 +148,18 @@ function App() {
       <Route
         path="/empresa"
         element={<CompanyLandingPage />}
+      />
+      <Route
+        path="/empresa/planes"
+        element={<CompanyPlansPage />}
+      />
+      <Route
+        path="/empresa/planes/exito"
+        element={<CompanyPlanCheckoutSuccessPage />}
+      />
+      <Route
+        path="/empresa/alta"
+        element={<CompanySignupPage />}
       />
       <Route path="/cuenta" element={<Navigate to="/app/perfil" replace />} />
       <Route path="/cuenta/verificar-email" element={<VerifyEmailPage />} />
@@ -194,6 +213,14 @@ function App() {
             }
           >
             <PublicCancelReservation />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/reservar/:slug/promo/:promotionId"
+        element={
+          <Suspense fallback={<RouteFallback />}>
+            <PublicPromotionLandingPage />
           </Suspense>
         }
       />

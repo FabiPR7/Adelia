@@ -1,17 +1,43 @@
 .container {
-  background: #ffffff;
-  border: 1px solid #e8ddd3;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(107, 83, 68, 0.06);
   position: relative;
+  background: #fffdf9;
+  border: 1px solid rgba(61, 42, 31, 0.08);
+  border-radius: 20px;
+  padding: 1.15rem 1.2rem 0.7rem;
+  box-shadow: 0 10px 30px rgba(42, 33, 28, 0.05);
+  min-height: 100%;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.4rem;
 }
 
 .title {
-  font-size: 16px;
+  font-size: 0.98rem;
   font-weight: 600;
-  color: #2e1f14;
-  margin: 0 0 20px 0;
+  color: #1c140f;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: #8a7a6e;
+}
+
+.export {
+  border: 1px solid rgba(61, 42, 31, 0.12);
+  background: #fff;
+  color: #6b5344;
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .plot {
@@ -21,48 +47,29 @@
 }
 
 .empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   height: 200px;
   color: #8a7a6e;
-  font-size: 14px;
-  font-style: italic;
+  font-size: 0.88rem;
 }
 
 .tooltip {
   position: absolute;
-  transform: translate(-50%, -100%);
-  margin-top: -12px;
-  background: rgba(46, 31, 20, 0.95);
-  color: #ffffff;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 12px;
+  transform: translate(-50%, -120%);
+  background: #1c140f;
+  color: #fff;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
   pointer-events: none;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: tooltipFadeIn 0.2s;
+  z-index: 2;
 }
 
 .tooltipLabel {
-  font-weight: 500;
-  margin-bottom: 2px;
-  opacity: 0.9;
+  opacity: 0.8;
 }
 
 .tooltipValue {
-  font-size: 14px;
   font-weight: 700;
-}
-
-@keyframes tooltipFadeIn {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -100%) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -100%) scale(1);
-  }
 }

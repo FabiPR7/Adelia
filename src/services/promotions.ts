@@ -4,11 +4,14 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  limit,
+  query,
   serverTimestamp,
   Timestamp,
   updateDoc,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
+import { COMPANY_PROMOTION_LIMIT } from './firestoreQuery'
 import type { CompanyPromotion, MenuNode, PromotionInput } from '../types/company'
 import {
   buildPromotionProductRefs,
@@ -77,7 +80,7 @@ function serializePromotion(
 
 export async function getCompanyPromotions(companyId: string): Promise<CompanyPromotion[]> {
   const promotionsRef = collection(db, 'companies', companyId, 'promotions')
-  const snapshot = await getDocs(promotionsRef)
+  const snapshot = await getDocs(query(promotionsRef, limit(COMPANY_PROMOTION_LIMIT)))
 
   return snapshot.docs
     .map((promotionDoc) =>

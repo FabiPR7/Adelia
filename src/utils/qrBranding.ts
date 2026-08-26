@@ -21,6 +21,7 @@ export function defaultCompanyQrBranding(): CompanyQrBranding {
   return {
     booking: defaultQrBrandingConfig(),
     menu: defaultQrBrandingConfig(),
+    promotion: defaultQrBrandingConfig(),
   }
 }
 
@@ -67,6 +68,7 @@ export function parseCompanyQrBranding(value: unknown): CompanyQrBranding {
   return {
     booking: parseQrBrandingConfig(data.booking),
     menu: parseQrBrandingConfig(data.menu),
+    promotion: parseQrBrandingConfig(data.promotion),
   }
 }
 
@@ -85,6 +87,7 @@ export function serializeCompanyQrBranding(branding: CompanyQrBranding) {
   return {
     booking: normalizeQrBrandingConfig(branding.booking),
     menu: normalizeQrBrandingConfig(branding.menu),
+    promotion: normalizeQrBrandingConfig(branding.promotion),
   }
 }
 
@@ -92,6 +95,7 @@ export interface ResolveQrBrandingContext {
   companyName: string
   companyLogoUrl: string
   menuBoardName?: string
+  promotionTitle?: string
 }
 
 export function resolveDefaultSubtitle(
@@ -100,6 +104,10 @@ export function resolveDefaultSubtitle(
 ): string {
   if (kind === 'menu') {
     return context.menuBoardName?.trim() || context.companyName.trim()
+  }
+
+  if (kind === 'promotion') {
+    return context.promotionTitle?.trim() || context.companyName.trim()
   }
 
   return context.companyName.trim()
@@ -145,4 +153,5 @@ export function resolveBrandedQrOptions(
 export const QR_BRANDING_KIND_LABELS: Record<QrBrandingKind, string> = {
   booking: 'Enlace de reservas',
   menu: 'Carta digital',
+  promotion: 'Promoción',
 }

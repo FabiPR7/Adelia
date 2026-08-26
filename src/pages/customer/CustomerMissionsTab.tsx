@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import AchievementBadgeCard from '../../components/AchievementBadgeCard'
 import MissionIcon from '../../components/MissionIcon'
 import { useAuth } from '../../context/AuthContext'
@@ -7,7 +7,8 @@ import { useCustomerGamificationContext } from '../../context/CustomerGamificati
 import CompiteHub from '../../components/CompiteHub'
 import InventoryHub from '../../components/InventoryHub'
 import { useCustomerFriends } from '../../hooks/useCustomerFriends'
-import { buildLeaderboardWithUser, getUserRank } from '../../data/gamificationLeaderboard'
+import { fetchCustomerLeaderboard } from '../../services/firestore'
+import { buildLeaderboardWithUser, getUserRank, leaderboardFromLiveRows } from '../../data/gamificationLeaderboard'
 import { GAMIFICATION_LEVELS } from '../../data/gamificationLevels'
 import type { MissionProgress } from '../../types/gamification'
 import { CONFIRMED_RESERVATION_XP, WEEKLY_BONUS_TARGET, WEEKLY_MISSION_BONUS_XP } from '../../types/gamification'
@@ -92,6 +93,8 @@ function CustomerMissionsTab() {
   const [seasonOpen, setSeasonOpen] = useState(false)
   const [claimingPack, setClaimingPack] = useState<SeasonPackKind | null>(null)
   const [claimError, setClaimError] = useState<string | null>(null)
+  const [liveCountryLeaderboard, setLiveCountryLeaderboard] = useState<ReturnType<typeof leaderboardFromLiveRows> | null>(null)
+  const [liveWorldLeaderboard, setLiveWorldLeaderboard] = useState<ReturnType<typeof leaderboardFromLiveRows> | null>(null)
 
   const progressPercent = Math.round(gamification.levelProgress * 100)
   const nextLevel = GAMIFICATION_LEVELS.find((level) => level.level === gamification.level.level + 1)
@@ -161,7 +164,7 @@ function CustomerMissionsTab() {
     ],
   )
 
-  const countryLeaderboard = useMemo(
+  const showcaseCountryLeaderboard = useMemo(
     () =>
       buildLeaderboardWithUser(
         profile?.displayName ?? '',
@@ -179,7 +182,7 @@ function CustomerMissionsTab() {
     ],
   )
 
-  const worldLeaderboard = useMemo(
+  const showcaseWorldLeaderboard = useMemo(
     () =>
       buildLeaderboardWithUser(
         profile?.displayName ?? '',
@@ -196,6 +199,35 @@ function CustomerMissionsTab() {
       leaderboardOptions,
     ],
   )
+
+  useEffect(() => {
+    if (!user) {
+      return
+    }
+
+    let cancelled = false
+    void Promise.all([
+      fetchCustomerLeaderboard('country').catch(() => []),
+      fetchCustomerLeaderboard('world').catch(() => []),
+    ]).then(([countryRows, worldRows]) => {
+      if (cancelled) {
+        return
+      }
+      if (countryRows.length > 0) {
+        setLiveCountryLeaderboard(leaderboardFromLiveRows(countryRows))
+      }
+      if (worldRows.length > 0) {
+        setLiveWorldLeaderboard(leaderboardFromLiveRows(worldRows))
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user, gamification.state.xp])
+
+  const countryLeaderboard = liveCountryLeaderboard ?? showcaseCountryLeaderboard
+  const worldLeaderboard = liveWorldLeaderboard ?? showcaseWorldLeaderboard
 
   const userEntry = useMemo(
     () => countryLeaderboard.find((entry) => entry.isYou) ?? worldLeaderboard.find((entry) => entry.isYou)!,
@@ -279,7 +311,11 @@ function CustomerMissionsTab() {
         <div className={styles.xpTrack}>
           <div className={styles.xpFill} style={{ width: `${progressPercent}%` }} />
         </div>
-        <p className={styles.xpMeta}>{progressPercent}% del siguiente nivel</p>
+        <p className={styles.xpMeta}>
+          {gamification.xpToNext === null
+            ? 'Has alcanzado el rango máximo'
+            : `${progressPercent}% del siguiente nivel`}
+        </p>
 
         <button
           type="button"

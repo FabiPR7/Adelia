@@ -36,6 +36,15 @@ export function isPasswordValid(checks: PasswordCheck[]): boolean {
   return checks.every(check => check.met)
 }
 
+/** Contraseña lista para Firebase Auth: se hashea allí, nunca en Firestore. */
+export function requireAuthPassword(password: string): string {
+  const result = validatePasswordStrength(password)
+  if (!result.isValid) {
+    throw new Error(result.errors[0] ?? 'La contraseña no cumple los requisitos.')
+  }
+  return password
+}
+
 export function validatePasswordStrength(password: string): PasswordValidationResult {
   const errors: string[] = []
   let strength: 'weak' | 'medium' | 'strong' = 'weak'

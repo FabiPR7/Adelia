@@ -10,6 +10,7 @@ import {
   getCompanyLevelForXp,
   type CompanyMissionDef,
 } from './companyCatalog.ts'
+import { madridHour, madridWeekday } from '../utils/madridDateTime.ts'
 
 export interface CompanyVisit {
   id: string
@@ -50,6 +51,7 @@ export interface CompanyMissionContext {
   reviewAdelinas: number
   reviewCount: number
   reviewRatingSum: number
+  lifetimeConfirmedCount?: number
   now?: Date
 }
 
@@ -103,12 +105,12 @@ function confirmed(reservations: CompanyVisit[]): CompanyVisit[] {
 }
 
 function isWeekday(date: Date): boolean {
-  const day = date.getDay()
+  const day = madridWeekday(date)
   return day >= 1 && day <= 4
 }
 
 function isWeekend(date: Date): boolean {
-  const day = date.getDay()
+  const day = madridWeekday(date)
   return day === 0 || day === 5 || day === 6
 }
 
@@ -183,9 +185,9 @@ function missionCurrent(mission: CompanyMissionDef, context: CompanyMissionConte
     case 'oferta_viva':
       return context.activePromotionCount > 0 ? 1 : 0
     case 'comida_semana':
-      return weekVisits.filter((item) => item.startTime.getHours() >= 12 && item.startTime.getHours() < 17).length
+      return weekVisits.filter((item) => madridHour(item.startTime) >= 12 && madridHour(item.startTime) < 17).length
     case 'cena_semana':
-      return weekVisits.filter((item) => item.startTime.getHours() >= 19 && item.startTime.getHours() <= 23).length
+      return weekVisits.filter((item) => madridHour(item.startTime) >= 19 && madridHour(item.startTime) <= 23).length
     case 'grupo_semana':
       return weekVisits.filter((item) => item.pax >= 8).length
     case 'dias_semana':
@@ -217,7 +219,7 @@ function missionCurrent(mission: CompanyMissionDef, context: CompanyMissionConte
     case 'cien_reservas':
     case 'doscientas_mesas':
     case 'veterano_adelia':
-      return visits.length
+      return context.lifetimeConfirmedCount ?? visits.length
     case 'primera_opinion':
     case 'diez_opiniones':
     case 'cincuenta_voces':

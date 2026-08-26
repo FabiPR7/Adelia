@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { changeInitialPassword } from '../services/auth'
 import { getFirestoreErrorMessage } from '../services/firestore'
+import { validatePasswordStrength } from '../utils/passwordValidation'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import styles from './LoginPage.module.css'
 
@@ -19,8 +20,9 @@ function ChangePasswordPage() {
     event.preventDefault()
     setError(null)
 
-    if (newPassword.length < 6) {
-      setError('La nueva contraseña debe tener al menos 6 caracteres.')
+    const validation = validatePasswordStrength(newPassword)
+    if (!validation.isValid) {
+      setError(validation.errors[0] ?? 'La nueva contraseña no cumple los requisitos.')
       return
     }
 

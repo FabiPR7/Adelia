@@ -4,6 +4,12 @@ import {
   MAX_COMPANY_PHOTOS,
   MAX_COMPANY_VIDEOS,
 } from '../data/companyCharacteristics'
+import {
+  MAX_COMPANY_VENUE_TYPES,
+  sanitizeCompanyAmenities,
+  sanitizeCompanyPriceRange,
+  sanitizeCompanyVenueTypes,
+} from '../data/companyProfileFacilities'
 import type { CompanySchedule, CompanySettingsPayload, ServiceTurn } from '../types'
 import { withFloorPlans } from '../types/company'
 import { isValidMapCoordinates } from './mapCoordinates'
@@ -21,6 +27,7 @@ import {
   DEFAULT_DEPOSIT_CANCELLATION_HOURS,
   MAX_DEPOSIT_CANCELLATION_HOURS,
 } from './reservationDeposit'
+import { parseCompanyReservationMode } from '../data/companyReservationMode'
 
 const ALLOWED_CHARACTERISTICS = new Set<string>(COMPANY_CHARACTERISTIC_OPTIONS)
 
@@ -197,7 +204,7 @@ export function validateCompanyContact(payload: Pick<
 
 export function validateCompanyProfile(payload: Pick<
   CompanySettingsPayload,
-  'municipality' | 'country' | 'postalCode' | 'description' | 'photos' | 'videos' | 'characteristics' | 'latitude' | 'longitude'
+  'municipality' | 'country' | 'postalCode' | 'description' | 'photos' | 'videos' | 'characteristics' | 'venueTypes' | 'amenities' | 'priceRange' | 'latitude' | 'longitude'
 >): string | null {
   if (!isValidMunicipality(payload.municipality)) {
     return 'Indica un municipio válido.'
@@ -241,6 +248,22 @@ export function validateCompanyProfile(payload: Pick<
 
   if (invalidCharacteristic) {
     return 'Hay características no válidas. Elige opciones de la lista.'
+  }
+
+  if (payload.venueTypes.length > MAX_COMPANY_VENUE_TYPES) {
+    return `Puedes elegir como máximo ${MAX_COMPANY_VENUE_TYPES} tipos de local.`
+  }
+
+  if (sanitizeCompanyVenueTypes(payload.venueTypes).length !== payload.venueTypes.length) {
+    return 'Hay tipos de local no válidos.'
+  }
+
+  if (sanitizeCompanyAmenities(payload.amenities).length !== payload.amenities.length) {
+    return 'Hay servicios no válidos.'
+  }
+
+  if (sanitizeCompanyPriceRange(payload.priceRange) !== payload.priceRange) {
+    return 'El rango de precio no es válido.'
   }
 
   if (!isValidMapCoordinates(payload.latitude, payload.longitude)) {
@@ -377,6 +400,9 @@ export function validateReservationDepositSettings(
 export function normalizeCompanySettingsPayload(
   payload: CompanySettingsPayload,
 ): CompanySettingsPayload {
+  const reservationMode = parseCompanyReservationMode(payload.reservationMode)
+  const depositEnabled = reservationMode !== 'none' && payload.depositEnabled === true
+
   return {
     ...payload,
     name: normalizeSpaces(payload.name),
@@ -400,16 +426,18 @@ export function normalizeCompanySettingsPayload(
     ),
     videos: sanitizeMediaUrls(payload.videos, MAX_COMPANY_VIDEOS),
     characteristics: sanitizeCompanyCharacteristics(payload.characteristics),
-    depositEnabled: payload.depositEnabled === true,
-    depositMinPax: payload.depositEnabled
-      ? normalizeDepositMinPax(payload.depositMinPax)
-      : null,
-    depositPerGuestCents: payload.depositEnabled
+    venueTypes: sanitizeCompanyVenueTypes(payload.venueTypes),
+    amenities: sanitizeCompanyAmenities(payload.amenities),
+    priceRange: sanitizeCompanyPriceRange(payload.priceRange),
+    reservationMode,
+    depositEnabled,
+    depositMinPax: depositEnabled ? normalizeDepositMinPax(payload.depositMinPax) : null,
+    depositPerGuestCents: depositEnabled
       ? normalizeDepositPerGuestCents(payload.depositMinPax, payload.depositPerGuestCents)
       : null,
-    depositCancellationHours: payload.depositEnabled
+    depositCancellationHours: depositEnabled
       ? normalizeDepositCancellationHours(
-        payload.depositEnabled,
+        true,
         payload.depositMinPax,
         payload.depositCancellationHours,
       )

@@ -1,16 +1,6 @@
 import { adminDb } from '../firebase-admin.ts'
 import { slugToAuthEmail, slugify } from '../utils.ts'
 
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
@@ -47,32 +37,13 @@ export async function resolveCompanyIdFromLoginName(loginName: string): Promise<
     }
   }
 
-  const companyLogins = await adminDb.collection('logins').where('role', '==', 'company').get()
-  const loginByDisplayName = companyLogins.docs.find((item) => {
-    const storedLoginName = item.data().loginName as string | undefined
+  const companyBySlug = await adminDb
+    .collection('companies')
+    .where('slug', '==', normalized)
+    .limit(1)
+    .get()
 
-    if (!storedLoginName) {
-      return false
-    }
-
-    return storedLoginName === trimmed || slugify(storedLoginName) === normalized
-  })
-
-  if (loginByDisplayName) {
-    const companyId = loginByDisplayName.data().companyId as string | undefined
-
-    if (companyId) {
-      return companyId
-    }
-  }
-
-  const companies = await adminDb.collection('companies').get()
-  const companyMatch = companies.docs.find((item) => {
-    const name = item.data().name as string
-    return name === trimmed || slugify(name) === normalized
-  })
-
-  return companyMatch?.id ?? null
+  return companyBySlug.empty ? null : companyBySlug.docs[0].id
 }
 
 export async function getCompanyContactEmail(companyId: string): Promise<string> {

@@ -9,6 +9,10 @@ import {
 } from '../reservationSlots.ts'
 import { defaultSchedule } from '../utils.ts'
 
+function parseReservationMode(value: unknown): 'required' | 'optional' | 'none' {
+  return value === 'required' || value === 'none' ? value : 'optional'
+}
+
 const router = Router()
 
 function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
@@ -20,6 +24,7 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
     contactEmail: (data.contactEmail as string) ?? '',
     location: (data.location as string) ?? '',
     timeSlotMinutes: (data.timeSlotMinutes as number) ?? 120,
+    reservationMode: parseReservationMode(data.reservationMode),
     schedule: data.schedule ?? defaultSchedule(),
     floorPlan: data.floorPlan ?? { enabled: false },
     floorPlans: Array.isArray(data.floorPlans) && data.floorPlans.length > 0
@@ -84,6 +89,11 @@ router.get('/:slug/availability', async (req: Request, res: Response) => {
       return
     }
 
+    if (parseReservationMode(company.reservationMode) === 'none') {
+      res.status(409).json({ error: 'Este restaurante no admite reservas.' })
+      return
+    }
+
     const dateParam = String(req.query.date ?? '')
 
     let date: Date
@@ -134,6 +144,11 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
 
     if (!company) {
       res.status(404).json({ error: 'Restaurante no encontrado.' })
+      return
+    }
+
+    if (parseReservationMode(company.reservationMode) === 'none') {
+      res.status(409).json({ error: 'Este restaurante no admite reservas.' })
       return
     }
 

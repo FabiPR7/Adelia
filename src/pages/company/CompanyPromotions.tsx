@@ -3,6 +3,8 @@ import ConfirmDialog from '../../components/ConfirmDialog'
 import ImageUploader from '../../components/ImageUploader'
 import PromotionPhotoCollage from '../../components/promotions/PromotionPhotoCollage'
 import PromotionProductPicker from '../../components/promotions/PromotionProductPicker'
+import PromotionScanLanding from '../../components/promotions/PromotionScanLanding'
+import QrCustomizerModal from '../../components/QrCustomizerModal'
 import { useAuth } from '../../context/AuthContext'
 import { getCompanyMenuNodes } from '../../services/companyMenu'
 import {
@@ -30,11 +32,15 @@ import {
   PROMOTION_TYPE_LABELS,
   validatePromotionInput,
 } from '../../types/company'
+import { buildBrandedQrDataUrl } from '../../utils/bookingQr'
+import { getPublicPromotionLandingUrl, slugify } from '../../utils/helpers'
 import {
   buildPromotionProductRefs,
   formatPromotionOfferSummary,
+  formatReservationOrConsumptionCount,
   suggestPromotionTitle,
 } from '../../utils/promotionOffer'
+import { buildPromotionScanPreview } from '../../utils/promotionScanPreview'
 import {
   formatPromotionPinRotationHint,
   generatePromotionPinCode,
@@ -42,6 +48,7 @@ import {
   PROMOTION_PIN_ROTATION_LABELS,
   validatePromotionPinCode,
 } from '../../utils/promotionPin'
+import { defaultQrBrandingConfig, resolveBrandedQrOptions } from '../../utils/qrBranding'
 import styles from './CompanyPromotions.module.css'
 
 interface CompanyPromotionsProps {
@@ -83,7 +90,7 @@ function promotionSummary(promotion: CompanyPromotion): string {
     const parts: string[] = [offerSummary]
 
     if (promotion.requiresReservation && promotion.requiredReservations != null && promotion.requiredReservations > 0) {
-      parts.unshift(`${promotion.requiredReservations} reservas`)
+      parts.unshift(formatReservationOrConsumptionCount(promotion.requiredReservations))
     }
 
     if (minSpendLabel) {
@@ -110,7 +117,7 @@ function promotionSummary(promotion: CompanyPromotion): string {
 }
 
 function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
-  const { user, profile } = useAuth()
+  const { user, profile, company, refreshCompany } = useAuth()
   const [promotions, setPromotions] = useState<CompanyPromotion[]>([])
   const [menuNodes, setMenuNodes] = useState<MenuNode[]>([])
   const [selectedType, setSelectedType] = useState<PromotionType>('reservation_ladder')
@@ -128,6 +135,9 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
   const [pinSaving, setPinSaving] = useState(false)
   const [pinError, setPinError] = useState<string | null>(null)
   const [pinSavedMessage, setPinSavedMessage] = useState<string | null>(null)
+  const [qrCustomizerOpen, setQrCustomizerOpen] = useState(false)
+  const [scanPreviewOpen, setScanPreviewOpen] = useState(false)
+  const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null)
 
   const loadPromotions = useCallback(async () => {
     setLoading(true)
@@ -161,6 +171,83 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
     () => buildPromotionProductRefs(form.productIds, menuProducts),
     [form.productIds, menuProducts],
   )
+
+  const promotionLandingUrl = company && editingId
+    ? getPublicPromotionLandingUrl(company.slug, editingId)
+    : ''
+
+  const scanPreviewPromotion = useMemo(() => {
+    if (!company) {
+      return null
+    }
+
+    return buildPromotionScanPreview(
+      company,
+      form,
+      previewProductRefs,
+      editingId ?? 'preview',
+    )
+  }, [company, form, previewProductRefs, editingId])
+
+  const qrBrandingContext = useMemo(
+    () => ({
+      companyName: company?.name ?? '',
+      companyLogoUrl: company?.logoUrl ?? '',
+      promotionTitle: form.title.trim() || company?.name || '',
+    }),
+    [company?.name, company?.logoUrl, form.title],
+  )
+
+  useEffect(() => {
+    if (!promotionLandingUrl || !company) {
+      setQrPreviewUrl(null)
+      return
+    }
+
+    let cancelled = false
+    const renderOptions = resolveBrandedQrOptions(
+      company.qrBranding.promotion ?? defaultQrBrandingConfig(),
+      'promotion',
+      qrBrandingContext,
+    )
+
+    void buildBrandedQrDataUrl(promotionLandingUrl, renderOptions)
+      .then((dataUrl) => {
+        if (!cancelled) {
+          setQrPreviewUrl(dataUrl)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setQrPreviewUrl(null)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [company, promotionLandingUrl, qrBrandingContext])
+
+  useEffect(() => {
+    if (!scanPreviewOpen) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setScanPreviewOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [scanPreviewOpen])
 
   const loadMenuProducts = useCallback(async () => {
     try {
@@ -329,8 +416,8 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
       <header className={styles.header}>
         <h2>Zona de promociones</h2>
         <p>
-          Crea ofertas escalables, promociones por tiempo limitado y cupos con
-          asistencia puntual. Más adelante los clientes podrán canjearlas desde su zona de usuario.
+          Crea ofertas por reservas o consumos, promociones por tiempo limitado y cupos con
+          asistencia. Los clientes las ven y las canjean desde su zona de usuario.
         </p>
       </header>
 
@@ -339,7 +426,7 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
           <div>
             <h3 id="promotion-pin-title">Código de canje</h3>
             <p>
-              Los clientes usarán este PIN para validar promociones. Más adelante lo pediremos en su zona de usuario.
+              Los clientes usan este PIN en el local para validar promociones y el gasto mínimo.
             </p>
           </div>
         </div>
@@ -685,14 +772,42 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                       size="preview"
                       alt={form.title}
                     />
+                    <div className={styles.photoCardActions}>
+                      <button
+                        type="button"
+                        className={styles.photoCardButton}
+                        onClick={() => setQrCustomizerOpen(true)}
+                        disabled={!editingId || !promotionLandingUrl}
+                        title={editingId ? 'Crear y personalizar el QR de esta promoción' : 'Guarda la promoción para crear el QR'}
+                      >
+                        Crear QR
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.photoCardButton} ${styles.photoCardButtonPrimary}`}
+                        onClick={() => setScanPreviewOpen(true)}
+                        disabled={!scanPreviewPromotion}
+                      >
+                        Visualizar
+                      </button>
+                    </div>
+                    {qrPreviewUrl ? (
+                      <img
+                        src={qrPreviewUrl}
+                        alt="QR de la promoción"
+                        className={styles.promoQrPreview}
+                      />
+                    ) : null}
                     <p className={styles.photoCardHint}>
-                      {previewProductRefs.length === 0
-                        ? 'Añade productos con foto o sube una imagen.'
-                        : previewProductRefs.length === 1
-                          ? 'Foto del producto seleccionado.'
-                          : previewProductRefs.length > 4
-                            ? `Collage con ${previewProductRefs.length} productos.`
-                            : 'Collage con las fotos disponibles.'}
+                      {!editingId
+                        ? 'Guarda la promoción para crear su QR. Visualizar muestra cómo se ve al escanearlo.'
+                        : previewProductRefs.length === 0
+                          ? 'Añade productos con foto o sube una imagen.'
+                          : previewProductRefs.length === 1
+                            ? 'Foto del producto seleccionado.'
+                            : previewProductRefs.length > 4
+                              ? `Collage con ${previewProductRefs.length} productos.`
+                              : 'Collage con las fotos disponibles.'}
                     </p>
                   </div>
 
@@ -724,7 +839,7 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
               {selectedType === 'reservation_ladder' && (
                 <div className={styles.sectionGrid}>
                   <div className={styles.formField}>
-                    <label htmlFor="promotion-reservations">Reservas requeridas</label>
+                    <label htmlFor="promotion-reservations">Reserva o consumo requeridos</label>
                     <input
                       id="promotion-reservations"
                       type="number"
@@ -751,13 +866,13 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                       })}
                     />
                     <span>
-                      <strong>Requiere reserva</strong>
-                      <small>Obliga a reservar mesa</small>
+                      <strong>Reserva o consumo requerido</strong>
+                      <small>Cada reserva o consumo cuenta</small>
                     </span>
                   </label>
 
                   <p className={`${styles.fieldHint} ${styles.formFieldWide}`}>
-                    Solo puede haber una oferta activa por cada número de reservas requeridas.
+                    Solo puede haber una oferta activa por cada número de reserva o consumo requeridos.
                   </p>
                 </div>
               )}
@@ -919,6 +1034,29 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
         onConfirm={() => void handleDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
+      {scanPreviewOpen && scanPreviewPromotion ? (
+        <div className={styles.scanPreviewOverlay} role="dialog" aria-modal="true" aria-label="Vista previa de la promoción">
+          <PromotionScanLanding
+            promotion={scanPreviewPromotion}
+            variant="preview"
+            onClosePreview={() => setScanPreviewOpen(false)}
+          />
+        </div>
+      ) : null}
+
+      {company && editingId && promotionLandingUrl ? (
+        <QrCustomizerModal
+          isOpen={qrCustomizerOpen}
+          kind="promotion"
+          url={promotionLandingUrl}
+          filename={`qr-promo-${slugify(form.title || 'promocion')}-${slugify(company.slug || company.name)}.png`}
+          companyId={companyId}
+          context={qrBrandingContext}
+          initialConfig={company.qrBranding.promotion ?? defaultQrBrandingConfig()}
+          onClose={() => setQrCustomizerOpen(false)}
+          onSaved={() => void refreshCompany()}
+        />
+      ) : null}
     </div>
   )
 }

@@ -39,11 +39,21 @@ router.get('/gamification/ranking', async (req: Request, res: Response) => {
   try {
     const account = await verifyCompanyAccount(req)
     const statsRef = companyGamificationRef(account.companyId)
-    const [selfSnap, worldSnap, companySnap] = await Promise.all([
+    const [selfSnap, companySnap] = await Promise.all([
       statsRef.get(),
-      adminDb.collection(COLLECTIONS.companyGamification).orderBy('xp', 'desc').limit(80).get(),
       adminDb.collection(COLLECTIONS.companies).doc(account.companyId).get(),
     ])
+
+    let worldDocs: FirebaseFirestore.QueryDocumentSnapshot[] = []
+    try {
+      const worldSnap = await adminDb.collection(COLLECTIONS.companyGamification).orderBy('xp', 'desc').limit(80).get()
+      worldDocs = worldSnap.docs
+    } catch (rankingError) {
+      const rankingMessage = rankingError instanceof Error ? rankingError.message : ''
+      if (!rankingMessage.includes('FAILED_PRECONDITION') && !rankingMessage.includes('index')) {
+        throw rankingError
+      }
+    }
 
     const company = companySnap.data() ?? {}
     const selfMunicipality = String(selfSnap.data()?.municipality ?? company.municipality ?? '').trim()
@@ -69,7 +79,7 @@ router.get('/gamification/ranking', async (req: Request, res: Response) => {
       isYou,
     })
 
-    const worldRaw = worldSnap.docs.map((docSnap) => mapEntry(docSnap.id, docSnap.data(), docSnap.id === account.companyId))
+    const worldRaw = worldDocs.map((docSnap) => mapEntry(docSnap.id, docSnap.data(), docSnap.id === account.companyId))
     if (!worldRaw.some((entry) => entry.isYou) && selfSnap.exists) {
       worldRaw.push(mapEntry(account.companyId, selfSnap.data()!, true))
       worldRaw.sort((left, right) => right.xp - left.xp)

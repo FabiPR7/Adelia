@@ -1,36 +1,38 @@
 import {
-  createUserWithEmailAndPassword,
   GoogleAuthProvider,
   linkWithCredential,
   PhoneAuthProvider,
   RecaptchaVerifier,
   sendEmailVerification,
-  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
-  updateProfile,
   type User,
 } from 'firebase/auth'
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
-import { defaultGamificationState } from '../types/gamification'
+import {
+  arrayRemove,
+  arrayUnion,
+  doc,
+  serverTimestamp,
+  updateDoc,
+  writeBatch,
+} from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
-import { getAuthErrorMessage } from './auth'
 import { getUserProfile } from './firestore'
-import { replaceUserFavorites } from './userFavorites'
+import { favoriteDocId, replaceUserFavorites } from './userFavorites'
 import {
   requestCustomerVerificationEmailSend,
   syncCustomerPhoneVerification,
 } from './customerAuthApi'
+import {
+  bootstrapCustomerProfile,
+  preLoginCustomer,
+  registerCustomerAccount,
+  requestCustomerPasswordReset as requestCustomerPasswordResetApi,
+} from './authApi'
 import { normalizePhoneE164 } from '../utils/customerRouting'
 import { formatSpanishPhoneForStorage, isValidSpanishPhone } from '../utils/helpers'
-import {
-  checkAccountLocked,
-  recordFailedLoginAttempt,
-  resetLoginAttempts,
-  getLockedUntilTime,
-  formatLockoutMessage,
-} from './authSecurity'
+import { requireAuthPassword } from '../utils/passwordValidation'
 
 export interface RegisterCustomerInput {
   email: string
@@ -45,40 +47,6 @@ function requireCustomerPhone(phone: string): string {
     throw new Error('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678).')
   }
   return formatSpanishPhoneForStorage(phone)
-}
-
-function buildCustomerDoc(input: {
-  email: string
-  displayName: string
-  phone: string
-  phoneVerified: boolean
-  authProvider: 'password' | 'google.com'
-}) {
-  return {
-    email: input.email.trim().toLowerCase(),
-    role: 'customer' as const,
-    companyId: null,
-    displayName: input.displayName.trim(),
-    phone: input.phone,
-    phoneVerified: input.phoneVerified,
-    photoUrl: '',
-    homeCity: '',
-    homeMunicipality: '',
-    homeCountry: '',
-    homePostalCode: '',
-    homeLatitude: null,
-    homeLongitude: null,
-    foodPreferences: [] as string[],
-    onboardingCompleted: false,
-    authProvider: input.authProvider,
-    favoriteSlugs: [] as string[],
-    gamification: defaultGamificationState(),
-    xp: 0,
-    adelinas: 0,
-    displayNameLower: input.displayName.trim().toLowerCase(),
-    mustChangePassword: false,
-    createdAt: serverTimestamp(),
-  }
 }
 
 let recaptchaVerifier: RecaptchaVerifier | null = null
@@ -140,36 +108,20 @@ export async function confirmPhoneVerification(code: string, _phone: string): Pr
   resetPhoneVerificationSession()
 }
 
-export async function registerCustomer(input: RegisterCustomerInput): Promise<User> {
-  const normalizedEmail = input.email.trim().toLowerCase()
-  const storedPhone = requireCustomerPhone(input.phone)
-  const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, input.password)
-
-  await updateProfile(credential.user, {
+export async function registerCustomer(input: RegisterCustomerInput): Promise<void> {
+  requireAuthPassword(input.password)
+  requireCustomerPhone(input.phone)
+  await registerCustomerAccount({
+    email: input.email.trim().toLowerCase(),
+    password: input.password,
     displayName: input.displayName.trim(),
+    phone: input.phone,
+    recaptchaToken: input.recaptchaToken,
   })
-
-  // Asegura que el token de auth esté listo antes de escribir en Firestore.
-  await credential.user.getIdToken(true)
-
-  await setDoc(
-    doc(db, 'users', credential.user.uid),
-    buildCustomerDoc({
-      email: normalizedEmail,
-      displayName: input.displayName,
-      phone: storedPhone,
-      phoneVerified: false,
-      authProvider: 'password',
-    }),
-  )
-
-  await sendCustomerVerificationEmail(credential.user)
-  return credential.user
 }
 
 export async function registerCustomerAndSignOut(input: RegisterCustomerInput): Promise<void> {
   await registerCustomer(input)
-  await finalizeEmailRegistration()
 }
 
 export async function finalizeEmailRegistration(): Promise<void> {
@@ -179,43 +131,33 @@ export async function finalizeEmailRegistration(): Promise<void> {
 
 export async function loginCustomer(email: string, password: string): Promise<User> {
   const identifier = email.trim().toLowerCase()
-  
-  const isLocked = await checkAccountLocked(identifier)
-  if (isLocked) {
-    const lockedUntil = await getLockedUntilTime(identifier)
-    if (lockedUntil) {
-      throw new Error(formatLockoutMessage(lockedUntil))
-    }
+  await preLoginCustomer(identifier, password)
+  const credential = await signInWithEmailAndPassword(auth, identifier, password)
+
+  if (!credential.user.emailVerified) {
+    await sendCustomerVerificationEmail(credential.user).catch(() => {
+      // Puede fallar por rate limit; igual bloqueamos el acceso.
+    })
+    await signOut(auth)
+    throw new Error(
+      'Confirma tu email antes de entrar. Revisa tu bandeja (y spam) y vuelve a intentarlo.',
+    )
   }
-  
-  try {
-    const credential = await signInWithEmailAndPassword(auth, identifier, password)
 
-    if (!credential.user.emailVerified) {
-      await sendCustomerVerificationEmail(credential.user).catch(() => {
-        // Puede fallar por rate limit; igual bloqueamos el acceso.
-      })
-      await signOut(auth)
-      throw new Error(
-        'Confirma tu email antes de entrar. Revisa tu bandeja (y spam) y vuelve a intentarlo.',
-      )
-    }
+  const profile = await getUserProfile(credential.user.uid).catch(() => null)
+  const role = profile?.role
 
-    const profile = await getUserProfile(credential.user.uid).catch(() => null)
-    const role = profile?.role
-
-    if (role !== 'customer') {
-      await signOut(auth)
-      throw new Error('Esta cuenta no es de cliente. Usa el acceso de empresas.')
-    }
-
-    await resetLoginAttempts(identifier)
-    
-    return credential.user
-  } catch (error) {
-    await recordFailedLoginAttempt(identifier)
-    throw error
+  if (role !== 'customer') {
+    await signOut(auth)
+    throw new Error('Esta cuenta no es de cliente. Usa el acceso de empresas.')
   }
+
+  if (profile?.blocked) {
+    await signOut(auth)
+    throw new Error('Esta cuenta está bloqueada. Escribe a Adelia si es un error.')
+  }
+
+  return credential.user
 }
 
 export async function resendCustomerVerificationEmail(): Promise<void> {
@@ -239,58 +181,26 @@ export async function checkEmailVerified(): Promise<boolean> {
   return user.emailVerified
 }
 
-export async function signInCustomerWithGoogle(): Promise<'existing' | 'created'> {
+export async function signInCustomerWithGoogle(recaptchaToken?: string): Promise<'existing' | 'created'> {
   const result = await signInWithPopup(auth, new GoogleAuthProvider())
   const user = result.user
-  const profile = await getUserProfile(user.uid).catch(() => null)
 
-  if (profile) {
-    if (profile.role !== 'customer') {
+  try {
+    const boot = await bootstrapCustomerProfile(recaptchaToken)
+    const profile = await getUserProfile(user.uid).catch(() => null)
+    if (profile?.blocked) {
       await signOut(auth)
-      throw new Error('Esta cuenta de Google no es de cliente.')
+      throw new Error('Esta cuenta está bloqueada. Escribe a Adelia si es un error.')
     }
-
-    return 'existing'
+    return boot.existing ? 'existing' : 'created'
+  } catch (error) {
+    await signOut(auth)
+    throw error
   }
-
-  const profileRef = doc(db, 'users', user.uid)
-  const existing = await getDoc(profileRef)
-
-  if (existing.exists()) {
-    const role = existing.data()?.role
-
-    if (role !== 'customer') {
-      await signOut(auth)
-      throw new Error('Esta cuenta de Google no es de cliente.')
-    }
-
-    return 'existing'
-  }
-
-  await user.getIdToken(true)
-
-  await setDoc(profileRef, {
-    ...buildCustomerDoc({
-      email: (user.email ?? '').trim().toLowerCase(),
-      displayName: user.displayName?.trim() || 'Comensal',
-      phone: user.phoneNumber && isValidSpanishPhone(user.phoneNumber)
-        ? formatSpanishPhoneForStorage(user.phoneNumber)
-        : '',
-      phoneVerified: Boolean(user.phoneNumber && isValidSpanishPhone(user.phoneNumber)),
-      authProvider: 'google.com',
-    }),
-    photoUrl: user.photoURL ?? '',
-  })
-
-  return 'created'
 }
 
-export async function requestCustomerPasswordReset(email: string): Promise<void> {
-  try {
-    await sendPasswordResetEmail(auth, email.trim().toLowerCase())
-  } catch (error) {
-    throw new Error(getAuthErrorMessage(error))
-  }
+export async function requestCustomerPasswordReset(email: string): Promise<string> {
+  return requestCustomerPasswordResetApi(email)
 }
 
 export async function updateCustomerFavorites(uid: string, favoriteSlugs: string[]): Promise<void> {
@@ -298,6 +208,35 @@ export async function updateCustomerFavorites(uid: string, favoriteSlugs: string
     favoriteSlugs,
   })
   await replaceUserFavorites(uid, favoriteSlugs).catch(() => undefined)
+}
+
+export async function setCustomerFavorite(
+  uid: string,
+  slug: string,
+  saved: boolean,
+): Promise<void> {
+  const normalizedSlug = slug.trim()
+  if (!uid || !normalizedSlug) {
+    return
+  }
+
+  const batch = writeBatch(db)
+  batch.update(doc(db, 'users', uid), {
+    favoriteSlugs: saved ? arrayUnion(normalizedSlug) : arrayRemove(normalizedSlug),
+  })
+
+  const favoriteRef = doc(db, 'userFavorites', favoriteDocId(uid, normalizedSlug))
+  if (saved) {
+    batch.set(favoriteRef, {
+      userId: uid,
+      slug: normalizedSlug,
+      createdAt: serverTimestamp(),
+    }, { merge: true })
+  } else {
+    batch.delete(favoriteRef)
+  }
+
+  await batch.commit()
 }
 
 export async function updateCustomerPhone(uid: string, phone: string): Promise<void> {

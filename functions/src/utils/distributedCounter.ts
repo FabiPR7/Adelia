@@ -8,18 +8,19 @@
  *            100 shards = 50,000 escrituras/segundo
  */
 
-import * as admin from 'firebase-admin'
+import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/firestore'
+import { adminDb } from '../../server/firebase-admin.ts'
 
 interface CounterShard {
   count: number
-  updatedAt: admin.firestore.FieldValue
+  updatedAt: FieldValue
 }
 
 /**
  * Distributed Counter que escala horizontalmente
  */
 export class DistributedCounter {
-  private db: admin.firestore.Firestore
+  private db: Firestore
   private numShards: number
 
   /**
@@ -27,7 +28,7 @@ export class DistributedCounter {
    *                    Más shards = más escrituras/segundo pero más lecturas para obtener total
    */
   constructor(numShards: number = 10) {
-    this.db = admin.firestore()
+    this.db = adminDb
     this.numShards = numShards
   }
 
@@ -43,7 +44,7 @@ export class DistributedCounter {
     path: string,
     counterName: string,
     incrementBy: number = 1,
-    transaction?: admin.firestore.Transaction
+    transaction?: Transaction
   ): Promise<void> {
     // Elegir shard aleatorio para distribuir la carga
     const shardId = Math.floor(Math.random() * this.numShards)
@@ -51,8 +52,8 @@ export class DistributedCounter {
     const shardRef = this.db.doc(shardPath)
 
     const updateData: any = {
-      count: admin.firestore.FieldValue.increment(incrementBy),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      count: FieldValue.increment(incrementBy),
+      updatedAt: FieldValue.serverTimestamp(),
     }
 
     if (transaction) {
@@ -63,7 +64,7 @@ export class DistributedCounter {
       } else {
         transaction.set(shardRef, {
           count: incrementBy,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         })
       }
     } else {
@@ -159,7 +160,7 @@ export class DistributedCounter {
  * })
  */
 export async function incrementDistributedCounter(
-  transaction: admin.firestore.Transaction,
+  transaction: Transaction,
   path: string,
   counterName: string,
   incrementBy: number = 1,

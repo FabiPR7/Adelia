@@ -1,0 +1,69 @@
+.wrap {
+  --slide-gap: 0.32rem;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--slide-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.viewport {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.track {
+  display: flex;
+  width: 100%;
+  will-change: transform;
+  transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.trackInstant {
+  transition: none;
+}
+
+.page {
+  box-sizing: border-box;
+  flex: 0 0 100%;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--slide-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.staticPage {
+  flex: 0 0 auto;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.staticPage::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    transition: none;
+  }
+}

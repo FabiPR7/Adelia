@@ -51,7 +51,7 @@ export const DEMO_NEARBY_PROMOTIONS: PublicPromotion[] = [
       customLabel: '',
     },
     productRefs: [],
-    detail: '5 reservas',
+    detail: '5 reservas o consumos',
     highlight: 'GRATIS',
   },
   {
@@ -111,7 +111,7 @@ export const DEMO_NEARBY_PROMOTIONS: PublicPromotion[] = [
       customLabel: '',
     },
     productRefs: [],
-    detail: '3 reservas',
+    detail: '3 reservas o consumos',
     highlight: '¡Nueva!',
   },
   {
@@ -142,7 +142,7 @@ export const DEMO_NEARBY_PROMOTIONS: PublicPromotion[] = [
       customLabel: '',
     },
     productRefs: [],
-    detail: '1 reserva',
+    detail: '1 reserva o consumo',
     highlight: '2×1',
   },
   {
@@ -171,7 +171,7 @@ export const DEMO_NEARBY_PROMOTIONS: PublicPromotion[] = [
       customLabel: '',
     },
     productRefs: [],
-    detail: '5 reservas',
+    detail: '5 reservas o consumos',
     highlight: 'GRATIS',
   },
   {
@@ -200,7 +200,7 @@ export const DEMO_NEARBY_PROMOTIONS: PublicPromotion[] = [
       customLabel: '',
     },
     productRefs: [],
-    detail: '3 reservas',
+    detail: '3 reservas o consumos',
     highlight: 'Postre',
   },
   {
@@ -258,7 +258,7 @@ export const DEMO_NEARBY_PROMOTIONS: PublicPromotion[] = [
       customLabel: '',
     },
     productRefs: [],
-    detail: '4 reservas',
+    detail: '4 reservas o consumos',
     highlight: '-50%',
   },
   {

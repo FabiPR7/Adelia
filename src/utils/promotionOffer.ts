@@ -125,8 +125,8 @@ export interface PromotionDisplayFields {
   offer?: PromotionOfferConfig | null
 }
 
-function formatReservationCount(count: number): string {
-  return `${count} reserva${count === 1 ? '' : 's'}`
+export function formatReservationOrConsumptionCount(count: number): string {
+  return count === 1 ? '1 reserva o consumo' : `${count} reservas o consumos`
 }
 
 /** Distintivo que sobresale en la imagen de la promo. */
@@ -145,12 +145,12 @@ export function resolvePromotionHighlight(
       return offer.customLabel.trim()
     }
     if (promotion.type === 'reservation_ladder' && promotion.requiredReservations != null) {
-      return formatReservationCount(promotion.requiredReservations)
+      return formatReservationOrConsumptionCount(promotion.requiredReservations)
     }
   }
 
   if (promotion.type === 'reservation_ladder' && promotion.requiredReservations != null) {
-    return formatReservationCount(promotion.requiredReservations)
+    return formatReservationOrConsumptionCount(promotion.requiredReservations)
   }
 
   if (promotion.highlight?.trim()) {
@@ -170,10 +170,10 @@ export function resolvePromotionHighlight(
   return fallbackIndex % 2 === 0 ? '¡Nueva!' : 'Promo'
 }
 
-/** Chip inferior: condiciones (reservas, horario, etc.). */
+/** Chip inferior: condiciones (reserva o consumo, horario, etc.). */
 export function resolvePromotionDetail(promotion: PromotionDisplayFields): string {
   if (promotion.type === 'reservation_ladder' && promotion.requiredReservations != null) {
-    return formatReservationCount(promotion.requiredReservations)
+    return formatReservationOrConsumptionCount(promotion.requiredReservations)
   }
 
   if (promotion.type === 'time_limited') {

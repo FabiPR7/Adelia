@@ -2,9 +2,6 @@
  * Sistema de logging de eventos de seguridad
  */
 
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../config/firebase'
-
 export type SecurityEventType =
   | 'unauthorized_access'
   | 'privilege_escalation_attempt'
@@ -46,17 +43,7 @@ export async function logSecurityEvent(event: Omit<SecurityEvent, 'timestamp'>):
       return
     }
 
-    // En producción, guardar en Firestore
-    const eventId = `${Date.now()}_${Math.random().toString(36).slice(2)}`
-    const eventRef = doc(db, 'securityEvents', eventId)
-
-    await setDoc(eventRef, {
-      ...event,
-      timestamp: serverTimestamp(),
-      environment: 'production',
-    })
-
-    // Si es crítico, también loguear en consola
+    console.warn('🛡️ [SECURITY EVENT]', event.type, event.severity)
     if (event.severity === 'critical' || event.severity === 'high') {
       console.error('🚨 [SECURITY ALERT]', event.type, event.userId)
     }

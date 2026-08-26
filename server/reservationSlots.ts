@@ -1,4 +1,8 @@
-type DaySchedule = { open: string; close: string; active: boolean }
+import { madridDateTime, utcNoonFromYmd } from './utils/madridDateTime.ts'
+
+type TimePeriod = { open: string; close: string }
+
+type DaySchedule = { open: string; close: string; active: boolean; periods?: TimePeriod[] }
 
 type CompanySchedule = Record<
   'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday',
@@ -24,7 +28,7 @@ const WEEKDAY_TO_SCHEDULE: Record<number, keyof CompanySchedule> = {
 }
 
 function getDaySchedule(date: Date, schedule: CompanySchedule): DaySchedule {
-  return schedule[WEEKDAY_TO_SCHEDULE[date.getDay()]]
+  return schedule[WEEKDAY_TO_SCHEDULE[date.getUTCDay()]]
 }
 
 function timeToMinutes(time: string): number {
@@ -38,11 +42,19 @@ function minutesToTime(totalMinutes: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
-function combineDateAndTime(date: Date, time: string): Date {
-  const [hours, minutes] = time.split(':').map(Number)
-  const result = new Date(date)
-  result.setHours(hours, minutes, 0, 0)
-  return result
+export function combineDateAndTime(date: Date, time: string): Date {
+  const ymd = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+  return madridDateTime(ymd, time)
+}
+
+function schedulePeriods(day: DaySchedule): TimePeriod[] {
+  if (Array.isArray(day.periods) && day.periods.length > 0) {
+    return day.periods.filter((period) => Boolean(period.open && period.close))
+  }
+  if (day.open && day.close) {
+    return [{ open: day.open, close: day.close }]
+  }
+  return []
 }
 
 export function generateSlotTimes(
@@ -53,27 +65,52 @@ export function generateSlotTimes(
 ): string[] {
   const day = getDaySchedule(date, schedule)
 
-  if (!day.active || !day.open || !day.close) {
+  if (!day.active) {
     return []
   }
 
-  const openMinutes = timeToMinutes(day.open)
-  const closeMinutes = timeToMinutes(day.close)
   const slots: string[] = []
 
-  for (
-    let cursor = openMinutes;
-    cursor + reservationDurationMinutes <= closeMinutes;
-    cursor += slotIntervalMinutes
-  ) {
-    slots.push(minutesToTime(cursor))
+  for (const period of schedulePeriods(day)) {
+    const openMinutes = timeToMinutes(period.open)
+    const closeMinutes = timeToMinutes(period.close)
+
+    for (
+      let cursor = openMinutes;
+      cursor + reservationDurationMinutes <= closeMinutes;
+      cursor += slotIntervalMinutes
+    ) {
+      const time = minutesToTime(cursor)
+      if (!slots.includes(time)) {
+        slots.push(time)
+      }
+    }
   }
 
-  return slots
+  return slots.sort()
 }
 
-function reservationsOverlap(startA: Date, endA: Date, startB: Date, endB: Date): boolean {
+export function reservationsOverlap(startA: Date, endA: Date, startB: Date, endB: Date): boolean {
   return startA.getTime() < endB.getTime() && startB.getTime() < endA.getTime()
+}
+
+export function occupyingReservation(
+  reservation: ReservationLike,
+  tableId: string,
+  startTime: Date,
+  endTime: Date,
+  excludeId?: string,
+): boolean {
+  if (reservation.status === 'cancelled') {
+    return false
+  }
+  if (excludeId && reservation.id === excludeId) {
+    return false
+  }
+  if (reservation.tableId !== tableId) {
+    return false
+  }
+  return reservationsOverlap(startTime, endTime, reservation.startTime, reservation.endTime)
 }
 
 export function isSlotAvailableForTable(
@@ -90,21 +127,9 @@ export function isSlotAvailableForTable(
   const startTime = combineDateAndTime(date, time)
   const endTime = new Date(startTime.getTime() + durationMinutes * 60000)
 
-  for (const reservation of reservations) {
-    if (reservation.status === 'cancelled') {
-      continue
-    }
-
-    if (reservation.tableId !== tableId) {
-      continue
-    }
-
-    if (reservationsOverlap(startTime, endTime, reservation.startTime, reservation.endTime)) {
-      return false
-    }
-  }
-
-  return true
+  return !reservations.some((reservation) =>
+    occupyingReservation(reservation, tableId, startTime, endTime),
+  )
 }
 
 export function assertReservationSlotValid(
@@ -130,26 +155,7 @@ export function assertReservationSlotValid(
 }
 
 export function parseBookingDate(value: string): Date {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
-
-  if (!match) {
-    throw new Error('Fecha inválida.')
-  }
-
-  const year = Number(match[1])
-  const month = Number(match[2]) - 1
-  const day = Number(match[3])
-  const date = new Date(year, month, day)
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month ||
-    date.getDate() !== day
-  ) {
-    throw new Error('Fecha inválida.')
-  }
-
-  return date
+  return utcNoonFromYmd(value)
 }
 
 export function isSameDay(a: Date, b: Date): boolean {
@@ -167,10 +173,7 @@ function startOfDay(date: Date): Date {
 }
 
 function reservationStart(date: Date, time: string): Date {
-  const [hours, minutes] = time.split(':').map(Number)
-  const start = new Date(date)
-  start.setHours(hours, minutes, 0, 0)
-  return start
+  return combineDateAndTime(date, time)
 }
 
 export function assertReservationStartInFuture(date: Date, time: string): void {

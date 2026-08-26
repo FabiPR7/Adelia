@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import CityAutocomplete from '../components/CityAutocomplete'
 import DiscoveryGamificationBanner from '../components/DiscoveryGamificationBanner'
 import DiscoveryReviewsCallout from '../components/DiscoveryReviewsCallout'
 import DiscoveryPromotionsSection from '../components/DiscoveryPromotionsSection'
 import DiscoverySkeleton from '../components/DiscoverySkeleton'
 import DiscoveryTraitsFilter from '../components/DiscoveryTraitsFilter'
+import DiscoveryVenueKindFilter from '../components/DiscoveryVenueKindFilter'
 import FavoriteRestaurantsRow from '../components/FavoriteRestaurantsRow'
 import RestaurantInfiniteCarousel from '../components/RestaurantInfiniteCarousel'
-import RestaurantPreviewSheet from '../components/RestaurantPreviewSheet'
 import LegalLinks from '../components/LegalLinks'
 import { useAuth } from '../context/AuthContext'
 import { ADELIA_LOGO_URL } from '../constants/brand'
@@ -22,6 +22,7 @@ import {
   collectPopularCharacteristics,
   filterDiscoveryRestaurants,
   restaurantHasMapPin,
+  restaurantMatchesVenueKind,
   sortRestaurantsByDistance,
   splitRestaurantsForCarousels,
   getDiscoveryAverageRating,
@@ -29,6 +30,7 @@ import {
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
 import { getLocationErrorMessage, requestUserLocation } from '../utils/requestUserLocation'
+import type { DiscoveryVenueKind } from '../data/companyProfileFacilities'
 import styles from './PublicDiscoveryPage.module.css'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
@@ -38,6 +40,7 @@ interface PublicDiscoveryPageProps {
 }
 
 function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
+  const navigate = useNavigate()
   const { user, profile, isLoading: authLoading } = useAuth()
   const { favoriteSlugs } = useFavoriteRestaurants()
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
@@ -47,7 +50,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   const [appliedSearch, setAppliedSearch] = useState('')
   const [selectedCity, setSelectedCity] = useState<CitySuggestion | null>(null)
   const [activeTrait, setActiveTrait] = useState('')
-  const [previewRestaurant, setPreviewRestaurant] = useState<PublicDiscoveryRestaurant | null>(null)
+  const [venueKind, setVenueKind] = useState<DiscoveryVenueKind | ''>('')
   const [nearbyActive, setNearbyActive] = useState(false)
   const [nearbyState, setNearbyState] = useState<NearbyState>('idle')
   const [nearbyMessage, setNearbyMessage] = useState<string | null>(null)
@@ -80,6 +83,12 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
 
   const isCustomer = profile?.role === 'customer'
   const gamification = useCustomerGamificationContext()
+  const openRestaurant = useCallback(
+    (restaurant: PublicDiscoveryRestaurant) => {
+      navigate(`/reservar/${restaurant.slug}`)
+    },
+    [navigate],
+  )
 
   const traitOptions = useMemo(
     () => collectPopularCharacteristics(restaurants),
@@ -111,13 +120,14 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
 
   const filteredRestaurants = useMemo(() => {
     const results = filterDiscoveryRestaurants(restaurants, effectiveQuery, selectedCity?.name ?? '')
+      .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind))
 
     if (nearbyActive && userCoords) {
       return sortRestaurantsByDistance(results, distancesKm)
     }
 
     return results
-  }, [restaurants, effectiveQuery, selectedCity, nearbyActive, userCoords, distancesKm])
+  }, [restaurants, effectiveQuery, selectedCity, venueKind, nearbyActive, userCoords, distancesKm])
 
   const { primary, secondary } = useMemo(
     () => splitRestaurantsForCarousels(filteredRestaurants),
@@ -125,8 +135,11 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   )
 
   const favoriteRestaurants = useMemo(
-    () => restaurants.filter((restaurant) => favoriteSlugs.includes(restaurant.slug)),
-    [restaurants, favoriteSlugs],
+    () =>
+      restaurants
+        .filter((restaurant) => favoriteSlugs.includes(restaurant.slug))
+        .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind)),
+    [restaurants, favoriteSlugs, venueKind],
   )
 
   const reviewSpotlight = useMemo(() => {
@@ -272,6 +285,8 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
         ) : null}
 
         <section className={styles.searchSection}>
+          <DiscoveryVenueKindFilter value={venueKind} onChange={setVenueKind} />
+
           <div className={styles.searchRow}>
             <label className={styles.searchField}>
               <span className={styles.srOnly}>Nombre del restaurante</span>
@@ -352,12 +367,12 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
           <FavoriteRestaurantsRow
             restaurants={favoriteRestaurants}
             distancesKm={nearbyActive ? distancesKm : undefined}
-            onOpenRestaurant={setPreviewRestaurant}
+            onOpenRestaurant={openRestaurant}
           />
         )}
 
         {!loading && !error && filteredRestaurants.length === 0 && (
-          <div className={styles.stateBox}>
+          <div className={styles.stateBox} role="status">
             {restaurants.length === 0
               ? 'Aún no hay restaurantes publicados en Adelia. Cuando un local complete su perfil y marque su ubicación en el mapa, aparecerá aquí.'
               : 'No encontramos restaurantes con esa búsqueda. Prueba otra ciudad, quita filtros o explora todos.'}
@@ -374,33 +389,38 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
                 </div>
               </div>
               <RestaurantInfiniteCarousel
+                key={"primary-" + (venueKind || "all")}
                 restaurants={primary}
                 direction="right"
                 distancesKm={nearbyActive ? distancesKm : undefined}
-                onOpenRestaurant={setPreviewRestaurant}
+                onOpenRestaurant={openRestaurant}
               />
             </section>
 
-            <section className={`${styles.carouselSection} ${styles.carouselBleed}`}>
-              <div className={styles.carouselHeader}>
-                <div className={styles.sectionHeader}>
-                  <h2>Descubre más</h2>
-                  <span>{nearbyActive ? 'Por distancia' : 'Desliza y elige'}</span>
+            {secondary.length > 0 ? (
+              <section className={`${styles.carouselSection} ${styles.carouselBleed}`}>
+                <div className={styles.carouselHeader}>
+                  <div className={styles.sectionHeader}>
+                    <h2>Descubre más</h2>
+                    <span>{nearbyActive ? 'A un paso' : 'Desliza y elige'}</span>
+                  </div>
                 </div>
-              </div>
-              <RestaurantInfiniteCarousel
-                restaurants={secondary}
-                direction="left"
-                distancesKm={nearbyActive ? distancesKm : undefined}
-                onOpenRestaurant={setPreviewRestaurant}
-              />
-            </section>
+                <RestaurantInfiniteCarousel
+                  restaurants={secondary}
+                  direction="left"
+                  distancesKm={nearbyActive ? distancesKm : undefined}
+                  onOpenRestaurant={openRestaurant}
+                />
+              </section>
+            ) : null}
           </>
         )}
 
         <section className={styles.experienceFlow}>
           <div className={styles.experienceInner}>
-            <DiscoveryPromotionsSection />
+            <DiscoveryPromotionsSection
+              allowedCompanyIds={venueKind ? filteredRestaurants.map((restaurant) => restaurant.id) : undefined}
+            />
             <DiscoveryReviewsCallout isCustomer={isCustomer} spotlight={reviewSpotlight} />
             <DiscoveryGamificationBanner
               gamification={gamification}
@@ -411,15 +431,6 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
         </section>
       </main>
 
-      <RestaurantPreviewSheet
-        restaurant={previewRestaurant}
-        distanceKm={
-          previewRestaurant && nearbyActive
-            ? distancesKm[previewRestaurant.slug]
-            : undefined
-        }
-        onClose={() => setPreviewRestaurant(null)}
-      />
       {!appMode ? (
         <footer className={styles.siteFooter}>
           <LegalLinks from="/" />

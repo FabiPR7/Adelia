@@ -10,6 +10,7 @@ import {
   type PublicCancelXpPenalty,
 } from '../services/publicApi'
 import { buildPublicDepositCancelWarningMessage } from '../utils/reservationDeposit'
+import { companyAcceptsReservations } from '../data/companyReservationMode'
 import {
   formatCancelPenaltyPreview,
   formatCancelPenaltyResult,
@@ -147,7 +148,7 @@ function PublicCancelReservation() {
     <PublicBookingShell
       company={company}
       legalFrom={`/reservar/${slug}/cancelar`}
-      reserveHref={`/reservar/${slug}`}
+      reserveHref={companyAcceptsReservations(company.reservationMode) ? `/reservar/${slug}` : null}
     >
       <main className={styles.main}>
         <section className={styles.card}>

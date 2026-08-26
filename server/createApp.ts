@@ -6,6 +6,7 @@ import companyEmailRouter from './routes/companyEmail.ts'
 import companyReservationsRouter from './routes/companyReservations.ts'
 import companyStripeRouter from './routes/companyStripe.ts'
 import publicBookingRouter from './routes/public.ts'
+import publicBillingRouter from './routes/publicBilling.ts'
 import publicPromotionsRouter from './routes/publicPromotions.ts'
 import citiesRouter from './routes/cities.ts'
 import geocodeRouter from './routes/geocode.ts'
@@ -21,7 +22,6 @@ import customerReviewsRouter from './routes/customerReviews.ts'
 import companyGamificationRouter from './routes/companyGamification.ts'
 import companyNotificationsRouter from './routes/companyNotifications.ts'
 import { handleStripeWebhook } from './routes/stripeWebhook.ts'
-import { canUseAdminSdk } from './firebase-admin.ts'
 import { verifyAdmin } from './auth/verifyRequest.ts'
 import { isAllowedOrigin } from './security/origins.ts'
 import { securityHeaders } from './security/headers.ts'
@@ -37,10 +37,14 @@ export function createApp() {
   app.use(securityHeaders)
   app.use(cors({
     origin(origin, callback) {
-      callback(null, !origin || isAllowedOrigin(origin))
+      if (!origin || isAllowedOrigin(origin)) {
+        callback(null, true)
+        return
+      }
+      callback(new Error('Origin not allowed'))
     },
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Internal-Secret'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     maxAge: 600,
   }))
 
@@ -58,10 +62,7 @@ export function createApp() {
   app.use(apiRateLimit)
 
   app.get('/api/health', (_req, res) => {
-    res.json({
-      ok: true,
-      authMode: canUseAdminSdk ? 'admin-sdk' : 'rest',
-    })
+    res.json({ ok: true })
   })
 
   app.use('/api/companies', verifyAdmin, companiesRouter)
@@ -71,6 +72,7 @@ export function createApp() {
   app.use('/api/company', companyStripeRouter)
   app.use('/api/company', reservationDepositRouter)
   app.use('/api/reservations', reservationEmailRouter)
+  app.use('/api/public/billing', publicBillingRouter)
   app.use('/api/public/booking', publicBookingRouter)
   app.use('/api/public/promotions', publicPromotionsRouter)
   app.use('/api/public/reservations', reservationMinSpendRouter)

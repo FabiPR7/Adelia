@@ -67,10 +67,27 @@ export const onUserGamificationUpdatedNotifications = onDocumentWritten(
       return
     }
 
-    const beforeState = before?.state && typeof before.state === 'object' ? before.state : {}
-    const afterState = after.state && typeof after.state === 'object' ? after.state : {}
+    const beforeState = before?.state && typeof before.state === 'object'
+      ? before.state as Record<string, unknown>
+      : {}
+    const afterState = after.state && typeof after.state === 'object'
+      ? after.state as Record<string, unknown>
+      : {}
+    const beforeXp = typeof before?.xp === 'number' ? before.xp : 0
+    const afterXp = typeof after.xp === 'number' ? after.xp : 0
+    const beforeMissions = JSON.stringify(beforeState.completedMissions ?? [])
+    const afterMissions = JSON.stringify(afterState.completedMissions ?? [])
+    const beforeWeekly = JSON.stringify(beforeState.weeklyCompleted ?? [])
+    const afterWeekly = JSON.stringify(afterState.weeklyCompleted ?? [])
+    const beforeMonthly = JSON.stringify(beforeState.monthlyCompleted ?? [])
+    const afterMonthly = JSON.stringify(afterState.monthlyCompleted ?? [])
 
-    if (JSON.stringify(beforeState) === JSON.stringify(afterState)) {
+    if (
+      beforeXp === afterXp
+      && beforeMissions === afterMissions
+      && beforeWeekly === afterWeekly
+      && beforeMonthly === afterMonthly
+    ) {
       return
     }
 

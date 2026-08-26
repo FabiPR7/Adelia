@@ -60,11 +60,27 @@ export function companyGamificationPayload(state: ReturnType<typeof processCompa
 
 async function loadCompanyContext(companyId: string) {
   const companyRef = adminDb.collection(COLLECTIONS.companies).doc(companyId)
-  const [companySnap, reservationsSnap, reviewsSnap, promotionsSnap] = await Promise.all([
+  const since = Timestamp.fromDate(new Date(Date.now() - 62 * 24 * 60 * 60 * 1000))
+  const reservationsQuery = adminDb
+    .collection(COLLECTIONS.reservations)
+    .where('companyId', '==', companyId)
+    .where('startTime', '>=', since)
+    .limit(400)
+  const [companySnap, reservationsSnap, reviewsSnap, promotionsSnap, confirmedCountSnap] = await Promise.all([
     companyRef.get(),
-    adminDb.collection(COLLECTIONS.reservations).where('companyId', '==', companyId).get(),
-    companyRef.collection('reviews').get(),
-    companyRef.collection('promotions').where('active', '==', true).get(),
+    reservationsQuery.get().catch(() =>
+      adminDb.collection(COLLECTIONS.reservations).where('companyId', '==', companyId).limit(400).get(),
+    ),
+    companyRef.collection('reviews').orderBy('createdAt', 'desc').limit(60).get().catch(() =>
+      companyRef.collection('reviews').limit(60).get(),
+    ),
+    companyRef.collection('promotions').where('active', '==', true).limit(40).get(),
+    adminDb.collection(COLLECTIONS.reservations)
+      .where('companyId', '==', companyId)
+      .where('status', '==', 'confirmed')
+      .count()
+      .get()
+      .catch(() => null),
   ])
 
   if (!companySnap.exists) {
@@ -112,6 +128,7 @@ async function loadCompanyContext(companyId: string) {
     reservations,
     reviews,
     activePromotionCount: promotionsSnap.size,
+    lifetimeConfirmedCount: confirmedCountSnap?.data().count ?? reservations.filter((item) => item.status === 'confirmed').length,
     reviewCount,
     reviewRatingSum,
     reviewAdelinas,
@@ -120,11 +137,19 @@ async function loadCompanyContext(companyId: string) {
 }
 
 export async function syncCompanyGamificationDoc(companyId: string) {
-  const loaded = await loadCompanyContext(companyId)
   const statsRef = companyGamificationRef(companyId)
   const statsSnap = await statsRef.get()
-  const before = readCompanyGamificationState(statsSnap.data()?.state as Record<string, unknown> | undefined)
   const firstSync = !statsSnap.exists
+  const updatedAt = statsSnap.data()?.updatedAt
+  const syncedAt = updatedAt instanceof Timestamp ? updatedAt.toMillis() : 0
+  if (!firstSync && Date.now() - syncedAt < 20_000) {
+    return companyGamificationPayload(
+      readCompanyGamificationState(statsSnap.data()?.state as Record<string, unknown> | undefined),
+    )
+  }
+
+  const loaded = await loadCompanyContext(companyId)
+  const before = readCompanyGamificationState(statsSnap.data()?.state as Record<string, unknown> | undefined)
   const next = processCompanyGamification(statsSnap.data()?.state as Record<string, unknown> | undefined, {
     reservations: loaded.reservations,
     reviews: loaded.reviews,
@@ -132,6 +157,7 @@ export async function syncCompanyGamificationDoc(companyId: string) {
     reviewAdelinas: loaded.reviewAdelinas,
     reviewCount: loaded.reviewCount,
     reviewRatingSum: loaded.reviewRatingSum,
+    lifetimeConfirmedCount: loaded.lifetimeConfirmedCount,
   })
   const level = getCompanyLevelForXp(next.xp)
 

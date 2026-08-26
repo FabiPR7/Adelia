@@ -1,17 +1,16 @@
 import { Router, type Request, type Response } from 'express'
 import { Timestamp } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
-import { processReservationReceivedEmail } from '../email/processReservationEmail.ts'
-import { upsertCompanyClientFromReservation } from '../clients/upsertCompanyClient.ts'
 import { isValidClientEmail } from '../email/config.ts'
 import { adminAuth, adminDb } from '../firebase-admin.ts'
 import {
   assertReservationSlotValid,
   isSameDay,
   parseBookingDate,
+  combineDateAndTime,
   assertReservationStartInFuture,
 } from '../reservationSlots.ts'
-import { defaultSchedule } from '../utils.ts'
+import { defaultSchedule, companyAcceptsReservations, parseCompanyReservationMode } from '../utils.ts'
 import {
   computeDepositAmountCents,
   createDepositPaymentIntent,
@@ -20,8 +19,9 @@ import {
   processReservationDepositOnCancel,
   type DepositCancelOutcome,
 } from '../stripe/deposits.ts'
-import { notifyReservationCancelled, notifyReservationReceived } from '../notifications/reservationEvents.ts'
+import { notifyReservationCancelled } from '../notifications/reservationEvents.ts'
 import { cancelInvitesForReservation, createReservationInvites } from '../reservations/invites.ts'
+import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../reservations/bookReservation.ts'
 import { readCompanyOps } from '../data/companyOps.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { consumeInventoryItem, numberRecord } from '../gamification/inventory.ts'
@@ -108,7 +108,26 @@ function buildPublicCancelSuccessMessage(
   return 'Tu reserva ha sido cancelada correctamente.'
 }
 
+function stringList(value: unknown, max: number) {
+  if (!Array.isArray(value)) {
+    return [] as string[]
+  }
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, max)
+}
+
 function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
+  const photos = stringList(data.photos, 5)
+  const characteristics = stringList(data.characteristics, 20)
+  const venueTypes = stringList(data.venueTypes, 3)
+  const amenities = stringList(data.amenities, 40)
+  const floorPlan = data.floorPlan ?? { enabled: false }
+  const depositMinPax = typeof data.depositMinPax === 'number' && data.depositMinPax > 0
+    ? Math.trunc(data.depositMinPax)
+    : null
+  const depositPerGuestCents = typeof data.depositPerGuestCents === 'number' && data.depositPerGuestCents > 0
+    ? Math.trunc(data.depositPerGuestCents)
+    : null
+
   return {
     id,
     name: data.name as string,
@@ -116,14 +135,42 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
     phone: (data.phone as string) ?? '',
     contactEmail: (data.contactEmail as string) ?? '',
     location: (data.location as string) ?? '',
+    municipality: (data.municipality as string) ?? '',
+    country: (data.country as string) ?? '',
+    postalCode: (data.postalCode as string) ?? '',
+    description: (data.description as string) ?? '',
+    logoUrl: (data.logoUrl as string) ?? '',
+    photos,
+    mainPhotoIndex: typeof data.mainPhotoIndex === 'number'
+      ? Math.max(0, Math.min(4, Math.trunc(data.mainPhotoIndex)))
+      : 0,
+    videos: stringList(data.videos, 2),
+    characteristics,
+    venueTypes,
+    amenities,
+    priceRange: typeof data.priceRange === 'string' ? data.priceRange : '',
+    latitude: typeof data.latitude === 'number' ? data.latitude : null,
+    longitude: typeof data.longitude === 'number' ? data.longitude : null,
     timeSlotMinutes: (data.timeSlotMinutes as number) ?? 120,
+    reservationMode: parseCompanyReservationMode(data.reservationMode),
     schedule: data.schedule ?? defaultSchedule(),
-    floorPlan: data.floorPlan ?? { enabled: false },
+    floorPlan,
     floorPlans: Array.isArray(data.floorPlans) && data.floorPlans.length > 0
       ? data.floorPlans
-      : data.floorPlan
-        ? [data.floorPlan]
-        : [],
+      : [floorPlan],
+    reviewCount: typeof data.reviewCount === 'number' ? data.reviewCount : 0,
+    reviewRatingSum: typeof data.reviewRatingSum === 'number' ? data.reviewRatingSum : 0,
+    reviewAdelinas: typeof data.reviewAdelinas === 'number' ? data.reviewAdelinas : 0,
+    depositMinPax,
+    depositPerGuestCents,
+    depositEnabled: data.depositEnabled === true || depositMinPax != null,
+    depositCancellationHours: typeof data.depositCancellationHours === 'number'
+      && data.depositCancellationHours > 0
+      ? Math.trunc(data.depositCancellationHours)
+      : null,
+    stripeAccountId: null as string | null,
+    stripeChargesEnabled: data.stripeChargesEnabled === true,
+    stripeDetailsSubmitted: data.stripeDetailsSubmitted === true,
   }
 }
 
@@ -145,7 +192,8 @@ async function getCompanyBySlug(slug: string) {
   }
 
   const docSnap = snapshot.docs[0]
-  return mapPublicCompany(docSnap.id, docSnap.data())
+  const data = (await readCompanyOps(docSnap.id)) ?? docSnap.data()
+  return mapPublicCompany(docSnap.id, data)
 }
 
 async function getCompanyRecordBySlug(slug: string) {
@@ -297,6 +345,11 @@ router.post('/:slug/deposit-intent', async (req: Request, res: Response) => {
       return
     }
 
+    if (!companyAcceptsReservations(record.data.reservationMode)) {
+      res.status(409).json({ error: 'Este restaurante no admite reservas.' })
+      return
+    }
+
     const pax = asInt(req.body?.pax, 1, 50, 'El número de comensales')
 
     const depositMinPax = typeof record.data.depositMinPax === 'number'
@@ -379,6 +432,7 @@ router.get('/:slug/reviews', async (req: Request, res: Response) => {
       .collection('companies')
       .doc(companyDoc.id)
       .collection('reviews')
+      .limit(80)
       .get()
 
     const reviews = reviewsSnapshot.docs
@@ -418,6 +472,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
     const tablesSnapshot = await adminDb
       .collection('tables')
       .where('companyId', '==', company.id)
+      .limit(80)
       .get()
 
     const tables = tablesSnapshot.docs
@@ -426,6 +481,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
         name: item.data().name as string,
         capacity: (item.data().capacity as number) ?? 2,
         sortOrder: (item.data().sortOrder as number) ?? 0,
+        floorPlanId: typeof item.data().floorPlanId === 'string' ? item.data().floorPlanId : '',
       }))
       .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'))
 
@@ -445,6 +501,11 @@ router.get('/:slug/availability', async (req: Request, res: Response) => {
       return
     }
 
+    if (!companyAcceptsReservations(company.reservationMode)) {
+      res.status(409).json({ error: 'Este restaurante no admite reservas.' })
+      return
+    }
+
     const dateParam = String(req.query.date ?? '')
 
     let date: Date
@@ -456,9 +517,17 @@ router.get('/:slug/availability', async (req: Request, res: Response) => {
       return
     }
 
+    const dayStart = new Date(date)
+    dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(dayStart)
+    dayEnd.setDate(dayEnd.getDate() + 1)
+
     const reservationsSnapshot = await adminDb
       .collection('reservations')
       .where('companyId', '==', company.id)
+      .where('startTime', '>=', Timestamp.fromDate(dayStart))
+      .where('startTime', '<', Timestamp.fromDate(dayEnd))
+      .limit(400)
       .get()
 
     const reservations = reservationsSnapshot.docs
@@ -495,6 +564,11 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
 
     if (!record) {
       res.status(404).json({ error: 'Restaurante no encontrado.' })
+      return
+    }
+
+    if (!companyAcceptsReservations(record.data.reservationMode ?? record.public.reservationMode)) {
+      res.status(409).json({ error: 'Este restaurante no admite reservas.' })
       return
     }
 
@@ -571,32 +645,6 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       }
     }
 
-    const reservationsSnapshot = await adminDb
-      .collection('reservations')
-      .where('companyId', '==', company.id)
-      .get()
-
-    const dayReservations = reservationsSnapshot.docs
-      .map((item) => {
-        const data = item.data()
-        const startTime = data.startTime?.toDate?.() as Date | undefined
-        const endTime = data.endTime?.toDate?.() as Date | undefined
-
-        if (!startTime || !endTime) {
-          return null
-        }
-
-        return {
-          id: item.id,
-          tableId: data.tableId as string,
-          startTime,
-          endTime,
-          status: data.status as string,
-        }
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null)
-      .filter((item) => isSameDay(item.startTime, date))
-
     try {
       assertReservationStartInFuture(date, bookingTime)
       assertReservationSlotValid(
@@ -606,7 +654,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
         company.schedule,
         company.timeSlotMinutes,
         company.timeSlotMinutes,
-        dayReservations,
+        [],
       )
     } catch (validationError) {
       res.status(409).json({
@@ -618,9 +666,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       return
     }
 
-    const [hours, minutes] = bookingTime.split(':').map(Number)
-    const startTime = new Date(date)
-    startTime.setHours(hours, minutes, 0, 0)
+    const startTime = combineDateAndTime(date, bookingTime)
     const endTime = new Date(startTime.getTime() + company.timeSlotMinutes * 60000)
 
     let promotionId: string | null = null
@@ -759,28 +805,49 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
 
     try {
       if (customer && (skipDeposit || useExtraPax)) {
-        consumedInventory = await adminDb.runTransaction(async (transaction) => {
-          const userRef = adminDb.collection('users').doc(customer.uid)
-          const statsRef = userGamificationRef(customer.uid)
-          const [userSnap, statsSnap] = await Promise.all([
-            transaction.get(userRef),
-            transaction.get(statsRef),
-          ])
-          let state = readGamificationFromDocs(statsSnap.data(), userSnap.data())
-          if (useExtraPax) {
-            state = consumeInventoryItem(state, EXTRA_PAX_ITEM_ID, 1)
-          }
-          if (skipDeposit) {
-            state = consumeInventoryItem(state, DEPOSIT_PASS_ITEM_ID, 1)
-          }
-          writeGamification(transaction, customer.uid, state)
-          transaction.set(reservationRef, reservationData)
-          return numberRecord(state.inventory)
+        const userRef = adminDb.collection('users').doc(customer.uid)
+        const statsRef = userGamificationRef(customer.uid)
+        const state = await createReservationWithOccupiedSlot({
+          reservationRef,
+          reservationData,
+          companyId: company.id,
+          tableId: table,
+          startTime,
+          endTime,
+          prepare: async (transaction) => {
+            const [userSnap, statsSnap] = await Promise.all([
+              transaction.get(userRef),
+              transaction.get(statsRef),
+            ])
+            let next = readGamificationFromDocs(statsSnap.data(), userSnap.data())
+            if (useExtraPax) {
+              next = consumeInventoryItem(next, EXTRA_PAX_ITEM_ID, 1)
+            }
+            if (skipDeposit) {
+              next = consumeInventoryItem(next, DEPOSIT_PASS_ITEM_ID, 1)
+            }
+            return next
+          },
+          apply: (transaction, state) => {
+            writeGamification(transaction, customer.uid, state)
+          },
         })
+        consumedInventory = state ? numberRecord(state.inventory) : null
       } else {
-        await reservationRef.set(reservationData)
+        await createReservationWithOccupiedSlot({
+          reservationRef,
+          reservationData,
+          companyId: company.id,
+          tableId: table,
+          startTime,
+          endTime,
+        })
       }
     } catch (itemError) {
+      if (itemError instanceof SlotUnavailableError) {
+        res.status(409).json({ error: itemError.message })
+        return
+      }
       const message = itemError instanceof Error ? itemError.message : 'No se pudo crear la reserva.'
       if (message === 'No te quedan cartas de este tipo.') {
         res.status(403).json({ error: message })
@@ -789,23 +856,11 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       throw itemError
     }
 
-    try {
-      await upsertCompanyClientFromReservation(adminDb, reservationRef.id, reservationData)
-    } catch (clientError) {
-      console.error('Public reservation client sync error:', clientError)
-    }
-
-    try {
-      await processReservationReceivedEmail(reservationRef.id, reservationData)
-    } catch (emailError) {
-      console.error('Public reservation received email error:', emailError)
-    }
-
-    try {
-      await notifyReservationReceived(reservationRef.id, reservationData)
-    } catch (notificationError) {
-      console.error('Public reservation received notification error:', notificationError)
-    }
+    res.status(201).json({
+      id: reservationRef.id,
+      message: 'Hemos recibido tu reserva.',
+      ...(consumedInventory ? { inventory: consumedInventory } : {}),
+    })
 
     if (customer) {
       try {
@@ -831,15 +886,13 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
         console.error('Public reservation invites error:', inviteError)
       }
     }
-
-    res.status(201).json({
-      id: reservationRef.id,
-      message: 'Hemos recibido tu reserva.',
-      ...(consumedInventory ? { inventory: consumedInventory } : {}),
-    })
   } catch (error) {
     if (error instanceof InputError) {
       res.status(400).json({ error: error.message })
+      return
+    }
+    if (error instanceof SlotUnavailableError) {
+      res.status(409).json({ error: error.message })
       return
     }
     console.error('Public reservation error:', error)

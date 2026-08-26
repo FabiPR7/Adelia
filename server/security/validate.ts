@@ -88,17 +88,25 @@ const ALLOWED_MEDIA_HOSTS = new Set([
   'res.cloudinary.com',
 ])
 
-export function asHttpsMediaUrl(value: unknown): string {
-  const url = asTrimmed(value, 500, 'La URL')
+function parseHttpsUrl(value: string): URL {
   let parsed: URL
   try {
-    parsed = new URL(url)
+    parsed = new URL(value)
   } catch {
     throw new InputError('La URL del archivo no es válida.')
   }
   if (parsed.protocol !== 'https:') {
     throw new InputError('Solo se admiten archivos por HTTPS.')
   }
+  if (parsed.username || parsed.password) {
+    throw new InputError('La URL del archivo no es válida.')
+  }
+  return parsed
+}
+
+export function asHttpsMediaUrl(value: unknown): string {
+  const url = asTrimmed(value, 500, 'La URL')
+  const parsed = parseHttpsUrl(url)
   const host = parsed.hostname.toLowerCase()
   const allowed = ALLOWED_MEDIA_HOSTS.has(host) || host.endsWith('.cloudinary.com')
   if (!allowed) {
@@ -107,12 +115,37 @@ export function asHttpsMediaUrl(value: unknown): string {
   return parsed.toString()
 }
 
-export function asPassword(value: unknown, min = 6, max = 128): string {
+export function asOptionalCustomerPhotoUrl(value: unknown): string {
+  if (value == null || value === '') {
+    return ''
+  }
+  if (typeof value !== 'string') {
+    return ''
+  }
+  const trimmed = sanitizeString(value, 500)
+  if (!trimmed) {
+    return ''
+  }
+  const parsed = parseHttpsUrl(trimmed)
+  const host = parsed.hostname.toLowerCase()
+  const allowed = ALLOWED_MEDIA_HOSTS.has(host)
+    || host.endsWith('.cloudinary.com')
+    || host.endsWith('.googleusercontent.com')
+  if (!allowed) {
+    throw new InputError('Ese origen de foto no está permitido.')
+  }
+  return parsed.toString()
+}
+
+export function asPassword(value: unknown, min = 8, max = 128): string {
   if (typeof value !== 'string' || value.length < min || value.length > max) {
     throw new InputError(`La contraseña debe tener entre ${min} y ${max} caracteres.`)
   }
   if (/\u0000/.test(value)) {
     throw new InputError('La contraseña no es válida.')
+  }
+  if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) {
+    throw new InputError('La contraseña debe incluir mayúsculas, minúsculas y un número.')
   }
   return value
 }

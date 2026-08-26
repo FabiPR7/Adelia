@@ -7,18 +7,17 @@ interface AdminErrorStateProps {
 }
 
 function AdminErrorState({
-  title = 'Error al cargar datos',
+  title = 'No se han podido cargar los datos',
   message,
   onRetry,
 }: AdminErrorStateProps) {
   return (
     <div className={styles.error}>
-      <div className={styles.icon}>⚠️</div>
       <h3 className={styles.title}>{title}</h3>
       <p className={styles.message}>{message}</p>
       {onRetry && (
         <button type="button" className={styles.retryButton} onClick={onRetry}>
-          🔄 Reintentar
+          Reintentar
         </button>
       )}
     </div>

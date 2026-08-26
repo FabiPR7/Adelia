@@ -1,4 +1,4 @@
-import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, setDoc, where } from 'firebase/firestore'
 import { db } from '../config/firebase'
 
 export function favoriteDocId(userId: string, slug: string): string {
@@ -7,7 +7,7 @@ export function favoriteDocId(userId: string, slug: string): string {
 
 export async function replaceUserFavorites(userId: string, slugs: string[]): Promise<void> {
   const snapshot = await getDocs(
-    query(collection(db, 'userFavorites'), where('userId', '==', userId)),
+    query(collection(db, 'userFavorites'), where('userId', '==', userId), limit(50)),
   )
   const next = new Set(slugs)
   const writes: Promise<unknown>[] = []
@@ -33,7 +33,7 @@ export async function replaceUserFavorites(userId: string, slugs: string[]): Pro
 export async function listUserFavoriteSlugs(userId: string): Promise<string[]> {
   try {
     const snapshot = await getDocs(
-      query(collection(db, 'userFavorites'), where('userId', '==', userId)),
+      query(collection(db, 'userFavorites'), where('userId', '==', userId), limit(50)),
     )
     return snapshot.docs.map((item) => String(item.data().slug ?? '')).filter(Boolean)
   } catch {

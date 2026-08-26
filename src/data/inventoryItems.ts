@@ -35,7 +35,7 @@ export type InventoryEmblem =
 
 export type ReservationVisitValue = 1 | 2 | 3 | 5 | 10
 export type ReservationSpendBand = 0 | 2 | 5 | 15 | 40
-export type MissionLootDifficulty = 'easy' | 'medium' | 'hard' | 'legendary'
+export type MissionLootDifficulty = 'none' | 'easy' | 'medium' | 'hard' | 'legendary'
 
 export interface InventoryGrant {
   itemId: string
@@ -100,10 +100,10 @@ function mesaCard(
     shortName: `${visits}× ${spendBand === 0 ? 'libre' : `${spendBand}€`}`,
     description: spendBand === 0
       ? `Suma ${visits} ${visits === 1 ? 'reserva' : 'reservas'} a una promo de fidelidad que no pide gasto mínimo.`
-      : `Suma ${visits} ${visits === 1 ? 'reserva' : 'reservas'} a una promo ${spendLabel}. Si la promo pide más, cubre ${spendBand}€ y el restaurante verifica el resto.`,
+      : `Suma ${visits} ${visits === 1 ? 'reserva' : 'reservas'} a una promo ${spendLabel}. Solo se puede usar si el mínimo de la promo es ${spendBand}€ o menos.`,
     howToUse: spendBand === 0
       ? 'Pulsa Usar en Promos. En la ficha del restaurante pulsa Usar carta. Solo vale en promos sin gasto mínimo; no cubre un resto de ticket.'
-      : 'Pulsa Usar en Promos. En la ficha del restaurante pulsa Usar carta. Sirve si el mínimo de la promo es igual o menor que el de la carta. Si el mínimo es mayor, el restaurante verifica solo lo que falte.',
+      : 'Pulsa Usar en Promos. En la ficha del restaurante pulsa Usar carta. Sirve si el mínimo de la promo es igual o menor que el de la carta. Si pide más, usa una carta de 40€ o verifica el ticket en el restaurante.',
     howToEarn: 'Se consigue al subir de nivel, completar misiones de la semana o el mes, o desbloquear logros.',
     rarity,
     emblem: spendBand === 40 ? 'cloche' : spendBand === 15 ? 'cutlery' : 'stamp',
@@ -244,23 +244,25 @@ export function missionLootDifficulty(
   xp = 0,
 ): MissionLootDifficulty {
   if (cadence === 'weekly') {
-    if (xp <= 40) return 'easy'
-    if (xp <= 70) return 'medium'
-    return 'hard'
+    if (xp < 80) return 'none'
+    return 'easy'
   }
   if (cadence === 'monthly') {
-    if (xp < 240) return 'easy'
-    if (xp <= 300) return 'medium'
-    return 'hard'
+    if (xp < 280) return 'none'
+    if (xp <= 300) return 'easy'
+    return 'medium'
   }
-  if (xp >= 1500) return 'legendary'
-  if (xp >= 800) return 'hard'
-  if (xp >= 300) return 'medium'
-  return 'easy'
+  if (xp < 300) return 'none'
+  if (xp < 800) return 'easy'
+  if (xp < 1500) return 'medium'
+  if (xp < 2200) return 'hard'
+  return 'legendary'
 }
 
 export function lootDifficultyLabel(difficulty: MissionLootDifficulty): string {
   switch (difficulty) {
+    case 'none':
+      return 'Sin premio extra'
     case 'easy':
       return 'Premio sencillo'
     case 'medium':
@@ -305,36 +307,25 @@ function pickFromPool(pool: string[], seed: string, count: number): InventoryGra
   return grants
 }
 
-const LOOT_POOLS: Record<MissionLootDifficulty, string[]> = {
+const LOOT_POOLS: Record<Exclude<MissionLootDifficulty, 'none'>, string[]> = {
   easy: [
     'mesa_1',
-    'sello_casa',
     'invitacion_extra',
   ],
   medium: [
     'mesa_1_15',
     'mesa_3',
-    'sello_casa',
-    'invitacion_extra',
     'nota_critico',
   ],
   hard: [
     'mesa_3_15',
     'mesa_5',
     'doble_sello',
-    'llave_promo',
-    CANCEL_SHIELD_ITEM_ID,
-    'indulto',
-    'salvoconducto',
   ],
   legendary: [
-    'mesa_10_40',
     'mesa_10_15',
-    'llave_maestra',
     'triple_sello',
-    'perdon_promos',
     CANCEL_SHIELD_ITEM_ID,
-    'salvoconducto',
   ],
 }
 
@@ -357,70 +348,48 @@ export function rarityLabel(rarity: InventoryRarity): string {
 
 const LEVEL_REWARDS: Record<number, InventoryGrant[]> = {
   2: [
-    { itemId: 'mesa_1', quantity: 3 },
-    { itemId: 'sello_casa', quantity: 1 },
-    { itemId: 'invitacion_extra', quantity: 1 },
+    { itemId: 'mesa_1', quantity: 1 },
   ],
   3: [
-    { itemId: 'mesa_3', quantity: 1 },
-    { itemId: 'mesa_1_15', quantity: 1 },
-    { itemId: 'sello_casa', quantity: 1 },
-    { itemId: 'nota_critico', quantity: 1 },
+    { itemId: 'mesa_1', quantity: 1 },
+    { itemId: 'invitacion_extra', quantity: 1 },
   ],
   4: [
-    { itemId: 'mesa_3_15', quantity: 1 },
-    { itemId: CANCEL_SHIELD_ITEM_ID, quantity: 1 },
-    { itemId: 'invitacion_extra', quantity: 1 },
-    { itemId: 'mesa_1', quantity: 2 },
-  ],
-  5: [
-    { itemId: 'mesa_5', quantity: 1 },
-    { itemId: 'mesa_3', quantity: 1 },
-    { itemId: 'doble_sello', quantity: 1 },
+    { itemId: 'mesa_1_15', quantity: 1 },
     { itemId: 'nota_critico', quantity: 1 },
   ],
+  5: [
+    { itemId: 'mesa_3', quantity: 1 },
+    { itemId: 'mesa_1_15', quantity: 1 },
+  ],
   6: [
-    { itemId: 'mesa_5_15', quantity: 1 },
+    { itemId: 'mesa_3_15', quantity: 1 },
     { itemId: CANCEL_SHIELD_ITEM_ID, quantity: 1 },
-    { itemId: 'indulto', quantity: 1 },
-    { itemId: 'sello_casa', quantity: 1 },
   ],
   7: [
-    { itemId: 'mesa_5_40', quantity: 1 },
     { itemId: 'mesa_5', quantity: 1 },
     { itemId: 'llave_promo', quantity: 1 },
-    { itemId: 'salvoconducto', quantity: 1 },
   ],
   8: [
-    { itemId: 'mesa_10', quantity: 1 },
+    { itemId: 'mesa_5_15', quantity: 1 },
     { itemId: 'doble_sello', quantity: 1 },
-    { itemId: 'salvoconducto', quantity: 1 },
-    { itemId: CANCEL_SHIELD_ITEM_ID, quantity: 1 },
   ],
   9: [
-    { itemId: 'mesa_10_15', quantity: 1 },
-    { itemId: 'triple_sello', quantity: 1 },
+    { itemId: 'mesa_5_40', quantity: 1 },
     { itemId: CANCEL_SHIELD_ITEM_ID, quantity: 1 },
-    { itemId: 'invitacion_extra', quantity: 1 },
   ],
   10: [
-    { itemId: 'mesa_10_40', quantity: 1 },
-    { itemId: 'llave_promo', quantity: 1 },
-    { itemId: 'salvoconducto', quantity: 1 },
-    { itemId: 'indulto', quantity: 1 },
+    { itemId: 'mesa_10_15', quantity: 1 },
+    { itemId: 'triple_sello', quantity: 1 },
   ],
   11: [
-    { itemId: 'mesa_10', quantity: 2 },
-    { itemId: CANCEL_SHIELD_ITEM_ID, quantity: 2 },
-    { itemId: 'llave_maestra', quantity: 1 },
-    { itemId: 'triple_sello', quantity: 1 },
+    { itemId: 'mesa_10_40', quantity: 1 },
+    { itemId: CANCEL_SHIELD_ITEM_ID, quantity: 1 },
   ],
   12: [
     { itemId: 'mesa_10_40', quantity: 1 },
-    { itemId: 'mesa_10_15', quantity: 1 },
-    { itemId: CANCEL_SHIELD_ITEM_ID, quantity: 2 },
-    { itemId: 'perdon_promos', quantity: 1 },
     { itemId: 'llave_maestra', quantity: 1 },
+    { itemId: 'perdon_promos', quantity: 1 },
   ],
 }
 
@@ -438,15 +407,15 @@ export function seasonPackGrantKey(kind: SeasonPackKind, weekKey: string, monthK
 }
 
 export function rewardsForWeeklyBonus(weekKey = ''): InventoryGrant[] {
-  return pickFromPool(LOOT_POOLS.medium, `weekly_bonus:${weekKey}`, 3)
+  return pickFromPool(LOOT_POOLS.easy, `weekly_bonus:${weekKey}`, 1)
 }
 
 export function rewardsForWeeklyClear(weekKey = ''): InventoryGrant[] {
-  return pickFromPool(LOOT_POOLS.hard, `weekly_clear:${weekKey}`, 3)
+  return pickFromPool(LOOT_POOLS.medium, `weekly_clear:${weekKey}`, 1)
 }
 
 export function rewardsForMonthlyClear(monthKey = ''): InventoryGrant[] {
-  return pickFromPool(LOOT_POOLS.legendary, `monthly_clear:${monthKey}`, 3)
+  return pickFromPool(LOOT_POOLS.hard, `monthly_clear:${monthKey}`, 1)
 }
 
 export function rewardsForSeasonPack(
@@ -480,24 +449,12 @@ export function rewardsForMission(
   xp = 0,
 ): InventoryGrant[] {
   const difficulty = missionLootDifficulty(cadence, xp)
+  if (difficulty === 'none') {
+    return []
+  }
+
   const seed = `${cadence}:${missionId}:${xp}`
-  const pool = LOOT_POOLS[difficulty]
-
-  if (cadence === 'weekly') {
-    return pickFromPool(pool, seed, 1)
-  }
-
-  if (cadence === 'monthly') {
-    return pickFromPool(pool, seed, difficulty === 'easy' ? 1 : 2)
-  }
-
-  if (difficulty === 'legendary') {
-    return pickFromPool(pool, seed, 2)
-  }
-  if (difficulty === 'hard') {
-    return pickFromPool(pool, seed, 2)
-  }
-  return pickFromPool(pool, seed, 1)
+  return pickFromPool(LOOT_POOLS[difficulty], seed, 1)
 }
 
 export function mergeTokenCredits(
@@ -545,7 +502,7 @@ export function matchingReservationTokens(
       if (required <= 0) {
         return true
       }
-      return (item.spendBand ?? 0) > 0
+      return item.coversFully
     })
     .sort((left, right) => {
       if (left.coversFully !== right.coversFully) {

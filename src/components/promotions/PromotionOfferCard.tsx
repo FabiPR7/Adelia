@@ -53,6 +53,7 @@ export interface PromotionOfferCardProps {
   className?: string
   /** En el mapa no navega; muestra botón reclamar si aplica. */
   mapMode?: boolean
+  hero?: boolean
   ladderStatus?: LadderNodeStatus
   progress?: { current: number; required: number }
   onClaim?: () => void
@@ -85,6 +86,7 @@ export default function PromotionOfferCard({
   claimedAt,
   className = '',
   mapMode = false,
+  hero = false,
   ladderStatus,
   progress,
   onClaim,
@@ -109,7 +111,7 @@ export default function PromotionOfferCard({
       || reservationStatusLine?.tone === 'neutral'
     ),
   )
-  const useStaticCard = mapMode || hasLinkedReservationFlow
+  const useStaticCard = mapMode || hero || hasLinkedReservationFlow
   const minSpendLabel = resolvePromotionMinimumSpend(promotion)
   const productRefs = promotion.productRefs ?? []
   const hasVisual = productRefs.some((ref) => ref.photoUrl.trim())
@@ -201,7 +203,10 @@ export default function PromotionOfferCard({
             <div className={styles.progressBar} aria-hidden="true">
               <span style={{ width: `${Math.max(progressPercent, 8)}%` }} />
             </div>
-            <p className={styles.progressCopy}>{progress.current}/{progress.required} reservas</p>
+            <p className={styles.progressCopy}>
+              {progress.current}/{progress.required}{' '}
+              {progress.required === 1 ? 'reserva o consumo' : 'reservas o consumos'}
+            </p>
           </>
         ) : null}
         <div className={styles.meta}>
@@ -233,7 +238,7 @@ export default function PromotionOfferCard({
 
   return (
     <article
-      className={`${styles.card} ${styles[`accent_${accent}`]} ${cardStateClass(ladderStatus, claimed)} ${canVerify ? styles.cardClaimable : ''} ${mapMode ? styles.cardMapMode : ''} ${className}`.trim()}
+      className={`${styles.card} ${styles[`accent_${accent}`]} ${hero ? styles.cardHero : ''} ${cardStateClass(ladderStatus, claimed)} ${canVerify ? styles.cardClaimable : ''} ${mapMode ? styles.cardMapMode : ''} ${className}`.trim()}
     >
       {isClaimed ? <span className={styles.claimedStamp}>Reclamada</span> : null}
       {useStaticCard ? (

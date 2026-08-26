@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { Timestamp } from 'firebase-admin/firestore'
 import { Resend } from 'resend'
 import { APP_URL, EMAIL_FROM, EMAIL_REPLY_TO, getResendApiKey, isValidClientEmail } from './config.ts'
@@ -8,8 +8,22 @@ import { adminDb } from '../firebase-admin.ts'
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000
 
+export type PasswordResetAudience = 'company' | 'customer'
+
+export function hashPasswordResetToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+function newResetToken(): string {
+  return randomBytes(32).toString('hex')
+}
+
 export function buildPasswordResetUrl(token: string): string {
   return `${APP_URL}/restablecer-contrasena?token=${encodeURIComponent(token)}`
+}
+
+export function buildCustomerPasswordResetUrl(token: string): string {
+  return `${APP_URL}/cuenta/restablecer-contrasena?token=${encodeURIComponent(token)}`
 }
 
 function buildPasswordResetHtml(options: {
@@ -76,19 +90,51 @@ function buildPasswordResetText(options: { companyName: string; resetUrl: string
   ].join('\n')
 }
 
-export async function createPasswordResetToken(companyId: string, ownerUid: string, email: string) {
-  const token = randomUUID()
+async function storePasswordResetToken(input: {
+  token: string
+  audience: PasswordResetAudience
+  ownerUid: string
+  email: string
+  companyId?: string
+  displayName?: string
+}) {
   const now = Date.now()
-  const expiresAt = Timestamp.fromDate(new Date(now + RESET_TOKEN_TTL_MS))
-
-  await adminDb.collection('passwordResetTokens').doc(token).set({
-    companyId,
-    ownerUid,
-    email: email.trim().toLowerCase(),
-    expiresAt,
+  await adminDb.collection('passwordResetTokens').doc(hashPasswordResetToken(input.token)).set({
+    audience: input.audience,
+    companyId: input.companyId ?? '',
+    ownerUid: input.ownerUid,
+    email: input.email.trim().toLowerCase(),
+    displayName: input.displayName ?? '',
+    expiresAt: Timestamp.fromDate(new Date(now + RESET_TOKEN_TTL_MS)),
     createdAt: Timestamp.fromDate(new Date(now)),
   })
+}
 
+export async function createPasswordResetToken(companyId: string, ownerUid: string, email: string) {
+  const token = newResetToken()
+  await storePasswordResetToken({
+    token,
+    audience: 'company',
+    ownerUid,
+    email,
+    companyId,
+  })
+  return token
+}
+
+export async function createCustomerPasswordResetToken(
+  ownerUid: string,
+  email: string,
+  displayName: string,
+) {
+  const token = newResetToken()
+  await storePasswordResetToken({
+    token,
+    audience: 'customer',
+    ownerUid,
+    email,
+    displayName,
+  })
   return token
 }
 
@@ -133,8 +179,57 @@ export async function sendPasswordResetEmail(options: {
   }
 }
 
+export async function sendCustomerPasswordResetEmail(options: {
+  to: string
+  displayName: string
+  token: string
+  apiKey?: string
+}): Promise<void> {
+  const apiKey = options.apiKey ?? getResendApiKey()
+
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY no configurada.')
+  }
+
+  if (!isValidClientEmail(options.to)) {
+    throw new Error('Correo de destino no válido.')
+  }
+
+  const accountName = options.displayName.trim() || 'tu cuenta Adelia'
+  const resetUrl = buildCustomerPasswordResetUrl(options.token)
+  const resend = new Resend(apiKey)
+
+  const result = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: options.to.trim(),
+    replyTo: EMAIL_REPLY_TO,
+    subject: 'Restablecer contraseña — Adelia',
+    html: buildPasswordResetHtml({
+      companyName: accountName,
+      resetUrl,
+    }),
+    text: buildPasswordResetText({
+      companyName: accountName,
+      resetUrl,
+    }),
+    attachments: getAdeliaEmailLogoAttachmentsForSend(),
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+}
+
 export async function getPasswordResetTokenRecord(token: string) {
-  const snap = await adminDb.collection('passwordResetTokens').doc(token).get()
+  const trimmed = token.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const hashedSnap = await adminDb.collection('passwordResetTokens').doc(hashPasswordResetToken(trimmed)).get()
+  const snap = hashedSnap.exists
+    ? hashedSnap
+    : await adminDb.collection('passwordResetTokens').doc(trimmed).get()
 
   if (!snap.exists) {
     return null
@@ -148,10 +243,12 @@ export async function getPasswordResetTokenRecord(token: string) {
   }
 
   return {
-    token,
-    companyId: data.companyId as string,
+    token: snap.id,
+    audience: data.audience === 'customer' ? 'customer' as const : 'company' as const,
+    companyId: typeof data.companyId === 'string' ? data.companyId : '',
     ownerUid: data.ownerUid as string,
     email: data.email as string,
+    displayName: typeof data.displayName === 'string' ? data.displayName : '',
     expiresAt,
   }
 }

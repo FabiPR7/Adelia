@@ -17,11 +17,20 @@ import {
   updateReservation,
   updateReservationStatus,
 } from '../../services/firestore'
+import { monthBounds } from '../../services/firestoreQuery'
 import { syncReservationDeposit } from '../../services/reservationDepositApi'
 import { pingCompanyGamification } from '../../services/companyGamification'
+import { companyAcceptsReservations } from '../../data/companyReservationMode'
 import type { PromotionVisitStatus, Reservation, ReservationFormData } from '../../types'
 import type { RestaurantTable } from '../../types'
-import { clampToTodayOrFuture, dateToTimeInput, formatDateSpanish, defaultSchedule, isReservationStartInPast, isSameDay } from '../../utils/helpers'
+import {
+  dateToTimeInput,
+  defaultSchedule,
+  formatDateSpanish,
+  isPastCalendarDate,
+  isReservationStartInPast,
+  startOfDay,
+} from '../../utils/helpers'
 import {
   buildDepositCancelConfirmCopy,
   reservationHasAuthorizedDeposit,
@@ -40,6 +49,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   const { company } = useAuth()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [allReservations, setAllReservations] = useState<Reservation[]>([])
+  const [calendarReservations, setCalendarReservations] = useState<Reservation[]>([])
   const [tables, setTables] = useState<RestaurantTable[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -60,6 +70,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   const [pendingDepositCancelForm, setPendingDepositCancelForm] = useState<ReservationFormData | null>(null)
 
   const durationMinutes = company?.timeSlotMinutes ?? 120
+  const acceptsReservations = companyAcceptsReservations(company?.reservationMode)
   const depositCancellationHours = company?.depositCancellationHours ?? null
 
   const reservations = useMemo(
@@ -82,23 +93,25 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   const calendarModalCounts = useMemo(
     () =>
       computeReservationCountsByMonth(
-        allReservations,
+        calendarReservations,
         calendarViewDate.getFullYear(),
         calendarViewDate.getMonth(),
       ),
-    [allReservations, calendarViewDate],
+    [calendarReservations, calendarViewDate],
   )
 
   const shiftSelectedDate = (days: number) => {
     const next = new Date(selectedDate)
     next.setDate(next.getDate() + days)
-    setSelectedDate(clampToTodayOrFuture(next))
+    setSelectedDate(next)
   }
 
   const handleSelectDate = (date: Date) => {
-    setSelectedDate(clampToTodayOrFuture(date))
+    setSelectedDate(date)
     setCalendarOpen(false)
   }
+
+  const selectedMonthKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}`
 
   const loadData = useCallback(async (refresh = false) => {
     if (refresh) {
@@ -110,12 +123,15 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
     setError(null)
 
     try {
+      const [year, month] = selectedMonthKey.split('-').map(Number)
+      const range = monthBounds(new Date(year, month, 1))
       const [reservationRows, tableRows] = await Promise.all([
-        getReservationsByCompany(companyId),
+        getReservationsByCompany(companyId, { from: range.start, to: range.end, skipCache: refresh }),
         getTablesByCompany(companyId),
       ])
 
       setAllReservations(reservationRows)
+      setCalendarReservations(reservationRows)
       setTables(tableRows)
     } catch (err) {
       setError(getFirestoreErrorMessage(err))
@@ -126,7 +142,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
         setIsLoading(false)
       }
     }
-  }, [companyId])
+  }, [companyId, selectedMonthKey])
 
   const handleRefresh = () => {
     void loadData(true)
@@ -135,6 +151,16 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    if (!calendarOpen) {
+      return
+    }
+    const range = monthBounds(calendarViewDate)
+    void getReservationsByCompany(companyId, { from: range.start, to: range.end })
+      .then(setCalendarReservations)
+      .catch(() => undefined)
+  }, [calendarOpen, calendarViewDate, companyId])
 
   useEffect(() => {
     if (calendarOpen) {
@@ -160,7 +186,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   const nextPendingAttendanceHour = useMemo(() => {
     void attendanceClock
 
-    if (!isSameDay(selectedDate, new Date())) {
+    if (startOfDay(selectedDate).getTime() > startOfDay(new Date()).getTime()) {
       return null
     }
 
@@ -235,16 +261,25 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   }
 
   const handleOpenCreate = () => {
+    if (!acceptsReservations || isPastCalendarDate(selectedDate)) {
+      return
+    }
     setEditingReservation(null)
     setModalOpen(true)
   }
 
   const handleOpenEdit = (reservation: Reservation) => {
+    if (isReservationStartInPast(selectedDate, dateToTimeInput(reservation.startTime))) {
+      return
+    }
     setEditingReservation(reservation)
     setModalOpen(true)
   }
 
   const handleDelete = (reservation: Reservation) => {
+    if (isReservationStartInPast(selectedDate, dateToTimeInput(reservation.startTime))) {
+      return
+    }
     setReservationToDelete(reservation)
   }
 
@@ -270,6 +305,17 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   }
 
   const executeSubmit = async (form: ReservationFormData) => {
+    if (!editingReservation && isPastCalendarDate(selectedDate)) {
+      throw new Error('No se pueden crear reservas en un día anterior.')
+    }
+
+    if (
+      editingReservation
+      && isReservationStartInPast(selectedDate, dateToTimeInput(editingReservation.startTime))
+    ) {
+      throw new Error('No se puede editar una reserva que ya ha pasado. Usa el control de asistencia.')
+    }
+
     setIsSaving(true)
     setError(null)
 
@@ -402,13 +448,16 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
 
   const today = new Date()
   const isToday = selectedDate.toDateString() === today.toDateString()
+  const isPastDay = isPastCalendarDate(selectedDate)
+  const canCreateReservations = acceptsReservations && !isPastDay
+  const heroLabel = isToday ? 'Hoy' : isPastDay ? 'Día anterior' : 'Día seleccionado'
 
   return (
     <div className={styles.wrapper}>
       <section className={styles.hero}>
         <div className={styles.heroMain}>
           <div>
-            <span className={styles.heroLabel}>{isToday ? 'Hoy' : 'Día seleccionado'}</span>
+            <span className={styles.heroLabel}>{heroLabel}</span>
             <h2>{formatDateSpanish(selectedDate)}</h2>
           </div>
           <div className={styles.mobileDateNav}>
@@ -463,20 +512,29 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
             </svg>
             <span>{isRefreshing ? 'Actualizando…' : 'Actualizar'}</span>
           </button>
-          <button
-            type="button"
-            className={styles.todayButton}
-            onClick={() => setSelectedDate(new Date())}
-          >
+          <button type="button" className={styles.todayButton} onClick={() => setSelectedDate(new Date())}>
             Ir a hoy
           </button>
-          <button type="button" className={styles.primaryButton} onClick={handleOpenCreate}>
-            + Nueva reserva
-          </button>
+          {canCreateReservations ? (
+            <button type="button" className={styles.primaryButton} onClick={handleOpenCreate}>
+              + Nueva reserva
+            </button>
+          ) : null}
         </div>
       </section>
 
       {error && <div className={styles.error}>{error}</div>}
+      {!acceptsReservations ? (
+        <div className={styles.modeNotice}>
+          Este local está en modo sin reservas. No se pueden crear reservas nuevas desde Adelia.
+          Puedes cambiarlo en Mi restaurante → Reservas y horario.
+        </div>
+      ) : isPastDay ? (
+        <div className={styles.modeNotice}>
+          Estás viendo un día anterior. No se pueden crear ni editar reservas pasadas.
+          Si te falta marcar a un cliente, usa el control de asistencia para confirmar o cancelar.
+        </div>
+      ) : null}
 
       <div className={styles.layout}>
         <aside className={styles.calendarPane}>
@@ -484,7 +542,6 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
             selectedDate={selectedDate}
             onSelectDate={handleSelectDate}
             reservationCounts={reservationCounts}
-            disablePastDates
           />
         </aside>
 
@@ -496,6 +553,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
               reservations={reservations}
               tableMeta={tableMeta}
               selectedDate={selectedDate}
+              canCreate={canCreateReservations}
               onAdd={handleOpenCreate}
               onEdit={handleOpenEdit}
               onDelete={handleDelete}
@@ -524,7 +582,6 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
               reservationCounts={calendarModalCounts}
               updateSelectionOnMonthNav={false}
               onMonthChange={setCalendarViewDate}
-              disablePastDates
             />
           </div>
         </div>

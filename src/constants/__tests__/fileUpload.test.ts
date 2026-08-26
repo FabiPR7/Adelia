@@ -9,6 +9,17 @@ import {
   isAllowedImageExtension,
   isValidFileSize,
   formatFileSize,
+  MAX_PDF_FILE_SIZE,
+  isAllowedPdfFile,
+  isValidPdfFileSize,
+  MAX_VIDEO_DURATION_SECONDS,
+  MAX_VIDEO_FILE_SIZE,
+  MAX_VIDEO_SOURCE_FILE_SIZE,
+  isAllowedVideoFile,
+  isAllowedVideoType,
+  isValidVideoFileSize,
+  isVideoDurationAllowed,
+  companyVideoUploadHint,
 } from '../fileUpload'
 
 describe('fileUpload constants and validation', () => {
@@ -244,6 +255,59 @@ describe('fileUpload constants and validation', () => {
       expect(isAllowedImageType(file.type)).toBe(true)
       expect(isAllowedImageExtension(file.name)).toBe(true)
       expect(isValidFileSize(file.size)).toBe(false) // ❌ Demasiado grande
+    })
+  })
+
+  describe('PDF de carta', () => {
+    it('debería permitir PDF y rechazar otras extensiones', () => {
+      expect(isAllowedPdfFile({ name: 'carta.pdf', type: 'application/pdf' })).toBe(true)
+      expect(isAllowedPdfFile({ name: 'carta.PDF', type: 'application/pdf' })).toBe(true)
+      expect(isAllowedPdfFile({ name: 'carta.pdf', type: '' })).toBe(true)
+      expect(isAllowedPdfFile({ name: 'carta.png', type: 'application/pdf' })).toBe(false)
+      expect(isAllowedPdfFile({ name: 'carta.exe', type: 'application/pdf' })).toBe(false)
+      expect(isAllowedPdfFile({ name: 'carta.pdf', type: 'image/jpeg' })).toBe(false)
+    })
+
+    it('debería limitar el PDF a 10MB sin cambiar el límite de imágenes', () => {
+      expect(MAX_FILE_SIZE).toBe(5 * 1024 * 1024)
+      expect(MAX_PDF_FILE_SIZE).toBe(10 * 1024 * 1024)
+      expect(isValidPdfFileSize(10 * 1024 * 1024)).toBe(true)
+      expect(isValidPdfFileSize(10 * 1024 * 1024 + 1)).toBe(false)
+      expect(isValidFileSize(6 * 1024 * 1024)).toBe(false)
+    })
+  })
+
+  describe('Vídeo de perfil', () => {
+    it('debería limitar clips a 30 segundos y 40 MB', () => {
+      expect(MAX_VIDEO_DURATION_SECONDS).toBe(30)
+      expect(MAX_VIDEO_FILE_SIZE).toBe(40 * 1024 * 1024)
+      expect(isValidVideoFileSize(40 * 1024 * 1024)).toBe(true)
+      expect(isValidVideoFileSize(40 * 1024 * 1024 + 1)).toBe(false)
+      expect(isValidVideoFileSize(22 * 1024 * 1024)).toBe(true)
+      expect(isValidVideoFileSize(223 * 1024 * 1024)).toBe(false)
+      expect(MAX_VIDEO_SOURCE_FILE_SIZE).toBe(512 * 1024 * 1024)
+      expect(isVideoDurationAllowed(30)).toBe(true)
+      expect(isVideoDurationAllowed(30.2)).toBe(true)
+      expect(isVideoDurationAllowed(31)).toBe(false)
+      expect(isVideoDurationAllowed(0)).toBe(false)
+    })
+
+    it('debería aceptar MP4, MOV y WebM y rechazar películas u otros formatos', () => {
+      expect(isAllowedVideoFile({ name: 'local.mp4', type: 'video/mp4' })).toBe(true)
+      expect(isAllowedVideoFile({ name: 'local.MOV', type: 'video/quicktime' })).toBe(true)
+      expect(isAllowedVideoFile({ name: 'local.webm', type: 'video/webm' })).toBe(true)
+      expect(isAllowedVideoFile({ name: 'local.mp4', type: '' })).toBe(true)
+      expect(isAllowedVideoFile({ name: 'pelicula.mkv', type: 'video/x-matroska' })).toBe(false)
+      expect(isAllowedVideoFile({ name: 'clip.avi', type: 'video/x-msvideo' })).toBe(false)
+      expect(isAllowedVideoType('video/mp4')).toBe(true)
+      expect(isAllowedVideoType('video/avi')).toBe(false)
+    })
+
+    it('debería explicar el límite en el texto de ayuda', () => {
+      expect(companyVideoUploadHint(2)).toContain('2 clips')
+      expect(companyVideoUploadHint(2)).toContain('30 s')
+      expect(companyVideoUploadHint(2)).toContain('200–300 MB')
+      expect(companyVideoUploadHint(2)).toContain('40.0 MB')
     })
   })
 })

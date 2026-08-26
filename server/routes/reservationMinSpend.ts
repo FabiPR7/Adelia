@@ -8,6 +8,7 @@ import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
 import { recordTimeLimitedPromotionClaimForVerification } from '../utils/recordTimeLimitedClaim.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { findPendingTokenSpend, settlePendingTokenSpend } from '../gamification/inventory.ts'
+import { resolveCompanyCardFields } from '../utils/verifiedConsumption.ts'
 
 const router = Router()
 const verifySpendRateLimit = createRateLimit(10, 60_000)
@@ -147,6 +148,7 @@ router.post(
 
       const nodesSnapshot = await companyRef.collection('menuNodes')
         .where('active', '==', true)
+        .limit(400)
         .get()
 
       const productMap = new Map<string, FirebaseFirestore.DocumentData>()
@@ -244,6 +246,7 @@ router.post(
       })
     })
 
+    const companyCard = resolveCompanyCardFields(companySnap.data())
     await companyRef.collection('verifiedConsumptions').doc(reservationId).set({
       reservationId,
       companyId,
@@ -259,6 +262,10 @@ router.post(
       lineItems,
       verifiedAt,
       meetsMinimumSpend,
+      source: 'reservation',
+      companyName: companyCard.companyName,
+      companySlug: companyCard.companySlug,
+      photoUrl: companyCard.photoUrl,
     })
 
     await adminDb.collection('productClaims').doc(`${customerUid}_${reservationId}`).set({

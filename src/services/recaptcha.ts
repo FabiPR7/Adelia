@@ -18,7 +18,15 @@ const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || ''
  */
 export function loadRecaptchaScript(): Promise<void> {
   return new Promise((resolve, reject) => {
-    // Si ya está cargado, resolver inmediatamente
+    if (!RECAPTCHA_SITE_KEY) {
+      if (import.meta.env.DEV) {
+        resolve()
+        return
+      }
+      reject(new Error('reCAPTCHA no configurada'))
+      return
+    }
+
     if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') {
       resolve()
       return

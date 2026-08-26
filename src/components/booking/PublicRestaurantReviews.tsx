@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import AdelinaCoin from '../AdelinaCoin'
-import DiscoveryRatingBadge from '../DiscoveryRatingBadge'
 import ReviewCommentBody from '../ReviewCommentBody'
 import {
   fetchPublicReviews,
   type PublicCompanyReview,
 } from '../../services/publicApi'
 import type { AdelinaSlotState } from '../../types/review'
-import { getAdelinaSlotStates } from '../../types/review'
+import { getAdelinaSlotStates, normalizeReviewRating } from '../../types/review'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../../utils/cloudinaryUrl'
 import styles from './PublicRestaurantReviews.module.css'
 
@@ -15,6 +14,9 @@ interface PublicRestaurantReviewsProps {
   companySlug: string
   companyName: string
 }
+
+const ADELINA_RATING_FILTERS = ['all', 1, 2, 3, 4, 5] as const
+type AdelinaRatingFilter = (typeof ADELINA_RATING_FILTERS)[number]
 
 function formatReviewDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString('es-ES', {
@@ -145,6 +147,7 @@ export default function PublicRestaurantReviews({
 }: PublicRestaurantReviewsProps) {
   const [reviews, setReviews] = useState<PublicCompanyReview[]>([])
   const [stats, setStats] = useState({ reviewCount: 0, averageRating: 0 })
+  const [ratingFilter, setRatingFilter] = useState<AdelinaRatingFilter>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -176,6 +179,7 @@ export default function PublicRestaurantReviews({
     }
 
     void load()
+    setRatingFilter('all')
 
     return () => {
       cancelled = true
@@ -192,28 +196,55 @@ export default function PublicRestaurantReviews({
   ), [stats.averageRating])
 
   const summarySlots = getAdelinaSlotStates(stats.averageRating, stats.reviewCount)
+  const visibleReviews = useMemo(() => {
+    if (ratingFilter === 'all') {
+      return reviews
+    }
+    return reviews.filter((review) => normalizeReviewRating(review.rating) === ratingFilter)
+  }, [ratingFilter, reviews])
 
   return (
     <section className={styles.section} aria-labelledby="public-reviews-heading">
       <header className={styles.header}>
-        <div className={styles.headerCopy}>
+        <div className={styles.headerTop}>
           <h2 id="public-reviews-heading" className={styles.title}>
             <span className={styles.titleDot} aria-hidden="true" />
             Reseñas
           </h2>
-          <p className={styles.subtitle}>
-            {stats.reviewCount > 0
-              ? `${stats.reviewCount} ${stats.reviewCount === 1 ? 'cliente ha compartido' : 'clientes han compartido'} su experiencia`
-              : 'Todavía no hay reseñas publicadas'}
-          </p>
+          {stats.reviewCount > 0 && ratingBadge ? (
+            <div
+              className={styles.summary}
+              aria-label={`Valoración ${ratingBadge} de 5`}
+            >
+              <AdelinaSlotRow slotStates={summarySlots} size="sm" />
+              <span className={styles.summaryValue}>{ratingBadge}</span>
+            </div>
+          ) : null}
         </div>
+        <div className={styles.filters} role="group" aria-label="Filtrar reseñas por Adelinas">
+          {ADELINA_RATING_FILTERS.map((filter) => {
+            const active = ratingFilter === filter
+            const label = filter === 'all' ? 'Todas' : String(filter)
+            const ariaLabel = filter === 'all'
+              ? 'Todas las reseñas'
+              : filter === 1
+                ? 'Reseñas de 1 Adelina'
+                : `Reseñas de ${filter} Adelinas`
 
-        {stats.reviewCount > 0 && ratingBadge ? (
-          <div className={styles.summary}>
-            <AdelinaSlotRow slotStates={summarySlots} size="md" />
-            <DiscoveryRatingBadge rating={ratingBadge} size="md" className={styles.summaryBadge} />
-          </div>
-        ) : null}
+            return (
+              <button
+                key={String(filter)}
+                type="button"
+                className={`${styles.filterButton} ${filter === 'all' ? styles.filterAll : ''} ${active ? styles.filterActive : ''}`}
+                aria-pressed={active}
+                aria-label={ariaLabel}
+                onClick={() => setRatingFilter(filter)}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
       </header>
 
       {error ? <p className={styles.error}>{error}</p> : null}
@@ -225,9 +256,18 @@ export default function PublicRestaurantReviews({
           <AdelinaCoin size="sm" variant="review" alt="" />
           <p>Sé el primero en dejar tu opinión tras visitar {companyName}.</p>
         </div>
+      ) : visibleReviews.length === 0 ? (
+        <div className={styles.empty}>
+          <AdelinaCoin size="sm" variant="review" alt="" />
+          <p>
+            {ratingFilter === 1
+              ? 'Nadie ha dejado aún una reseña de 1 Adelina.'
+              : `Nadie ha dejado aún una reseña de ${ratingFilter} Adelinas.`}
+          </p>
+        </div>
       ) : (
         <div className={styles.list}>
-          {reviews.map((review) => (
+          {visibleReviews.map((review) => (
             <PublicReviewCard
               key={review.id}
               review={review}

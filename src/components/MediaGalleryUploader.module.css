@@ -34,6 +34,10 @@
   gap: 0.65rem;
 }
 
+.gridVideo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .item {
   position: relative;
   border: 1px solid var(--color-border);
@@ -41,6 +45,16 @@
   overflow: hidden;
   background: var(--color-cream);
   aspect-ratio: 4 / 3;
+}
+
+.itemVideo {
+  aspect-ratio: 16 / 9;
+  background: #1a120e;
+}
+
+.itemVideo .media {
+  object-fit: contain;
+  background: #1a120e;
 }
 
 .media {
@@ -79,6 +93,7 @@
   position: absolute;
   top: 0.35rem;
   right: 0.35rem;
+  z-index: 3;
   width: 28px;
   height: 28px;
   border: none;
@@ -116,6 +131,30 @@
   padding: 0.75rem;
   font-size: 0.875rem;
   color: var(--color-text-muted);
+}
+
+.loaderCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.progressTrack {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(107, 83, 68, 0.14);
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-brown);
+  transition: width 0.2s ease;
 }
 
 .spinner {

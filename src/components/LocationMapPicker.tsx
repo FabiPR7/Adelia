@@ -29,6 +29,8 @@ interface LocationMapPickerProps {
   onChange: (coords: GeoCoordinates) => void
   geocodeQuery?: string
   disabled?: boolean
+  compact?: boolean
+  square?: boolean
 }
 
 function LocationMapPicker({
@@ -36,6 +38,8 @@ function LocationMapPicker({
   onChange,
   geocodeQuery = '',
   disabled = false,
+  compact = false,
+  square = false,
 }: LocationMapPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -106,6 +110,12 @@ function LocationMapPicker({
     })
 
     mapRef.current = map
+    window.setTimeout(() => {
+      map.invalidateSize()
+    }, 80)
+    window.setTimeout(() => {
+      map.invalidateSize()
+    }, 280)
 
     return () => {
       map.remove()
@@ -208,7 +218,7 @@ function LocationMapPicker({
   }
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root} ${compact ? styles.rootCompact : ''} ${square ? styles.rootSquare : ''}`}>
       <div className={styles.toolbar}>
         <button
           type="button"
@@ -230,13 +240,15 @@ function LocationMapPicker({
 
       <div
         ref={mapContainerRef}
-        className={styles.map}
+        className={`${styles.map} ${compact ? styles.mapCompact : ''} ${square ? styles.mapSquare : ''}`}
         aria-label="Mapa para marcar la ubicación del restaurante"
       />
 
-      <p className={styles.hint}>
-        Toca el mapa o arrastra el pin para indicar la entrada exacta de tu local.
-      </p>
+      {square ? null : (
+        <p className={styles.hint}>
+          Toca el mapa o arrastra el pin para indicar la entrada exacta de tu local.
+        </p>
+      )}
 
       {statusMessage && <p className={styles.status}>{statusMessage}</p>}
 

@@ -35,8 +35,8 @@
 .bubbles {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  max-height: 220px;
+  gap: 0.35rem;
+  max-height: 168px;
   overflow: auto;
   padding: 0.15rem 0;
 }

@@ -18,6 +18,13 @@ service cloud.firestore {
       return isSignedIn() && userDocExists() && userDoc().data.role == 'admin';
     }
 
+    function hasNoPasswordSecrets(data) {
+      return !('loginPassword' in data)
+        && !('password' in data)
+        && !('passwordHash' in data)
+        && !('passwordSalt' in data);
+    }
+
     function isCompanyOwner(companyId) {
       return isSignedIn() && (
         (
@@ -40,7 +47,7 @@ service cloud.firestore {
         && isCompanyOwner(resource.data.companyId)
       );
       allow list: if false;
-      allow create, update: if isAdmin() || (
+      allow create, update: if (isAdmin() || (
         isSignedIn()
         && request.resource.data.role == 'company'
         && request.resource.data.loginName is string
@@ -50,21 +57,23 @@ service cloud.firestore {
         && request.resource.data.authEmail.size() <= 120
         && request.resource.data.companyId is string
         && isCompanyOwner(request.resource.data.companyId)
-      );
+      )) && hasNoPasswordSecrets(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /companyCredentials/{companyId} {
       allow read: if isAdmin() || isCompanyOwner(companyId);
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (
-        isCompanyOwner(companyId)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['loginName', 'updatedAt', 'loginPassword'])
-        && request.resource.data.loginName is string
-        && request.resource.data.loginName.size() > 0
-        && request.resource.data.loginName.size() <= 80
-        && !('loginPassword' in request.resource.data)
+      allow create: if isAdmin() && hasNoPasswordSecrets(request.resource.data);
+      allow delete: if isAdmin();
+      allow update: if hasNoPasswordSecrets(request.resource.data) && (
+        isAdmin() || (
+          isCompanyOwner(companyId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['loginName', 'updatedAt'])
+          && request.resource.data.loginName is string
+          && request.resource.data.loginName.size() > 0
+          && request.resource.data.loginName.size() <= 80
+        )
       );
     }
 
@@ -79,6 +88,31 @@ service cloud.firestore {
 
     function isSelf(userId) {
       return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isSafePhotoUrl(url) {
+      return url is string
+        && url.size() <= 500
+        && (
+          url == ''
+          || url.matches('^https://res\\.cloudinary\\.com/')
+          || url.matches('^https://[a-z0-9.-]*googleusercontent\\.com/')
+        );
+    }
+
+    function isFreshCustomerEconomy(data) {
+      return data.xp == 0
+        && data.adelinas == 0
+        && data.gamification.xp == 0
+        && data.gamification.adelinas == 0
+        && data.gamification.completedMissions.size() == 0
+        && data.gamification.inventory.size() == 0
+        && data.gamification.claimedPromotions.size() == 0
+        && data.gamification.pendingTokenSpend.size() == 0
+        && data.gamification.grantedItemKeys.size() == 0
+        && data.gamification.visitedCompanyIds.size() == 0
+        && data.gamification.promoLocked == false
+        && data.gamification.cancellationStrikeCount == 0;
     }
 
     function isValidCustomerCreate() {
@@ -97,8 +131,7 @@ service cloud.firestore {
         && data.phone is string
         && data.phone.size() <= 30
         && data.phoneVerified is bool
-        && data.photoUrl is string
-        && data.photoUrl.size() <= 500
+        && isSafePhotoUrl(data.photoUrl)
         && data.favoriteSlugs is list
         && data.favoriteSlugs.size() <= 200
         && data.foodPreferences is list
@@ -106,9 +139,12 @@ service cloud.firestore {
         && data.gamification is map
         && data.xp is int
         && data.adelinas is int
+        && isFreshCustomerEconomy(data)
+        && (!('blocked' in data) || data.blocked == false)
         && (data.homeLatitude == null || data.homeLatitude is number)
         && (data.homeLongitude == null || data.homeLongitude is number)
-        && data.createdAt == request.time;
+        && data.createdAt == request.time
+        && hasNoPasswordSecrets(data);
     }
 
     function customerProfileUpdateKeys() {
@@ -148,10 +184,15 @@ service cloud.firestore {
         && request.resource.data.displayName.size() <= 80
         && request.resource.data.phone is string
         && request.resource.data.phone.size() <= 30
-        && request.resource.data.photoUrl is string
-        && request.resource.data.photoUrl.size() <= 500
+        && isSafePhotoUrl(request.resource.data.photoUrl)
         && request.resource.data.favoriteSlugs is list
         && request.resource.data.favoriteSlugs.size() <= 200
+        && request.resource.data.foodPreferences is list
+        && request.resource.data.foodPreferences.size() <= 40
+        && (!('homeCity' in request.resource.data) || (request.resource.data.homeCity is string && request.resource.data.homeCity.size() <= 80))
+        && (!('homeMunicipality' in request.resource.data) || (request.resource.data.homeMunicipality is string && request.resource.data.homeMunicipality.size() <= 80))
+        && (!('homeCountry' in request.resource.data) || (request.resource.data.homeCountry is string && request.resource.data.homeCountry.size() <= 80))
+        && (!('homePostalCode' in request.resource.data) || (request.resource.data.homePostalCode is string && request.resource.data.homePostalCode.size() <= 16))
       );
       allow delete: if isAdmin();
 
@@ -185,8 +226,25 @@ service cloud.firestore {
 
     function isValidCompanyOwnerUpdate() {
       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      // promotionPin ya no está en el documento principal, está en /private/promotionPin
-      return !changedKeys.hasAny(['slug', 'ownerUid', 'createdAt'])
+      // El plan, el cobro y el destaco los asigna solo el admin.
+      return !changedKeys.hasAny([
+          'slug',
+          'ownerUid',
+          'createdAt',
+          'planId',
+          'planBilling',
+          'planStartedAt',
+          'planLastPaidAt',
+          'discoveryFeatured',
+          'stripeAccountId',
+          'stripeChargesEnabled',
+          'stripePayoutsEnabled',
+          'stripeDetailsSubmitted',
+          'emailTemplates',
+          'reviewCount',
+          'reviewRatingSum',
+          'reviewAdelinas',
+        ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0;
     }
@@ -225,7 +283,7 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow read: if true;
+      allow read: if isAdmin() || isCompanyOwner(companyId);
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (
         isCompanyOwner(companyId)
@@ -290,8 +348,16 @@ service cloud.firestore {
       }
     }
 
+    match /{path=**}/verifiedConsumptions/{consumptionId} {
+      allow read: if isSignedIn()
+        && resource.data.customerUid == request.auth.uid;
+      allow write: if false;
+    }
+
     match /tables/{tableId} {
-      allow read: if true;
+      allow read: if isAdmin() || (
+        isSignedIn() && isCompanyOwner(resource.data.companyId)
+      );
       allow create: if isSignedIn()
         && (isAdmin() || isCompanyOwner(request.resource.data.companyId));
       allow update, delete: if isSignedIn()
@@ -321,15 +387,33 @@ service cloud.firestore {
 
     match /reservations/{reservationId} {
       allow get, list: if canReadReservation();
-      allow create: if isSignedIn()
-        && (isAdmin() || isCompanyOwner(request.resource.data.companyId));
+      allow create: if false;
       allow update, delete: if isSignedIn()
         && (isAdmin() || isCompanyOwner(resource.data.companyId));
     }
 
     match /restaurantIndex/{companyId} {
       allow read: if true;
-      allow write: if isAdmin() || isCompanyOwner(companyId);
+      allow delete: if isAdmin();
+      allow create: if isAdmin() || (
+        isCompanyOwner(companyId)
+        && request.resource.data.companyId == companyId
+        && request.resource.data.discoveryFeatured != true
+        && (!('reviewCount' in request.resource.data) || request.resource.data.reviewCount == 0)
+        && (!('reviewRatingSum' in request.resource.data) || request.resource.data.reviewRatingSum == 0)
+        && (!('reviewAdelinas' in request.resource.data) || request.resource.data.reviewAdelinas == 0)
+      );
+      allow update: if isAdmin() || (
+        isCompanyOwner(companyId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'discoveryFeatured',
+          'reviewCount',
+          'reviewRatingSum',
+          'reviewAdelinas',
+          'companyId',
+          'slug',
+        ])
+      );
     }
 
     match /friendships/{friendshipId} {
@@ -385,13 +469,43 @@ service cloud.firestore {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create, update: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.slug is string;
+        && request.resource.data.slug is string
+        && request.resource.data.slug.size() > 0
+        && request.resource.data.slug.size() <= 80
+        && request.resource.data.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$');
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /reviewIndex/{reviewId} {
       allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /saasSubscriptions/{sessionId} {
+      allow read: if isAdmin();
       allow write: if false;
+    }
+
+    match /planChangeRequests/{requestId} {
+      allow create: if isSignedIn()
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() <= 128
+        && isCompanyOwner(request.resource.data.companyId)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.fromPlanId is string
+        && request.resource.data.fromPlanId.size() <= 40
+        && request.resource.data.toPlanId is string
+        && request.resource.data.toPlanId.size() <= 40
+        && request.resource.data.companyName is string
+        && request.resource.data.companyName.size() > 0
+        && request.resource.data.companyName.size() <= 80;
+      allow read: if isAdmin()
+        || (
+          isSignedIn()
+          && resource.data.companyId is string
+          && isCompanyOwner(resource.data.companyId)
+        );
+      allow update, delete: if isAdmin();
     }
 
     match /productClaims/{claimId} {
@@ -418,16 +532,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-<<<<<<< HEAD
     match /securityEvents/{eventId} {
       allow read: if isAdmin();
-      allow create: if isSignedIn();
-      allow update, delete: if false;
-=======
+      allow create, update, delete: if false;
+    }
+
     match /userGamification/{userId} {
       allow read: if isSelf(userId) || isAdmin();
       allow write: if false;
->>>>>>> d523230a43eeed419471680ff32f7f9dd61cdcfc
+    }
+
+    match /loginAttempts/{attemptId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
   }
 }

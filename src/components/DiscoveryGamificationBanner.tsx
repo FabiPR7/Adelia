@@ -28,10 +28,13 @@ function buildGuestPreview() {
   const state = defaultGamificationState()
   const context = {
     reservations: [],
+    consumptions: [],
     favoriteSlugs: [],
     promotionCompanyIds: new Set<string>(),
     restaurantZones: new Map<string, string>(),
     restaurantCategories: new Map<string, string[]>(),
+    restaurantVenueTypes: new Map<string, string[]>(),
+    restaurantReservationModes: new Map<string, 'required' | 'optional' | 'none'>(),
     weeklyFeaturedCategory: getWeeklyFeaturedCategory(),
   }
   const weeklyMissions = rotateWeeklyMissions(undefined, 6)

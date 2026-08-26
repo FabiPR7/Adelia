@@ -86,21 +86,12 @@ function UserRegisterPage() {
     setIsLoading(true)
 
     try {
+      let recaptchaToken = ''
       if (recaptchaReady) {
-        try {
-          await executeRecaptcha('register_google')
-          // TODO: Enviar recaptchaToken al backend para verificación
-        } catch (err) {
-          console.error('Error ejecutando reCAPTCHA:', err)
-          if (import.meta.env.PROD) {
-            setError('Error en verificación anti-bots. Intenta de nuevo.')
-            setIsLoading(false)
-            return
-          }
-        }
+        recaptchaToken = await executeRecaptcha('register_google')
       }
 
-      const googleResult = await signInCustomerWithGoogle()
+      const googleResult = await signInCustomerWithGoogle(recaptchaToken || undefined)
       const currentUser = auth.currentUser
       if (currentUser && (googleResult === 'created' || googleResult === 'existing')) {
         const nextProfile = await getUserProfile(currentUser.uid)

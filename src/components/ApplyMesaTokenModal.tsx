@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import InventoryItemCard from './InventoryItemCard'
+import ConfirmDialog from './ConfirmDialog'
 import {
   matchingReservationTokens,
   promoMinimumCents,
@@ -55,7 +56,9 @@ export default function ApplyMesaTokenModal({
   )
   const tokens = matchingReservationTokens(inventory, promoMinCents)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const selected = tokens.find((item) => item.id === selectedId) ?? tokens[0] ?? null
+  const selectedValid = Boolean(selected?.coversFully)
 
   if (!open) {
     return null
@@ -64,8 +67,20 @@ export default function ApplyMesaTokenModal({
   const minLabel = promoMinCents > 0
     ? `gasto mínimo de ${formatCentsAsEuros(promoMinCents)}`
     : 'sin gasto mínimo'
+  const visits = selected?.visitValue ?? 1
+
+  const handleUseClick = () => {
+    if (!selected) {
+      return
+    }
+    if (!selected.coversFully) {
+      return
+    }
+    setConfirmOpen(true)
+  }
 
   return (
+    <>
     <div className={styles.overlay} onClick={onClose} role="presentation">
       <section
         className={styles.dialog}
@@ -76,19 +91,13 @@ export default function ApplyMesaTokenModal({
       >
         <h2 id="apply-token-title">Usar carta o llave</h2>
         <p>
-          En <strong>{companyName}</strong> cuenta como reserva de fidelidad
-          {' '}({minLabel}). Las llaves y sellos extra saltan el gasto mínimo.
+          En <strong>{companyName}</strong> cuenta como reserva o consumo
+          {' '}({minLabel}). Solo valen cartas que cubran el gasto mínimo de esta oferta.
         </p>
-        {promoMinCents > 0 ? (
-          <p>
-            Sirve cualquier carta de gasto mínimo igual o mayor.
-            Si la carta cubre menos, el restaurante verifica solo lo que falte.
-          </p>
-        ) : null}
         {tokens.length === 0 ? (
           <p className={styles.empty}>
             {promoMinCents > 0
-              ? 'No tienes una carta, sello o llave para esta promo. Las de mesa libre no valen si hay gasto mínimo.'
+              ? 'No tienes una carta válida para esta oferta. Tiene que cubrir el gasto mínimo; si no, no se gasta.'
               : 'No tienes cartas de mesa, sellos ni llaves. Consíguelas en Misiones.'}
           </p>
         ) : (
@@ -105,11 +114,9 @@ export default function ApplyMesaTokenModal({
             ))}
           </div>
         )}
-        {selected ? (
-          <p className={selected.coversFully ? styles.coverOk : styles.coverWarn}>
-            {selected.coversFully
-              ? `Esta carta cubre el mínimo. Se suman ${selected.visitValue ?? 1} ${(selected.visitValue ?? 1) === 1 ? 'reserva' : 'reservas'} al momento.`
-              : `La carta cubre ${formatCentsAsEuros(selected.coverCents)}. Faltan ${formatCentsAsEuros(selected.remainderCents)}: el restaurante deberá verificar ese resto.`}
+        {selectedValid ? (
+          <p className={styles.coverOk}>
+            Esta carta cubre el mínimo. Se suman {visits} {visits === 1 ? 'visita' : 'visitas'} al momento.
           </p>
         ) : null}
         {notice ? <p className={styles.notice}>{notice}</p> : null}
@@ -121,19 +128,37 @@ export default function ApplyMesaTokenModal({
           <button
             type="button"
             className={styles.primary}
-            disabled={!selected || applying}
-            onClick={() => selected && onApply(selected.id)}
+            disabled={!selectedValid || applying}
+            onClick={handleUseClick}
           >
-            {applying
-              ? 'Aplicando…'
-              : selected?.coversFully === false
-                ? 'Usar y verificar resto'
-                : selected
-                  ? 'Usar carta'
-                  : 'Usar carta'}
+            {applying ? 'Aplicando…' : 'Usar carta'}
           </button>
         </div>
       </section>
     </div>
+
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        elevated
+        title="¿Usar esta carta?"
+        message={
+          selected
+            ? `Se gastará 1 × ${selected.name} en ${companyName} y sumará ${visits} ${visits === 1 ? 'visita' : 'visitas'} a la oferta. Si cancelas, no se gasta nada.`
+            : ''
+        }
+        confirmLabel="Sí, usarla"
+        cancelLabel="No, cancelar"
+        isLoading={applying}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          if (!selected || !selected.coversFully) {
+            setConfirmOpen(false)
+            return
+          }
+          setConfirmOpen(false)
+          onApply(selected.id)
+        }}
+      />
+    </>
   )
 }

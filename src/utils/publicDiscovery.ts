@@ -1,9 +1,15 @@
 import type { Company } from '../types'
 import type { PublicBookingCompany } from '../services/publicApi'
-import { computeAverageReviewRating } from '../types/review'
+import { ADELINA_RATING_SLOTS, computeAverageReviewRating, getAdelinaSlotStates, type AdelinaSlotState } from '../types/review'
 import { haversineDistanceKm } from './geo'
 import { isValidMapCoordinates } from './mapCoordinates'
 import { ensureHttpsUrl } from './cloudinaryUrl'
+import {
+  companyFacilitySearchTerms,
+  venueTypesIncludeKind,
+  type DiscoveryVenueKind,
+} from '../data/companyProfileFacilities'
+import { parseCompanyReservationMode } from '../data/companyReservationMode'
 
 export interface PublicDiscoveryRestaurant {
   id: string
@@ -16,16 +22,31 @@ export interface PublicDiscoveryRestaurant {
   longitude: number | null
   photoUrl: string
   characteristics: string[]
+  venueTypes: string[]
+  amenities: string[]
+  priceRange: import('../data/companyProfileFacilities').CompanyPriceRange
   searchText: string
   reviewCount: number
   reviewRatingSum: number
   reviewAdelinas: number
+  discoveryFeatured: boolean
+  reservationMode: import('../data/companyReservationMode').CompanyReservationMode
 }
 
 export function getDiscoveryAverageRating(
   restaurant: Pick<PublicDiscoveryRestaurant, 'reviewCount' | 'reviewRatingSum'>,
 ): number {
   return computeAverageReviewRating(restaurant.reviewRatingSum, restaurant.reviewCount)
+}
+
+export function getDiscoveryAdelinaSlotStates(
+  restaurant: Pick<PublicDiscoveryRestaurant, 'reviewCount' | 'reviewRatingSum'>,
+): AdelinaSlotState[] {
+  if (restaurant.reviewCount <= 0) {
+    return Array.from({ length: ADELINA_RATING_SLOTS }, () => 'empty')
+  }
+
+  return getAdelinaSlotStates(getDiscoveryAverageRating(restaurant), restaurant.reviewCount)
 }
 
 export function getDiscoveryReviewAdelinas(
@@ -64,9 +85,13 @@ export function mapCompanyToPublicBooking(company: Company): PublicBookingCompan
     mainPhotoIndex: company.mainPhotoIndex ?? 0,
     videos: company.videos ?? [],
     characteristics: company.characteristics ?? [],
+    venueTypes: company.venueTypes ?? [],
+    amenities: company.amenities ?? [],
+    priceRange: company.priceRange ?? '',
     latitude: company.latitude,
     longitude: company.longitude,
     timeSlotMinutes: company.timeSlotMinutes,
+    reservationMode: parseCompanyReservationMode(company.reservationMode),
     schedule: company.schedule,
     floorPlan: company.floorPlan,
     floorPlans: company.floorPlans?.length ? company.floorPlans : [company.floorPlan],
@@ -98,6 +123,9 @@ export function mapCompanyToDiscoveryRestaurant(company: Company): PublicDiscove
     longitude: hasPin ? (company.longitude as number) : null,
     photoUrl,
     characteristics: company.characteristics ?? [],
+    venueTypes: company.venueTypes ?? [],
+    amenities: company.amenities ?? [],
+    priceRange: company.priceRange ?? '',
     searchText: [
       company.name,
       company.location,
@@ -105,12 +133,19 @@ export function mapCompanyToDiscoveryRestaurant(company: Company): PublicDiscove
       company.country,
       company.description,
       ...(company.characteristics ?? []),
+      ...companyFacilitySearchTerms(
+        company.venueTypes ?? [],
+        company.amenities ?? [],
+        company.priceRange ?? '',
+      ),
     ]
       .join(' ')
       .toLowerCase(),
     reviewCount: company.reviewCount ?? 0,
     reviewRatingSum: company.reviewRatingSum ?? 0,
     reviewAdelinas: company.reviewAdelinas ?? 0,
+    discoveryFeatured: company.discoveryFeatured === true,
+    reservationMode: parseCompanyReservationMode(company.reservationMode),
   }
 }
 
@@ -151,6 +186,22 @@ function normalizeSearch(value: string): string {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
+export function restaurantMatchesVenueKind(
+  restaurant: Pick<PublicDiscoveryRestaurant, 'venueTypes'>,
+  kind: DiscoveryVenueKind | '',
+): boolean {
+  if (!kind) {
+    return true
+  }
+
+  const primaryType = restaurant.venueTypes[0]
+  if (!primaryType) {
+    return kind === 'restaurant'
+  }
+
+  return venueTypesIncludeKind([primaryType], kind)
+}
+
 export function filterDiscoveryRestaurants(
   restaurants: PublicDiscoveryRestaurant[],
   query: string,
@@ -177,11 +228,23 @@ export function filterDiscoveryRestaurants(
   })
 }
 
+export function restaurantsForDiscoveryMap(
+  restaurants: PublicDiscoveryRestaurant[],
+  origin: { lat: number; lng: number } | null,
+  limit = 40,
+): Array<PublicDiscoveryRestaurant & { distanceKm?: number }> {
+  if (!origin) {
+    return restaurants.filter(restaurantHasMapPin).slice(0, limit)
+  }
+
+  return pickNearbyRestaurants(restaurants, origin, Number.POSITIVE_INFINITY, limit)
+}
+
 export function splitRestaurantsForCarousels(restaurants: PublicDiscoveryRestaurant[]) {
   if (restaurants.length <= 1) {
     return {
       primary: restaurants,
-      secondary: restaurants,
+      secondary: [],
     }
   }
 

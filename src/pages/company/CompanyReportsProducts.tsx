@@ -9,6 +9,7 @@ import {
   getReservationsByCompany,
   getVerifiedConsumptionsByCompany,
 } from '../../services/firestore'
+import { reportYearOptions, yearBounds } from '../../services/firestoreQuery'
 import type { VerifiedConsumptionRecord } from '../../types/verifiedConsumption'
 import { formatDateSpanish, formatTimeSpanish } from '../../utils/helpers'
 import { formatCentsAsEuros } from '../../utils/minimumSpendVerification'
@@ -28,7 +29,6 @@ import {
   computeTopProducts,
   filterVerifiedInRange,
   formatReportPeriodLabel,
-  getAvailableYearsFromVerified,
   getReportDateRange,
   mergeVerifiedConsumptions,
 } from '../../utils/productReports'
@@ -93,9 +93,10 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
     setError(null)
 
     try {
+      const range = yearBounds(year)
       const [fromSubcollection, reservations] = await Promise.all([
         getVerifiedConsumptionsByCompany(companyId),
-        getReservationsByCompany(companyId),
+        getReservationsByCompany(companyId, { from: range.start, to: range.end }),
       ])
 
       setRecords(mergeVerifiedConsumptions(fromSubcollection, reservations))
@@ -104,19 +105,13 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
     } finally {
       setLoading(false)
     }
-  }, [companyId])
+  }, [companyId, year])
 
   useEffect(() => {
     void loadData()
   }, [loadData])
 
-  const availableYears = useMemo(() => getAvailableYearsFromVerified(records), [records])
-
-  useEffect(() => {
-    if (availableYears.length > 0 && !availableYears.includes(year)) {
-      setYear(availableYears[0])
-    }
-  }, [availableYears, year])
+  const availableYears = useMemo(() => reportYearOptions(), [])
 
   const periodConfig = useMemo<ReportPeriodConfig>(
     () => ({ granularity, year, month, quarter }),

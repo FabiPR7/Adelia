@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express'
-import { Timestamp } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import {
   createAuthUserWithRest,
@@ -119,13 +119,13 @@ router.post('/', async (req: Request, res: Response) => {
         website: website ?? '',
         location,
         timeSlotMinutes: 120,
+        reservationMode: 'optional',
         schedule: defaultSchedule(),
         createdAt: now,
       })
 
       await adminDb.collection('companyCredentials').doc(companyRef.id).set({
         loginName: name,
-        loginPassword: password,
         authEmail: email,
         ownerUid: userRecord.uid,
         mustChangePassword: true,
@@ -173,13 +173,13 @@ router.post('/', async (req: Request, res: Response) => {
       website: website ?? '',
       location,
       timeSlotMinutes: 120,
+      reservationMode: 'optional',
       schedule: defaultSchedule(),
       createdAt: now,
     })
 
     await setFirestoreDocWithRest(adminToken, `companyCredentials/${companyId}`, {
       loginName: name,
-      loginPassword: password,
       authEmail: email,
       ownerUid: userRecord.uid,
       mustChangePassword: true,
@@ -202,6 +202,7 @@ router.post('/', async (req: Request, res: Response) => {
         website: website ?? '',
         location,
         timeSlotMinutes: 120,
+        reservationMode: 'optional',
         schedule: defaultSchedule(),
         createdAt: now.toISOString(),
       },
@@ -263,7 +264,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (password) {
       const ownerUid = companyData.ownerUid as string
       await adminAuth.updateUser(ownerUid, { password })
-      credentialsUpdate.loginPassword = password
+      credentialsUpdate.loginPassword = FieldValue.delete()
       credentialsUpdate.mustChangePassword = true
       await markMustChangePassword(ownerUid, id)
     }
@@ -287,7 +288,6 @@ router.put('/:id', async (req: Request, res: Response) => {
     res.json({
       company: mapCompanyDoc(updatedSnap.id, updatedSnap.data()!),
       loginName: nextLoginName,
-      password: updatedCredentials.data()?.loginPassword as string | undefined,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error actualizando empresa.'

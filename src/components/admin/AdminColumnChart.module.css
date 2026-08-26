@@ -1,0 +1,75 @@
+.card {
+  background: #fffdf9;
+  border: 1px solid rgba(61, 42, 31, 0.08);
+  border-radius: 20px;
+  padding: 1.15rem 1.2rem 1rem;
+  box-shadow: 0 10px 30px rgba(42, 33, 28, 0.05);
+  min-height: 100%;
+}
+
+.head h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #1c140f;
+}
+
+.head p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: #8a7a6e;
+}
+
+.plot {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.55rem;
+  align-items: end;
+  min-height: 210px;
+  margin-top: 1rem;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 180px;
+}
+
+.value {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6b5344;
+  min-height: 1rem;
+}
+
+.track {
+  flex: 1;
+  width: 100%;
+  max-width: 36px;
+  background: rgba(61, 42, 31, 0.06);
+  border-radius: 999px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.bar {
+  width: 100%;
+  min-height: 4px;
+  border-radius: 999px;
+}
+
+.label {
+  font-size: 0.7rem;
+  color: #8a7a6e;
+  font-weight: 600;
+}
+
+.empty {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  color: #8a7a6e;
+  font-size: 0.85rem;
+}

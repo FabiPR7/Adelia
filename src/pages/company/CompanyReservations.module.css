@@ -150,6 +150,15 @@
   font-size: 0.875rem;
 }
 
+.modeNotice {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(196, 154, 90, 0.14);
+  border: 1px solid rgba(122, 74, 43, 0.18);
+  color: #5c4033;
+  font-size: 0.875rem;
+}
+
 .heroActions {
   display: flex;
   align-items: center;

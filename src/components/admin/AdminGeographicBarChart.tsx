@@ -1,112 +1,63 @@
-import { useState } from 'react'
+import type { NamedCount } from '../../utils/adminOverview'
 import styles from './AdminGeographicBarChart.module.css'
 
 interface AdminGeographicBarChartProps {
   title: string
-  data: Array<{ country: string; count: number }>
+  subtitle?: string
+  data: NamedCount[]
   color?: string
   maxBars?: number
+  onExport?: () => void
 }
 
 const WIDTH = 700
-const HEIGHT_PER_BAR = 40
-const PADDING = { top: 20, right: 60, bottom: 20, left: 150 }
+const HEIGHT_PER_BAR = 38
+const PADDING = { top: 8, right: 52, bottom: 8, left: 132 }
 
-function AdminGeographicBarChart({ 
-  title, 
-  data, 
+function AdminGeographicBarChart({
+  title,
+  subtitle,
+  data,
   color = '#2e7d6b',
-  maxBars = 10
+  maxBars = 8,
+  onExport,
 }: AdminGeographicBarChartProps) {
-  const [hoveredBar, setHoveredBar] = useState<string | null>(null)
   const displayData = data.slice(0, maxBars)
-  const HEIGHT = Math.max(200, PADDING.top + PADDING.bottom + displayData.length * HEIGHT_PER_BAR)
-  
+  const HEIGHT = Math.max(180, PADDING.top + PADDING.bottom + displayData.length * HEIGHT_PER_BAR)
   const plotWidth = WIDTH - PADDING.left - PADDING.right
-
-  const maxValue = Math.max(1, ...displayData.map(d => d.count))
-  const hasData = displayData.length > 0
+  const maxValue = Math.max(1, ...displayData.map((item) => item.count))
 
   return (
-    <div className={styles.container}>
-      <h3 className={styles.title}>{title}</h3>
-      
-      {!hasData ? (
-        <div className={styles.empty}>Sin datos disponibles</div>
-      ) : (
-        <svg
-          className={styles.plot}
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          preserveAspectRatio="xMidYMid meet"
-          role="img"
-          aria-label={title}
-        >
-          <defs>
-            <linearGradient id={`bar-grad-${title}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={color} stopOpacity="0.9" />
-              <stop offset="100%" stopColor={color} stopOpacity="0.6" />
-            </linearGradient>
-          </defs>
+    <section className={styles.container}>
+      <header className={styles.head}>
+        <div>
+          <h3 className={styles.title}>{title}</h3>
+          {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
+        </div>
+        {onExport ? (
+          <button type="button" className={styles.export} onClick={onExport}>
+            CSV
+          </button>
+        ) : null}
+      </header>
 
+      {displayData.length === 0 ? (
+        <div className={styles.empty}>Sin datos todavía</div>
+      ) : (
+        <svg className={styles.plot} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={title}>
           {displayData.map((item, index) => {
             const y = PADDING.top + index * HEIGHT_PER_BAR
             const barWidth = (item.count / maxValue) * plotWidth
-            const barHeight = HEIGHT_PER_BAR - 12
-
+            const barHeight = HEIGHT_PER_BAR - 10
+            const label = item.label.length > 18 ? `${item.label.slice(0, 17)}…` : item.label
             return (
-              <g key={item.country}>
-                {/* Country label */}
-                <text
-                  x={PADDING.left - 12}
-                  y={y + barHeight / 2 + 4}
-                  textAnchor="end"
-                  fontSize="13"
-                  fill="#2e1f14"
-                  fontWeight="500"
-                >
-                  {item.country}
+              <g key={`${item.label}-${index}`}>
+                <text x={PADDING.left - 10} y={y + barHeight / 2 + 4} textAnchor="end" fontSize="12" fill="#2a211c">
+                  {label}
                 </text>
-
-                {/* Bar background */}
-                <rect
-                  x={PADDING.left}
-                  y={y}
-                  width={plotWidth}
-                  height={barHeight}
-                  fill="rgba(107, 83, 68, 0.05)"
-                  rx="4"
-                />
-
-                {/* Bar */}
-                <rect
-                  x={PADDING.left}
-                  y={y}
-                  width={barWidth}
-                  height={barHeight}
-                  fill={hoveredBar === item.country ? color : `url(#bar-grad-${title})`}
-                  rx="4"
-                  style={{ cursor: 'pointer', transition: 'fill 0.2s' }}
-                  onMouseEnter={() => setHoveredBar(item.country)}
-                  onMouseLeave={() => setHoveredBar(null)}
-                >
-                  <animate
-                    attributeName="width"
-                    from="0"
-                    to={barWidth}
-                    dur="0.8s"
-                    fill="freeze"
-                  />
-                </rect>
-
-                {/* Count label */}
-                <text
-                  x={PADDING.left + barWidth + 8}
-                  y={y + barHeight / 2 + 4}
-                  textAnchor="start"
-                  fontSize="12"
-                  fill="#6b5344"
-                  fontWeight="600"
-                >
+                <rect x={PADDING.left} y={y} width={plotWidth} height={barHeight} fill="rgba(28,20,15,0.05)" rx="8" />
+                <rect x={PADDING.left} y={y} width={Math.max(barWidth, 6)} height={barHeight} fill={color} rx="8" />
+                <text x={PADDING.left + Math.max(barWidth, 6) + 8} y={y + barHeight / 2 + 4} fontSize="12" fill="#6b5344" fontWeight="700">
                   {item.count}
                 </text>
               </g>
@@ -114,13 +65,7 @@ function AdminGeographicBarChart({
           })}
         </svg>
       )}
-
-      {data.length > maxBars && (
-        <div className={styles.footnote}>
-          Mostrando top {maxBars} de {data.length} países
-        </div>
-      )}
-    </div>
+    </section>
   )
 }
 

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ClientReservationDatePicker from '../../components/ClientReservationDatePicker'
 import {
-  filterReservationsByClientEmail,
   getCompanyClients,
   isNewCompanyClient,
 } from '../../services/companyClients'
 import { getFirestoreErrorMessage, getReservationsByCompany, getTablesByCompany, tablesToMeta } from '../../services/firestore'
+import { COMPANY_CLIENT_RESERVATION_LIMIT } from '../../services/firestoreQuery'
 import type { CompanyClient, Reservation } from '../../types'
 import { dateToIsoDate, dateToTimeInput, formatDateSpanish, formatTimeSpanish } from '../../utils/helpers'
 import styles from './CompanyClients.module.css'
@@ -49,14 +49,12 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
     setError(null)
 
     try {
-      const [clientRows, reservationRows, tableRows] = await Promise.all([
+      const [clientRows, tableRows] = await Promise.all([
         getCompanyClients(companyId),
-        getReservationsByCompany(companyId),
         getTablesByCompany(companyId),
       ])
 
       setClients(clientRows)
-      setReservations(reservationRows)
       setTableMeta(tablesToMeta(tableRows))
 
       setSelectedClientId((current) => {
@@ -108,13 +106,32 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
     [clients, selectedClientId],
   )
 
-  const clientReservations = useMemo(() => {
-    if (!selectedClient) {
-      return []
+  useEffect(() => {
+    if (!selectedClient?.email) {
+      setReservations([])
+      return
     }
+    let cancelled = false
+    void getReservationsByCompany(companyId, {
+      clientEmail: selectedClient.email,
+      limitCount: COMPANY_CLIENT_RESERVATION_LIMIT,
+    }).then((rows) => {
+      if (!cancelled) {
+        setReservations(rows)
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setReservations([])
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, selectedClient?.email])
 
-    return filterReservationsByClientEmail(reservations, selectedClient.email)
-  }, [reservations, selectedClient])
+  const clientReservations = useMemo(() => {
+    return [...reservations].sort((left, right) => right.startTime.getTime() - left.startTime.getTime())
+  }, [reservations])
 
   const reservationDateOptions = useMemo(() => {
     const dates = new Set(clientReservations.map((reservation) => dateToIsoDate(reservation.startTime)))

@@ -45,26 +45,76 @@ function mapNotification(id: string, data: Record<string, unknown>): CustomerNot
   }
 }
 
+const notificationListeners = new Map<string, {
+  count: number
+  unsub: () => void
+  rows: CustomerNotification[]
+  listeners: Set<(rows: CustomerNotification[]) => void>
+}>()
+
 export function subscribeCustomerNotifications(
   userId: string,
   onChange: (notifications: CustomerNotification[]) => void,
   onError?: (error: Error) => void,
 ): () => void {
+  const existing = notificationListeners.get(userId)
+  if (existing) {
+    existing.count += 1
+    existing.listeners.add(onChange)
+    onChange(existing.rows)
+    return () => {
+      existing.listeners.delete(onChange)
+      existing.count -= 1
+      if (existing.count <= 0) {
+        existing.unsub()
+        notificationListeners.delete(userId)
+      }
+    }
+  }
+
+  const listeners = new Set<(rows: CustomerNotification[]) => void>([onChange])
   const notificationsQuery = query(
     collection(db, 'users', userId, 'notifications'),
     orderBy('createdAt', 'desc'),
     limit(50),
   )
 
-  return onSnapshot(
-    notificationsQuery,
-    (snapshot) => {
-      onChange(snapshot.docs.map((docSnap) => mapNotification(docSnap.id, docSnap.data() as Record<string, unknown>)))
-    },
-    (error) => {
-      onError?.(error)
-    },
-  )
+  const entry = {
+    count: 1,
+    rows: [] as CustomerNotification[],
+    listeners,
+    unsub: onSnapshot(
+      notificationsQuery,
+      (snapshot) => {
+        const current = notificationListeners.get(userId)
+        if (!current) {
+          return
+        }
+        current.rows = snapshot.docs.map((docSnap) => mapNotification(docSnap.id, docSnap.data() as Record<string, unknown>))
+        for (const listener of current.listeners) {
+          listener(current.rows)
+        }
+      },
+      (error) => {
+        onError?.(error)
+      },
+    ),
+  }
+
+  notificationListeners.set(userId, entry)
+
+  return () => {
+    const current = notificationListeners.get(userId)
+    if (!current) {
+      return
+    }
+    current.listeners.delete(onChange)
+    current.count -= 1
+    if (current.count <= 0) {
+      current.unsub()
+      notificationListeners.delete(userId)
+    }
+  }
 }
 
 export async function fetchCustomerNotifications(): Promise<{

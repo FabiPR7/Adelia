@@ -7,16 +7,28 @@ import type {
   MissionProgress,
 } from '../types/gamification'
 import type { Reservation } from '../types'
+import type { CustomerVerifiedConsumption } from '../types/verifiedConsumption'
 import { WEEKLY_BONUS_TARGET, WEEKLY_MISSION_BONUS_XP, CONFIRMED_RESERVATION_XP } from '../types/gamification'
 import { countsForPromotionProgress } from './reservationPromotionEligibility'
+import { venueTypesIncludeKind } from '../data/companyProfileFacilities'
 
 export interface GamificationContext {
   reservations: Reservation[]
+  consumptions: CustomerVerifiedConsumption[]
   favoriteSlugs: string[]
   promotionCompanyIds: Set<string>
   restaurantZones: Map<string, string>
   restaurantCategories: Map<string, string[]>
+  restaurantVenueTypes: Map<string, string[]>
+  restaurantReservationModes: Map<string, 'required' | 'optional' | 'none'>
   weeklyFeaturedCategory: string
+}
+
+interface MissionVisit {
+  id: string
+  companyId: string
+  visitedAt: Date
+  promotionId: string | null
 }
 
 const WEEKLY_FEATURED_CATEGORIES = [
@@ -105,30 +117,33 @@ function computeFavoritesAddedThisWeek(
   return favoriteSlugs.filter((slug) => !baseline.has(slug)).length
 }
 
-function firstVisitsThisWeek(attended: Reservation[]): Reservation[] {
+function firstVisitsThisWeek(visits: MissionVisit[]): MissionVisit[] {
   const weekStart = getWeekStart()
-  const weekReservations = reservationsThisWeek(attended)
+  const weekVisits = visits.filter((visit) => visit.visitedAt >= weekStart)
 
-  return weekReservations.filter((reservation) => {
-    const hadPriorVisit = attended.some(
+  return weekVisits.filter((visit) => {
+    const hadPriorVisit = visits.some(
       (entry) =>
-        entry.companyId === reservation.companyId
-        && entry.startTime < weekStart,
+        entry.companyId === visit.companyId
+        && entry.visitedAt < weekStart,
     )
     return !hadPriorVisit
   })
 }
 
-function firstVisitsThisMonth(attended: Reservation[]): Reservation[] {
+function firstVisitsThisMonth(visits: MissionVisit[]): MissionVisit[] {
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const monthReservations = reservationsThisMonth(attended)
+  const monthVisits = visits.filter((visit) => (
+    visit.visitedAt.getMonth() === now.getMonth()
+    && visit.visitedAt.getFullYear() === now.getFullYear()
+  ))
 
-  return monthReservations.filter((reservation) => {
-    const hadPriorVisit = attended.some(
+  return monthVisits.filter((visit) => {
+    const hadPriorVisit = visits.some(
       (entry) =>
-        entry.companyId === reservation.companyId
-        && entry.startTime < monthStart,
+        entry.companyId === visit.companyId
+        && entry.visitedAt < monthStart,
     )
     return !hadPriorVisit
   })
@@ -148,13 +163,13 @@ function restaurantHasCharacteristic(
 }
 
 function uniqueInternationalCuisines(
-  reservations: Reservation[],
+  visits: Array<{ companyId: string }>,
   categories: Map<string, string[]>,
 ): number {
   const seen = new Set<string>()
 
-  for (const reservation of reservations) {
-    for (const characteristic of categories.get(reservation.companyId) ?? []) {
+  for (const visit of visits) {
+    for (const characteristic of categories.get(visit.companyId) ?? []) {
       if (INTERNATIONAL_CUISINE_TAGS.has(characteristic)) {
         seen.add(characteristic)
       }
@@ -206,6 +221,51 @@ function attendedReservations(reservations: Reservation[]): Reservation[] {
   return reservations.filter((reservation) => reservation.status === 'confirmed')
 }
 
+function verifiedWalkInConsumptions(
+  consumptions: CustomerVerifiedConsumption[],
+): CustomerVerifiedConsumption[] {
+  return verifiedConsumptions(consumptions).filter((consumption) => (
+    consumption.source === 'walk_in'
+  ))
+}
+
+function verifiedConsumptions(
+  consumptions: CustomerVerifiedConsumption[],
+): CustomerVerifiedConsumption[] {
+  return consumptions.filter((consumption) => (
+    consumption.meetsMinimumSpend
+    && Number.isFinite(Date.parse(consumption.visitAt))
+  ))
+}
+
+function attendedVisits(context: GamificationContext): MissionVisit[] {
+  const reservationVisits = attendedReservations(context.reservations).map((reservation) => ({
+    id: reservation.id,
+    companyId: reservation.companyId,
+    visitedAt: reservation.startTime,
+    promotionId: null,
+  }))
+  const consumptionVisits = verifiedWalkInConsumptions(context.consumptions).map((consumption) => ({
+    id: `consumption:${consumption.id}`,
+    companyId: consumption.companyId,
+    visitedAt: new Date(consumption.visitAt),
+    promotionId: consumption.promotionId,
+  }))
+
+  return [...reservationVisits, ...consumptionVisits]
+}
+
+function activeReservations(reservations: Reservation[]): Reservation[] {
+  return reservations.filter((reservation) => reservation.status !== 'cancelled')
+}
+
+function countSinceBaseline(current: number, baseline: number | undefined): number {
+  if (typeof baseline !== 'number' || !Number.isFinite(baseline)) {
+    return 0
+  }
+  return Math.max(0, current - baseline)
+}
+
 export function buildVerifiedReservationCounts(
   reservations: Reservation[],
 ): Record<string, number> {
@@ -222,21 +282,32 @@ export function buildVerifiedReservationCounts(
   return counts
 }
 
-function processReservationXp(
+function processVisitXp(
   state: CustomerGamificationState,
   reservations: Reservation[],
+  consumptions: CustomerVerifiedConsumption[],
 ): CustomerGamificationState {
   const awarded = new Set(state.awardedReservationXpIds)
   let xpGain = 0
   const nextAwarded = [...state.awardedReservationXpIds]
 
-  for (const reservation of attendedReservations(reservations)) {
-    if (awarded.has(reservation.id)) {
+  for (const visit of attendedVisits({
+    reservations,
+    consumptions,
+    favoriteSlugs: [],
+    promotionCompanyIds: new Set(),
+    restaurantZones: new Map(),
+    restaurantCategories: new Map(),
+    restaurantVenueTypes: new Map(),
+    restaurantReservationModes: new Map(),
+    weeklyFeaturedCategory: '',
+  })) {
+    if (awarded.has(visit.id)) {
       continue
     }
 
     xpGain += CONFIRMED_RESERVATION_XP
-    nextAwarded.push(reservation.id)
+    nextAwarded.push(visit.id)
   }
 
   if (xpGain === 0) {
@@ -269,11 +340,11 @@ function totalPax(reservations: Reservation[]): number {
   return reservations.reduce((sum, reservation) => sum + reservation.pax, 0)
 }
 
-function uniqueZones(reservations: Reservation[], zones: Map<string, string>): number {
+function uniqueZones(visits: Array<{ companyId: string }>, zones: Map<string, string>): number {
   const seen = new Set<string>()
 
-  for (const reservation of reservations) {
-    const zone = zones.get(reservation.companyId)
+  for (const visit of visits) {
+    const zone = zones.get(visit.companyId)
     if (zone) {
       seen.add(zone.toLowerCase())
     }
@@ -288,20 +359,87 @@ function evaluateMission(
   state: CustomerGamificationState,
 ): { current: number; completed: boolean } {
   const attended = attendedReservations(context.reservations)
+  const visits = attendedVisits(context)
+  const booked = activeReservations(context.reservations)
   const weekReservations = reservationsThisWeek(attended)
+  const weekBooked = reservationsThisWeek(booked)
   const monthReservations = reservationsThisMonth(attended)
+  const monthBooked = reservationsThisMonth(booked)
+  const weekStart = getWeekStart()
+  const now = new Date()
+  const weekVisits = visits.filter((visit) => visit.visitedAt >= weekStart)
+  const monthVisits = visits.filter((visit) => (
+    visit.visitedAt.getMonth() === now.getMonth()
+    && visit.visitedAt.getFullYear() === now.getFullYear()
+  ))
+  const consumptions = verifiedConsumptions(context.consumptions)
+  const weekConsumptions = consumptions.filter(
+    (consumption) => new Date(consumption.visitAt) >= weekStart,
+  )
+  const monthConsumptions = consumptions.filter((consumption) => {
+    const visitAt = new Date(consumption.visitAt)
+    return visitAt.getMonth() === now.getMonth() && visitAt.getFullYear() === now.getFullYear()
+  })
+  const weekWalkIns = weekConsumptions.filter((consumption) => consumption.source === 'walk_in')
+  const monthWalkIns = monthConsumptions.filter((consumption) => consumption.source === 'walk_in')
   const weekBookings = reservationsCreatedThisWeek(context.reservations)
   const favoritesAddedThisWeek = computeFavoritesAddedThisWeek(
     context.favoriteSlugs,
     state.favoriteSlugsAtWeekStart,
   )
-  const firstVisits = firstVisitsThisWeek(attended)
+  const firstVisits = firstVisitsThisWeek(visits)
 
   switch (mission.id) {
+    case 'reserva_confirmada_semana':
+      return { current: weekReservations.length, completed: weekReservations.length >= 1 }
+    case 'reserva_obligatoria_semana': {
+      const matches = weekReservations.filter(
+        (reservation) => context.restaurantReservationModes.get(reservation.companyId) === 'required',
+      )
+      return { current: matches.length, completed: matches.length >= 1 }
+    }
+    case 'consumo_sin_reserva_semana':
+      return { current: weekWalkIns.length, completed: weekWalkIns.length >= 1 }
+    case 'consumo_productos_semana': {
+      const matches = weekConsumptions.filter(
+        (consumption) => consumption.mode === 'products' && consumption.lineItems.length > 0,
+      )
+      return { current: matches.length, completed: matches.length >= 1 }
+    }
+    case 'gasto_minimo_semana': {
+      const matches = weekConsumptions.filter((consumption) => consumption.minimumSpendCents > 0)
+      return { current: matches.length, completed: matches.length >= 1 }
+    }
+    case 'ticket_30_semana': {
+      const matches = weekConsumptions.filter((consumption) => consumption.totalCents >= 3000)
+      return { current: matches.length, completed: matches.length >= 1 }
+    }
+    case 'visita_bar_semana': {
+      const matches = weekVisits.filter((visit) => venueTypesIncludeKind(
+        context.restaurantVenueTypes.get(visit.companyId) ?? [],
+        'bar',
+      ))
+      return { current: matches.length, completed: matches.length >= 1 }
+    }
+    case 'visita_restaurante_semana': {
+      const matches = weekVisits.filter((visit) => venueTypesIncludeKind(
+        context.restaurantVenueTypes.get(visit.companyId) ?? [],
+        'restaurant',
+      ))
+      return { current: matches.length, completed: matches.length >= 1 }
+    }
+    case 'promo_consumo_semana': {
+      const matches = weekWalkIns.filter((consumption) => Boolean(consumption.promotionId))
+      return { current: matches.length, completed: matches.length >= 1 }
+    }
+    case 'mesa_compartida_semana': {
+      const matches = weekReservations.filter((reservation) => reservation.pax >= 3)
+      return { current: matches.length, completed: matches.length >= mission.target }
+    }
     case 'plan_fin_semana':
       return {
-        current: weekReservations.filter((reservation) => isWeekend(reservation.startTime)).length,
-        completed: weekReservations.some((reservation) => isWeekend(reservation.startTime)),
+        current: weekBooked.filter((reservation) => isWeekend(reservation.startTime)).length,
+        completed: weekBooked.some((reservation) => isWeekend(reservation.startTime)),
       }
     case 'cena_amigos':
       return {
@@ -331,8 +469,7 @@ function evaluateMission(
       }
     }
     case 'gourmet_reincidente': {
-      const uniqueWeek = new Set(weekReservations.map((reservation) => reservation.companyId)).size
-      return { current: uniqueWeek, completed: uniqueWeek >= 2 }
+      return { current: weekVisits.length, completed: weekVisits.length >= 2 }
     }
     case 'descubrimiento_semanal':
       return {
@@ -340,12 +477,12 @@ function evaluateMission(
         completed: firstVisits.length >= 1,
       }
     case 'en_busca_ofertas': {
-      const promoReservations = weekReservations.filter(
-        (reservation) => context.promotionCompanyIds.has(reservation.companyId),
+      const promoVisits = weekVisits.filter(
+        (visit) => Boolean(visit.promotionId) || context.promotionCompanyIds.has(visit.companyId),
       )
       return {
-        current: promoReservations.length,
-        completed: promoReservations.length >= 1,
+        current: promoVisits.length,
+        completed: promoVisits.length >= 1,
       }
     }
     case 'fiel_seguidor':
@@ -353,25 +490,31 @@ function evaluateMission(
         current: favoritesAddedThisWeek,
         completed: favoritesAddedThisWeek >= 3,
       }
-    case 'critico_foto':
-      return {
-        current: state.reviewsWithPhotoCount,
-        completed: state.reviewsWithPhotoCount >= mission.target,
-      }
-    case 'voz_experiencia':
-      return {
-        current: state.textReviewsCount,
-        completed: state.textReviewsCount >= mission.target,
-      }
-    case 'critico_consistente':
-      return {
-        current: state.reviewsWithPhotoCount,
-        completed: state.reviewsWithPhotoCount >= mission.target,
-      }
+    case 'critico_foto': {
+      const current = countSinceBaseline(
+        state.reviewsWithPhotoCount,
+        state.reviewsWithPhotoCountAtWeekStart,
+      )
+      return { current, completed: current >= mission.target }
+    }
+    case 'voz_experiencia': {
+      const current = countSinceBaseline(
+        state.textReviewsCount,
+        state.textReviewsCountAtWeekStart,
+      )
+      return { current, completed: current >= mission.target }
+    }
+    case 'critico_consistente': {
+      const current = countSinceBaseline(
+        state.reviewsWithPhotoCount,
+        state.reviewsWithPhotoCountAtMonthStart,
+      )
+      return { current, completed: current >= mission.target }
+    }
     case 'ruta_especialidades': {
-      const matches = weekReservations.filter((reservation) =>
+      const matches = weekVisits.filter((visit) =>
         restaurantHasCharacteristic(
-          reservation.companyId,
+          visit.companyId,
           context.weeklyFeaturedCategory,
           context.restaurantCategories,
         ),
@@ -383,63 +526,141 @@ function evaluateMission(
     }
     case 'apoyo_hosteleria':
       return {
-        current: weekReservations.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
-        completed: weekReservations.some((reservation) => isWeekdaySlow(reservation.startTime)),
+        current: weekBooked.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
+        completed: weekBooked.some((reservation) => isWeekdaySlow(reservation.startTime)),
       }
     case 'ruta_gastronomica':
       return {
-        current: monthReservations.length,
-        completed: monthReservations.length >= 4,
+        current: monthVisits.length,
+        completed: monthVisits.length >= 4,
       }
-    case 'cazador_adelinas':
-      return {
-        current: state.redemptionsCount,
-        completed: state.redemptionsCount >= 1,
-      }
+    case 'reservas_mes':
+      return { current: monthReservations.length, completed: monthReservations.length >= 3 }
+    case 'consumos_mes':
+      return { current: monthWalkIns.length, completed: monthWalkIns.length >= 3 }
+    case 'gastos_minimos_mes': {
+      const current = monthConsumptions.filter(
+        (consumption) => consumption.minimumSpendCents > 0,
+      ).length
+      return { current, completed: current >= 2 }
+    }
+    case 'gasto_acumulado_mes': {
+      const current = Math.floor(
+        monthConsumptions.reduce((sum, consumption) => sum + consumption.totalCents, 0) / 100,
+      )
+      return { current, completed: current >= mission.target }
+    }
+    case 'bar_y_restaurante_mes': {
+      const bar = monthVisits.some((visit) => venueTypesIncludeKind(
+        context.restaurantVenueTypes.get(visit.companyId) ?? [],
+        'bar',
+      ))
+      const restaurant = monthVisits.some((visit) => venueTypesIncludeKind(
+        context.restaurantVenueTypes.get(visit.companyId) ?? [],
+        'restaurant',
+      ))
+      const current = Number(bar) + Number(restaurant)
+      return { current, completed: bar && restaurant }
+    }
+    case 'productos_mes': {
+      const current = monthConsumptions.filter(
+        (consumption) => consumption.mode === 'products' && consumption.lineItems.length > 0,
+      ).length
+      return { current, completed: current >= 3 }
+    }
+    case 'dos_modalidades_mes': {
+      const withReservation = monthReservations.length > 0
+      const walkIn = monthWalkIns.length > 0
+      const current = Number(withReservation) + Number(walkIn)
+      return { current, completed: withReservation && walkIn }
+    }
+    case 'cazador_adelinas': {
+      const current = countSinceBaseline(
+        state.redemptionsCount,
+        state.redemptionsCountAtMonthStart,
+      )
+      return { current, completed: current >= 1 }
+    }
     case 'explorador_ciudad':
       return {
-        current: uniqueZones(monthReservations, context.restaurantZones),
-        completed: uniqueZones(monthReservations, context.restaurantZones) >= 3,
+        current: uniqueZones(monthVisits, context.restaurantZones),
+        completed: uniqueZones(monthVisits, context.restaurantZones) >= 3,
       }
     case 'menu_completo': {
-      const lunch = monthReservations.some((reservation) => isLunchHour(reservation.startTime))
-      const dinner = monthReservations.some((reservation) => isDinnerHour(reservation.startTime))
+      const lunch = monthVisits.some((visit) => isLunchHour(visit.visitedAt))
+      const dinner = monthVisits.some((visit) => isDinnerHour(visit.visitedAt))
       const current = Number(lunch) + Number(dinner)
       return { current, completed: lunch && dinner }
     }
     case 'maraton_mensual':
       return {
-        current: monthReservations.length,
-        completed: monthReservations.length >= 6,
+        current: monthVisits.length,
+        completed: monthVisits.length >= 6,
       }
     case 'grupo_grande_mes':
       return {
-        current: monthReservations.filter((reservation) => reservation.pax >= 4).length,
-        completed: monthReservations.some((reservation) => reservation.pax >= 4),
+        current: monthBooked.filter((reservation) => reservation.pax >= 4).length,
+        completed: monthBooked.some((reservation) => reservation.pax >= 4),
       }
     case 'promo_doble_mes': {
-      const promoCount = monthReservations.filter(
+      const promoCount = monthBooked.filter(
         (reservation) => context.promotionCompanyIds.has(reservation.companyId),
       ).length
       return { current: promoCount, completed: promoCount >= 2 }
     }
     case 'finde_gourmet_mes':
       return {
-        current: monthReservations.filter((reservation) => isWeekend(reservation.startTime)).length,
-        completed: monthReservations.filter((reservation) => isWeekend(reservation.startTime)).length >= 2,
+        current: monthVisits.filter((visit) => isWeekend(visit.visitedAt)).length,
+        completed: monthVisits.filter((visit) => isWeekend(visit.visitedAt)).length >= 2,
       }
     case 'valle_laboral_mes':
       return {
-        current: monthReservations.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
-        completed: monthReservations.filter((reservation) => isWeekdaySlow(reservation.startTime)).length >= 2,
+        current: monthBooked.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
+        completed: monthBooked.filter((reservation) => isWeekdaySlow(reservation.startTime)).length >= 2,
       }
     case 'descubridor_mes':
       return {
-        current: firstVisitsThisMonth(attended).length,
-        completed: firstVisitsThisMonth(attended).length >= 2,
+        current: firstVisitsThisMonth(visits).length,
+        completed: firstVisitsThisMonth(visits).length >= 2,
       }
     case 'debut_gastronomico':
       return { current: attended.length, completed: attended.length >= 1 }
+    case 'primer_consumo_libre': {
+      const walkIns = verifiedWalkInConsumptions(context.consumptions)
+      return { current: walkIns.length, completed: walkIns.length >= 1 }
+    }
+    case 'primer_gasto_minimo': {
+      const current = consumptions.filter((consumption) => consumption.minimumSpendCents > 0).length
+      return { current, completed: current >= mission.target }
+    }
+    case 'primera_carta_productos': {
+      const current = consumptions.filter(
+        (consumption) => consumption.mode === 'products' && consumption.lineItems.length > 0,
+      ).length
+      return { current, completed: current >= mission.target }
+    }
+    case 'ruta_de_bar': {
+      const current = visits.filter((visit) => venueTypesIncludeKind(
+        context.restaurantVenueTypes.get(visit.companyId) ?? [],
+        'bar',
+      )).length
+      return { current, completed: current >= mission.target }
+    }
+    case 'ruta_de_restaurante': {
+      const current = visits.filter((visit) => venueTypesIncludeKind(
+        context.restaurantVenueTypes.get(visit.companyId) ?? [],
+        'restaurant',
+      )).length
+      return { current, completed: current >= mission.target }
+    }
+    case 'consumidor_habitual': {
+      const walkIns = verifiedWalkInConsumptions(context.consumptions)
+      return { current: walkIns.length, completed: walkIns.length >= mission.target }
+    }
+    case 'cazador_minimos': {
+      const current = consumptions.filter((consumption) => consumption.minimumSpendCents > 0).length
+      return { current, completed: current >= mission.target }
+    }
     case 'corazon_favorito':
       return {
         current: context.favoriteSlugs.length,
@@ -447,23 +668,23 @@ function evaluateMission(
       }
     case 'almuerzo_sol':
       return {
-        current: attended.filter((reservation) => isLunchHour(reservation.startTime)).length,
-        completed: attended.some((reservation) => isLunchHour(reservation.startTime)),
+        current: visits.filter((visit) => isLunchHour(visit.visitedAt)).length,
+        completed: visits.some((visit) => isLunchHour(visit.visitedAt)),
       }
     case 'cena_especial':
       return {
-        current: attended.filter((reservation) => isDinnerHour(reservation.startTime)).length,
-        completed: attended.some((reservation) => isDinnerHour(reservation.startTime)),
+        current: visits.filter((visit) => isDinnerHour(visit.visitedAt)).length,
+        completed: visits.some((visit) => isDinnerHour(visit.visitedAt)),
       }
     case 'martes_valiente':
       return {
-        current: attended.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
-        completed: attended.some((reservation) => isWeekdaySlow(reservation.startTime)),
+        current: booked.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
+        completed: booked.some((reservation) => isWeekdaySlow(reservation.startTime)),
       }
     case 'mesa_para_dos':
       return {
-        current: attended.filter((reservation) => reservation.pax >= 2).length,
-        completed: attended.some((reservation) => reservation.pax >= 2),
+        current: booked.filter((reservation) => reservation.pax >= 2).length,
+        completed: booked.some((reservation) => reservation.pax >= 2),
       }
     case 'reserva_relampago_logro':
       return {
@@ -486,8 +707,8 @@ function evaluateMission(
         completed: monthReservations.length >= 3,
       }
     case 'cazador_ofertas': {
-      const promoCount = attended.filter(
-        (reservation) => context.promotionCompanyIds.has(reservation.companyId),
+      const promoCount = visits.filter(
+        (visit) => Boolean(visit.promotionId) || context.promotionCompanyIds.has(visit.companyId),
       ).length
       return { current: promoCount, completed: promoCount >= 3 }
     }
@@ -499,7 +720,7 @@ function evaluateMission(
         completed: attended.some((reservation) => reservation.pax >= 5),
       }
     case 'explorador_zona': {
-      const zones = uniqueZones(attended, context.restaurantZones)
+      const zones = uniqueZones(visits, context.restaurantZones)
       return { current: zones, completed: zones >= 5 }
     }
     case 'reserva_planificada':
@@ -518,7 +739,7 @@ function evaluateMission(
     case 'socio_veterano':
       return { current: attended.length, completed: attended.length >= 25 }
     case 'embajador_local': {
-      const uniqueVenues = new Set(attended.map((reservation) => reservation.companyId)).size
+      const uniqueVenues = new Set(visits.map((visit) => visit.companyId)).size
       return { current: uniqueVenues, completed: uniqueVenues >= 20 }
     }
     case 'maestro_resenas':
@@ -536,7 +757,7 @@ function evaluateMission(
     case 'oraculo_sabores':
       return { current: state.reviewsCount, completed: state.reviewsCount >= 50 }
     case 'corona_gastro': {
-      const venues = new Set(attended.map((reservation) => reservation.companyId)).size
+      const venues = new Set(visits.map((visit) => visit.companyId)).size
       return { current: venues, completed: venues >= 40 }
     }
     case 'emperador_adelia': {
@@ -569,11 +790,11 @@ function evaluateMission(
     case 'cazador_tesoros':
       return { current: state.redemptionsCount, completed: state.redemptionsCount >= 5 }
     case 'nomada_digital': {
-      const unique = new Set(attended.map((reservation) => reservation.companyId)).size
+      const unique = new Set(visits.map((visit) => visit.companyId)).size
       return { current: unique, completed: unique >= 10 }
     }
     case 'ruta_internacional': {
-      const cuisines = uniqueInternationalCuisines(attended, context.restaurantCategories)
+      const cuisines = uniqueInternationalCuisines(visits, context.restaurantCategories)
       return { current: cuisines, completed: cuisines >= mission.target }
     }
     case 'infiltrado_hosteleria':
@@ -614,24 +835,40 @@ export function rotateWeeklyMissions(date = new Date(), count = 6): MissionDefin
   const weekKey = getWeekKey(date)
   const seed = hashKey(weekKey)
   const sorted = [...WEEKLY_MISSIONS].sort((left, right) => {
-    const leftScore = (left.id.charCodeAt(0) + seed) % 97
-    const rightScore = (right.id.charCodeAt(0) + seed) % 97
+    const leftScore = hashKey(`${seed}-${left.id}`) % 997
+    const rightScore = hashKey(`${seed}-${right.id}`) % 997
     return leftScore - rightScore
   })
 
-  return sorted.slice(0, count)
+  const groups = new Set<string>()
+  return sorted.filter((mission) => {
+    const group = mission.rotationGroup ?? mission.id
+    if (groups.has(group)) {
+      return false
+    }
+    groups.add(group)
+    return true
+  }).slice(0, count)
 }
 
 export function rotateMonthlyMissions(date = new Date(), count = 5): MissionDefinition[] {
   const monthKey = getMonthKey(date)
   const seed = hashKey(monthKey)
   const sorted = [...MONTHLY_MISSION_POOL].sort((left, right) => {
-    const leftScore = (left.id.charCodeAt(0) + seed) % 97
-    const rightScore = (right.id.charCodeAt(0) + seed) % 97
+    const leftScore = hashKey(`${seed}-${left.id}`) % 997
+    const rightScore = hashKey(`${seed}-${right.id}`) % 997
     return leftScore - rightScore
   })
 
-  return sorted.slice(0, count)
+  const groups = new Set<string>()
+  return sorted.filter((mission) => {
+    const group = mission.rotationGroup ?? mission.id
+    if (groups.has(group)) {
+      return false
+    }
+    groups.add(group)
+    return true
+  }).slice(0, count)
 }
 
 export function buildMissionProgressList(
@@ -660,23 +897,42 @@ export function syncGamificationPeriods(
   const weekKey = getWeekKey()
   const monthKey = getMonthKey()
   const sameWeek = state.weekKey === weekKey
+  const sameMonth = state.monthKey === monthKey
 
   return {
     ...state,
     weekKey,
     monthKey,
     weeklyCompleted: sameWeek ? state.weeklyCompleted : [],
-    monthlyCompleted: state.monthKey === monthKey ? state.monthlyCompleted : [],
+    monthlyCompleted: sameMonth ? state.monthlyCompleted : [],
     favoriteSlugsAtWeekStart: sameWeek ? state.favoriteSlugsAtWeekStart : favoriteSlugs,
     favoritesAddedThisWeek: sameWeek
       ? computeFavoritesAddedThisWeek(favoriteSlugs, state.favoriteSlugsAtWeekStart)
       : 0,
+    reviewsWithPhotoCountAtWeekStart: sameWeek
+      ? (state.reviewsWithPhotoCountAtWeekStart ?? state.reviewsWithPhotoCount)
+      : state.reviewsWithPhotoCount,
+    textReviewsCountAtWeekStart: sameWeek
+      ? (state.textReviewsCountAtWeekStart ?? state.textReviewsCount)
+      : state.textReviewsCount,
+    reviewsWithPhotoCountAtMonthStart: sameMonth
+      ? (state.reviewsWithPhotoCountAtMonthStart ?? state.reviewsWithPhotoCount)
+      : state.reviewsWithPhotoCount,
+    redemptionsCountAtMonthStart: sameMonth
+      ? (state.redemptionsCountAtMonthStart ?? state.redemptionsCount)
+      : state.redemptionsCount,
   }
 }
 
-export function deriveVisitedCompanyIds(reservations: Reservation[]): string[] {
+export function deriveVisitedCompanyIds(
+  reservations: Reservation[],
+  consumptions: CustomerVerifiedConsumption[] = [],
+): string[] {
   return [...new Set(
-    attendedReservations(reservations).map((reservation) => reservation.companyId),
+    [
+      ...attendedReservations(reservations).map((reservation) => reservation.companyId),
+      ...verifiedWalkInConsumptions(consumptions).map((consumption) => consumption.companyId),
+    ],
   )]
 }
 
@@ -706,13 +962,14 @@ export function processGamificationRewards(
   historicalProgress: MissionProgress[],
   reservations: Reservation[] = [],
   favoriteSlugs: string[] = [],
+  consumptions: CustomerVerifiedConsumption[] = [],
 ): CustomerGamificationState {
   let next = syncGamificationPeriods(state, favoriteSlugs)
-  next = processReservationXp(next, reservations)
+  next = processVisitXp(next, reservations, consumptions)
   next = {
     ...next,
     redemptionsCount: Math.max(next.redemptionsCount, next.claimedPromotions.length),
-    visitedCompanyIds: deriveVisitedCompanyIds(reservations),
+    visitedCompanyIds: deriveVisitedCompanyIds(reservations, consumptions),
     favoritesAddedThisWeek: computeFavoritesAddedThisWeek(
       favoriteSlugs,
       next.favoriteSlugsAtWeekStart,

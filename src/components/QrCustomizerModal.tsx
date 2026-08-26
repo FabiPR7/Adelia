@@ -8,6 +8,7 @@ import {
   normalizeQrBrandingConfig,
   QR_BRANDING_KIND_LABELS,
   resolveBrandedQrOptions,
+  resolveDefaultSubtitle,
   type ResolveQrBrandingContext,
 } from '../utils/qrBranding'
 import styles from './QrCustomizerModal.module.css'
@@ -62,10 +63,8 @@ function QrCustomizerModal({
   )
 
   const defaultSubtitle = useMemo(
-    () => (kind === 'menu'
-      ? context.menuBoardName?.trim() || context.companyName.trim()
-      : context.companyName.trim()),
-    [kind, context.companyName, context.menuBoardName],
+    () => resolveDefaultSubtitle(kind, context),
+    [kind, context],
   )
 
   useEffect(() => {

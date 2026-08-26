@@ -40,9 +40,97 @@
 
 .spotlightSection {
   display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin: 0.55rem 1rem 0.7rem;
+}
+
+.spotlightEnd {
+  flex: 0 0 6.75rem;
+  width: 6.75rem;
+  min-width: 6.75rem;
+}
+
+.spotlightBridge {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  height: 6.75rem;
+  padding: 0 0.15rem;
+}
+
+.bridgeRail {
+  flex: 1 1 auto;
+  min-width: 0.45rem;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(196, 92, 62, 0.08),
+    rgba(232, 196, 138, 0.95) 18%,
+    rgba(196, 92, 62, 0.82) 50%,
+    rgba(232, 196, 138, 0.95) 82%,
+    rgba(196, 92, 62, 0.08)
+  );
+  box-shadow: 0 0 10px rgba(255, 107, 74, 0.22);
+}
+
+.bridgeSeal {
+  position: relative;
+  flex: 0 1 auto;
+  display: flex;
   flex-direction: column;
-  gap: 0.85rem;
-  margin: 0.85rem 0 1rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.08rem;
+  min-width: 4.6rem;
+  max-width: 9.5rem;
+  padding: 0.45rem 0.55rem 0.5rem;
+  border-radius: 1.15rem;
+  background:
+    radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.92), transparent 46%),
+    linear-gradient(165deg, #fff8ef 0%, #f4e2c6 58%, #edd2a8 100%);
+  border: 1px solid rgba(196, 92, 62, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 10px 22px rgba(61, 42, 31, 0.12);
+}
+
+.bridgeSpark {
+  position: absolute;
+  top: 0.32rem;
+  right: 0.4rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: #ffd7a8;
+  box-shadow:
+    0 0 0 3px rgba(255, 215, 168, 0.28),
+    0 0 12px rgba(255, 107, 74, 0.35);
+  animation: bridgeSparkPulse 2.4s ease-in-out infinite;
+}
+
+.bridgeKicker {
+  margin: 0.12rem 0 0;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c45c3e;
+}
+
+.bridgeCopy {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  color: #5c4638;
 }
 
 .carouselSection {
@@ -110,15 +198,17 @@
   }
 
   .spotlightSection {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.85rem;
-    padding: 0 1.5rem;
-    margin-inline: 0;
+    gap: 0.7rem;
+    margin-inline: 1.5rem;
   }
 
-  .spotlightSection > * {
-    margin: 0;
+  .bridgeSeal {
+    max-width: 12rem;
+    padding-inline: 0.85rem;
+  }
+
+  .bridgeCopy {
+    font-size: 0.72rem;
   }
 
   .carouselHeader {
@@ -141,12 +231,48 @@
   }
 
   .spotlightSection {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    padding: 0 2rem;
-    gap: 1rem;
+    margin-inline: 2rem;
+  }
+
+  .bridgeSeal {
+    max-width: 14rem;
   }
 
   .carouselHeader {
     padding: 0 2rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .bridgeKicker,
+  .bridgeCopy,
+  .bridgeSpark {
+    display: none;
+  }
+
+  .bridgeSeal {
+    min-width: 3.1rem;
+    max-width: 3.1rem;
+    padding: 0.35rem;
+    border-radius: 999px;
+  }
+}
+
+@keyframes bridgeSparkPulse {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bridgeSpark {
+    animation: none;
   }
 }

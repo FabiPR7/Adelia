@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express'
-import { Timestamp } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import { signInWithPasswordRest } from '../rest-firebase.ts'
 
@@ -66,7 +66,7 @@ router.post('/complete-initial-password-change', async (req: Request, res: Respo
     if (companyId) {
       await adminDb.collection('companyCredentials').doc(companyId).set(
         {
-          loginPassword: newPassword,
+          loginPassword: FieldValue.delete(),
           mustChangePassword: false,
           updatedAt: now,
         },
@@ -167,7 +167,7 @@ router.post('/change-initial-password', async (req: Request, res: Response) => {
     if (companyId) {
       await adminDb.collection('companyCredentials').doc(companyId).set(
         {
-          loginPassword: newPassword,
+          loginPassword: FieldValue.delete(),
           mustChangePassword: false,
           updatedAt: now,
         },

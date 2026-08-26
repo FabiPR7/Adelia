@@ -1,5 +1,6 @@
 import type { CompanySettingsPayload, SettingsSection, TableInput } from '../types'
 import { parseFloorPlans, withFloorPlans } from '../types/company'
+import { parseCompanyReservationMode } from '../data/companyReservationMode'
 
 export interface SettingsEditorState {
   form: CompanySettingsPayload
@@ -33,9 +34,15 @@ export function createSectionSnapshot(
         mainPhotoIndex: form.mainPhotoIndex,
         videos: form.videos,
         characteristics: form.characteristics,
+        venueTypes: form.venueTypes,
+        amenities: form.amenities,
+        priceRange: form.priceRange,
+        latitude: form.latitude,
+        longitude: form.longitude,
       })
     case 'reservation-settings':
       return JSON.stringify({
+        reservationMode: form.reservationMode,
         timeSlotMinutes: form.timeSlotMinutes,
         timeSlotMinutesInput,
         depositEnabled: form.depositEnabled,
@@ -112,6 +119,11 @@ export function applySectionSnapshot(
           mainPhotoIndex: typeof parsed.mainPhotoIndex === 'number' ? parsed.mainPhotoIndex : 0,
           videos: parsed.videos as string[],
           characteristics: parsed.characteristics as string[],
+          venueTypes: Array.isArray(parsed.venueTypes) ? parsed.venueTypes as string[] : [],
+          amenities: Array.isArray(parsed.amenities) ? parsed.amenities as string[] : [],
+          priceRange: typeof parsed.priceRange === 'string' ? parsed.priceRange as CompanySettingsPayload['priceRange'] : '',
+          latitude: typeof parsed.latitude === 'number' ? parsed.latitude : parsed.latitude === null ? null : form.latitude,
+          longitude: typeof parsed.longitude === 'number' ? parsed.longitude : parsed.longitude === null ? null : form.longitude,
         },
       }
     case 'reservation-settings':
@@ -121,6 +133,7 @@ export function applySectionSnapshot(
         form: {
           ...form,
           timeSlotMinutes: parsed.timeSlotMinutes as number,
+          reservationMode: parseCompanyReservationMode(parsed.reservationMode),
           depositEnabled: parsed.depositEnabled === true,
           depositMinPax: (parsed.depositMinPax as number | null | undefined) ?? null,
           depositPerGuestCents: (parsed.depositPerGuestCents as number | null | undefined) ?? null,

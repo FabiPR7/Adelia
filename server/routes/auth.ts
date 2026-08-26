@@ -9,21 +9,76 @@ import {
   resolveCompanyIdFromLoginName,
 } from '../auth/companyLoginLookup.ts'
 import {
+  createCustomerPasswordResetToken,
   createPasswordResetToken,
   deletePasswordResetToken,
   getPasswordResetTokenRecord,
+  hashPasswordResetToken,
+  sendCustomerPasswordResetEmail,
   sendPasswordResetEmail,
 } from '../email/passwordResetEmail.ts'
 import { sendCustomerVerificationEmail } from '../email/customerVerificationEmail.ts'
 import { APP_URL, isValidClientEmail } from '../email/config.ts'
-import { InputError, asPassword, asTrimmed } from '../security/validate.ts'
+import { InputError, asOptionalCustomerPhotoUrl, asPassword, asPlainText, asTrimmed } from '../security/validate.ts'
 import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import { signInWithPasswordRest } from '../rest-firebase.ts'
+import { isLoginLocked, recordLoginFailure, recordLoginSuccess } from '../security/loginLockout.ts'
+import { requireRecaptcha } from '../security/recaptcha.ts'
+import { requireSpanishPhone } from '../security/phone.ts'
+import { buildCustomerProfileDoc } from '../data/customerProfile.ts'
+import { settleMinDuration } from '../security/timing.ts'
 
 const router = Router()
 
 const GENERIC_FORGOT_SUCCESS =
   'Si los datos son correctos, recibirás un correo con instrucciones en unos minutos.'
+
+const GENERIC_LOGIN_ERROR = 'Nombre o contraseña incorrectos.'
+const GENERIC_CUSTOMER_LOGIN_ERROR = 'Email o contraseña incorrectos.'
+
+function asLoginSecret(value: unknown): string {
+  if (typeof value !== 'string' || value.length < 1 || value.length > 128 || /\u0000/.test(value)) {
+    throw new InputError(GENERIC_LOGIN_ERROR)
+  }
+  return value
+}
+
+async function findCustomerForPasswordReset(email: string) {
+  try {
+    const authUser = await adminAuth.getUserByEmail(email)
+    if (authUser.disabled) {
+      return null
+    }
+
+    const profileSnap = await adminDb.collection('users').doc(authUser.uid).get()
+    if (!profileSnap.exists) {
+      return null
+    }
+
+    const data = profileSnap.data() ?? {}
+    if (data.role !== 'customer' || data.blocked === true) {
+      return null
+    }
+
+    const hasPassword = authUser.providerData.some((provider) => provider.providerId === 'password')
+    if (!hasPassword) {
+      return null
+    }
+
+    return {
+      uid: authUser.uid,
+      email: (authUser.email ?? email).trim().toLowerCase(),
+      displayName: typeof data.displayName === 'string' && data.displayName.trim()
+        ? data.displayName.trim()
+        : 'tu cuenta Adelia',
+    }
+  } catch (error) {
+    if ((error as { code?: string }).code === 'auth/user-not-found') {
+      return null
+    }
+    throw error
+  }
+}
 
 function getBearerToken(req: Request) {
   return req.headers.authorization?.slice(7) ?? ''
@@ -59,7 +114,7 @@ router.get('/profile', async (req: Request, res: Response) => {
       ? data.favoriteSlugs.filter((item): item is string => typeof item === 'string')
       : []
     try {
-      const favSnap = await adminDb.collection('userFavorites').where('userId', '==', user.uid).get()
+      const favSnap = await adminDb.collection('userFavorites').where('userId', '==', user.uid).limit(50).get()
       if (!favSnap.empty) {
         favoriteSlugs = [...new Set(
           favSnap.docs
@@ -122,10 +177,11 @@ router.post('/complete-initial-password-change', async (req: Request, res: Respo
       return
     }
 
-    if (!newPassword || newPassword.length < 6) {
+    if (!newPassword) {
       res.status(400).json({ error: 'Contraseña nueva no válida.' })
       return
     }
+    asPassword(newPassword)
 
     const decoded = await adminAuth.verifyIdToken(token)
     const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
@@ -176,6 +232,10 @@ router.post('/complete-initial-password-change', async (req: Request, res: Respo
 
     res.json({ success: true })
   } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
     const message =
       error instanceof Error ? error.message : 'Error al sincronizar la contraseña.'
     res.status(500).json({ error: message })
@@ -208,12 +268,9 @@ router.post('/change-initial-password', async (req: Request, res: Response) => {
       return
     }
 
-    if (newPassword.length < 6) {
-      res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' })
-      return
-    }
+    const nextPassword = asPassword(newPassword)
 
-    if (currentPassword === newPassword) {
+    if (currentPassword === nextPassword) {
       res.status(400).json({
         error: 'La nueva contraseña debe ser distinta a la contraseña temporal.',
       })
@@ -254,7 +311,7 @@ router.post('/change-initial-password', async (req: Request, res: Response) => {
       return
     }
 
-    await adminAuth.updateUser(decoded.uid, { password: newPassword })
+    await adminAuth.updateUser(decoded.uid, { password: nextPassword })
     await adminAuth.setCustomUserClaims(decoded.uid, { mustChangePassword: false })
 
     const companyId = userData.companyId as string
@@ -277,6 +334,10 @@ router.post('/change-initial-password', async (req: Request, res: Response) => {
 
     res.json({ success: true })
   } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
     const message =
       error instanceof Error ? error.message : 'Error al cambiar la contraseña.'
     res.status(500).json({ error: message })
@@ -378,6 +439,7 @@ router.post('/customer/sync-phone-verification', async (req: Request, res: Respo
 })
 
 router.post('/resolve-login', async (req: Request, res: Response) => {
+  const started = Date.now()
   try {
     if (!canUseAdminSdk) {
       res.status(503).json({ error: 'Inicio de sesión no disponible en este entorno.' })
@@ -385,16 +447,37 @@ router.post('/resolve-login', async (req: Request, res: Response) => {
     }
 
     const loginName = asTrimmed(req.body?.loginName, 80, 'El nombre de usuario')
-    const authEmail = await resolveCompanyAuthEmail(loginName)
-    if (!authEmail) {
-      res.status(401).json({ error: 'Nombre o contraseña incorrectos.' })
+    const password = asLoginSecret(req.body?.password)
+
+    if (await isLoginLocked(loginName)) {
+      await settleMinDuration(started, 450)
+      res.status(401).json({ error: GENERIC_LOGIN_ERROR })
       return
     }
 
+    const authEmail = await resolveCompanyAuthEmail(loginName)
+    if (!authEmail) {
+      await settleMinDuration(started, 450)
+      res.status(401).json({ error: GENERIC_LOGIN_ERROR })
+      return
+    }
+
+    try {
+      await signInWithPasswordRest(authEmail, password)
+    } catch {
+      await recordLoginFailure(loginName)
+      await settleMinDuration(started, 450)
+      res.status(401).json({ error: GENERIC_LOGIN_ERROR })
+      return
+    }
+
+    await recordLoginSuccess(loginName)
+    await settleMinDuration(started, 450)
     res.json({ authEmail })
   } catch (error) {
     if (error instanceof InputError) {
-      res.status(400).json({ error: error.message })
+      await settleMinDuration(started, 450)
+      res.status(401).json({ error: GENERIC_LOGIN_ERROR })
       return
     }
     console.error('resolve-login error:', error)
@@ -402,7 +485,207 @@ router.post('/resolve-login', async (req: Request, res: Response) => {
   }
 })
 
+router.post('/customer/pre-login', async (req: Request, res: Response) => {
+  const started = Date.now()
+  try {
+    if (!canUseAdminSdk) {
+      res.status(503).json({ error: 'Inicio de sesión no disponible en este entorno.' })
+      return
+    }
+
+    const emailRaw = typeof req.body?.email === 'string' ? req.body.email : ''
+    if (!emailRaw.trim() || !isValidClientEmail(emailRaw)) {
+      await settleMinDuration(started, 450)
+      res.status(401).json({ error: GENERIC_CUSTOMER_LOGIN_ERROR })
+      return
+    }
+
+    const email = emailRaw.trim().toLowerCase()
+    const password = asLoginSecret(req.body?.password)
+
+    if (await isLoginLocked(email)) {
+      await settleMinDuration(started, 450)
+      res.status(401).json({ error: GENERIC_CUSTOMER_LOGIN_ERROR })
+      return
+    }
+
+    try {
+      await signInWithPasswordRest(email, password)
+    } catch {
+      await recordLoginFailure(email)
+      await settleMinDuration(started, 450)
+      res.status(401).json({ error: GENERIC_CUSTOMER_LOGIN_ERROR })
+      return
+    }
+
+    try {
+      const authUser = await adminAuth.getUserByEmail(email)
+      const profileSnap = await adminDb.collection('users').doc(authUser.uid).get()
+      const data = profileSnap.data()
+      if (!profileSnap.exists || data?.role !== 'customer' || data.blocked === true || authUser.disabled) {
+        await settleMinDuration(started, 450)
+        res.status(401).json({ error: GENERIC_CUSTOMER_LOGIN_ERROR })
+        return
+      }
+    } catch {
+      await settleMinDuration(started, 450)
+      res.status(401).json({ error: GENERIC_CUSTOMER_LOGIN_ERROR })
+      return
+    }
+
+    await recordLoginSuccess(email)
+    await settleMinDuration(started, 450)
+    res.json({ ok: true })
+  } catch (error) {
+    if (error instanceof InputError) {
+      await settleMinDuration(started, 450)
+      res.status(401).json({ error: GENERIC_CUSTOMER_LOGIN_ERROR })
+      return
+    }
+    console.error('customer pre-login error:', error)
+    res.status(500).json({ error: 'No se pudo iniciar sesión.' })
+  }
+})
+
+router.post('/customer/register', async (req: Request, res: Response) => {
+  try {
+    if (!canUseAdminSdk) {
+      res.status(503).json({ error: 'Registro no disponible en este entorno.' })
+      return
+    }
+
+    await requireRecaptcha(req.body?.recaptchaToken, 'register', 0.7)
+
+    const emailRaw = typeof req.body?.email === 'string' ? req.body.email : ''
+    if (!emailRaw.trim() || !isValidClientEmail(emailRaw)) {
+      res.status(400).json({ error: 'Indica un correo válido.' })
+      return
+    }
+
+    const email = emailRaw.trim().toLowerCase()
+    const password = asPassword(req.body?.password)
+    const displayName = asPlainText(req.body?.displayName, 80, 'El nombre')
+    const phone = requireSpanishPhone(req.body?.phone)
+
+    const created = await adminAuth.createUser({
+      email,
+      password,
+      displayName,
+      emailVerified: false,
+      disabled: false,
+    })
+
+    try {
+      await adminDb.collection('users').doc(created.uid).set(buildCustomerProfileDoc({
+        email,
+        displayName,
+        phone,
+        phoneVerified: false,
+        authProvider: 'password',
+      }))
+    } catch (writeError) {
+      await adminAuth.deleteUser(created.uid).catch(() => undefined)
+      throw writeError
+    }
+
+    const verifyUrl = await adminAuth.generateEmailVerificationLink(email, {
+      url: `${APP_URL}/cuenta/entrar?verified=1`,
+      handleCodeInApp: false,
+    })
+    await sendCustomerVerificationEmail({
+      to: email,
+      displayName,
+      verifyUrl,
+    })
+
+    res.json({ ok: true })
+  } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
+    const code = (error as { code?: string }).code
+    if (code === 'auth/email-already-exists') {
+      res.status(409).json({ error: 'Ya existe una cuenta con este email.' })
+      return
+    }
+    console.error('customer register error:', error)
+    const message = error instanceof Error ? error.message : 'No se pudo crear la cuenta.'
+    res.status(message.includes('robot') || message.includes('teléfono') ? 400 : 500).json({ error: message })
+  }
+})
+
+router.post('/customer/bootstrap', async (req: Request, res: Response) => {
+  try {
+    if (!canUseAdminSdk) {
+      res.status(503).json({ error: 'Registro no disponible en este entorno.' })
+      return
+    }
+
+    const token = getBearerToken(req)
+    if (!token) {
+      res.status(401).json({ error: 'No autorizado.' })
+      return
+    }
+
+    const decoded = await adminAuth.verifyIdToken(token)
+    const userRecord = await adminAuth.getUser(decoded.uid)
+    if (userRecord.disabled) {
+      res.status(401).json({ error: 'No autorizado.' })
+      return
+    }
+
+    const profileSnap = await adminDb.collection('users').doc(decoded.uid).get()
+    if (profileSnap.exists) {
+      const role = profileSnap.data()?.role
+      if (role !== 'customer' || profileSnap.data()?.blocked === true) {
+        res.status(403).json({ error: 'Esta cuenta de Google no es de cliente.' })
+        return
+      }
+      res.json({ ok: true, existing: true })
+      return
+    }
+
+    await requireRecaptcha(req.body?.recaptchaToken, 'register_google', 0.7)
+
+    const email = (userRecord.email ?? '').trim().toLowerCase()
+    if (!email || !isValidClientEmail(email)) {
+      res.status(400).json({ error: 'Esta cuenta de Google no tiene un correo válido.' })
+      return
+    }
+
+    const displayName = userRecord.displayName?.trim() || 'Comensal'
+    let photoUrl = ''
+    try {
+      photoUrl = asOptionalCustomerPhotoUrl(userRecord.photoURL ?? '')
+    } catch {
+      photoUrl = ''
+    }
+
+    await adminDb.collection('users').doc(decoded.uid).set(buildCustomerProfileDoc({
+      email,
+      displayName,
+      phone: '',
+      phoneVerified: Boolean(userRecord.phoneNumber),
+      authProvider: 'google.com',
+      photoUrl,
+    }))
+
+    res.json({ ok: true, existing: false })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo completar el registro.'
+    console.error('customer bootstrap error:', error)
+    res.status(message.includes('robot') ? 400 : 500).json({ error: message })
+  }
+})
+
 router.post('/forgot-password', async (req: Request, res: Response) => {
+  const started = Date.now()
+  const respondOk = async () => {
+    await settleMinDuration(started, 650)
+    res.json({ success: true, message: GENERIC_FORGOT_SUCCESS })
+  }
+
   try {
     if (!canUseAdminSdk) {
       res.status(503).json({
@@ -425,7 +708,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     const companyId = await resolveCompanyIdFromLoginName(companyLogin)
 
     if (!companyId) {
-      res.json({ success: true, message: GENERIC_FORGOT_SUCCESS })
+      await respondOk()
       return
     }
 
@@ -436,7 +719,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     ])
 
     if (!companySnap.exists || !credentialsSnap.exists || !emailsMatch(contactEmail, email)) {
-      res.json({ success: true, message: GENERIC_FORGOT_SUCCESS })
+      await respondOk()
       return
     }
 
@@ -444,7 +727,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     const ownerUid = credentialsSnap.data()?.ownerUid as string | undefined
 
     if (!ownerUid) {
-      res.json({ success: true, message: GENERIC_FORGOT_SUCCESS })
+      await respondOk()
       return
     }
 
@@ -457,7 +740,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
         token,
       })
     } catch (sendError) {
-      await deletePasswordResetToken(token)
+      await deletePasswordResetToken(hashPasswordResetToken(token))
       console.error('Password reset email failed:', sendError)
       res.status(503).json({
         error: 'No se pudo enviar el correo. Inténtalo más tarde.',
@@ -465,13 +748,70 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       return
     }
 
-    res.json({ success: true, message: GENERIC_FORGOT_SUCCESS })
+    await respondOk()
   } catch (error) {
     if (error instanceof InputError) {
       res.status(400).json({ error: error.message })
       return
     }
     console.error('forgot-password error:', error)
+    res.status(500).json({ error: 'No se pudo procesar la solicitud.' })
+  }
+})
+
+router.post('/customer/forgot-password', async (req: Request, res: Response) => {
+  const started = Date.now()
+  const respondOk = async () => {
+    await settleMinDuration(started, 650)
+    res.json({ success: true, message: GENERIC_FORGOT_SUCCESS })
+  }
+
+  try {
+    if (!canUseAdminSdk) {
+      res.status(503).json({
+        error: 'Recuperación de contraseña no disponible en este entorno.',
+      })
+      return
+    }
+
+    const emailRaw = typeof req.body?.email === 'string' ? req.body.email : ''
+    if (!emailRaw.trim() || !isValidClientEmail(emailRaw)) {
+      res.status(400).json({ error: 'Indica un correo válido.' })
+      return
+    }
+
+    const email = emailRaw.trim().toLowerCase()
+    const customer = await findCustomerForPasswordReset(email)
+
+    if (!customer) {
+      await respondOk()
+      return
+    }
+
+    const token = await createCustomerPasswordResetToken(customer.uid, customer.email, customer.displayName)
+
+    try {
+      await sendCustomerPasswordResetEmail({
+        to: customer.email,
+        displayName: customer.displayName,
+        token,
+      })
+    } catch (sendError) {
+      await deletePasswordResetToken(hashPasswordResetToken(token))
+      console.error('Customer password reset email failed:', sendError)
+      res.status(503).json({
+        error: 'No se pudo enviar el correo. Inténtalo más tarde.',
+      })
+      return
+    }
+
+    await respondOk()
+  } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
+    console.error('customer forgot-password error:', error)
     res.status(500).json({ error: 'No se pudo procesar la solicitud.' })
   }
 })
@@ -497,11 +837,24 @@ router.get('/reset-password/validate', async (req: Request, res: Response) => {
       return
     }
 
-    const companySnap = await adminDb.collection('companies').doc(record.companyId).get()
+    if (record.audience === 'customer') {
+      res.json({
+        valid: true,
+        audience: 'customer',
+        accountName: record.displayName || 'tu cuenta Adelia',
+      })
+      return
+    }
+
+    const companySnap = record.companyId
+      ? await adminDb.collection('companies').doc(record.companyId).get()
+      : null
 
     res.json({
       valid: true,
-      companyName: (companySnap.data()?.name as string | undefined) ?? '',
+      audience: 'company',
+      companyName: (companySnap?.data()?.name as string | undefined) ?? '',
+      accountName: (companySnap?.data()?.name as string | undefined) ?? '',
     })
   } catch (error) {
     console.error('reset-password validate error:', error)
@@ -540,25 +893,31 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     }
 
     await adminAuth.updateUser(record.ownerUid, { password })
-    await adminAuth.setCustomUserClaims(record.ownerUid, { mustChangePassword: false })
+    await adminAuth.revokeRefreshTokens(record.ownerUid)
 
-    const now = Timestamp.now()
+    if (record.audience === 'company') {
+      await adminAuth.setCustomUserClaims(record.ownerUid, { mustChangePassword: false })
 
-    await adminDb.collection('users').doc(record.ownerUid).set(
-      {
-        mustChangePassword: false,
-      },
-      { merge: true },
-    )
+      const now = Timestamp.now()
 
-    await adminDb.collection('companyCredentials').doc(record.companyId).set(
-      {
-        loginPassword: FieldValue.delete(),
-        mustChangePassword: false,
-        updatedAt: now,
-      },
-      { merge: true },
-    )
+      await adminDb.collection('users').doc(record.ownerUid).set(
+        {
+          mustChangePassword: false,
+        },
+        { merge: true },
+      )
+
+      if (record.companyId) {
+        await adminDb.collection('companyCredentials').doc(record.companyId).set(
+          {
+            loginPassword: FieldValue.delete(),
+            mustChangePassword: false,
+            updatedAt: now,
+          },
+          { merge: true },
+        )
+      }
+    }
 
     await deletePasswordResetToken(record.token)
 

@@ -1,13 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import PublicRestaurantReviews from './PublicRestaurantReviews'
 import RestaurantRouteMapModal from './RestaurantRouteMapModal'
+import RestaurantPhotoCollage from './RestaurantPhotoCollage'
 import type { PublicBookingCompany } from '../../services/publicApi'
 import { getCompanyMainPhotoUrl } from '../../utils/companyPhotos'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
 import { formatRestaurantLocation } from '../../utils/publicBooking'
 import { toGeoCoordinates } from '../../utils/mapCoordinates'
 import FavoriteButton from '../FavoriteButton'
+import FacilityIcon from '../FacilityIcon'
+import SlidingFitRow from './SlidingFitRow'
+import {
+  getAmenityIcon,
+  getAmenityLabel,
+  getAmenityTone,
+  getPriceRangeSymbol,
+  getVenueTypeLabel,
+} from '../../data/companyProfileFacilities'
+import {
+  companyAcceptsReservations,
+  companyRequiresReservation,
+  reservationModeHint,
+} from '../../data/companyReservationMode'
 import styles from './BookingRestaurantLanding.module.css'
 
 interface BookingRestaurantLandingProps {
@@ -20,129 +36,113 @@ interface BookingRestaurantLandingProps {
 }
 
 const BUBBLE_VARIANTS = ['bubbleA', 'bubbleB', 'bubbleC', 'bubbleD', 'bubbleE'] as const
+const AMENITY_TIP_MS = 1000
 
-function PhotoCarousel({
-  photos,
-  fallbackLabel,
+function UtensilsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M5 3.2v5.3c0 1 .8 1.8 1.8 1.8h.4c1 0 1.8-.8 1.8-1.8V3.2"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+      <path d="M5 3.2V6M9 3.2V6M7.2 10.3V20.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path d="M15.2 20.8V8.4c0-2.6 1.4-4.4 3.6-5.2" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path d="M15.2 8.4h3.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function PercentTagIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8.2" r="2.15" stroke="currentColor" strokeWidth="1.9" />
+      <circle cx="16" cy="15.8" r="2.15" stroke="currentColor" strokeWidth="1.9" />
+      <path d="M15.6 6.4 8.4 17.6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CalendarCheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3.4" y="5.2" width="17.2" height="15.4" rx="2.2" stroke="currentColor" strokeWidth="1.9" />
+      <path d="M3.4 10.2h17.2M8 3.4v3.4M16 3.4v3.4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path d="m8.6 16.1 2.2 2.2 4.7-4.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function AmenityHintButton({
+  id,
+  label,
+  icon,
 }: {
-  photos: string[]
-  fallbackLabel: string
+  id: string
+  label: string
+  icon: string
 }) {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const touchStartX = useRef<number | null>(null)
+  const [open, setOpen] = useState(false)
+  const [tipKey, setTipKey] = useState(0)
+  const [tipPos, setTipPos] = useState<{ left: number; top: number } | null>(null)
+  const timerRef = useRef<number | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const tone = getAmenityTone(id)
 
   useEffect(() => {
-    setActiveIndex(0)
-  }, [photos])
-
-  useEffect(() => {
-    if (photos.length <= 1) {
-      return undefined
-    }
-
-    const timer = window.setInterval(() => {
-      setIsTransitioning(true)
-      setActiveIndex((current) => (current + 1) % photos.length)
-      window.setTimeout(() => setIsTransitioning(false), 520)
-    }, 4500)
-
     return () => {
-      window.clearInterval(timer)
+      if (timerRef.current != null) {
+        window.clearTimeout(timerRef.current)
+      }
     }
-  }, [photos])
+  }, [])
 
-  const goTo = useCallback((index: number) => {
-    if (photos.length === 0) {
-      return
+  const showTip = () => {
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (rect) {
+      setTipPos({ left: rect.left + rect.width / 2, top: rect.top })
     }
 
-    setIsTransitioning(true)
-    setActiveIndex((index + photos.length) % photos.length)
-    window.setTimeout(() => setIsTransitioning(false), 520)
-  }, [photos.length])
+    setOpen(true)
+    setTipKey((current) => current + 1)
 
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    touchStartX.current = event.touches[0]?.clientX ?? null
+    if (timerRef.current != null) {
+      window.clearTimeout(timerRef.current)
+    }
+
+    timerRef.current = window.setTimeout(() => {
+      setOpen(false)
+      timerRef.current = null
+    }, AMENITY_TIP_MS)
   }
-
-  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    if (touchStartX.current == null) {
-      return
-    }
-
-    const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStartX.current
-    touchStartX.current = null
-
-    if (Math.abs(delta) < 36) {
-      return
-    }
-
-    goTo(activeIndex + (delta < 0 ? 1 : -1))
-  }
-
-  if (photos.length === 0) {
-    return (
-      <div className={styles.carouselBox} aria-label="Galería de fotos">
-        <div className={styles.carouselFallback}>
-          {fallbackLabel.charAt(0).toUpperCase()}
-        </div>
-      </div>
-    )
-  }
-
-  const progress = photos.length > 1 ? ((activeIndex + 1) / photos.length) * 100 : 100
 
   return (
-    <div
-      className={`${styles.carouselBox} ${isTransitioning ? styles.carouselBoxActive : ''}`}
-      aria-label="Galería de fotos"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      <div className={styles.carouselShine} aria-hidden="true" />
-
-      <div
-        className={styles.carouselTrack}
-        style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+    <li className={styles.amenityItem}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className={`${styles.amenityIcon} ${open ? styles.amenityIconOn : ''}`}
+        style={{ color: tone.ink, background: tone.wash, borderColor: `${tone.ink}33` }}
+        aria-label={label}
+        onClick={showTip}
       >
-        {photos.map((photo, index) => (
-          <div key={photo} className={styles.carouselSlide}>
-            <img
-              src={optimizeCloudinaryUrl(photo, CLOUDINARY_DISPLAY.photoThumb)}
-              alt=""
-              className={`${styles.carouselImage} ${index === activeIndex ? styles.carouselImageActive : ''}`}
-              loading={index === 0 ? 'eager' : 'lazy'}
-              decoding="async"
-              fetchPriority={index === 0 ? 'high' : 'low'}
-              draggable={false}
-            />
-          </div>
-        ))}
-      </div>
-
-      {photos.length > 1 && (
-        <>
-          <div className={styles.carouselCounter} aria-hidden="true">
-            {activeIndex + 1}/{photos.length}
-          </div>
-          <div className={styles.carouselProgress} aria-hidden="true">
-            <span className={styles.carouselProgressBar} style={{ width: `${progress}%` }} />
-          </div>
-          <div className={styles.carouselDots}>
-            {photos.map((photo, index) => (
-              <button
-                key={photo}
-                type="button"
-                className={`${styles.carouselDot} ${index === activeIndex ? styles.carouselDotActive : ''}`}
-                onClick={() => goTo(index)}
-                aria-label={`Foto ${index + 1}`}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+        <FacilityIcon name={icon} />
+      </button>
+      {open && tipPos
+        ? createPortal(
+            <span
+              key={tipKey}
+              className={styles.amenityTip}
+              role="status"
+              style={{ left: tipPos.left, top: tipPos.top }}
+            >
+              {label}
+            </span>,
+            document.body,
+          )
+        : null}
+    </li>
   )
 }
 
@@ -166,6 +166,22 @@ export default function BookingRestaurantLanding({
 
     return company.logoUrl ? [company.logoUrl] : []
   }, [company.photos, company.logoUrl])
+
+  const venueLabels = useMemo(
+    () => company.venueTypes.map(getVenueTypeLabel).filter(Boolean),
+    [company.venueTypes],
+  )
+  const priceSymbol = getPriceRangeSymbol(company.priceRange)
+  const venueLine = [...venueLabels, priceSymbol].filter(Boolean).join(' · ')
+  const amenityItems = useMemo(
+    () =>
+      company.amenities.map((id) => ({
+        id,
+        label: getAmenityLabel(id),
+        icon: getAmenityIcon(id),
+      })),
+    [company.amenities],
+  )
 
   const mainPhotoUrl = getCompanyMainPhotoUrl(allPhotos, mainPhotoIndex)
   const heroImage = mainPhotoUrl
@@ -215,7 +231,6 @@ export default function BookingRestaurantLanding({
 
         <div className={styles.heroContent}>
           <div className={styles.nameBlock}>
-            <span className={styles.nameEyebrow}>Restaurante</span>
             <h1 className={styles.name}>{company.name}</h1>
           </div>
 
@@ -251,53 +266,74 @@ export default function BookingRestaurantLanding({
       />
 
       <div className={styles.body}>
-        <div className={styles.featureRow}>
-          <section className={`${styles.characteristicsCard} ${styles.revealCard}`} aria-label="Características">
-            <h2 className={styles.cardLabel}>
-              <span className={styles.cardLabelDot} aria-hidden="true" />
-              <span className={styles.cardLabelTextShort}>Caract.</span>
-              <span className={styles.cardLabelTextFull}>Características</span>
-            </h2>
-            {company.characteristics.length > 0 ? (
-              <ul className={styles.characteristics}>
-                {company.characteristics.map((item, index) => (
-                  <li
-                    key={item}
-                    className={styles[BUBBLE_VARIANTS[index % BUBBLE_VARIANTS.length]]}
-                    style={{ animationDelay: `${index * 70}ms` }}
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className={styles.emptyHint}>Sin características publicadas.</p>
-            )}
-          </section>
-
-          <div className={`${styles.carouselWrap} ${styles.revealCardDelayed}`}>
-            <h2 className={styles.carouselLabel}>
-              <span className={styles.cardLabelDot} aria-hidden="true" />
-              <span className={styles.cardLabelText}>Fotos</span>
-            </h2>
-            <PhotoCarousel photos={allPhotos} fallbackLabel={company.name} />
+        <section className={`${styles.profileMeta} ${styles.revealCard}`} aria-label="Perfil del local">
+          <div className={styles.venueRow}>
+            <p className={styles.venueTypes}>{venueLine || 'Restaurante'}</p>
+            <div className={styles.quickActions}>
+              <Link to={menuHref} className={styles.quickMenu} aria-label="Carta" title="Carta">
+                <UtensilsIcon />
+                <span className={styles.quickLabel}>Carta</span>
+              </Link>
+              <Link to={promotionsHref} className={styles.quickPromo} aria-label="Promociones" title="Promos">
+                <PercentTagIcon />
+                <span className={styles.quickLabel}>Promos</span>
+              </Link>
+              {companyAcceptsReservations(company.reservationMode) ? (
+                <button
+                  type="button"
+                  className={styles.quickReserve}
+                  onClick={onReserve}
+                  aria-label="Reservar"
+                  title="Reservar"
+                >
+                  <CalendarCheckIcon />
+                  <span className={styles.quickLabel}>Reserva</span>
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
+          {amenityItems.length > 0 ? (
+            <ul className={styles.amenityStrip} aria-label="Servicios del local">
+              {amenityItems.map((item) => (
+                <AmenityHintButton
+                  key={item.id}
+                  id={item.id}
+                  label={item.label}
+                  icon={item.icon}
+                />
+              ))}
+            </ul>
+          ) : null}
 
-        <div className={`${styles.actions} ${styles.revealActions}`}>
-          <Link to={menuHref} className={styles.menuButton}>
-            <span className={styles.buttonIcon} aria-hidden="true">📋</span>
-            Ver carta
-          </Link>
-          <Link to={promotionsHref} className={styles.promotionsButton}>
-            <span className={styles.buttonIcon} aria-hidden="true">🎁</span>
-            Promos
-          </Link>
-          <button type="button" className={styles.reserveButton} onClick={onReserve}>
-            <span className={styles.buttonGlow} aria-hidden="true" />
-            <span className={styles.buttonIcon} aria-hidden="true">✦</span>
-            Reservar
-          </button>
+          {company.characteristics.length > 0 ? (
+            <SlidingFitRow ariaLabel="Características" className={styles.characteristicRow}>
+              {company.characteristics.map((item, index) => (
+                <li
+                  key={`${item}-${index}`}
+                  className={styles[BUBBLE_VARIANTS[index % BUBBLE_VARIANTS.length]]}
+                >
+                  {item}
+                </li>
+              ))}
+            </SlidingFitRow>
+          ) : null}
+        </section>
+
+        <div className={`${styles.featureRow} ${styles.revealCardDelayed}`}>
+          <RestaurantPhotoCollage
+            photos={allPhotos}
+            videos={company.videos ?? []}
+            mainPhotoIndex={mainPhotoIndex}
+            fallbackLabel={company.name}
+            restaurantName={company.name}
+          />
+          <p className={styles.reservationModeNote}>
+            {companyRequiresReservation(company.reservationMode)
+              ? 'Reserva obligatoria.'
+              : companyAcceptsReservations(company.reservationMode)
+                ? 'Reserva opcional. También puedes venir sin mesa.'
+                : reservationModeHint(company.reservationMode)}
+          </p>
         </div>
 
         <div className={styles.infoRow}>

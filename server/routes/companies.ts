@@ -5,7 +5,7 @@ import {
   createAuthUserWithRest,
   setFirestoreDocWithRest,
 } from '../rest-firebase.ts'
-import { defaultSchedule, mapCompanyDoc, slugToAuthEmail, slugify } from '../utils.ts'
+import { defaultSchedule, mapCompanyDoc, slugToAuthEmail, slugify, companySubscriptionFields } from '../utils.ts'
 import { syncRestaurantIndex } from '../data/restaurantIndex.ts'
 import { writeCompanyOps } from '../data/companyOps.ts'
 import { defaultCompanyEmailTemplates } from '../email/emailTemplateDefaults.ts'
@@ -75,7 +75,7 @@ async function markMustChangePassword(ownerUid: string, companyId: string) {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, location, phone, website, password } = req.body
+    const { name, location, phone, website, password, planId, planBilling, planStartedAt } = req.body
 
     if (!name || !location || !phone || !password) {
       res.status(400).json({ error: 'Faltan campos obligatorios.' })
@@ -108,6 +108,13 @@ router.post('/', async (req: Request, res: Response) => {
       })
 
       const now = Timestamp.now()
+      const subscription = companySubscriptionFields({
+        currentPlanId: 'free',
+        hasStartedAt: false,
+        nextPlanId: planId,
+        nextBilling: planBilling,
+        nextStartedAt: planStartedAt,
+      })
 
       await adminDb.collection('users').doc(userRecord.uid).set({
         email,
@@ -126,7 +133,15 @@ router.post('/', async (req: Request, res: Response) => {
         website: website ?? '',
         location,
         timeSlotMinutes: 120,
+        reservationMode: 'optional',
         schedule: defaultSchedule(),
+        planId: subscription.planId,
+        planBilling: subscription.planBilling,
+        ...(subscription.planStartedAt instanceof Date
+          ? { planStartedAt: Timestamp.fromDate(subscription.planStartedAt) }
+          : subscription.planStartedAt === 'now'
+            ? { planStartedAt: now }
+            : {}),
         createdAt: now,
       })
 
@@ -175,6 +190,13 @@ router.post('/', async (req: Request, res: Response) => {
     const userRecord = await createAuthUserWithRest(email, password)
     const companyId = `comp_${slug}_${Date.now()}`
     const now = new Date()
+    const subscription = companySubscriptionFields({
+      currentPlanId: 'free',
+      hasStartedAt: false,
+      nextPlanId: planId,
+      nextBilling: planBilling,
+      nextStartedAt: planStartedAt,
+    })
 
     await setFirestoreDocWithRest(adminToken, `users/${userRecord.uid}`, {
       email,
@@ -193,7 +215,15 @@ router.post('/', async (req: Request, res: Response) => {
       website: website ?? '',
       location,
       timeSlotMinutes: 120,
+      reservationMode: 'optional',
       schedule: defaultSchedule(),
+      planId: subscription.planId,
+      planBilling: subscription.planBilling,
+      ...(subscription.planStartedAt instanceof Date
+        ? { planStartedAt: subscription.planStartedAt }
+        : subscription.planStartedAt === 'now'
+          ? { planStartedAt: now }
+          : {}),
       createdAt: now,
     })
 
@@ -237,6 +267,7 @@ router.post('/', async (req: Request, res: Response) => {
         website: website ?? '',
         location,
         timeSlotMinutes: 120,
+        reservationMode: 'optional',
         schedule: defaultSchedule(),
         createdAt: now.toISOString(),
       },
@@ -260,7 +291,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 
     const { id } = req.params
-    const { name, location, phone, website, password } = req.body
+    const { name, location, phone, website, password, planId, planBilling, planStartedAt } = req.body
 
     const companyRef = adminDb.collection('companies').doc(id)
     const companySnap = await companyRef.get()
@@ -284,6 +315,23 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (location) updates.location = location
     if (phone) updates.phone = phone
     if (website !== undefined) updates.website = website
+
+    const subscription = companySubscriptionFields({
+      currentPlanId: companyData.planId,
+      hasStartedAt: Boolean(companyData.planStartedAt),
+      nextPlanId: planId ?? companyData.planId,
+      nextBilling: planBilling ?? companyData.planBilling,
+      nextStartedAt: planStartedAt,
+    })
+    updates.planId = subscription.planId
+    updates.planBilling = subscription.planBilling
+    if (subscription.planStartedAt === 'clear') {
+      updates.planStartedAt = FieldValue.delete()
+    } else if (subscription.planStartedAt instanceof Date) {
+      updates.planStartedAt = Timestamp.fromDate(subscription.planStartedAt)
+    } else if (subscription.planStartedAt === 'now') {
+      updates.planStartedAt = Timestamp.now()
+    }
 
     if (Object.keys(updates).length > 0) {
       await companyRef.update(updates)

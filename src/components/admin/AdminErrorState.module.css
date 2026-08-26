@@ -1,20 +1,18 @@
 .error {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  min-height: 300px;
-  padding: 3rem 1.5rem;
-  text-align: center;
-  background: #fff8f5;
-  border: 2px solid #f5d4c8;
-  border-radius: 12px;
+  min-height: auto;
+  margin-bottom: 1rem;
+  padding: 1rem 1.15rem;
+  background: #fff6f2;
+  border: 1px solid #f3d0c6;
+  border-radius: 16px;
 }
 
 .icon {
-  font-size: 64px;
-  margin-bottom: 16px;
-  opacity: 0.8;
+  display: none;
 }
 
 .title {

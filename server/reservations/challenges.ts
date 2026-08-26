@@ -314,6 +314,7 @@ export async function createReservationChallenge(
       .get(),
     adminDb.collection(COLLECTIONS.reservationChallenges)
       .where('reservationId', '==', trimmedReservationId)
+      .limit(20)
       .get(),
   ])
 
@@ -337,6 +338,7 @@ export async function createReservationChallenge(
   if (!inviteSnap.exists) {
     const inviteQuery = await adminDb.collection(COLLECTIONS.reservationInvites)
       .where('toUid', '==', challengerUid)
+      .limit(40)
       .get()
     const matched = inviteQuery.docs.find((docSnap) => {
       const data = docSnap.data()
@@ -443,8 +445,8 @@ export async function createReservationChallenge(
 
 export async function listLiveChallengesForUser(uid: string): Promise<PublicReservationChallenge[]> {
   const [incomingSnap, outgoingSnap] = await Promise.all([
-    adminDb.collection(COLLECTIONS.reservationChallenges).where('challengedUid', '==', uid).get(),
-    adminDb.collection(COLLECTIONS.reservationChallenges).where('challengerUid', '==', uid).get(),
+    adminDb.collection(COLLECTIONS.reservationChallenges).where('challengedUid', '==', uid).limit(40).get(),
+    adminDb.collection(COLLECTIONS.reservationChallenges).where('challengerUid', '==', uid).limit(40).get(),
   ])
 
   const byId = new Map<string, ReservationChallengeRecord>()
@@ -622,6 +624,7 @@ async function transferReservationToWinner(
 
   const invitesSnap = await adminDb.collection(COLLECTIONS.reservationInvites)
     .where('reservationId', '==', challenge.reservationId)
+    .limit(20)
     .get()
 
   const batch = adminDb.batch()

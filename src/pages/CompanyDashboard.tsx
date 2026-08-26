@@ -11,6 +11,7 @@ import {
   isCompiteTab,
   isReportsTab,
   isSettingsTab,
+  isSettingsEditorTab,
   REPORTS_SECTIONS,
   SETTINGS_SECTIONS,
   type CompanyTab,
@@ -39,6 +40,7 @@ const CompanyEmailTemplate = lazy(() => import('./company/CompanyEmailTemplate')
 const CompanyHelp = lazy(() => import('./company/CompanyHelp'))
 const CompanyMenu = lazy(() => import('./company/CompanyMenu'))
 const CompanySettings = lazy(() => import('./company/CompanySettings'))
+const CompanyPlan = lazy(() => import('./company/CompanyPlan'))
 
 function settingsSectionLabel(tab: CompanyTab): string {
   if (tab === 'reservations') {
@@ -129,13 +131,6 @@ function CompanyDashboard() {
   const settingsRef = useRef<CompanySettingsHandle>(null)
 
   useEffect(() => {
-    if (!company?.id) {
-      return
-    }
-    void syncCompanyGamification().catch(() => undefined)
-  }, [company?.id])
-
-  useEffect(() => {
     if (!company?.id || !isCompiteTab(activeTab)) {
       return
     }
@@ -146,15 +141,17 @@ function CompanyDashboard() {
     const tab = searchParams.get('tab')
     const knownTabs = new Set<string>([
       'reservation-settings',
+      'plan',
       ...CLIENTS_SECTIONS.map((section) => section.id),
       ...COMPITE_SECTIONS.map((section) => section.id),
       ...REPORTS_SECTIONS.map((section) => section.id),
+      ...SETTINGS_SECTIONS.map((section) => section.id),
     ])
 
     if (tab && knownTabs.has(tab)) {
       const nextTab = tab as CompanyTab
       setActiveTab(nextTab)
-      if (isSettingsTab(nextTab) && nextTab !== 'menu') {
+      if (isSettingsEditorTab(nextTab)) {
         setLastSettingsSection(nextTab)
       }
       if (isCompiteTab(nextTab) || isClientsTab(nextTab) || isReportsTab(nextTab) || isSettingsTab(nextTab)) {
@@ -177,7 +174,7 @@ function CompanyDashboard() {
   }
 
   const completeNavigation = (tab: CompanyTab) => {
-    if (isSettingsTab(tab) && tab !== 'menu') {
+    if (isSettingsEditorTab(tab)) {
       setLastSettingsSection(tab)
     }
 
@@ -199,11 +196,7 @@ function CompanyDashboard() {
       return
     }
 
-    if (
-      activeTab !== 'menu'
-      && isSettingsTab(activeTab)
-      && settingsRef.current?.isSectionDirty(activeTab)
-    ) {
+    if (isSettingsEditorTab(activeTab) && settingsRef.current?.isSectionDirty(activeTab)) {
       setPendingTab(tab)
       setUnsavedSection(activeTab)
       setUnsavedDialogOpen(true)
@@ -263,7 +256,8 @@ function CompanyDashboard() {
     ? optimizeCloudinaryUrl(company.logoUrl, CLOUDINARY_DISPLAY.logo)
     : ADELIA_LOGO_URL
   const inMenu = activeTab === 'menu'
-  const inSettingsEditor = isSettingsTab(activeTab) && activeTab !== 'menu'
+  const inPlan = activeTab === 'plan'
+  const inSettingsEditor = isSettingsEditorTab(activeTab)
   const inClients = isClientsTab(activeTab)
   const inCompite = isCompiteTab(activeTab)
   const inReports = isReportsTab(activeTab)
@@ -356,9 +350,9 @@ function CompanyDashboard() {
 
           <SidebarNavGroup
             label="Mi restaurante"
-            hint="Perfil, mesas y carta"
+            hint="Perfil, mesas, carta y plan"
             open={openGroups.settings}
-            active={inSettingsEditor || inMenu}
+            active={inSettingsEditor || inMenu || inPlan}
             onToggle={() => toggleGroup('settings')}
           >
             {SETTINGS_SECTIONS.map((section) => (
@@ -468,6 +462,7 @@ function CompanyDashboard() {
             {activeTab === 'compite-ranking' ? <CompanyCompiteRanking /> : null}
             {activeTab === 'help' ? <CompanyHelp /> : null}
             {inMenu ? <CompanyMenu companyId={company.id} /> : null}
+            {inPlan ? <CompanyPlan /> : null}
             {inSettingsEditor ? (
               <CompanySettings ref={settingsRef} activeSection={settingsSection} />
             ) : null}

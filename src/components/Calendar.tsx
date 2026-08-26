@@ -5,6 +5,7 @@ import {
   isPastCalendarDate,
   MONTH_NAMES,
   WEEKDAY_NAMES,
+  shiftCalendarMonth,
 } from '../utils/helpers'
 import styles from './Calendar.module.css'
 
@@ -43,8 +44,7 @@ function Calendar({
   }, [selectedDate])
 
   const goToMonth = (offset: number) => {
-    const next = new Date(viewDate)
-    next.setMonth(next.getMonth() + offset)
+    const next = shiftCalendarMonth(viewDate, offset)
 
     if (updateSelectionOnMonthNav) {
       onSelectDate(next)

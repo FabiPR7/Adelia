@@ -31,14 +31,20 @@ function mapPublicPromotion(promotion: PublicPromotion, index: number) {
       : PROMO_HERO_IMAGE,
     accent: accentForIndex(index),
     slug: promotion.companySlug,
+    companyId: promotion.companyId,
   }
 }
 
-function DiscoveryPromotionsSection() {
+interface DiscoveryPromotionsSectionProps {
+  allowedCompanyIds?: string[]
+}
+
+function DiscoveryPromotionsSection({ allowedCompanyIds }: DiscoveryPromotionsSectionProps) {
   const [items, setItems] = useState(
     FEATURED_PROMOTIONS.map((promotion, index) => ({
       ...promotion,
       slug: '',
+      companyId: '',
       accent: accentForIndex(index),
     })),
   )
@@ -54,6 +60,10 @@ function DiscoveryPromotionsSection() {
         // Keep featured fallback content.
       })
   }, [])
+
+  const visibleItems = allowedCompanyIds
+    ? items.filter((item) => typeof item.companyId === 'string' && allowedCompanyIds.includes(item.companyId))
+    : items
 
   return (
     <section className={styles.section} aria-labelledby="discovery-promotions-title">
@@ -76,7 +86,7 @@ function DiscoveryPromotionsSection() {
       </div>
 
       <div className={styles.cardsTrack}>
-        {items.map((promotion) => (
+        {visibleItems.map((promotion) => (
           <article
             key={promotion.id}
             className={`${styles.card} ${styles[`accent_${promotion.accent}`]}`}

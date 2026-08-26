@@ -58,23 +58,50 @@ export function buildLadderMapNodePositions(count: number): LadderMapNodePositio
   }))
 }
 
-/** Camino serpenteante tipo mapa del tesoro. */
+function roundMap(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+/** Sendero curvo tipo mapa del tesoro. */
 export function buildLadderMapPath(positions: LadderMapNodePosition[]): string {
   if (positions.length < 2) {
     return ''
   }
 
-  let path = `M ${positions[0].x} ${positions[0].y}`
+  const first = positions[0]
+  let path = `M ${roundMap(first.x)} ${roundMap(first.y)}`
 
   for (let index = 1; index < positions.length; index += 1) {
     const previous = positions[index - 1]
     const current = positions[index]
-    const midY = (previous.y + current.y) / 2
+    const dx = current.x - previous.x
+    const dy = current.y - previous.y
+    const bulge = (index % 2 === 0 ? -1 : 1) * Math.min(16, Math.abs(dx) * 0.32)
 
-    path += ` L ${previous.x} ${midY} L ${current.x} ${midY} L ${current.x} ${current.y}`
+    const c1x = previous.x + dx * 0.18 + bulge
+    const c1y = previous.y + dy * 0.34
+    const c2x = current.x - dx * 0.18 + bulge
+    const c2y = current.y - dy * 0.34
+
+    path += ` C ${roundMap(c1x)} ${roundMap(c1y)}, ${roundMap(c2x)} ${roundMap(c2y)}, ${roundMap(current.x)} ${roundMap(current.y)}`
   }
 
   return path
+}
+
+/** Cruces a mitad de tramo, entre premios. */
+export function buildLadderMapTrailMarks(positions: LadderMapNodePosition[]): LadderMapNodePosition[] {
+  if (positions.length < 2) {
+    return []
+  }
+
+  return positions.slice(1).map((current, index) => {
+    const previous = positions[index]
+    return {
+      x: previous.x + (current.x - previous.x) * 0.5,
+      y: previous.y + (current.y - previous.y) * 0.5,
+    }
+  })
 }
 
 /** Posiciones de decoraciones del mapa (brújula, cofre). */
@@ -89,9 +116,9 @@ export function buildLadderMapDecorations(count: number): {
   const last = positions[positions.length - 1] ?? { x: 50, y: viewHeight * 0.88 }
 
   return {
-    compass: { x: 90, y: 6 },
-    start: { x: first.x, y: Math.max(4, first.y - 6) },
-    finish: { x: last.x, y: Math.min(viewHeight - 4, last.y + 6) },
+    compass: { x: 88, y: 11 },
+    start: { x: first.x, y: Math.max(4, first.y - 8) },
+    finish: { x: last.x, y: Math.min(viewHeight - 4, last.y + 8) },
   }
 }
 

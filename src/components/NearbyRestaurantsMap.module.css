@@ -108,104 +108,6 @@
   line-height: 1.45;
 }
 
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.listItem {
-  display: grid;
-  grid-template-columns: 1.7rem 1fr auto;
-  gap: 0.7rem;
-  align-items: center;
-  width: 100%;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid rgba(107, 83, 68, 0.1);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
-  text-align: left;
-  cursor: pointer;
-}
-
-.listItemActive {
-  border-color: rgba(255, 107, 74, 0.45);
-  background: #fff7f3;
-}
-
-.listRank {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.55rem;
-  height: 1.55rem;
-  border-radius: 999px;
-  background: #3a2418;
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.listCopy {
-  min-width: 0;
-}
-
-.listCopy strong,
-.listCopy span {
-  display: block;
-}
-
-.listCopy strong {
-  font-size: 0.88rem;
-  color: var(--color-brown);
-}
-
-.listCopy span {
-  margin-top: 0.12rem;
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-}
-
-.listItem b {
-  font-size: 0.78rem;
-  color: #2563eb;
-}
-
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.85rem;
-  margin: 0;
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-}
-
-.legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.legendYou,
-.legendPlace {
-  display: inline-block;
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 999px;
-}
-
-.legendYou {
-  background: #2563eb;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
-}
-
-.legendPlace {
-  background: #c45c3e;
-}
-
 .youMarker {
   background: transparent;
   border: none;
@@ -250,22 +152,31 @@
 }
 
 .cardStack {
-  display: flex;
-  flex-direction: column;
   height: calc(100% - 8px);
   overflow: hidden;
-  border-radius: 12px;
-  background: #fff9f2;
+  border-radius: 14px;
+  background: #cbb7a2;
   border: 1px solid rgba(255, 255, 255, 0.88);
 }
 
 .cardPhoto {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 46px;
+  width: 100%;
+  height: 100%;
   background:
     linear-gradient(145deg, rgba(107, 83, 68, 0.92), rgba(196, 168, 130, 0.88)),
     #cbb7a2;
+}
+
+.cardPhoto::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(to bottom, rgba(12, 8, 6, 0.62) 0%, rgba(12, 8, 6, 0.08) 42%, transparent 55%),
+    linear-gradient(to top, rgba(12, 8, 6, 0.42) 0%, transparent 38%);
+  pointer-events: none;
 }
 
 .cardPhotoImg {
@@ -281,15 +192,65 @@
   justify-content: center;
   height: 100%;
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.92);
 }
 
-.cardDistance {
+.cardName {
+  position: absolute;
+  top: 0.28rem;
+  left: 0.32rem;
+  right: 2.15rem;
+  z-index: 2;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1.12;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardRating {
   position: absolute;
   top: 0.22rem;
   right: 0.22rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.08rem 0.24rem 0.08rem 0.1rem;
+  border-radius: 999px;
+  background: rgba(18, 12, 8, 0.62);
+  color: #fff;
+  font-size: 0.52rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cardCoin {
+  width: 10px;
+  height: 10px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 3px rgba(245, 158, 11, 0.35));
+}
+
+.cardRating b {
+  font-size: 0.58rem;
+  line-height: 1;
+}
+
+.cardDistance {
+  position: absolute;
+  right: 0.22rem;
+  bottom: 0.22rem;
+  z-index: 3;
   padding: 0.08rem 0.28rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
@@ -297,61 +258,6 @@
   font-size: 0.5rem;
   font-weight: 800;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.16);
-}
-
-.cardBody {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.28rem 0.32rem 0.3rem;
-  background: #fff9f2;
-}
-
-.cardBody strong {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 0.6rem;
-  line-height: 1.15;
-  color: var(--color-brown);
-}
-
-.cardAdelinas {
-  display: flex;
-  align-items: center;
-  gap: 0.18rem;
-  min-width: 0;
-  color: #9a6b12;
-  font-size: 0.52rem;
-  font-weight: 800;
-}
-
-.cardAdelinas span:last-child,
-.cardAdelinas b {
-  line-height: 1;
-}
-
-.cardCoins {
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-}
-
-.cardCoins img {
-  width: 9px;
-  height: 9px;
-  object-fit: contain;
-}
-
-.coinOn {
-  filter: drop-shadow(0 1px 3px rgba(245, 158, 11, 0.35));
-}
-
-.coinOff {
-  opacity: 0.28;
-  filter: grayscale(0.4);
 }
 
 .cardPointer {

@@ -21,9 +21,15 @@
   cursor: pointer;
 }
 
-.toolButton:disabled {
-  opacity: 0.65;
-  cursor: wait;
+.rootCompact .toolButton {
+  padding: 0.32rem 0.65rem;
+  font-size: 0.72rem;
+}
+
+.rootCompact .hint,
+.rootCompact .status,
+.rootCompact .coords {
+  font-size: 0.72rem;
 }
 
 .map {
@@ -33,6 +39,50 @@
   overflow: hidden;
   border: 1px solid rgba(107, 83, 68, 0.12);
   box-shadow: 0 10px 28px rgba(35, 28, 22, 0.08);
+}
+
+.mapCompact {
+  height: 176px;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.mapSquare {
+  height: auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.rootSquare {
+  position: relative;
+  gap: 0.4rem;
+}
+
+.rootSquare .toolbar {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1100;
+}
+
+.rootSquare .toolButton {
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.16);
+}
+
+.rootSquare .coords {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 1100;
+  padding: 0.18rem 0.4rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.62rem;
+}
+
+.rootSquare .status {
+  margin-top: 0.15rem;
 }
 
 .hint,
@@ -60,5 +110,13 @@
 @media (min-width: 960px) {
   .map {
     height: 380px;
+  }
+
+  .mapCompact {
+    height: 188px;
+  }
+
+  .mapSquare {
+    height: auto;
   }
 }

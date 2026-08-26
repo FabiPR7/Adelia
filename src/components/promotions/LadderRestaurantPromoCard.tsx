@@ -126,7 +126,7 @@ export default function LadderRestaurantPromoCard({
               </span>
             ) : null}
           </div>
-          <h3 className={styles.ladderTitle}>Mapa de premios por reservas</h3>
+          <h3 className={styles.ladderTitle}>Cada reserva o consumo gana premios</h3>
         </div>
 
         <div className={styles.ladderBody}>
@@ -137,7 +137,7 @@ export default function LadderRestaurantPromoCard({
                 {summary.status === 'claimable' ? (
                   <>Ya puedes reclamar <strong>{summary.promotion.title}</strong></>
                 ) : summary.status === 'awaiting' ? (
-                  <>Cuando el restaurante confirme tu reserva contará para el premio</>
+                  <>Cuando el restaurante confirme tu reserva o consumo contará para el premio</>
                 ) : (
                   <>
                     Te {summary.required - summary.current === 1 ? 'falta' : 'faltan'}{' '}
@@ -153,7 +153,7 @@ export default function LadderRestaurantPromoCard({
             </>
           ) : (
             <p className={styles.ladderCopy}>
-              Reserva y desbloquea <strong>{rewardCount}</strong> recompensa{rewardCount === 1 ? '' : 's'} en este local.
+              Cada visita suma. Reserva o consume y desbloquea <strong>{rewardCount}</strong> recompensa{rewardCount === 1 ? '' : 's'} en este local.
             </p>
           )}
 

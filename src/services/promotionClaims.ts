@@ -1,11 +1,15 @@
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { collection, getDocs, limit, query, where } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import type { ClaimedPromotionRecord } from '../types/gamification'
 
 export async function listPromotionClaims(customerUid: string): Promise<ClaimedPromotionRecord[]> {
   try {
     const snapshot = await getDocs(
-      query(collection(db, 'promotionClaims'), where('customerUid', '==', customerUid)),
+      query(
+        collection(db, 'promotionClaims'),
+        where('customerUid', '==', customerUid),
+        limit(100),
+      ),
     )
     return snapshot.docs.map((item) => {
       const data = item.data()

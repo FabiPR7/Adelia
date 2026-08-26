@@ -10,6 +10,7 @@ const HELP_ITEMS = [
     question: '¿Cómo configuro reservas y horario?',
     answer: [
       'Abre Mi restaurante → Reservas y horario.',
+      'Reserva: elige si es obligatoria, opcional o si el local no admite reservas.',
       'Duración de cada reserva: indica cuántos minutos ocupa una mesa (por defecto suele ser 120 min).',
       'Horario semanal: marca los días activos y hasta 3 tramos por día (por ejemplo, 12:00–16:00 y 20:00–00:00). Los tramos no pueden cruzarse.',
       'Pulsa Guardar reservas y horario. Esto afecta al calendario y a la web pública.',
@@ -74,6 +75,16 @@ const HELP_ITEMS = [
       'Actualiza nombre, teléfono, email, dirección y web si la tienes.',
       'Sube o cambia el logo con el selector de imagen (se guarda al subir el archivo).',
       'Pulsa Guardar contacto. Estos datos aparecen en tu página pública de reservas.',
+    ],
+  },
+  {
+    id: 'plan',
+    question: '¿Dónde veo mi plan y cómo lo cambio?',
+    answer: [
+      'Abre Mi restaurante → Plan.',
+      'Arriba ves el plan en el que estás y todo lo que incluye.',
+      'Elige otro plan para ver lo extra si subes o lo que se te quita si bajas.',
+      'Pulsa Solicitar para escribirnos. El cambio se confirma al activarlo; no es automático.',
     ],
   },
   {

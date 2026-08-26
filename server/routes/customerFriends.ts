@@ -39,12 +39,18 @@ function gamificationOf(data: FirebaseFirestore.DocumentData | undefined) {
   return {}
 }
 
-async function mapFriendProfile(uid: string, since?: FirebaseFirestore.Timestamp | null) {
+async function mapFriendProfile(
+  uid: string,
+  since?: FirebaseFirestore.Timestamp | null,
+  knownUser?: FirebaseFirestore.DocumentData,
+) {
   const [userSnap, statsSnap] = await Promise.all([
-    adminDb.collection(COLLECTIONS.users).doc(uid).get(),
+    knownUser
+      ? Promise.resolve(null)
+      : adminDb.collection(COLLECTIONS.users).doc(uid).get(),
     adminDb.collection(COLLECTIONS.userGamification).doc(uid).get(),
   ])
-  const user = userSnap.data() ?? {}
+  const user = knownUser ?? userSnap?.data() ?? {}
   const stats = gamificationOf(statsSnap.data() ?? user)
   const xp = typeof stats.xp === 'number' ? stats.xp : typeof user.xp === 'number' ? user.xp : 0
   const level = levelForXp(xp)
@@ -317,10 +323,31 @@ function customerSearchScore(
   return 50
 }
 
-async function listCustomerUserDocs() {
+async function listCustomerUserDocs(queryText: string, rawLower: string) {
+  const prefixes = [...new Set([queryText, rawLower].filter((item) => item.length >= 3))]
+  const prefixSnaps = await Promise.all(
+    prefixes.map((prefix) =>
+      adminDb.collection(COLLECTIONS.users)
+        .where('role', '==', 'customer')
+        .where('displayNameLower', '>=', prefix)
+        .where('displayNameLower', '<=', `${prefix}\uf8ff`)
+        .limit(20)
+        .get()
+        .catch(() => null),
+    ),
+  )
+
+  const byId = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>()
+  for (const snap of prefixSnaps) {
+    snap?.docs.forEach((docSnap) => byId.set(docSnap.id, docSnap))
+  }
+  if (byId.size > 0) {
+    return [...byId.values()]
+  }
+
   const snapshot = await adminDb.collection(COLLECTIONS.users)
     .where('role', '==', 'customer')
-    .limit(400)
+    .limit(60)
     .get()
   return snapshot.docs
 }
@@ -328,13 +355,15 @@ async function listCustomerUserDocs() {
 router.get('/search', async (req: Request, res: Response) => {
   try {
     const user = await verifyCustomerUid(req)
-    const queryText = foldSearchText(String(req.query.q ?? '')).slice(0, 40)
+    const rawQuery = String(req.query.q ?? '').trim().slice(0, 40)
+    const rawLower = rawQuery.toLowerCase()
+    const queryText = foldSearchText(rawQuery)
     if (queryText.length < 3) {
       res.json({ results: [] })
       return
     }
 
-    const customerDocs = await listCustomerUserDocs()
+    const customerDocs = await listCustomerUserDocs(queryText, rawLower)
 
     const ranked = customerDocs
       .filter((docSnap) => docSnap.id !== user.uid)
@@ -354,19 +383,9 @@ router.get('/search', async (req: Request, res: Response) => {
       })
       .slice(0, 20)
 
-    const missingNameKey = ranked.filter((entry) => typeof entry.data.displayNameLower !== 'string')
-    const toBackfill = missingNameKey.filter((entry) => typeof entry.data.displayName === 'string' && entry.data.displayName)
-    if (toBackfill.length > 0) {
-      const batch = adminDb.batch()
-      for (const entry of toBackfill) {
-        batch.set(adminDb.collection(COLLECTIONS.users).doc(entry.id), {
-          displayNameLower: String(entry.data.displayName).toLowerCase(),
-        }, { merge: true })
-      }
-      void batch.commit().catch(() => undefined)
-    }
-
-    const results = await Promise.all(ranked.map((entry) => mapFriendProfile(entry.id)))
+    const results = await Promise.all(
+      ranked.map((entry) => mapFriendProfile(entry.id, null, entry.data)),
+    )
     res.json({ results })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo buscar.'
@@ -378,22 +397,22 @@ router.get('/state', async (req: Request, res: Response) => {
   try {
     const user = await verifyCustomerUid(req)
     const [friendsSnap, incomingSnap, outgoingSnap, favoritesSnap] = await Promise.all([
-      adminDb.collection(COLLECTIONS.friendships).where('userIds', 'array-contains', user.uid).get(),
-      adminDb.collection(COLLECTIONS.friendRequests).where('toUid', '==', user.uid).where('status', '==', 'pending').get(),
-      adminDb.collection(COLLECTIONS.friendRequests).where('fromUid', '==', user.uid).where('status', '==', 'pending').get(),
-      adminDb.collection(COLLECTIONS.friendFavorites).where('ownerUid', '==', user.uid).get(),
+      adminDb.collection(COLLECTIONS.friendships).where('userIds', 'array-contains', user.uid).limit(80).get(),
+      adminDb.collection(COLLECTIONS.friendRequests).where('toUid', '==', user.uid).where('status', '==', 'pending').limit(40).get(),
+      adminDb.collection(COLLECTIONS.friendRequests).where('fromUid', '==', user.uid).where('status', '==', 'pending').limit(40).get(),
+      adminDb.collection(COLLECTIONS.friendFavorites).where('ownerUid', '==', user.uid).limit(40).get(),
     ])
 
     const friendEntries = friendsSnap.docs.map((docSnap) => {
       const data = docSnap.data()
       const other = (data.userIds as string[]).find((id) => id !== user.uid) ?? ''
       return { uid: other, since: data.createdAt as Timestamp | undefined }
-    }).filter((entry) => entry.uid)
+    }).filter((entry) => entry.uid).slice(0, 40)
 
     const [friends, incoming, outgoing] = await Promise.all([
       Promise.all(friendEntries.map((entry) => mapFriendProfile(entry.uid, entry.since ?? null))),
-      Promise.all(incomingSnap.docs.map((docSnap) => mapFriendProfile(String(docSnap.data().fromUid)))),
-      Promise.all(outgoingSnap.docs.map((docSnap) => mapFriendProfile(String(docSnap.data().toUid)))),
+      Promise.all(incomingSnap.docs.slice(0, 20).map((docSnap) => mapFriendProfile(String(docSnap.data().fromUid)))),
+      Promise.all(outgoingSnap.docs.slice(0, 20).map((docSnap) => mapFriendProfile(String(docSnap.data().toUid)))),
     ])
 
     res.json({

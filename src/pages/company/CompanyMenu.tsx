@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import ImageUploader from '../../components/ImageUploader'
 import MenuExcelExportModal from '../../components/menu/MenuExcelExportModal'
 import MenuExcelImportModal, { type MenuExcelImportMode } from '../../components/menu/MenuExcelImportModal'
+import MenuPdfViewer from '../../components/menu/MenuPdfViewer'
 import MenuPreview from '../../components/menu/MenuPreview'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -32,7 +33,7 @@ import {
   updateCompanyMenuBoard,
   updateCompanyMenuNode,
 } from '../../services/companyMenu'
-import type { MenuBoard, MenuBoardInput, MenuCategoryAvailability, MenuNode, MenuNodeInput, MenuTemplateConfig } from '../../types'
+import { hasMenuPdf, type MenuBoard, type MenuBoardInput, type MenuCategoryAvailability, type MenuNode, type MenuNodeInput, type MenuTemplateConfig } from '../../types'
 import {
   buildMenuTree,
   canDropNode,
@@ -56,13 +57,20 @@ import {
   DEFAULT_MENU_CATEGORY_AVAILABILITY,
   formatMenuCategoryAvailability,
 } from '../../utils/menuCategoryAvailability'
+import {
+  formatFileSize,
+  isAllowedPdfFile,
+  isValidPdfFileSize,
+  MAX_PDF_FILE_SIZE,
+} from '../../constants/fileUpload'
+import { uploadPdfToCloudinary } from '../../utils/cloudinaryUpload'
 import styles from './CompanyMenu.module.css'
 
 interface CompanyMenuProps {
   companyId: string
 }
 
-type EditorTab = 'content' | 'design'
+type EditorTab = 'content' | 'design' | 'pdf'
 
 interface NodeFormState {
   mode: 'create' | 'edit'
@@ -87,6 +95,9 @@ function boardToInput(board: MenuBoard): MenuBoardInput {
     active: board.active,
     sortOrder: board.sortOrder,
     template: board.template,
+    pdfUrl: board.pdfUrl,
+    pdfFileName: board.pdfFileName,
+    pdfPages: board.pdfPages,
   }
 }
 
@@ -167,6 +178,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
   const [error, setError] = useState<string | null>(null)
   const [boardNameDraft, setBoardNameDraft] = useState('')
   const [templateDraft, setTemplateDraft] = useState<MenuTemplateConfig>(defaultMenuTemplate())
+  const pdfInputRef = useRef<HTMLInputElement>(null)
   const [nodeForm, setNodeForm] = useState<NodeFormState | null>(null)
   const [nodeFormError, setNodeFormError] = useState<string | null>(null)
   const [deleteBoardTarget, setDeleteBoardTarget] = useState<MenuBoard | null>(null)
@@ -258,7 +270,14 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
       setBoards((current) =>
         current.map((board) =>
           board.id === selectedBoard.id
-            ? { ...board, ...input, updatedAt: new Date() }
+            ? {
+                ...board,
+                ...input,
+                pdfUrl: input.pdfUrl ?? board.pdfUrl,
+                pdfFileName: input.pdfFileName ?? board.pdfFileName,
+                pdfPages: input.pdfPages ?? board.pdfPages,
+                updatedAt: new Date(),
+              }
             : board,
         ),
       )
@@ -367,6 +386,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
 
       await loadMenu()
       setSelectedBoardId(id)
+      setEditorTab('content')
       setCreateBoardOpen(false)
       setNewBoardName('')
     } catch (err) {
@@ -450,6 +470,57 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
     }
 
     setTemplateDraft({ ...preset.config })
+  }
+
+  const handlePdfFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file || !selectedBoard) {
+      return
+    }
+
+    if (!isAllowedPdfFile(file)) {
+      setError('Sube un archivo PDF.')
+      return
+    }
+
+    if (!isValidPdfFileSize(file.size)) {
+      setError(`El PDF no puede superar ${formatFileSize(MAX_PDF_FILE_SIZE)}.`)
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+
+    try {
+      const uploaded = await uploadPdfToCloudinary(file)
+      await persistBoard({
+        ...boardToInput(selectedBoard),
+        name: boardNameDraft.trim() || selectedBoard.name,
+        pdfUrl: uploaded.url,
+        pdfFileName: uploaded.fileName,
+        pdfPages: uploaded.pages,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo subir el PDF.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRemovePdf = async () => {
+    if (!selectedBoard) {
+      return
+    }
+
+    await persistBoard({
+      ...boardToInput(selectedBoard),
+      name: boardNameDraft.trim() || selectedBoard.name,
+      pdfUrl: '',
+      pdfFileName: '',
+      pdfPages: 0,
+    })
   }
 
   const openCreateNode = (nodeType: MenuNode['nodeType'], parentId: string | null) => {
@@ -863,7 +934,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
       <header className={styles.header}>
         <div>
           <h1>Carta digital</h1>
-          <p>Crea cartas por categoría (desayuno, cena…), organiza familias y productos, y personaliza el diseño.</p>
+          <p>Crea cartas por categoría (desayuno, cena…), organiza familias y productos, personaliza el diseño o sube un PDF.</p>
         </div>
         <div className={styles.headerActions}>
           <button
@@ -915,7 +986,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
           )}
         </aside>
 
-        <section className={`${styles.editor} ${editorTab === 'design' ? styles.editorDesignMode : ''}`}>
+        <section className={`${styles.editor} ${editorTab === 'design' ? styles.editorDesignMode : ''} ${editorTab === 'pdf' ? styles.editorPdfMode : ''}`}>
           {!selectedBoard ? (
             <div className={styles.emptyEditor}>
               <p>Selecciona o crea una carta para empezar.</p>
@@ -938,14 +1009,14 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                 </div>
 
                 <div className={styles.tabs}>
-                  {(['content', 'design'] as EditorTab[]).map((tab) => (
+                  {(['content', 'design', 'pdf'] as EditorTab[]).map((tab) => (
                     <button
                       key={tab}
                       type="button"
                       className={editorTab === tab ? styles.tabActive : styles.tab}
                       onClick={() => setEditorTab(tab)}
                     >
-                      {tab === 'content' ? 'Contenido' : 'Diseño y vista previa'}
+                      {tab === 'content' ? 'Contenido' : tab === 'design' ? 'Diseño y vista previa' : 'Subir PDF'}
                     </button>
                   ))}
                 </div>
@@ -953,6 +1024,11 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
 
               {editorTab === 'content' ? (
                 <div className={styles.contentPanel}>
+                  <p className={styles.productsHint}>
+                    {hasMenuPdf(selectedBoard)
+                      ? 'Si hay un PDF, los clientes verán ese documento. Estos productos siguen sirviendo para reseñas, promociones y la vista previa.'
+                      : 'Organiza familias y productos. Sirven para la vista previa, reseñas y promociones. También puedes subir un PDF.'}
+                  </p>
                   <div className={styles.contentToolbar}>
                     <button type="button" onClick={() => openCreateNode('family', null)}>+ Familia</button>
                     <button type="button" onClick={() => openCreateNode('product', null)}>+ Producto suelto</button>
@@ -1172,7 +1248,11 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                   <div className={styles.designCanvas} aria-label="Vista previa en vivo">
                     <div className={styles.designCanvasToolbar}>
                       <span className={styles.designCanvasLabel}>Vista previa móvil</span>
-                      <span className={styles.designCanvasHint}>Así se verá en el teléfono del cliente</span>
+                      <span className={styles.designCanvasHint}>
+                        {hasMenuPdf(selectedBoard)
+                          ? 'Los clientes verán el PDF. Esta vista previa es la carta de productos.'
+                          : 'Así se verá en el teléfono del cliente'}
+                      </span>
                     </div>
 
                     <div className={styles.templateStrip}>
@@ -1211,6 +1291,92 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                       </div>
                     </div>
                   </div>
+                </div>
+              ) : null}
+
+              {editorTab === 'pdf' && selectedBoard ? (
+                <div className={styles.pdfPanel}>
+                  <p className={styles.pdfHint}>
+                    Si subes un PDF, los clientes verán ese documento. El contenido y el diseño siguen disponibles
+                    para productos, reseñas y promociones.
+                  </p>
+
+                  <input
+                    ref={pdfInputRef}
+                    className={styles.hiddenFileInput}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    onChange={(event) => void handlePdfFile(event)}
+                  />
+
+                  <div className={styles.contentToolbar}>
+                    <button
+                      type="button"
+                      className={styles.primaryBtn}
+                      onClick={() => pdfInputRef.current?.click()}
+                      disabled={saving}
+                    >
+                      {saving ? 'Subiendo…' : hasMenuPdf(selectedBoard) ? 'Reemplazar PDF' : 'Subir PDF'}
+                    </button>
+                    {hasMenuPdf(selectedBoard) ? (
+                      <button
+                        type="button"
+                        className={styles.secondaryBtn}
+                        onClick={() => void handleRemovePdf()}
+                        disabled={saving}
+                      >
+                        Quitar PDF
+                      </button>
+                    ) : null}
+                    <span className={styles.toolbarDivider} aria-hidden="true" />
+                    <button
+                      type="button"
+                      onClick={handleOpenMenuBoardPublic}
+                      disabled={!selectedBoard.active || !selectedBoardPublicUrl}
+                      title={selectedBoard.active ? 'Abrir la carta pública' : 'Activa la carta para compartirla'}
+                    >
+                      Ver carta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyMenuBoardLink()}
+                      disabled={!selectedBoard.active || !selectedBoardPublicUrl}
+                    >
+                      {menuShareCopied ? 'Enlace copiado' : 'Copiar enlace'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMenuQrCustomizerOpen(true)}
+                      disabled={!selectedBoard.active || !selectedBoardPublicUrl}
+                    >
+                      Personalizar QR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadMenuBoardQr()}
+                      disabled={!selectedBoard.active || !selectedBoardPublicUrl || isDownloadingMenuQr}
+                    >
+                      {isDownloadingMenuQr ? 'Generando QR…' : 'Descargar QR'}
+                    </button>
+                  </div>
+
+                  {hasMenuPdf(selectedBoard) ? (
+                    <>
+                      <p className={styles.pdfMeta}>
+                        {selectedBoard.pdfFileName || 'Carta.pdf'}
+                        {selectedBoard.pdfPages > 0 ? ` · ${selectedBoard.pdfPages} página${selectedBoard.pdfPages === 1 ? '' : 's'}` : ''}
+                      </p>
+                      <MenuPdfViewer
+                        pdfUrl={selectedBoard.pdfUrl}
+                        pdfPages={selectedBoard.pdfPages}
+                        fileName={selectedBoard.pdfFileName}
+                      />
+                    </>
+                  ) : (
+                    <div className={styles.pdfEmpty}>
+                      <p>Aún no hay PDF. Súbelo para que la carta pública sea exactamente ese documento.</p>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </>

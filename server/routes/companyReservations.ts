@@ -1,17 +1,16 @@
 import { Router, type Request, type Response } from 'express'
 import { Timestamp } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
-import { processReservationReceivedEmail } from '../email/processReservationEmail.ts'
-import { upsertCompanyClientFromReservation } from '../clients/upsertCompanyClient.ts'
 import { adminDb } from '../firebase-admin.ts'
-import { notifyReservationReceived } from '../notifications/reservationEvents.ts'
 import {
   assertReservationSlotValid,
-  isSameDay,
   assertReservationStartInFuture,
+  combineDateAndTime,
+  parseBookingDate,
 } from '../reservationSlots.ts'
-import { defaultSchedule } from '../utils.ts'
+import { defaultSchedule, companyAcceptsReservations } from '../utils.ts'
 import { ensureCompanyOwner } from '../auth/verifyRequest.ts'
+import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../reservations/bookReservation.ts'
 
 const router = Router()
 
@@ -64,11 +63,7 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
       return
     }
 
-    const date = new Date(
-      Number(dateMatch[1]),
-      Number(dateMatch[2]) - 1,
-      Number(dateMatch[3]),
-    )
+    const date = parseBookingDate(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`)
 
     const companySnap = await adminDb.collection('companies').doc(companyId).get()
 
@@ -81,38 +76,17 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
     const schedule = companyData.schedule ?? defaultSchedule()
     const timeSlotMinutes = (companyData.timeSlotMinutes as number) ?? 120
 
+    if (!companyAcceptsReservations(companyData.reservationMode)) {
+      res.status(409).json({ error: 'Este restaurante no admite reservas. Cambia el modo en Reservas y horario.' })
+      return
+    }
+
     const tableSnap = await adminDb.collection('tables').doc(tableId).get()
 
     if (!tableSnap.exists || tableSnap.data()?.companyId !== companyId) {
       res.status(400).json({ error: 'Mesa no válida.' })
       return
     }
-
-    const reservationsSnapshot = await adminDb
-      .collection('reservations')
-      .where('companyId', '==', companyId)
-      .get()
-
-    const dayReservations = reservationsSnapshot.docs
-      .map((item) => {
-        const data = item.data()
-        const start = data.startTime?.toDate?.() as Date | undefined
-        const end = data.endTime?.toDate?.() as Date | undefined
-
-        if (!start || !end) {
-          return null
-        }
-
-        return {
-          id: item.id,
-          tableId: data.tableId as string,
-          startTime: start,
-          endTime: end,
-          status: data.status as string,
-        }
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null)
-      .filter((item) => isSameDay(item.startTime, date))
 
     try {
       assertReservationStartInFuture(date, time)
@@ -123,9 +97,7 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
         schedule,
         timeSlotMinutes,
         timeSlotMinutes,
-        dayReservations,
-        undefined,
-        status === 'cancelled' ? 'cancelled' : 'completed',
+        [],
       )
     } catch (validationError) {
       res.status(409).json({
@@ -137,9 +109,7 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
       return
     }
 
-    const [hours, minutes] = time.split(':').map(Number)
-    const startTime = new Date(date)
-    startTime.setHours(hours, minutes, 0, 0)
+    const startTime = combineDateAndTime(date, time)
     const endTime = new Date(startTime.getTime() + timeSlotMinutes * 60000)
 
     const reservationStatus = status === 'cancelled' ? 'cancelled' : 'completed'
@@ -161,26 +131,22 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
       createdAt: Timestamp.now(),
     }
 
-    const reservationRef = await adminDb.collection('reservations').add(reservationData)
-
+    const reservationRef = adminDb.collection('reservations').doc()
     try {
-      await upsertCompanyClientFromReservation(adminDb, reservationRef.id, reservationData)
-    } catch (clientError) {
-      console.error('Company reservation client sync error:', clientError)
-    }
-
-    if (email && reservationStatus !== 'cancelled') {
-      try {
-        await processReservationReceivedEmail(reservationRef.id, reservationData)
-      } catch (emailError) {
-        console.error('Company reservation received email error:', emailError)
+      await createReservationWithOccupiedSlot({
+        reservationRef,
+        reservationData,
+        companyId,
+        tableId,
+        startTime,
+        endTime,
+      })
+    } catch (slotError) {
+      if (slotError instanceof SlotUnavailableError) {
+        res.status(409).json({ error: slotError.message })
+        return
       }
-
-      try {
-        await notifyReservationReceived(reservationRef.id, reservationData)
-      } catch (notificationError) {
-        console.error('Company reservation received notification error:', notificationError)
-      }
+      throw slotError
     }
 
     res.status(201).json({

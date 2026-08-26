@@ -49,7 +49,7 @@ function CustomerChangePasswordPage() {
       setConfirmPassword('')
       
       setTimeout(() => {
-        navigate('/cuenta/perfil')
+        navigate('/app/perfil')
       }, 2000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cambiar la contraseña.')
@@ -74,7 +74,7 @@ function CustomerChangePasswordPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <Link to="/cuenta/perfil" className={styles.backLink}>
+        <Link to="/app/perfil" className={styles.backLink}>
           ← Volver al perfil
         </Link>
 

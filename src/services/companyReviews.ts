@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  orderBy,
   query,
   serverTimestamp,
   Timestamp,
@@ -30,6 +31,7 @@ import {
   reviewHasPhotoBonus,
 } from '../types/review'
 import { getReviewCommentPlainText } from '../utils/reviewCommentTags'
+import { COMPANY_REVIEW_PAGE_SIZE } from './firestoreQuery'
 
 export interface SubmitCustomerReviewInput {
   reservationId: string
@@ -258,7 +260,13 @@ function reviewDocumentRef(companyId: string, reviewId: string) {
 }
 
 export async function getCompanyReviews(companyId: string): Promise<CompanyReview[]> {
-  const snapshot = await getDocs(collection(db, 'companies', companyId, 'reviews'))
+  const snapshot = await getDocs(
+    query(
+      collection(db, 'companies', companyId, 'reviews'),
+      orderBy('createdAt', 'desc'),
+      limit(COMPANY_REVIEW_PAGE_SIZE),
+    ),
+  ).catch(() => getDocs(query(collection(db, 'companies', companyId, 'reviews'), limit(COMPANY_REVIEW_PAGE_SIZE))))
 
   return snapshot.docs
     .map((item) => mapReviewDoc(item.id, item.data()))

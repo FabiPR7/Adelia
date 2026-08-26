@@ -4,7 +4,8 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
-import * as admin from 'firebase-admin'
+import { FieldValue } from 'firebase-admin/firestore'
+import { adminDb } from '../server/firebase-admin.ts'
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from './middleware/rateLimiter'
 import { incrementDistributedCounter } from './utils/distributedCounter'
 
@@ -42,7 +43,7 @@ export const createReservation = onCall(
     // 🛡️ RATE LIMITING - Previene DoS
     await checkRateLimit(request, 'createReservation', RATE_LIMIT_CONFIGS.createReservation)
 
-    const db = admin.firestore()
+    const db = adminDb
     const data = request.data as CreateReservationRequest
 
     // Validación de datos
@@ -174,7 +175,7 @@ export const createReservation = onCall(
         const reservationId = db.collection('reservations').doc().id
         const reservationRef = db.collection('reservations').doc(reservationId)
 
-        const now = admin.firestore.FieldValue.serverTimestamp()
+        const now = FieldValue.serverTimestamp()
 
         const reservationData = {
           id: reservationId,
@@ -270,7 +271,7 @@ export const cancelReservation = onCall(
     // 🛡️ RATE LIMITING
     await checkRateLimit(request, 'cancelReservation', RATE_LIMIT_CONFIGS.cancelReservation)
 
-    const db = admin.firestore()
+    const db = adminDb
     const { reservationId, reason } = request.data as {
       reservationId: string
       reason?: string
@@ -308,9 +309,9 @@ export const cancelReservation = onCall(
         // Actualizar estado
         transaction.update(reservationRef, {
           status: 'cancelled',
-          cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+          cancelledAt: FieldValue.serverTimestamp(),
           cancelReason: reason || 'Cancelada por el usuario',
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         })
 
         // Actualizar estadísticas con distributed counter
@@ -348,7 +349,7 @@ export const checkReservationAvailability = onCall(
     // 🛡️ RATE LIMITING (más permisivo para lecturas)
     await checkRateLimit(request, 'checkAvailability', RATE_LIMIT_CONFIGS.checkAvailability)
 
-    const db = admin.firestore()
+    const db = adminDb
     const { companyId, dateIso, time } = request.data as {
       companyId: string
       dateIso: string

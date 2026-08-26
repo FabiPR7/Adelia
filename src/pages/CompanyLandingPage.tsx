@@ -202,9 +202,9 @@ function CompanyLandingPage() {
               <Link to="/login" className={styles.headerGhost}>
                 Iniciar sesión
               </Link>
-              <a href="#solicitar" className={styles.headerPrimary}>
+              <Link to="/empresa/planes" className={styles.headerPrimary}>
                 Quiero Adelia
-              </a>
+              </Link>
             </div>
             <Link to="/" className={styles.headerUserLink}>
               ¿Eres usuario?
@@ -232,9 +232,9 @@ function CompanyLandingPage() {
               para gestionar reservas, promos y comensales sin volverte loco.
             </p>
             <div className={styles.heroActions}>
-              <a href="#solicitar" className={styles.heroPrimary}>
+              <Link to="/empresa/planes" className={styles.heroPrimary}>
                 Solicitar acceso gratis
-              </a>
+              </Link>
               <Link to="/login" className={styles.heroSecondary}>
                 Ya tengo cuenta
               </Link>
@@ -296,9 +296,9 @@ function CompanyLandingPage() {
               <li>QR y enlace para mesa, Instagram o carta digital</li>
               <li>Ranking y retos que traen clientes con ganas de volver</li>
             </ul>
-            <a href="#solicitar" className={styles.inlineCta}>
+            <Link to="/empresa/planes" className={styles.inlineCta}>
               Quiero aparecer en Adelia →
-            </a>
+            </Link>
           </div>
           <div className={styles.growthVisual}>
             <img src={growthImage} alt="" className={styles.growthImage} />
@@ -437,16 +437,13 @@ function CompanyLandingPage() {
           <p className={styles.eyebrow}>Empieza hoy</p>
           <h2>Tu restaurante merece llenarse</h2>
           <p>
-            Solicita acceso y te activamos la cuenta. Configuras mesas, perfil y promos
+            Elige tu plan y te activamos la cuenta. Configuras mesas, perfil y promos
             en una tarde. Tus clientes reservan desde el mismo día.
           </p>
           <div className={styles.ctaActions}>
-            <a
-              href="mailto:contacto@adeliareservas.com?subject=Alta%20empresa%20Adelia"
-              className={styles.ctaPrimary}
-            >
-              Solicitar registro — es gratis
-            </a>
+            <Link to="/empresa/planes" className={styles.ctaPrimary}>
+              Ver planes
+            </Link>
             <Link to="/login" className={styles.ctaSecondary}>
               Iniciar sesión
             </Link>

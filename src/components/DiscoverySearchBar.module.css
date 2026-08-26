@@ -17,6 +17,7 @@
 .searchActions {
   grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.45rem;
   align-items: stretch;
 }
@@ -96,6 +97,38 @@
 .locationButton:disabled {
   opacity: 0.65;
   cursor: wait;
+}
+
+.favoritesButton,
+.favoritesActive {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  min-height: 46px;
+  padding: 0 0.75rem;
+  border-radius: 16px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid rgba(107, 83, 68, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-brown);
+  box-shadow: 0 8px 24px rgba(35, 28, 22, 0.05);
+}
+
+.favoritesActive {
+  background: var(--color-brown);
+  border-color: var(--color-brown);
+  color: #fff;
+}
+
+.favoritesIcon {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
 }
 
 .locationMessage,

@@ -17,6 +17,7 @@ import {
   getCompanyLevelForXp,
 } from '../data/companyGamificationCatalog'
 import { getWeekKey } from './gamificationProgress'
+import { madridHour, madridWeekday } from './madridDateTime'
 
 export interface CompanyMissionContext {
   reservations: Reservation[]
@@ -64,22 +65,22 @@ function confirmedReservations(reservations: Reservation[]): Reservation[] {
 }
 
 function isWeekday(date: Date): boolean {
-  const day = date.getDay()
+  const day = madridWeekday(date)
   return day >= 1 && day <= 4
 }
 
 function isWeekend(date: Date): boolean {
-  const day = date.getDay()
+  const day = madridWeekday(date)
   return day === 0 || day === 5 || day === 6
 }
 
 function isLunch(date: Date): boolean {
-  const hour = date.getHours()
+  const hour = madridHour(date)
   return hour >= 12 && hour < 17
 }
 
 function isDinner(date: Date): boolean {
-  const hour = date.getHours()
+  const hour = madridHour(date)
   return hour >= 19 && hour <= 23
 }
 

@@ -12,6 +12,8 @@ export interface MissionDefinition {
   /** Emoji or `adelina` / `adelina-review` for branded coin icons */
   icon: string
   target: number
+  /** Solo se muestra una misión de cada grupo en la misma rotación. */
+  rotationGroup?: string
 }
 
 export interface ClaimedPromotionRecord {
@@ -42,6 +44,11 @@ export interface CustomerGamificationState {
   reviewsCount: number
   reviewsWithPhotoCount: number
   textReviewsCount: number
+  /** Recuento de reseñas con foto al empezar la semana (para misiones semanales). */
+  reviewsWithPhotoCountAtWeekStart?: number
+  textReviewsCountAtWeekStart?: number
+  reviewsWithPhotoCountAtMonthStart?: number
+  redemptionsCountAtMonthStart?: number
   reviewedReservationIds: string[]
   /** Restaurantes en los que el cliente ya publicó reseña (una por local). */
   reviewedCompanyIds: string[]

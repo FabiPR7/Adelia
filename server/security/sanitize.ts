@@ -88,5 +88,16 @@ export function sanitizeRequest(req: Request, _res: Response, next: NextFunction
       }
     }
   }
+  if (req.query && typeof req.query === 'object') {
+    const query = req.query as Record<string, string | string[] | undefined>
+    for (const key of Object.keys(query)) {
+      const value = query[key]
+      if (typeof value === 'string') {
+        query[key] = sanitizeString(value, 200)
+      } else if (Array.isArray(value) && typeof value[0] === 'string') {
+        query[key] = sanitizeString(value[0], 200)
+      }
+    }
+  }
   next()
 }

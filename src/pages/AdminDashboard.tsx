@@ -1,115 +1,137 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
-import { getAdminCompanies, markCompanyMustChangePassword, syncAllCompanyLoginIndexes } from '../services/firestore'
+import { getAdminCompanies, getFirestoreErrorMessage, markCompanyMustChangePassword } from '../services/firestore'
 import { createCompany, deleteCompany, updateCompany } from '../services/adminCompanies'
+import {
+  deleteIndexedReview,
+  listAdminCustomers,
+  listAdminMissions,
+  listIndexedReviews,
+  listLoginLocks,
+  listPlanChangeRequests,
+  listSecurityEvents,
+  listTopCustomersByAdelinas,
+  saveAdminMission,
+  setCustomerBlocked,
+  updatePlanChangeRequestStatus,
+} from '../services/adminOps'
 import { logout } from '../services/auth'
 import type { AdminCompany } from '../types'
+import type {
+  AdminCustomerRow,
+  AdminLoginLock,
+  AdminMissionRow,
+  AdminSecurityEvent,
+  IndexedReview,
+  PlanChangeRequest,
+} from '../types/adminOps'
 import { ADELIA_LOGO_URL } from '../constants/brand'
-import AdminKpiCard from '../components/admin/AdminKpiCard'
-import AdminGrowthLineChart from '../components/admin/AdminGrowthLineChart'
-import AdminGeographicBarChart from '../components/admin/AdminGeographicBarChart'
-import AdminAnalyticsFilters from '../components/admin/AdminAnalyticsFilters'
-import AdminKpiSkeleton from '../components/admin/AdminKpiSkeleton'
-import AdminChartSkeleton from '../components/admin/AdminChartSkeleton'
-import AdminEmptyState from '../components/admin/AdminEmptyState'
-import AdminErrorState from '../components/admin/AdminErrorState'
+import AdminOverviewBoard from '../components/admin/AdminOverviewBoard'
+import AdminCompaniesWorkspace, { type CompanyEditorState } from '../components/admin/AdminCompaniesWorkspace'
+import AdminPlansBoard from '../components/admin/AdminPlansBoard'
+import AdminCustomersBoard from '../components/admin/AdminCustomersBoard'
+import AdminRequestsBoard from '../components/admin/AdminRequestsBoard'
+import AdminModerationBoard from '../components/admin/AdminModerationBoard'
+import AdminDiscoveryBoard from '../components/admin/AdminDiscoveryBoard'
+import AdminPlayBoard from '../components/admin/AdminPlayBoard'
+import AdminIncidentsBoard from '../components/admin/AdminIncidentsBoard'
 import {
-  getAdminStats,
-  getUserGrowthData,
-  getCompanyGrowthData,
-  getUsersByCountry,
-  getCompaniesByCountry,
-  getAllCountries,
-  type AdminStats,
-  type UserGrowthData,
-  type CompanyGrowthData,
-  type GeographicData,
-  type TimeRange,
-  type DateRangeFilter,
-} from '../services/adminAnalytics'
-import {
-  exportStatsToCSV,
-  exportGrowthDataToCSV,
-  exportGeographicDataToCSV,
-} from '../utils/exportAnalytics'
-import {
-  saveAnalyticsFilters,
-  loadAnalyticsFilters,
-} from '../utils/analyticsStorage'
+  IconAlert,
+  IconBuildings,
+  IconInbox,
+  IconLogout,
+  IconOverview,
+  IconPlans,
+  IconPlay,
+  IconPlus,
+  IconRefresh,
+  IconShield,
+  IconSpark,
+  IconUsers,
+} from '../components/admin/AdminIcons'
+import { getAdminOverview } from '../services/adminAnalytics'
+import type { AdminOverview } from '../utils/adminOverview'
+import type { DateRangeFilter, TimeRange } from '../services/adminAnalytics.types'
+import { isAllowedMonthlyBillingDate, parseCompanyPlanId, parseDateInput } from '../data/companyPlans'
+import { loadAnalyticsFilters, saveAnalyticsFilters } from '../utils/analyticsStorage'
 import styles from './AdminDashboard.module.css'
 
-interface CompanyFormState {
-  name: string
-  location: string
-  phone: string
-  website: string
-  password: string
+type AdminView =
+  | 'analytics'
+  | 'companies'
+  | 'plans'
+  | 'requests'
+  | 'customers'
+  | 'moderation'
+  | 'discovery'
+  | 'play'
+  | 'incidents'
+
+const VIEW_TITLE: Record<AdminView, string> = {
+  analytics: 'El pulso de Adelia',
+  companies: 'Restaurantes',
+  plans: 'Planes y cobro',
+  requests: 'Solicitudes de plan',
+  customers: 'Clientes',
+  moderation: 'Moderación',
+  discovery: 'Descubrimiento',
+  play: 'Compite y Adelinás',
+  incidents: 'Incidencias',
 }
 
-const EMPTY_FORM: CompanyFormState = {
-  name: '',
-  location: '',
-  phone: '',
-  website: '',
-  password: '',
-}
-
-function formatRegisteredDate(date: Date) {
-  return new Intl.DateTimeFormat('es-ES', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(date)
+function greetingFor(date = new Date()) {
+  const hour = date.getHours()
+  if (hour < 12) return 'Buenos días'
+  if (hour < 20) return 'Buenas tardes'
+  return 'Buenas noches'
 }
 
 function AdminDashboard() {
-  const { refreshProfile } = useAuth()
+  const { profile, refreshProfile } = useAuth()
   const [companies, setCompanies] = useState<AdminCompany[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [opsError, setOpsError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [showForm, setShowForm] = useState(false)
-  const [editingCompany, setEditingCompany] = useState<AdminCompany | null>(null)
-  const [form, setForm] = useState<CompanyFormState>(EMPTY_FORM)
   const [isSaving, setIsSaving] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [companyToDelete, setCompanyToDelete] = useState<AdminCompany | null>(null)
   const [isDeletingCompany, setIsDeletingCompany] = useState(false)
+  const [createSignal, setCreateSignal] = useState(0)
+  const [focusCompanyId, setFocusCompanyId] = useState<string | null>(null)
 
-  // Analytics state
-  const [currentView, setCurrentView] = useState<'analytics' | 'companies'>('analytics')
-  const [stats, setStats] = useState<AdminStats | null>(null)
-  const [userGrowth, setUserGrowth] = useState<UserGrowthData>({ labels: [], values: [] })
-  const [companyGrowth, setCompanyGrowth] = useState<CompanyGrowthData>({ labels: [], values: [] })
-  const [usersByCountry, setUsersByCountry] = useState<GeographicData[]>([])
-  const [companiesByCountry, setCompaniesByCountry] = useState<GeographicData[]>([])
-  const [availableCountries, setAvailableCountries] = useState<string[]>([])
+  const [currentView, setCurrentView] = useState<AdminView>('analytics')
+  const [overview, setOverview] = useState<AdminOverview | null>(null)
   const [customDateRange, setCustomDateRange] = useState<DateRangeFilter | undefined>(undefined)
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true)
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => loadAnalyticsFilters()?.timeRange ?? 'month')
+  const [countryFilter, setCountryFilter] = useState<string>(() => loadAnalyticsFilters()?.countryFilter ?? '')
 
-  // Load filters from localStorage
-  const savedFilters = loadAnalyticsFilters()
-  const [timeRange, setTimeRange] = useState<TimeRange>(savedFilters?.timeRange ?? 'month')
-  const [countryFilter, setCountryFilter] = useState<string>(savedFilters?.countryFilter ?? '')
+  const [requests, setRequests] = useState<PlanChangeRequest[]>([])
+  const [customers, setCustomers] = useState<AdminCustomerRow[]>([])
+  const [customersTotal, setCustomersTotal] = useState(0)
+  const [reviews, setReviews] = useState<IndexedReview[]>([])
+  const [missions, setMissions] = useState<AdminMissionRow[]>([])
+  const [events, setEvents] = useState<AdminSecurityEvent[]>([])
+  const [locks, setLocks] = useState<AdminLoginLock[]>([])
+  const [opsLoading, setOpsLoading] = useState(false)
+
+  const adminName = profile?.displayName?.trim() || 'Fabian'
+  const pendingRequests = useMemo(
+    () => requests.filter((request) => request.status === 'pending').length,
+    [requests],
+  )
 
   const loadCompanies = async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      void syncAllCompanyLoginIndexes().catch(() => {
-        // El login sigue resolviendo accesos por nombre de empresa.
-      })
-
-      const data = await getAdminCompanies()
-      setCompanies(data)
+      setCompanies(await getAdminCompanies())
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'No se pudieron cargar las empresas desde Firestore.',
-      )
+      setError(getFirestoreErrorMessage(err))
     } finally {
       setIsLoading(false)
     }
@@ -117,46 +139,76 @@ function AdminDashboard() {
 
   const loadAnalytics = async () => {
     setIsLoadingAnalytics(true)
-    setError(null)
-
+    setAnalyticsError(null)
     try {
-      const [
-        statsData,
-        userGrowthData,
-        companyGrowthData,
-        usersGeoData,
-        companiesGeoData,
-        countries,
-      ] = await Promise.all([
-        getAdminStats(),
-        getUserGrowthData(timeRange, customDateRange),
-        getCompanyGrowthData(timeRange, customDateRange),
-        getUsersByCountry(countryFilter || undefined),
-        getCompaniesByCountry(countryFilter || undefined),
-        getAllCountries(),
-      ])
-
-      setStats(statsData)
-      setUserGrowth(userGrowthData)
-      setCompanyGrowth(companyGrowthData)
-      setUsersByCountry(usersGeoData)
-      setCompaniesByCountry(companiesGeoData)
-      setAvailableCountries(countries)
-      setError(null)
+      setOverview(await getAdminOverview({
+        timeRange,
+        customRange: customDateRange,
+        countryFilter: countryFilter || undefined,
+      }))
     } catch (err) {
-      const errorMessage = err instanceof Error
-        ? err.message
-        : 'No se pudieron cargar las estadísticas.'
-      setError(errorMessage)
-      console.error('Error loading analytics:', err)
+      setAnalyticsError(getFirestoreErrorMessage(err))
     } finally {
       setIsLoadingAnalytics(false)
     }
   }
 
+  const loadRequests = async () => {
+    setOpsError(null)
+    try {
+      setRequests(await listPlanChangeRequests())
+    } catch (err) {
+      setOpsError(getFirestoreErrorMessage(err))
+    }
+  }
+
+  const loadViewData = async (view: AdminView) => {
+    if (view === 'analytics' || view === 'companies' || view === 'plans' || view === 'discovery') {
+      return
+    }
+
+    setOpsLoading(true)
+    setOpsError(null)
+    try {
+      if (view === 'requests') {
+        setRequests(await listPlanChangeRequests())
+      } else if (view === 'customers') {
+        const listed = await listAdminCustomers()
+        setCustomers(listed.rows)
+        setCustomersTotal(listed.totalCount)
+      } else if (view === 'moderation') {
+        setReviews(await listIndexedReviews())
+      } else if (view === 'play') {
+        const [nextMissions, nextCustomers] = await Promise.all([
+          listAdminMissions(),
+          listTopCustomersByAdelinas(8),
+        ])
+        setMissions(nextMissions)
+        setCustomers(nextCustomers)
+      } else if (view === 'incidents') {
+        const [nextEvents, nextLocks] = await Promise.all([listSecurityEvents(), listLoginLocks()])
+        setEvents(nextEvents)
+        setLocks(nextLocks)
+      }
+    } catch (err) {
+      setOpsError(getFirestoreErrorMessage(err))
+    } finally {
+      setOpsLoading(false)
+    }
+  }
+
   useEffect(() => {
-    void loadCompanies()
-  }, [])
+    if (
+      currentView === 'companies'
+      || currentView === 'plans'
+      || currentView === 'discovery'
+      || currentView === 'requests'
+    ) {
+      if (companies.length === 0) {
+        void loadCompanies()
+      }
+    }
+  }, [currentView])
 
   useEffect(() => {
     if (currentView === 'analytics') {
@@ -164,99 +216,87 @@ function AdminDashboard() {
     }
   }, [currentView, timeRange, countryFilter, customDateRange])
 
-  // Save filters when they change
   useEffect(() => {
     saveAnalyticsFilters({ timeRange, countryFilter })
   }, [timeRange, countryFilter])
 
-  const openCreateForm = () => {
-    setEditingCompany(null)
-    setForm(EMPTY_FORM)
-    setShowForm(true)
-    setSuccess(null)
+  useEffect(() => {
+    void loadViewData(currentView)
+  }, [currentView])
+
+  const openCompany = (companyId: string) => {
+    setFocusCompanyId(companyId)
+    setCurrentView('companies')
   }
 
-  const openEditForm = (company: AdminCompany) => {
-    setEditingCompany(company)
-    setForm({
-      name: company.name,
-      location: company.location,
-      phone: company.phone,
-      website: company.website,
-      password: '',
-    })
-    setShowForm(true)
-    setSuccess(null)
-  }
-
-  const closeForm = () => {
-    setShowForm(false)
-    setEditingCompany(null)
-    setForm(EMPTY_FORM)
-  }
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
+  const handleCompanySubmit = async (editing: AdminCompany | null, form: CompanyEditorState) => {
     setIsSaving(true)
     setError(null)
     setSuccess(null)
 
+    const monthlyDate = form.planId !== 'free' && form.planBilling !== 'perpetual'
+      ? parseDateInput(form.planStartedOn)
+      : null
+
+    if (form.planId !== 'free' && form.planBilling !== 'perpetual') {
+      if (!monthlyDate || !isAllowedMonthlyBillingDate(monthlyDate, editing?.planStartedAt ?? null)) {
+        setIsSaving(false)
+        setError('La fecha del plan mensual solo puede ser hoy o más adelante.')
+        throw new Error('La fecha del plan mensual solo puede ser hoy o más adelante.')
+      }
+    }
+
     try {
-      const newPassword = form.password.trim()
-
-      if (editingCompany) {
-        if (newPassword) {
-          setError(
-            'Para cambiar la contraseña de una empresa existente, el restaurante debe hacerlo al entrar con «Cambiar contraseña», o créala de nuevo con la contraseña deseada.',
-          )
-          setIsSaving(false)
-          return
-        }
-
-        await updateCompany(editingCompany.id, editingCompany, {
+      if (editing) {
+        await updateCompany(editing.id, editing, {
           name: form.name,
           location: form.location,
+          municipality: form.municipality,
+          postalCode: form.postalCode,
+          country: form.country,
           phone: form.phone,
+          contactEmail: form.contactEmail,
           website: form.website,
+          planId: form.planId,
+          planBilling: form.planId === 'free' ? null : form.planBilling ?? 'monthly',
+          planStartedAt: monthlyDate,
+          discoveryFeatured: form.discoveryFeatured,
         })
-
-        setSuccess(`Empresa "${form.name}" actualizada correctamente.`)
+        setSuccess(`"${form.name}" actualizado.`)
       } else {
         const result = await createCompany({
           name: form.name,
           location: form.location,
+          municipality: form.municipality,
+          postalCode: form.postalCode,
+          country: form.country,
           phone: form.phone,
+          contactEmail: form.contactEmail,
           website: form.website,
-          password: newPassword,
+          password: form.password.trim(),
+          planId: form.planId,
+          planBilling: form.planId === 'free' ? null : form.planBilling ?? 'monthly',
+          planStartedAt: monthlyDate,
+          discoveryFeatured: form.discoveryFeatured,
         })
-
         await markCompanyMustChangePassword(result.company.ownerUid, result.company.id)
-        setSuccess(`Empresa "${form.name}" creada. Deberá cambiar la contraseña al entrar.`)
+        setSuccess(`"${form.name}" creado. Deberá cambiar la contraseña al entrar.`)
       }
 
-      closeForm()
       await loadCompanies()
       await refreshProfile()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar la empresa.')
+      setError(getFirestoreErrorMessage(err, 'save'))
+      throw err
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleDelete = (company: AdminCompany) => {
-    setCompanyToDelete(company)
-  }
-
   const handleConfirmDeleteCompany = async () => {
-    if (!companyToDelete) {
-      return
-    }
-
+    if (!companyToDelete) return
     setIsDeletingCompany(true)
     setError(null)
-    setSuccess(null)
-
     try {
       await deleteCompany(companyToDelete.id, companyToDelete)
       setSuccess(`Empresa "${companyToDelete.name}" eliminada.`)
@@ -269,408 +309,296 @@ function AdminDashboard() {
     }
   }
 
-  const handleLogout = async () => {
-    await logout()
-  }
-
-  const handleRefreshAnalytics = () => {
-    void loadAnalytics()
-  }
-
-  const handleExportStats = () => {
-    if (stats) {
-      exportStatsToCSV(stats)
+  const handleMarkPaid = async (company: AdminCompany) => {
+    setIsSaving(true)
+    setOpsError(null)
+    try {
+      await updateCompany(company.id, company, { planLastPaidAt: 'now' })
+      setSuccess(`Cobro marcado en ${company.name}.`)
+      await loadCompanies()
+    } catch (err) {
+      setOpsError(err instanceof Error ? err.message : 'No se pudo marcar el cobro.')
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  const handleExportUserGrowth = () => {
-    exportGrowthDataToCSV(userGrowth, 'usuarios')
+  const handleToggleFeatured = async (company: AdminCompany) => {
+    setIsSaving(true)
+    try {
+      await updateCompany(company.id, company, { discoveryFeatured: !company.discoveryFeatured })
+      await loadCompanies()
+    } catch (err) {
+      setOpsError(err instanceof Error ? err.message : 'No se pudo destacar el local.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleExportCompanyGrowth = () => {
-    exportGrowthDataToCSV(companyGrowth, 'empresas')
+  const handleApplyRequest = async (input: {
+    request: PlanChangeRequest
+    planBilling: 'monthly' | 'perpetual'
+    planStartedOn: string
+  }) => {
+    const company = companies.find((item) => item.id === input.request.companyId)
+    if (!company) {
+      setOpsError('Ese restaurante ya no está.')
+      return
+    }
+
+    const toPlanId = parseCompanyPlanId(input.request.toPlanId)
+    const monthlyDate = toPlanId !== 'free' && input.planBilling === 'monthly'
+      ? parseDateInput(input.planStartedOn)
+      : null
+
+    if (toPlanId !== 'free' && input.planBilling === 'monthly' && (!monthlyDate || !isAllowedMonthlyBillingDate(monthlyDate))) {
+      setOpsError('Para aplicar un mensual la fecha tiene que ser hoy o más adelante.')
+      return
+    }
+
+    setIsSaving(true)
+    setOpsError(null)
+    try {
+      await updateCompany(company.id, company, {
+        planId: toPlanId,
+        planBilling: toPlanId === 'free' ? null : input.planBilling,
+        planStartedAt: monthlyDate,
+      })
+      await updatePlanChangeRequestStatus(input.request.id, 'applied')
+      setSuccess(`Plan de ${company.name} actualizado.`)
+      await Promise.all([loadCompanies(), loadRequests()])
+    } catch (err) {
+      setOpsError(err instanceof Error ? err.message : 'No se pudo aplicar la solicitud.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleExportUsersByCountry = () => {
-    exportGeographicDataToCSV(usersByCountry, 'usuarios')
-  }
-
-  const handleExportCompaniesByCountry = () => {
-    exportGeographicDataToCSV(companiesByCountry, 'empresas')
-  }
+  const navButton = (view: AdminView, label: string, icon: ReactNode, badge?: number) => (
+    <button
+      type="button"
+      className={`${styles.sideLink} ${currentView === view ? styles.sideLinkOn : ''}`}
+      onClick={() => setCurrentView(view)}
+    >
+      {icon}
+      {label}
+      {typeof badge === 'number' ? <em>{badge}</em> : null}
+    </button>
+  )
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
+    <div className={styles.shell}>
+      <aside className={styles.sidebar}>
         <div className={styles.brand}>
-          <img src={ADELIA_LOGO_URL} alt="Adelia" className={styles.logo} />
+          <img src={ADELIA_LOGO_URL} alt="" className={styles.logo} />
           <div>
-            <h1>Panel Admin</h1>
-            <p>Gestión y estadísticas</p>
+            <strong>Adelia</strong>
+            <span>Control center</span>
           </div>
         </div>
-        <button type="button" className={styles.logoutButton} onClick={() => setLogoutConfirmOpen(true)}>
+
+        <nav className={styles.sideNav}>
+          {navButton('analytics', 'Visión general', <IconOverview />)}
+          {navButton('companies', 'Restaurantes', <IconBuildings />, companies.length)}
+          {navButton('plans', 'Planes', <IconPlans />)}
+          {navButton('requests', 'Solicitudes', <IconInbox />, pendingRequests)}
+          {navButton('customers', 'Clientes', <IconUsers />)}
+          {navButton('moderation', 'Moderación', <IconShield />)}
+          {navButton('discovery', 'Descubrimiento', <IconSpark />)}
+          {navButton('play', 'Compite', <IconPlay />)}
+          {navButton('incidents', 'Incidencias', <IconAlert />)}
+        </nav>
+
+        <button type="button" className={styles.sideLogout} onClick={() => setLogoutConfirmOpen(true)}>
+          <IconLogout />
           Cerrar sesión
         </button>
-      </header>
+      </aside>
 
-      <nav className={styles.nav}>
-        <button
-          type="button"
-          className={`${styles.navButton} ${currentView === 'analytics' ? styles.navButtonActive : ''}`}
-          onClick={() => setCurrentView('analytics')}
-        >
-          📊 Analytics
-        </button>
-        <button
-          type="button"
-          className={`${styles.navButton} ${currentView === 'companies' ? styles.navButtonActive : ''}`}
-          onClick={() => setCurrentView('companies')}
-        >
-          🏢 Empresas
-        </button>
-      </nav>
-
-      <main className={styles.main}>
-        {success && <div className={styles.success}>{success}</div>}
-
-        {currentView === 'analytics' && (
-          <>
-            <div className={styles.analyticsSection}>
-              <div className={styles.sectionHeader}>
-                <h2 className={styles.sectionTitle}>Estadísticas generales</h2>
-                <div className={styles.sectionActions}>
-                  <button
-                    type="button"
-                    className={styles.refreshButton}
-                    onClick={handleRefreshAnalytics}
-                    disabled={isLoadingAnalytics}
-                  >
-                    🔄 Actualizar
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.exportButton}
-                    onClick={handleExportStats}
-                    disabled={isLoadingAnalytics || !stats}
-                  >
-                    📥 Exportar CSV
-                  </button>
-                </div>
-              </div>
-              
-              {error ? (
-                <AdminErrorState
-                  message={error}
-                  onRetry={handleRefreshAnalytics}
-                />
-              ) : isLoadingAnalytics ? (
-                <>
-                  <div className={styles.kpiGrid}>
-                    <AdminKpiSkeleton />
-                    <AdminKpiSkeleton />
-                    <AdminKpiSkeleton />
-                    <AdminKpiSkeleton />
-                  </div>
-                  <div className={styles.chartsGrid}>
-                    <AdminChartSkeleton />
-                    <AdminChartSkeleton />
-                  </div>
-                </>
-              ) : stats ? (
-                <>
-                  <div className={styles.kpiGrid}>
-                    <AdminKpiCard
-                      title="Total Usuarios"
-                      value={stats.totalCustomers}
-                      subtitle="Clientes registrados"
-                      trend={{
-                        value: stats.newUsersThisMonth,
-                        label: 'este mes',
-                        positive: stats.userGrowthRate >= 0,
-                      }}
-                      icon="👥"
-                    />
-                    <AdminKpiCard
-                      title="Crecimiento"
-                      value={Math.abs(stats.userGrowthRate)}
-                      subtitle={`${stats.userGrowthRate >= 0 ? 'Aumento' : 'Disminución'} vs mes anterior`}
-                      trend={{
-                        value: stats.previousMonthUsers,
-                        label: 'mes anterior',
-                        positive: stats.userGrowthRate >= 0,
-                      }}
-                      icon={stats.userGrowthRate >= 0 ? '📈' : '📉'}
-                    />
-                    <AdminKpiCard
-                      title="Total Empresas"
-                      value={stats.totalCompanies}
-                      subtitle="Restaurantes activos"
-                      trend={{
-                        value: stats.newCompaniesThisMonth,
-                        label: 'este mes',
-                        positive: stats.companyGrowthRate >= 0,
-                      }}
-                      icon="🏢"
-                    />
-                    <AdminKpiCard
-                      title="Crecimiento"
-                      value={Math.abs(stats.companyGrowthRate)}
-                      subtitle={`${stats.companyGrowthRate >= 0 ? 'Aumento' : 'Disminución'} vs mes anterior`}
-                      trend={{
-                        value: stats.previousMonthCompanies,
-                        label: 'mes anterior',
-                        positive: stats.companyGrowthRate >= 0,
-                      }}
-                      icon={stats.companyGrowthRate >= 0 ? '📈' : '📉'}
-                    />
-                  </div>
-
-                  <AdminAnalyticsFilters
-                    timeRange={timeRange}
-                    onTimeRangeChange={setTimeRange}
-                    countryFilter={countryFilter}
-                    onCountryFilterChange={setCountryFilter}
-                    availableCountries={availableCountries}
-                    onCustomDateRangeChange={setCustomDateRange}
-                  />
-
-                  <div className={styles.chartsGrid}>
-                    <div className={styles.chartWithExport}>
-                      <AdminGrowthLineChart
-                        title="Crecimiento de Usuarios"
-                        data={userGrowth}
-                        color="#2e7d6b"
-                      />
-                      <button
-                        type="button"
-                        className={styles.chartExportButton}
-                        onClick={handleExportUserGrowth}
-                      >
-                        📥 Exportar
-                      </button>
-                    </div>
-                    <div className={styles.chartWithExport}>
-                      <AdminGrowthLineChart
-                        title="Crecimiento de Empresas"
-                        data={companyGrowth}
-                        color="#8b6914"
-                      />
-                      <button
-                        type="button"
-                        className={styles.chartExportButton}
-                        onClick={handleExportCompanyGrowth}
-                      >
-                        📥 Exportar
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className={styles.chartsGrid}>
-                    <div className={styles.chartWithExport}>
-                      <AdminGeographicBarChart
-                        title="Usuarios por País"
-                        data={usersByCountry}
-                        color="#2e7d6b"
-                      />
-                      <button
-                        type="button"
-                        className={styles.chartExportButton}
-                        onClick={handleExportUsersByCountry}
-                      >
-                        📥 Exportar
-                      </button>
-                    </div>
-                    <div className={styles.chartWithExport}>
-                      <AdminGeographicBarChart
-                        title="Empresas por País"
-                        data={companiesByCountry}
-                        color="#8b6914"
-                      />
-                      <button
-                        type="button"
-                        className={styles.chartExportButton}
-                        onClick={handleExportCompaniesByCountry}
-                      >
-                        📥 Exportar
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <AdminEmptyState
-                  icon="📊"
-                  title="No hay datos disponibles"
-                  description="No se pudieron cargar las estadísticas. Intenta actualizar o verifica tu conexión."
-                  action={{
-                    label: 'Intentar de nuevo',
-                    onClick: handleRefreshAnalytics,
-                  }}
-                />
-              )}
-            </div>
-          </>
-        )}
-
-        {currentView === 'companies' && (
-          <>
-            {error && <div className={styles.errorBanner}>{error}</div>}
-
-            <div className={styles.toolbar}>
-              <div>
-                <h2>Empresas registradas</h2>
-                <p>{companies.length} empresa(s) activa(s)</p>
-              </div>
-              <button type="button" className={styles.createButton} onClick={openCreateForm}>
-                + Nueva empresa
-              </button>
-            </div>
-
-            {isLoading ? (
-              <p className={styles.loadingText}>Cargando empresas…</p>
-            ) : companies.length === 0 ? (
-              <div className={styles.empty}>
-                <p>No hay empresas todavía. Crea la primera.</p>
-              </div>
-            ) : (
-              <div className={styles.tableWrapper}>
-                <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Empresa</th>
-                  <th>Nombre acceso</th>
-                  <th>Acceso</th>
-                  <th>Alta</th>
-                  <th>Contacto</th>
-                  <th aria-label="Acciones" />
-                </tr>
-              </thead>
-              <tbody>
-                {companies.map((company) => (
-                  <tr key={company.id}>
-                    <td>
-                      <strong>{company.name}</strong>
-                      <span className={styles.subText}>{company.location}</span>
-                    </td>
-                    <td>{company.loginName}</td>
-                    <td>
-                      <span className={styles.subText}>
-                        Guardada en Firebase Auth. No se almacena en claro.
-                      </span>
-                    </td>
-                    <td>{formatRegisteredDate(company.createdAt)}</td>
-                    <td>
-                      <span className={styles.subText}>{company.phone}</span>
-                    </td>
-                    <td>
-                      <div className={styles.rowActions}>
-                        <button type="button" onClick={() => openEditForm(company)}>
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.deleteButton}
-                          onClick={() => handleDelete(company)}
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        )}
-      </main>
-
-      {showForm && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <h3>{editingCompany ? 'Editar empresa' : 'Nueva empresa'}</h3>
-            <p className={styles.modalHint}>
-              {editingCompany
-                ? 'Actualiza los datos de la empresa. Si cambias la contraseña, se guardará aquí.'
-                : 'Solo tú puedes dar de alta empresas. No hay registro público.'}
-            </p>
-
-            <form className={styles.form} onSubmit={handleSubmit}>
-              <label>
-                Nombre de la empresa
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                />
-              </label>
-              <label>
-                Dirección
-                <input
-                  value={form.location}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  required
-                />
-              </label>
-              <label>
-                Teléfono
-                <input
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  required
-                />
-              </label>
-              <label>
-                Web (opcional)
-                <input
-                  value={form.website}
-                  onChange={(e) => setForm({ ...form, website: e.target.value })}
-                />
-              </label>
-              <label>
-                {editingCompany ? 'Nueva contraseña' : 'Contraseña de acceso'}
-                <input
-                  type="text"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  required={!editingCompany}
-                  placeholder={
-                    editingCompany
-                      ? 'Escribe la nueva contraseña (obligatorio si quieres cambiarla)'
-                      : ''
-                  }
-                />
-              </label>
-
-              <div className={styles.formActions}>
-                <button type="button" onClick={closeForm}>
-                  Cancelar
-                </button>
-                <button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Guardando…' : 'Guardar'}
-                </button>
-              </div>
-            </form>
+      <div className={styles.workspace}>
+        <header className={styles.topbar}>
+          <div>
+            <p className={styles.kicker}>{greetingFor()}, {adminName}</p>
+            <h1>{VIEW_TITLE[currentView]}</h1>
           </div>
-        </div>
-      )}
+          {currentView === 'analytics' ? (
+            <button type="button" className={styles.iconButton} onClick={() => void loadAnalytics()} disabled={isLoadingAnalytics}>
+              <IconRefresh />
+              Actualizar
+            </button>
+          ) : currentView === 'companies' ? (
+            <button type="button" className={styles.primaryButton} onClick={() => setCreateSignal((value) => value + 1)}>
+              <IconPlus />
+              Nuevo restaurante
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={styles.iconButton}
+              onClick={() => {
+                void loadCompanies()
+                void loadViewData(currentView)
+              }}
+            >
+              <IconRefresh />
+              Actualizar
+            </button>
+          )}
+        </header>
+
+        <main className={styles.main}>
+          {success ? <div className={styles.success}>{success}</div> : null}
+          {opsError && currentView !== 'companies' ? <div className={styles.errorBanner}>{opsError}</div> : null}
+
+          {currentView === 'analytics' ? (
+            <AdminOverviewBoard
+              overview={overview}
+              isLoading={isLoadingAnalytics}
+              error={analyticsError}
+              timeRange={timeRange}
+              countryFilter={countryFilter}
+              onTimeRangeChange={setTimeRange}
+              onCountryFilterChange={setCountryFilter}
+              onCustomDateRangeChange={setCustomDateRange}
+              onRetry={() => void loadAnalytics()}
+            />
+          ) : null}
+
+          {currentView === 'companies' ? (
+            <AdminCompaniesWorkspace
+              companies={companies}
+              isLoading={isLoading}
+              isSaving={isSaving}
+              error={error}
+              createSignal={createSignal}
+              focusCompanyId={focusCompanyId}
+              onSubmit={handleCompanySubmit}
+              onRequestDelete={setCompanyToDelete}
+            />
+          ) : null}
+
+          {currentView === 'plans' ? (
+            <AdminPlansBoard
+              companies={companies}
+              isSaving={isSaving}
+              onOpenCompany={openCompany}
+              onMarkPaid={handleMarkPaid}
+            />
+          ) : null}
+
+          {currentView === 'requests' ? (
+            <AdminRequestsBoard
+              requests={requests}
+              companies={companies}
+              isLoading={opsLoading}
+              isSaving={isSaving}
+              error={opsError}
+              onReject={async (request) => {
+                setIsSaving(true)
+                try {
+                  await updatePlanChangeRequestStatus(request.id, 'rejected')
+                  await loadRequests()
+                } finally {
+                  setIsSaving(false)
+                }
+              }}
+              onApply={handleApplyRequest}
+            />
+          ) : null}
+
+          {currentView === 'customers' ? (
+            <AdminCustomersBoard
+              customers={customers}
+              totalCount={customersTotal}
+              isLoading={opsLoading}
+              isSaving={isSaving}
+              error={opsError}
+              onToggleBlocked={async (customer) => {
+                setIsSaving(true)
+                try {
+                  await setCustomerBlocked(customer.id, !customer.blocked)
+                  setCustomers((current) => current.map((item) => (
+                    item.id === customer.id ? { ...item, blocked: !customer.blocked } : item
+                  )))
+                } finally {
+                  setIsSaving(false)
+                }
+              }}
+            />
+          ) : null}
+
+          {currentView === 'moderation' ? (
+            <AdminModerationBoard
+              reviews={reviews}
+              isLoading={opsLoading}
+              isSaving={isSaving}
+              error={opsError}
+              onDelete={async (review) => {
+                setIsSaving(true)
+                try {
+                  await deleteIndexedReview(review)
+                  setReviews((current) => current.filter((item) => item.id !== review.id))
+                } finally {
+                  setIsSaving(false)
+                }
+              }}
+            />
+          ) : null}
+
+          {currentView === 'discovery' ? (
+            <AdminDiscoveryBoard
+              companies={companies}
+              isSaving={isSaving}
+              onOpenCompany={openCompany}
+              onToggleFeatured={handleToggleFeatured}
+            />
+          ) : null}
+
+          {currentView === 'play' ? (
+            <AdminPlayBoard
+              missions={missions}
+              customers={customers}
+              isLoading={opsLoading}
+              isSaving={isSaving}
+              error={opsError}
+              onSaveMission={async (mission) => {
+                setIsSaving(true)
+                try {
+                  await saveAdminMission(mission)
+                  setMissions((current) => current.map((item) => item.id === mission.id ? mission : item))
+                  setSuccess(`Misión "${mission.name}" guardada.`)
+                } finally {
+                  setIsSaving(false)
+                }
+              }}
+            />
+          ) : null}
+
+          {currentView === 'incidents' ? (
+            <AdminIncidentsBoard
+              events={events}
+              locks={locks}
+              isLoading={opsLoading}
+              error={opsError}
+            />
+          ) : null}
+        </main>
+      </div>
 
       <ConfirmDialog
         isOpen={logoutConfirmOpen}
         title="Cerrar sesión"
-        message="¿Estás seguro de que quieres cerrar sesión?"
+        message="¿Seguro que quieres salir del panel?"
         confirmLabel="Cerrar sesión"
-        onConfirm={() => void handleLogout()}
+        onConfirm={() => void logout()}
         onCancel={() => setLogoutConfirmOpen(false)}
       />
-
       <ConfirmDialog
         isOpen={Boolean(companyToDelete)}
         title="Eliminar empresa"
         message={
           companyToDelete
-            ? `¿Estás seguro de eliminar "${companyToDelete.name}"? Se borrará su acceso, contraseña, mesas y reservas.`
+            ? `¿Eliminar "${companyToDelete.name}"? Se borra su acceso, mesas y reservas.`
             : ''
         }
         confirmLabel="Eliminar"

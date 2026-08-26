@@ -1,3 +1,4 @@
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { notifyPromotionClaimed } from '../notifications/reservationEvents.ts'
 import {
@@ -163,7 +164,12 @@ export async function recordTimeLimitedPromotionClaimForVerification(
   }
 
   const promotionData = promotionSnap.data()!
-  if (promotionData.type !== 'time_limited') {
+  if (promotionData.type !== 'time_limited' || promotionData.active !== true) {
+    return false
+  }
+  const maxRedemptions = typeof promotionData.maxRedemptions === 'number' ? promotionData.maxRedemptions : null
+  const currentRedemptions = typeof promotionData.currentRedemptions === 'number' ? promotionData.currentRedemptions : 0
+  if (maxRedemptions != null && maxRedemptions > 0 && currentRedemptions >= maxRedemptions) {
     return false
   }
 
@@ -211,6 +217,9 @@ export async function recordTimeLimitedPromotionClaimForVerification(
       claim as unknown as Record<string, unknown>,
       appendClaimToState(gamification, claim as unknown as Record<string, unknown>),
     )
+    transaction.update(promotionSnap.ref, {
+      currentRedemptions: FieldValue.increment(1),
+    })
   })
 
   try {

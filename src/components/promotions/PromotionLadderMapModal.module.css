@@ -6,8 +6,10 @@
   align-items: center;
   justify-content: center;
   padding: 0.5rem;
-  background: rgba(28, 18, 12, 0.62);
-  backdrop-filter: blur(5px);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(80, 40, 12, 0.28), transparent 60%),
+    rgba(16, 9, 6, 0.72);
+  backdrop-filter: blur(7px);
   animation: overlayIn 0.25s ease-out;
 }
 
@@ -19,32 +21,64 @@
   max-height: 96vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(165deg, #fffdf8 0%, #fff9f2 48%, #fff5eb 100%);
-  border-radius: 24px;
-  border: 2px solid rgba(139, 105, 20, 0.22);
+  padding: 0.42rem;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(201, 162, 39, 0.22), transparent 46%),
+    linear-gradient(165deg, #5a351c 0%, #2c1810 52%, #160e0a 100%);
+  border-radius: 22px;
+  border: 1px solid rgba(201, 162, 39, 0.55);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
-    0 24px 60px rgba(74, 51, 72, 0.28),
-    0 0 0 48px rgba(255, 140, 60, 0.12);
+    0 0 0 1px rgba(255, 224, 170, 0.16) inset,
+    0 28px 70px rgba(12, 6, 3, 0.55),
+    0 0 0 40px rgba(201, 162, 39, 0.08);
   overflow: hidden;
   animation: dialogIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.closeButton {
+.leatherCorners {
+  pointer-events: none;
   position: absolute;
-  top: 0.65rem;
-  right: 0.65rem;
-  z-index: 10;
-  width: 2.35rem;
-  height: 2.35rem;
-  border: 1px solid rgba(139, 105, 20, 0.22);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #5c3d2e;
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(74, 51, 72, 0.18);
+  inset: 0.28rem;
+  z-index: 13;
+}
+
+.leatherCorners span {
+  position: absolute;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid rgba(201, 162, 39, 0.7);
+}
+
+.leatherCorners span:nth-child(1) {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 4px;
+}
+
+.leatherCorners span:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-left: 0;
+  border-bottom: 0;
+  border-top-right-radius: 4px;
+}
+
+.leatherCorners span:nth-child(3) {
+  bottom: 0;
+  left: 0;
+  border-right: 0;
+  border-top: 0;
+  border-bottom-left-radius: 4px;
+}
+
+.leatherCorners span:nth-child(4) {
+  bottom: 0;
+  right: 0;
+  border-left: 0;
+  border-top: 0;
+  border-bottom-right-radius: 4px;
 }
 
 .mapScroll {
@@ -52,76 +86,169 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.35rem;
-  padding-bottom: 4.5rem;
+  padding: 0;
+  padding-bottom: 6.4rem;
   -webkit-overflow-scrolling: touch;
+  border-radius: 16px;
 }
 
-.lapCounter {
-  position: absolute;
-  top: 0.55rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 6;
+.mapHud {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.55rem 0.55rem 0.7rem;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(18, 10, 6, 0.72) 0%,
+    rgba(18, 10, 6, 0.28) 62%,
+    transparent 100%
+  );
+}
+
+.mapHudTop,
+.mapHudBanner {
+  pointer-events: auto;
+}
+
+.mapHudTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.viewRestaurant {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  max-width: calc(100% - 1.5rem);
-  padding: 0.34rem 0.75rem;
+  gap: 0.38rem;
+  min-height: 2.15rem;
+  padding: 0.32rem 0.85rem 0.32rem 0.7rem;
+  border: 1px solid rgba(201, 162, 39, 0.45);
   border-radius: 999px;
-  background: rgba(255, 251, 235, 0.94);
-  border: 1px solid rgba(139, 105, 20, 0.24);
+  background:
+    linear-gradient(180deg, #fff8e7 0%, #f3e0b8 100%);
+  color: #4a2c0a;
+  font-family: 'Playfair Display', var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
   box-shadow:
-    0 4px 14px rgba(74, 51, 72, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.55) inset;
-  backdrop-filter: blur(6px);
-  pointer-events: none;
+    0 6px 16px rgba(20, 10, 5, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.45) inset;
 }
 
-.lapCounterIcon {
+.viewRestaurantIcon {
+  width: 1rem;
+  height: 1rem;
   flex-shrink: 0;
-  font-size: 0.82rem;
+}
+
+.closeButton {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid rgba(201, 162, 39, 0.4);
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.94);
+  color: #5c3d2e;
+  font-size: 1.25rem;
   line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(20, 10, 5, 0.22);
 }
 
-.lapCounterText {
-  min-width: 0;
-  font-size: 0.68rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: #6b5344;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.mapHudBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  padding: 0.55rem 0.7rem 0.6rem;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 248, 230, 0.94) 0%, rgba(244, 226, 186, 0.9) 100%);
+  border: 1px solid rgba(201, 162, 39, 0.38);
+  box-shadow:
+    0 10px 22px rgba(20, 10, 5, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.4) inset;
 }
 
-.lapCounterText strong {
-  font-family: var(--font-display);
-  font-size: 0.82rem;
+.hookEyebrow {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a5a22;
+}
+
+.hookTitle {
+  margin: 0;
+  font-family: 'Playfair Display', var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #3b2410;
+}
+
+.mapHudMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.themeBadge,
+.lapSeal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  max-width: 100%;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
   font-weight: 800;
-  color: #b45309;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.themeBadge {
+  background: var(--theme-badge-bg, rgba(255, 255, 255, 0.8));
+  color: var(--theme-badge-color, #6b4423);
+  border: 1px solid rgba(139, 105, 20, 0.22);
+}
+
+.lapSeal {
+  background: linear-gradient(135deg, #f6d365, #e0a106);
+  color: #4a2c0a;
+  box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.18);
 }
 
 .treasureMap {
   position: relative;
   width: 100%;
   min-height: 100%;
-  border-radius: 20px;
-  padding: 0.35rem 0.25rem;
+  border-radius: 16px;
+  padding: 0.2rem 0.15rem 0.8rem;
   background: var(--map-bg, linear-gradient(180deg, #f8edd4 0%, #e8d4ad 100%));
-  border: 3px double var(--map-border, #b8956a);
+  border: 3px double var(--map-border, #c9a227);
   box-shadow:
     var(--map-frame-shadow, inset 0 0 40px rgba(139, 105, 20, 0.12)),
-    0 8px 24px rgba(0, 0, 0, 0.18);
+    0 8px 24px rgba(0, 0, 0, 0.22);
   overflow: hidden;
 }
 
 .treasureMap::before {
   content: '';
   position: absolute;
-  inset: 0.45rem;
+  inset: 0.5rem;
   border: 1px dashed var(--map-inner-border, rgba(139, 105, 20, 0.28));
-  border-radius: 14px;
+  border-radius: 12px;
   pointer-events: none;
   z-index: 1;
 }
@@ -130,7 +257,9 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--map-bg-overlay, transparent);
+  background:
+    var(--map-wash, transparent),
+    var(--map-bg-overlay, transparent);
   pointer-events: none;
   z-index: 0;
 }
@@ -142,7 +271,23 @@
   height: 100%;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.92;
+}
+
+.themeArtImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  animation: artFade 0.7s ease forwards;
+}
+
+.themeArtOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .mapCanvas {
@@ -165,19 +310,34 @@
 .mapPathGlow {
   fill: none;
   stroke: var(--path-glow, rgba(196, 92, 38, 0.22));
-  stroke-width: 6;
-  stroke-dasharray: 10 8;
+  stroke-width: 7;
   stroke-linecap: round;
   stroke-linejoin: round;
+  filter: blur(0.4px);
+}
+
+.mapPathDraw {
+  fill: none;
+  stroke: var(--path-color, #7a1f12);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.mapPathDrawReady {
+  opacity: 1;
+  animation: mapPathReveal 1.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .mapPathLine {
   fill: none;
   stroke: var(--path-color, #a0522d);
-  stroke-width: 3;
-  stroke-dasharray: 10 7;
+  stroke-width: 2.2;
+  stroke-dasharray: 7 6;
   stroke-linecap: round;
   stroke-linejoin: round;
+  animation: mapTrailMarch 1.9s linear infinite;
 }
 
 .mapDecoration {
@@ -191,8 +351,16 @@
 }
 
 .compass {
-  font-size: 1.75rem;
-  opacity: 0.88;
+  width: 4.1rem;
+  height: 4.1rem;
+  font-size: 0;
+  opacity: 1;
+  filter: drop-shadow(0 6px 10px rgba(20, 10, 5, 0.4));
+}
+
+.compassRose {
+  width: 100%;
+  height: 100%;
 }
 
 .mapSticker {
@@ -200,9 +368,50 @@
   transform: translate(-50%, -50%);
   z-index: 3;
   pointer-events: none;
-  font-size: 1.25rem;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-  opacity: 0.85;
+  font-size: 1.35rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+  opacity: 0.88;
+}
+
+.trailFlag {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, -120%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.18rem 0.48rem;
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.94);
+  border: 1px solid rgba(139, 105, 20, 0.28);
+  color: #5c3d1e;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(20, 10, 5, 0.18);
+  white-space: nowrap;
+}
+
+.trailFlagFinish {
+  background: linear-gradient(135deg, #f6d365, #e0a106);
+  color: #4a2c0a;
+  transform: translate(-50%, 30%);
+}
+
+.trailMark {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  color: var(--path-color, #7a1f12);
+  font-family: Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(255, 248, 230, 0.7);
+  opacity: 0.8;
 }
 
 .mapNode {
@@ -211,13 +420,77 @@
   z-index: 5;
 }
 
+.waypointPin {
+  position: absolute;
+  top: -0.15rem;
+  left: 50%;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  transform: translate(-50%, -108%);
+  border-radius: 999px;
+  background: var(--pin-bg, linear-gradient(180deg, #f6d365, #c47b0a));
+  color: var(--pin-ink, #3b2410);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 800;
+  box-shadow:
+    0 4px 10px rgba(20, 10, 5, 0.28),
+    0 0 0 2px rgba(255, 248, 230, 0.85);
+}
+
+.waypointActive {
+  animation: pinPulse 1.8s ease-in-out infinite;
+}
+
+.waypointClaimable {
+  background: linear-gradient(180deg, #86efac, #16a34a);
+  color: #052e16;
+}
+
+.waypointClaimed {
+  background: linear-gradient(180deg, #d1d5db, #6b7280);
+  color: #111827;
+}
+
 .mapNodeCard {
   width: 11rem;
   border-radius: 16px;
   overflow: hidden;
   transform: scale(0.72);
   transform-origin: center center;
-  box-shadow: 0 8px 20px rgba(74, 51, 72, 0.22);
+  box-shadow:
+    0 0 0 3px rgba(255, 248, 230, 0.82),
+    0 0 0 4px rgba(139, 105, 20, 0.28),
+    0 12px 24px rgba(20, 10, 5, 0.32);
+}
+
+.mapNodeCardTiltLeft {
+  rotate: -1.4deg;
+}
+
+.mapNodeCardTiltRight {
+  rotate: 1.4deg;
+}
+
+.scaleBar {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.55rem;
+  z-index: 4;
+  margin: 0;
+  padding: 0.16rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.82);
+  border: 1px solid rgba(139, 105, 20, 0.22);
+  color: #6b5344;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 @keyframes overlayIn {
@@ -242,6 +515,64 @@
   }
 }
 
+@keyframes artFade {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes mapPathReveal {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes mapTrailMarch {
+  to {
+    stroke-dashoffset: -26;
+  }
+}
+
+@keyframes pinPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 4px 10px rgba(20, 10, 5, 0.28),
+      0 0 0 2px rgba(255, 248, 230, 0.85);
+  }
+
+  50% {
+    box-shadow:
+      0 4px 10px rgba(20, 10, 5, 0.28),
+      0 0 0 5px rgba(234, 88, 12, 0.28);
+  }
+}
+
+@keyframes fabPulse {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow:
+      0 0 0 4px rgba(201, 162, 39, 0.22),
+      0 14px 30px rgba(161, 98, 7, 0.42),
+      inset 0 2px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  50% {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow:
+      0 0 0 7px rgba(201, 162, 39, 0.16),
+      0 18px 34px rgba(161, 98, 7, 0.5),
+      inset 0 2px 0 rgba(255, 255, 255, 0.55);
+  }
+}
+
 .completeFabWrap {
   position: absolute;
   left: 0;
@@ -249,15 +580,28 @@
   bottom: 0;
   z-index: 12;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 0.65rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  gap: 0.28rem;
+  padding: 0.7rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
   background: linear-gradient(
     to top,
-    rgba(255, 253, 248, 0.98) 48%,
-    rgba(255, 253, 248, 0.72) 72%,
+    rgba(22, 12, 8, 0.94) 42%,
+    rgba(22, 12, 8, 0.45) 72%,
     transparent
   );
+}
+
+.completeFabHint {
+  margin: 0;
+  color: #f8ead0;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+  text-align: center;
 }
 
 .completeFab {
@@ -265,29 +609,31 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 9.5rem;
-  min-height: 3rem;
-  padding: 0.75rem 1.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  min-width: 10.5rem;
+  min-height: 3.05rem;
+  padding: 0.75rem 1.85rem;
+  border: 1px solid rgba(255, 236, 180, 0.55);
   border-radius: 999px;
-  background: linear-gradient(135deg, #fb923c 0%, #ea580c 48%, #c2410c 100%);
-  color: #fff;
+  background: radial-gradient(circle at 50% 18%, #ffe08a 0%, #e0a106 48%, #a16207 100%);
+  color: #3b2410;
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   text-decoration: none;
+  cursor: pointer;
+  appearance: none;
   box-shadow:
-    0 12px 28px rgba(194, 65, 12, 0.38),
-    0 0 0 1px rgba(194, 65, 12, 0.12);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+    0 0 0 4px rgba(201, 162, 39, 0.22),
+    0 14px 30px rgba(161, 98, 7, 0.42),
+    inset 0 2px 0 rgba(255, 255, 255, 0.5);
+  animation: fabPulse 2.6s ease-in-out infinite;
 }
 
 .completeFab:hover {
+  animation: none;
   transform: translateY(-2px);
-  box-shadow:
-    0 16px 34px rgba(194, 65, 12, 0.44),
-    0 0 0 1px rgba(194, 65, 12, 0.16);
 }
 
 .completeFab:active {
@@ -299,11 +645,25 @@
     width: 12rem;
     transform: scale(0.78);
   }
+
+  .hookTitle {
+    font-size: 1.08rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .overlay,
-  .dialog {
+  .dialog,
+  .themeArtImage,
+  .mapPathDrawReady,
+  .mapPathLine,
+  .waypointActive,
+  .completeFab {
     animation: none;
+  }
+
+  .mapPathDrawReady {
+    opacity: 1;
+    stroke-dashoffset: 0;
   }
 }

@@ -1,0 +1,36 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+}
+
+.button,
+.buttonActive {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button {
+  border: 1px solid rgba(107, 83, 68, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-brown);
+  box-shadow: 0 8px 24px rgba(35, 28, 22, 0.05);
+}
+
+.buttonActive {
+  border: 1px solid var(--color-brown);
+  background: var(--color-brown);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(35, 28, 22, 0.12);
+}
+
+.button:hover {
+  border-color: var(--color-brown-light);
+}

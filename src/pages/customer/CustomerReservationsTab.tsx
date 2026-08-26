@@ -1,24 +1,26 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import CustomerReservationCard from '../../components/CustomerReservationCard'
+import CustomerConsumptionCard from '../../components/CustomerConsumptionCard'
 import CustomerReviewModal, { type CustomerReviewSubmitInput } from '../../components/CustomerReviewModal'
 import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
 import ReservationInvitesModal from '../../components/ReservationInvitesModal'
+import PromoVisitCompleteModal from '../../components/promotions/PromoVisitCompleteModal'
 import { canCustomerVerifyMinimumSpend } from '../../utils/minimumSpendVerification'
 import { pendingTokenSpendForCompany, REVIEW_BOOST_ITEM_ID, inventoryQuantity } from '../../data/inventoryItems'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import { useReservationChallengeContext } from '../../context/ReservationChallengeContext'
 import { getPublicCompanyMenuNodes } from '../../services/companyMenu'
-import { fetchPublicPromotions, fetchPublicPromotionsBySlug, type PublicPromotion } from '../../services/publicPromotions'
+import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../../services/publicPromotions'
+import { fetchPublicDiscoveryRestaurants } from '../../services/publicDiscovery'
+import { companyAllowsWalkInConsumption } from '../../data/companyReservationMode'
 import {
   deleteCustomerReview,
   getCustomerReviewsByCompanyIds,
   submitCustomerReview,
   updateCustomerReview,
 } from '../../services/companyReviews'
-import { fetchPublicDiscoveryRestaurants } from '../../services/publicDiscovery'
-import { getCustomerReservations } from '../../services/firestore'
 import {
   acceptReservationInvite,
   fetchReservationInvitesState,
@@ -30,9 +32,11 @@ import type { CompanyReview } from '../../types/review'
 import type { MenuNode } from '../../types/company'
 import type { VerifyMinimumSpendResult } from '../../services/minimumSpendApi'
 import type { PublicDiscoveryRestaurant } from '../../utils/publicDiscovery'
+import type { RegisterConsumptionInput } from '../../services/firestore'
 import styles from './CustomerReservationsTab.module.css'
 
 type ReservationTab = 'upcoming' | 'past'
+type PageSection = 'reservations' | 'consumption'
 
 type PlanItem =
   | { kind: 'owned'; reservation: Reservation; startTime: Date }
@@ -72,6 +76,9 @@ function restaurantFromInvite(
     longitude: null,
     photoUrl: invite.companyPhotoUrl,
     characteristics: [],
+    venueTypes: [],
+    amenities: [],
+    priceRange: '',
     searchText: invite.companyName,
     reviewCount: 0,
     reviewRatingSum: 0,
@@ -110,10 +117,18 @@ function splitPlanItems(owned: Reservation[], accepted: ReservationInvite[]) {
 
 function CustomerReservationsTab() {
   const { user, profile, refreshProfile, patchProfileGamification } = useAuth()
-  const { refreshGamificationData, state: gamificationState } = useCustomerGamificationContext()
+  const {
+    refreshGamificationData,
+    state: gamificationState,
+    reservations: loadedReservations,
+    consumptions,
+    restaurants: loadedRestaurants,
+    loading: gamificationLoading,
+    registerPromotionConsumption,
+  } = useCustomerGamificationContext()
   const { challengeReservation, visibleChallenge, error: challengeError } = useReservationChallengeContext()
-  const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
-  const [reservations, setReservations] = useState<Awaited<ReturnType<typeof getCustomerReservations>>>([])
+  const restaurants = loadedRestaurants
+  const reservations = loadedReservations
   const [reviewsByCompanyId, setReviewsByCompanyId] = useState<Record<string, CompanyReview>>({})
   const [tab, setTab] = useState<ReservationTab>('upcoming')
   const [loading, setLoading] = useState(true)
@@ -132,6 +147,16 @@ function CustomerReservationsTab() {
   const [inviteActionId, setInviteActionId] = useState<string | null>(null)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [reloadNonce, setReloadNonce] = useState(0)
+  const [section, setSection] = useState<PageSection>('reservations')
+  const consumptionsLoading = gamificationLoading
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerQuery, setPickerQuery] = useState('')
+  const [catalogRestaurants, setCatalogRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
+  const [pickerError, setPickerError] = useState<string | null>(null)
+  const [walkInRestaurant, setWalkInRestaurant] = useState<PublicDiscoveryRestaurant | null>(null)
+  const [walkInPromotion, setWalkInPromotion] = useState<PublicPromotion | null>(null)
+  const [walkInMenuNodes, setWalkInMenuNodes] = useState<MenuNode[]>([])
+  const [walkInMenuLoading, setWalkInMenuLoading] = useState(false)
   const resolvedChallengeRef = useRef('')
 
   const loadCustomerReviews = useCallback(async (
@@ -161,27 +186,32 @@ function CustomerReservationsTab() {
     let cancelled = false
 
     void Promise.all([
-      fetchPublicDiscoveryRestaurants(),
-      getCustomerReservations(profile.email, user.uid),
-      fetchPublicPromotions().catch(() => [] as PublicPromotion[]),
       fetchReservationInvitesState().catch(() => ({
         pending: [] as ReservationInvite[],
         accepted: [] as ReservationInvite[],
         sent: [] as ReservationInvite[],
       })),
+      Promise.all(
+        [...new Set(
+          loadedReservations
+            .filter((row) => row.promotionId)
+            .map((row) => loadedRestaurants.find((item) => item.id === row.companyId)?.slug)
+            .filter((slug): slug is string => Boolean(slug)),
+        )].map((slug) => fetchPublicPromotionsBySlug(slug).catch(() => [] as PublicPromotion[])),
+      ),
     ])
-      .then(async ([restaurantData, reservationData, promotionData, inviteData]) => {
+      .then(async ([inviteData, promotionGroups]) => {
         if (cancelled) {
           return
         }
 
-        setRestaurants(restaurantData)
-        setReservations(reservationData)
-        setPromotionsById(Object.fromEntries(promotionData.map((promotion) => [promotion.id, promotion])))
+        setPromotionsById(Object.fromEntries(
+          promotionGroups.flat().map((promotion) => [promotion.id, promotion]),
+        ))
         setPendingInvites(inviteData.pending)
         setAcceptedInvites(inviteData.accepted)
         setSentInvites(inviteData.sent)
-        await loadCustomerReviews(reservationData, user.uid)
+        await loadCustomerReviews(loadedReservations, user.uid)
       })
       .finally(() => {
         if (!cancelled) {
@@ -192,7 +222,30 @@ function CustomerReservationsTab() {
     return () => {
       cancelled = true
     }
-  }, [profile, user, loadCustomerReviews, reloadNonce])
+  }, [profile, user, loadCustomerReviews, reloadNonce, loadedReservations, loadedRestaurants])
+
+  useEffect(() => {
+    if (!pickerOpen) {
+      return
+    }
+
+    let cancelled = false
+    void fetchPublicDiscoveryRestaurants()
+      .then((items) => {
+        if (!cancelled) {
+          setCatalogRestaurants(items)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCatalogRestaurants([])
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [pickerOpen])
 
   useEffect(() => {
     if (visibleChallenge?.status !== 'resolved' || !visibleChallenge.id) {
@@ -217,6 +270,23 @@ function CustomerReservationsTab() {
     () => Object.fromEntries(restaurants.map((restaurant) => [restaurant.id, restaurant])),
     [restaurants],
   )
+
+  const pickerRestaurants = useMemo(() => {
+    const byId = new Map<string, PublicDiscoveryRestaurant>()
+    for (const restaurant of [...loadedRestaurants, ...catalogRestaurants]) {
+      byId.set(restaurant.id, restaurant)
+    }
+    const query = pickerQuery.trim().toLowerCase()
+    return [...byId.values()]
+      .filter((restaurant) => {
+        if (!query) {
+          return true
+        }
+        return restaurant.name.toLowerCase().includes(query)
+          || restaurant.searchText.toLowerCase().includes(query)
+      })
+      .sort((left, right) => left.name.localeCompare(right.name, 'es'))
+  }, [catalogRestaurants, loadedRestaurants, pickerQuery])
 
   const { upcoming, past } = useMemo(
     () => splitPlanItems(reservations, acceptedInvites),
@@ -388,34 +458,65 @@ function CustomerReservationsTab() {
   }
 
   const handleVerifiedMinimumSpend = (
-    reservationId: string,
-    result: VerifyMinimumSpendResult,
+    _reservationId: string,
+    _result: VerifyMinimumSpendResult,
   ) => {
-    setReservations((current) =>
-      current.map((reservation) =>
-        reservation.id === reservationId
-          ? {
-              ...reservation,
-              promotionVisitStatus: result.promotionVisitStatus,
-              minSpendVerification: result.minSpendVerification,
-            }
-          : reservation,
-      ),
-    )
+    void refreshGamificationData({ silent: true })
+    void refreshProfile()
+  }
 
-    if (!result.meetsMinimumSpend) {
+  const handleOpenPicker = () => {
+    setPickerError(null)
+    setPickerQuery('')
+    setPickerOpen(true)
+  }
+
+  const handleSelectWalkInRestaurant = async (restaurant: PublicDiscoveryRestaurant) => {
+    setPickerError(null)
+    if (!companyAllowsWalkInConsumption(restaurant.reservationMode)) {
+      setPickerError('Este restaurante solo admite reservas. Reserva mesa para registrar la visita.')
       return
     }
 
-    void refreshProfile().then(() => refreshGamificationData({ silent: true }))
+    setWalkInRestaurant(restaurant)
+    setPickerOpen(false)
+    setWalkInMenuLoading(true)
+    setWalkInMenuNodes([])
+    setWalkInPromotion(null)
+
+    try {
+      const [nodes, promotions] = await Promise.all([
+        getPublicCompanyMenuNodes(restaurant.id),
+        restaurant.slug
+          ? fetchPublicPromotionsBySlug(restaurant.slug).catch(() => [] as PublicPromotion[])
+          : Promise.resolve([] as PublicPromotion[]),
+      ])
+      const ladder = promotions
+        .filter((promotion) => promotion.type === 'reservation_ladder')
+        .sort((left, right) => (left.requiredReservations ?? 0) - (right.requiredReservations ?? 0))
+      setWalkInMenuNodes(nodes)
+      setWalkInPromotion(ladder[0] ?? null)
+    } catch {
+      setWalkInMenuNodes([])
+      setWalkInPromotion(null)
+    } finally {
+      setWalkInMenuLoading(false)
+    }
+  }
+
+  const handleRegisterWalkIn = async (payload: RegisterConsumptionInput) => {
+    if (!walkInRestaurant) {
+      return
+    }
+    await registerPromotionConsumption(walkInRestaurant.id, payload, walkInPromotion?.id)
   }
 
   const activeReview = reviewReservation
     ? reviewsByCompanyId[reviewReservation.companyId] ?? null
     : null
 
-  if (!profile || loading) {
-    return <div className={styles.loading}>Cargando reservas…</div>
+  if (!profile || loading || gamificationLoading) {
+    return <div className={styles.loading}>Cargando reservas y consumo…</div>
   }
 
   return (
@@ -423,8 +524,10 @@ function CustomerReservationsTab() {
       <header className={styles.hero}>
         <div className={styles.heroGlow} aria-hidden="true" />
         <p className={styles.eyebrow}>Tus planes</p>
-        <h1>Mis reservas</h1>
-        <p className={styles.lead}>Todo lo que tienes por vivir y lo que ya disfrutaste.</p>
+        <h1>Reservas y consumo</h1>
+        <p className={styles.lead}>
+          Reservas por ir o hechas, y el consumo que el restaurante ya validó con PIN.
+        </p>
         {challengeError ? <p className={styles.inviteError}>{challengeError}</p> : null}
 
         <div className={styles.heroStats}>
@@ -436,10 +539,38 @@ function CustomerReservationsTab() {
             <strong>{past.length}</strong>
             <span>Hechas</span>
           </div>
+          <div>
+            <strong>{consumptions.length}</strong>
+            <span>Consumos</span>
+          </div>
         </div>
       </header>
 
-      <div className={styles.tabs} role="tablist" aria-label="Tipo de reservas">
+      <div className={styles.tabs} role="tablist" aria-label="Reservas o consumo">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'reservations'}
+          className={section === 'reservations' ? styles.tabActive : styles.tab}
+          onClick={() => setSection('reservations')}
+        >
+          Reservas
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'consumption'}
+          className={section === 'consumption' ? styles.tabActive : styles.tab}
+          onClick={() => setSection('consumption')}
+        >
+          Consumo
+          <span>{consumptions.length}</span>
+        </button>
+      </div>
+
+      {section === 'reservations' ? (
+        <>
+      <div className={styles.subTabs} role="tablist" aria-label="Tipo de reservas">
         <button
           type="button"
           role="tab"
@@ -568,6 +699,71 @@ function CustomerReservationsTab() {
           })}
         </div>
       )}
+        </>
+      ) : (
+        <section className={styles.consumptionSection} aria-label="Consumo verificado">
+          <div className={styles.registerBar}>
+            <div>
+              <h2>Historial verificado</h2>
+              <p>Solo entra lo que el restaurante valida con su PIN. No puedes apuntar un ticket a mano.</p>
+            </div>
+            <button type="button" className={styles.registerCta} onClick={handleOpenPicker}>
+              Registrar consumo
+            </button>
+          </div>
+
+          {pickerOpen ? (
+            <div className={styles.picker}>
+              <label className={styles.pickerSearch}>
+                <span>Restaurante</span>
+                <input
+                  type="search"
+                  value={pickerQuery}
+                  onChange={(event) => setPickerQuery(event.target.value)}
+                  placeholder="Busca un local publicado…"
+                />
+              </label>
+              {pickerError ? <p className={styles.inviteError}>{pickerError}</p> : null}
+              <ul className={styles.pickerList}>
+                {pickerRestaurants.slice(0, 12).map((restaurant) => (
+                  <li key={restaurant.id}>
+                    <button
+                      type="button"
+                      className={styles.pickerRow}
+                      onClick={() => void handleSelectWalkInRestaurant(restaurant)}
+                    >
+                      <strong>{restaurant.name}</strong>
+                      <span>{restaurant.municipality || restaurant.location}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {pickerRestaurants.length === 0 ? (
+                <p className={styles.pickerEmpty}>No hay locales con ese nombre.</p>
+              ) : null}
+              <button type="button" className={styles.pickerCancel} onClick={() => setPickerOpen(false)}>
+                Cancelar
+              </button>
+            </div>
+          ) : null}
+
+          {consumptionsLoading ? (
+            <p className={styles.consumptionStatus}>Cargando consumo…</p>
+          ) : consumptions.length === 0 ? (
+            <div className={styles.empty}>
+              <div className={styles.emptyIcon} aria-hidden="true">🧾</div>
+              <h2>Aún no hay consumo verificado</h2>
+              <p>Cuando el restaurante valide tu visita con PIN, aparecerá aquí.</p>
+            </div>
+          ) : (
+            <div className={styles.list}>
+              {consumptions.map((consumption) => (
+                <CustomerConsumptionCard key={consumption.id} consumption={consumption} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <CustomerReviewModal
         reservation={reviewReservation}
@@ -607,6 +803,24 @@ function CustomerReservationsTab() {
         open={Boolean(inviteModalReservationId)}
         invites={modalInvites}
         onClose={() => setInviteModalReservationId(null)}
+      />
+
+      <PromoVisitCompleteModal
+        open={Boolean(walkInRestaurant)}
+        companyName={walkInRestaurant?.name ?? ''}
+        path="consume"
+        promotion={walkInPromotion}
+        menuNodes={walkInMenuNodes}
+        menuLoading={walkInMenuLoading}
+        onClose={() => {
+          setWalkInRestaurant(null)
+          setWalkInPromotion(null)
+          setWalkInMenuNodes([])
+        }}
+        onReserve={() => {
+          setWalkInRestaurant(null)
+        }}
+        onRegisterConsumption={handleRegisterWalkIn}
       />
     </div>
   )

@@ -345,6 +345,9 @@ export function useReservationChallenges() {
     if (!user?.uid || profile?.role !== 'customer') {
       return
     }
+    if (!hasActiveTimedGame && !hasActiveMaze && !hasActiveHotCold) {
+      return
+    }
 
     let cancelled = false
     const pull = () => {
@@ -379,7 +382,7 @@ export function useReservationChallenges() {
     }
 
     pull()
-    const interval = window.setInterval(pull, hasActiveMaze || hasActiveHotCold ? 700 : hasActiveTimedGame ? 800 : 2500)
+    const interval = window.setInterval(pull, hasActiveMaze || hasActiveHotCold ? 700 : 800)
 
     return () => {
       cancelled = true

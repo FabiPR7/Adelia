@@ -1,5 +1,5 @@
 import { build } from 'esbuild'
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -41,31 +41,14 @@ const external = [
 ]
 
 await build({
-  entryPoints: [
-    path.join(functionsDir, 'src', 'api.ts'),
-    path.join(functionsDir, 'src', 'triggers.ts'),
-  ],
+  entryPoints: [path.join(functionsDir, 'src', 'index.ts')],
   bundle: true,
   platform: 'node',
   target: 'node20',
   format: 'esm',
-  outdir: libDir,
+  outfile: path.join(libDir, 'index.js'),
   external,
   logLevel: 'info',
 })
-
-writeFileSync(
-  path.join(libDir, 'index.js'),
-  `export { api } from './api.js'\nexport {
-  onReservationCreatedSendEmail,
-  onReservationUpdatedSendEmail,
-  onReservationUpdatedNotifications,
-  onUserGamificationUpdatedNotifications,
-  onPromotionClaimCreatedNotifications,
-  processScheduledNotifications,
-  processDueNotifications,
-} from './triggers.js'\n`,
-  'utf8',
-)
 
 console.log('Functions bundle listo')

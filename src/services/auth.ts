@@ -8,13 +8,7 @@ import {
 import { auth } from '../config/firebase'
 import { resolveLoginAuthEmail } from './firestore'
 import { syncInitialPasswordChange } from './authApi'
-import {
-  checkAccountLocked,
-  recordFailedLoginAttempt,
-  resetLoginAttempts,
-  getLockedUntilTime,
-  formatLockoutMessage,
-} from './authSecurity'
+import { requireAuthPassword } from '../utils/passwordValidation'
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/email-already-in-use': 'Ya existe una cuenta con este email.',
@@ -43,34 +37,22 @@ export function getAuthErrorMessage(error: unknown): string {
       return 'No tienes permiso en Firestore. Despliega las reglas con npm run deploy:rules (base de datos adelia).'
     }
 
-    return AUTH_ERROR_MESSAGES[error.code] ?? 'No se pudo iniciar sesión.'
+    if (error.code.startsWith('auth/')) {
+      return AUTH_ERROR_MESSAGES[error.code] ?? 'No se pudo iniciar sesión.'
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
   }
 
   return 'No se pudo iniciar sesión.'
 }
 
 export async function loginWithUsername(username: string, password: string) {
-  const identifier = username.trim().toLowerCase()
-  
-  const isLocked = await checkAccountLocked(identifier)
-  if (isLocked) {
-    const lockedUntil = await getLockedUntilTime(identifier)
-    if (lockedUntil) {
-      throw new Error(formatLockoutMessage(lockedUntil))
-    }
-  }
-  
-  try {
-    const email = await resolveLoginAuthEmail(username)
-    const credential = await signInWithEmailAndPassword(auth, email, password)
-    
-    await resetLoginAttempts(identifier)
-    
-    return credential.user
-  } catch (error) {
-    await recordFailedLoginAttempt(identifier)
-    throw error
-  }
+  const email = await resolveLoginAuthEmail(username, password)
+  const credential = await signInWithEmailAndPassword(auth, email, password)
+  return credential.user
 }
 
 export async function logout() {
@@ -96,6 +78,8 @@ export async function changePasswordWithReauth(
   if (!user?.email) {
     throw new Error('No hay sesión activa.')
   }
+
+  requireAuthPassword(newPassword)
 
   const credential = EmailAuthProvider.credential(user.email, currentPassword)
 

@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  limit,
   query,
   serverTimestamp,
   Timestamp,
@@ -13,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import { defaultMenuTemplate, normalizeMenuBackgroundImageOpacity } from '../data/menuTemplates'
 import { db } from '../config/firebase'
+import { COMPANY_MENU_BOARD_LIMIT } from './firestoreQuery'
 import { normalizeMenuCategoryAvailability } from '../utils/menuCategoryAvailability'
 import type {
   MenuBoard,
@@ -54,6 +56,9 @@ function mapBoard(id: string, companyId: string, data: Record<string, unknown>):
     active: data.active !== false,
     sortOrder: typeof data.sortOrder === 'number' ? data.sortOrder : 0,
     template: mapTemplate((data.template as Record<string, unknown>) ?? {}),
+    pdfUrl: typeof data.pdfUrl === 'string' ? data.pdfUrl : '',
+    pdfFileName: typeof data.pdfFileName === 'string' ? data.pdfFileName : '',
+    pdfPages: typeof data.pdfPages === 'number' && data.pdfPages > 0 ? data.pdfPages : 0,
     createdAt: (data.createdAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
     updatedAt: (data.updatedAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
   }
@@ -89,6 +94,9 @@ function serializeBoard(companyId: string, input: MenuBoardInput) {
     active: input.active,
     sortOrder: input.sortOrder,
     template: input.template,
+    pdfUrl: input.pdfUrl?.trim() ?? '',
+    pdfFileName: input.pdfFileName?.trim() ?? '',
+    pdfPages: typeof input.pdfPages === 'number' && input.pdfPages > 0 ? input.pdfPages : 0,
     updatedAt: serverTimestamp(),
   }
 }
@@ -116,7 +124,7 @@ function serializeNode(companyId: string, input: MenuNodeInput) {
 
 export async function getCompanyMenuBoards(companyId: string): Promise<MenuBoard[]> {
   const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
-  const snapshot = await getDocs(boardsRef)
+  const snapshot = await getDocs(query(boardsRef, limit(COMPANY_MENU_BOARD_LIMIT)))
 
   return snapshot.docs
     .map((boardDoc) => mapBoard(boardDoc.id, companyId, boardDoc.data() as Record<string, unknown>))
@@ -125,7 +133,7 @@ export async function getCompanyMenuBoards(companyId: string): Promise<MenuBoard
 
 export async function getPublicCompanyMenuBoards(companyId: string): Promise<MenuBoard[]> {
   const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
-  const boardsQuery = query(boardsRef, where('active', '==', true))
+  const boardsQuery = query(boardsRef, where('active', '==', true), limit(COMPANY_MENU_BOARD_LIMIT))
   const snapshot = await getDocs(boardsQuery)
 
   return snapshot.docs
@@ -135,7 +143,11 @@ export async function getPublicCompanyMenuBoards(companyId: string): Promise<Men
 
 export async function getCompanyMenuNodes(companyId: string, boardId?: string): Promise<MenuNode[]> {
   const nodesRef = collection(db, 'companies', companyId, 'menuNodes')
-  const snapshot = await getDocs(nodesRef)
+  const snapshot = await getDocs(
+    boardId
+      ? query(nodesRef, where('boardId', '==', boardId), limit(400))
+      : query(nodesRef, limit(400)),
+  )
 
   return snapshot.docs
     .map((nodeDoc) => mapNode(nodeDoc.id, companyId, nodeDoc.data() as Record<string, unknown>))
@@ -145,8 +157,14 @@ export async function getCompanyMenuNodes(companyId: string, boardId?: string): 
 
 export async function getPublicCompanyMenuNodes(companyId: string, boardId?: string): Promise<MenuNode[]> {
   const nodesRef = collection(db, 'companies', companyId, 'menuNodes')
-  const nodesQuery = query(nodesRef, where('active', '==', true))
-  const snapshot = await getDocs(nodesQuery)
+  const nodesQuery = boardId
+    ? query(nodesRef, where('active', '==', true), where('boardId', '==', boardId))
+    : query(nodesRef, where('active', '==', true), limit(200))
+  const snapshot = await getDocs(nodesQuery).catch(() => getDocs(
+    boardId
+      ? query(nodesRef, where('boardId', '==', boardId), limit(200))
+      : query(nodesRef, limit(200)),
+  ))
 
   return snapshot.docs
     .map((nodeDoc) => mapNode(nodeDoc.id, companyId, nodeDoc.data() as Record<string, unknown>))

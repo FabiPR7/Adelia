@@ -12,12 +12,10 @@ async function runDueNotificationJobs() {
   }
 }
 
-// Kept so Firebase does not try to delete the leftover in Madrid.
-// Cloud Scheduler cannot use europe-southwest1, so this copy does not cron.
 export const processScheduledNotifications = onSchedule(
   {
     schedule: 'every 5 minutes',
-    region: 'europe-southwest1',
+    region: 'europe-west1',
     timeZone: 'Europe/Madrid',
   },
   runDueNotificationJobs,

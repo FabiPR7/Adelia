@@ -14,8 +14,9 @@ function FavoriteButton({
   variant = 'round',
   className = '',
 }: FavoriteButtonProps) {
-  const { isFavorite, toggleFavorite } = useFavoriteRestaurants()
+  const { isFavorite, isUpdatingFavorite, toggleFavorite } = useFavoriteRestaurants()
   const saved = isFavorite(slug)
+  const updating = isUpdatingFavorite(slug)
 
   return (
     <button
@@ -27,6 +28,8 @@ function FavoriteButton({
         void toggleFavorite(slug)
       }}
       aria-pressed={saved}
+      aria-busy={updating}
+      disabled={updating}
       aria-label={saved ? `Quitar ${name} de favoritos` : `Guardar ${name} en favoritos`}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">

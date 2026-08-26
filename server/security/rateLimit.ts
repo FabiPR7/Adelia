@@ -1,4 +1,7 @@
 import type { NextFunction, Request, Response } from 'express'
+import { FieldValue } from 'firebase-admin/firestore'
+import { adminDb, canUseAdminSdk } from '../firebase-admin.ts'
+import { authKey, clientKey, hashRateKey } from './requestIdentity.ts'
 
 interface RateEntry {
   count: number
@@ -16,29 +19,16 @@ function storeFor(name: string): Map<string, RateEntry> {
   return store
 }
 
-function clientKey(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for']
-  if (typeof forwarded === 'string' && forwarded.trim()) {
-    return forwarded.split(',')[0]?.trim() || req.ip || 'unknown'
-  }
-  return req.ip || req.socket.remoteAddress || 'unknown'
-}
-
-function authKey(req: Request): string {
-  const header = req.headers.authorization
-  if (typeof header === 'string' && header.startsWith('Bearer ') && header.length > 20) {
-    return `tok:${header.slice(7, 27)}`
-  }
-  return `ip:${clientKey(req)}`
-}
-
 function take(store: Map<string, RateEntry>, key: string, max: number, windowMs: number): boolean {
   const now = Date.now()
-  if (store.size > 20_000) {
+  if (store.size > 4_000) {
     for (const [entryKey, entry] of store) {
       if (entry.resetAt <= now) {
         store.delete(entryKey)
       }
+    }
+    if (store.size > 12_000) {
+      store.clear()
     }
   }
 
@@ -54,6 +44,48 @@ function take(store: Map<string, RateEntry>, key: string, max: number, windowMs:
   return true
 }
 
+async function takeDistributed(
+  name: string,
+  key: string,
+  max: number,
+  windowMs: number,
+): Promise<boolean> {
+  if (!canUseAdminSdk) {
+    return true
+  }
+
+  const now = Date.now()
+  const docId = hashRateKey(`${name}:${key}`)
+  const ref = adminDb.collection('rateLimits').doc(docId)
+
+  try {
+    return await adminDb.runTransaction(async (transaction) => {
+      const snap = await transaction.get(ref)
+      const data = snap.data() as { count?: number; resetAt?: number } | undefined
+      if (!data || typeof data.resetAt !== 'number' || data.resetAt <= now) {
+        transaction.set(ref, {
+          count: 1,
+          resetAt: now + windowMs,
+          name,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        return true
+      }
+      if ((data.count ?? 0) >= max) {
+        return false
+      }
+      transaction.update(ref, {
+        count: FieldValue.increment(1),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return true
+    })
+  } catch (error) {
+    console.error('Distributed rate limit error:', error)
+    return true
+  }
+}
+
 export function createRateLimit(maxRequests: number, windowMs: number, name = 'default') {
   const store = storeFor(`${name}:${maxRequests}:${windowMs}`)
   return (req: Request, res: Response, next: NextFunction) => {
@@ -66,8 +98,13 @@ export function createRateLimit(maxRequests: number, windowMs: number, name = 'd
   }
 }
 
-function bucketFor(req: Request): { name: string; max: number; windowMs: number; key: string } {
-  const path = `${req.method} ${req.originalUrl || req.path}`
+function bucketFor(req: Request): {
+  name: string
+  max: number
+  windowMs: number
+  key: string
+  distributed?: boolean
+} {
   const url = req.originalUrl || req.path
 
   if (url.startsWith('/api/stripe/webhook') || url === '/api/health') {
@@ -76,32 +113,42 @@ function bucketFor(req: Request): { name: string; max: number; windowMs: number;
 
   if (
     url.startsWith('/api/auth/forgot-password')
+    || url.startsWith('/api/auth/customer/forgot-password')
     || url.startsWith('/api/auth/reset-password')
     || url.startsWith('/api/auth/resolve-login')
+    || url.startsWith('/api/auth/customer/pre-login')
+    || url.startsWith('/api/auth/customer/register')
     || url.startsWith('/api/auth/change-initial-password')
     || url.startsWith('/api/auth/complete-initial-password-change')
   ) {
-    return { name: 'auth', max: 8, windowMs: 15 * 60_000, key: clientKey(req) }
+    return { name: 'auth', max: 5, windowMs: 15 * 60_000, key: clientKey(req), distributed: true }
+  }
+
+  if (url.startsWith('/api/auth/customer/bootstrap')) {
+    return { name: 'authBootstrap', max: 12, windowMs: 15 * 60_000, key: clientKey(req), distributed: true }
   }
 
   if (
     req.method === 'POST'
     && (
-      url.includes('/public/booking/') && url.endsWith('/reservations')
+      (url.includes('/public/booking/') && url.endsWith('/reservations'))
       || url.includes('/deposit-intent')
       || url.includes('/public/booking/cancel')
+      || url.startsWith('/api/public/billing/checkout')
+      || url.startsWith('/api/public/billing/complete-signup')
     )
   ) {
-    return { name: 'publicWrite', max: 12, windowMs: 60_000, key: clientKey(req) }
+    return { name: 'publicWrite', max: 8, windowMs: 60_000, key: clientKey(req), distributed: true }
   }
 
   if (
     url.startsWith('/api/public/cities')
     || url.startsWith('/api/public/geocode')
     || url.startsWith('/api/public/promotions')
+    || url.startsWith('/api/public/billing')
     || url.startsWith('/api/public/booking')
   ) {
-    return { name: 'publicRead', max: 60, windowMs: 60_000, key: clientKey(req) }
+    return { name: 'publicRead', max: 45, windowMs: 60_000, key: clientKey(req) }
   }
 
   if (url.startsWith('/api/customer/friends/search')) {
@@ -109,27 +156,38 @@ function bucketFor(req: Request): { name: string; max: number; windowMs: number;
   }
 
   if (req.method === 'POST' && url.includes('/game/maze-move')) {
-    return { name: 'mazeMove', max: 900, windowMs: 60_000, key: authKey(req) }
+    return { name: 'mazeMove', max: 180, windowMs: 60_000, key: authKey(req) }
   }
 
   if (url.includes('/api/customer/reservation-challenges')) {
-    return { name: 'challenges', max: 360, windowMs: 60_000, key: authKey(req) }
+    return { name: 'challenges', max: 120, windowMs: 60_000, key: authKey(req) }
   }
 
-  return { name: 'api', max: 240, windowMs: 60_000, key: authKey(req) }
+  return { name: 'api', max: 180, windowMs: 60_000, key: authKey(req) }
 }
 
-export function apiRateLimit(req: Request, res: Response, next: NextFunction) {
+export async function apiRateLimit(req: Request, res: Response, next: NextFunction) {
   const bucket = bucketFor(req)
   if (bucket.name === 'skip') {
     next()
     return
   }
+
   const store = storeFor(bucket.name)
-  if (take(store, bucket.key, bucket.max, bucket.windowMs)) {
-    next()
+  if (!take(store, bucket.key, bucket.max, bucket.windowMs)) {
+    res.setHeader('Retry-After', '60')
+    res.status(429).json({ error: 'Demasiadas peticiones. Espera un momento.' })
     return
   }
-  res.setHeader('Retry-After', '60')
-  res.status(429).json({ error: 'Demasiadas peticiones. Espera un momento.' })
+
+  if (bucket.distributed) {
+    const allowed = await takeDistributed(bucket.name, bucket.key, bucket.max, bucket.windowMs)
+    if (!allowed) {
+      res.setHeader('Retry-After', '60')
+      res.status(429).json({ error: 'Demasiadas peticiones. Espera un momento.' })
+      return
+    }
+  }
+
+  next()
 }

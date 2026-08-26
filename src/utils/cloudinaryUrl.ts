@@ -55,20 +55,74 @@ export function optimizeCloudinaryVideoUrl(url: string): string {
     return url
   }
 
-  url = ensureHttpsUrl(url)
+  url = resolveCloudinaryVideoUrl(url)
 
   if (!url.includes('res.cloudinary.com')) {
     return url
   }
 
   if (url.includes('/video/upload/')) {
-    if (/\/video\/upload\/[^/]*f_auto/.test(url)) {
+    if (/\/video\/upload\/[^/]*f_(mp4|auto)/.test(url)) {
       return url
     }
-    return url.replace('/video/upload/', '/video/upload/f_auto,q_auto,w_720/')
+    return url.replace('/video/upload/', '/video/upload/f_mp4,q_auto,w_720/')
   }
 
-  return optimizeCloudinaryUrl(url, { width: 720 })
+  return url
+}
+
+/** Cloudinary a veces guarda el clip en image/ o raw/; el reproductor necesita video/. */
+export function resolveCloudinaryVideoUrl(url: string): string {
+  const https = ensureHttpsUrl(url.trim())
+
+  if (!https.includes('res.cloudinary.com')) {
+    return https
+  }
+
+  return https
+    .replace('/image/upload/', '/video/upload/')
+    .replace('/raw/upload/', '/video/upload/')
+}
+
+/** Fotograma inicial en 16:9 para no descargar el vídeo hasta que se reproduzca. */
+export function cloudinaryVideoPosterUrl(url: string, width = 900): string {
+  if (!url) {
+    return ''
+  }
+
+  const videoUrl = resolveCloudinaryVideoUrl(url)
+
+  if (!videoUrl.includes('res.cloudinary.com') || !videoUrl.includes('/video/upload/')) {
+    return ''
+  }
+
+  if (/\/video\/upload\/[^/]*so_0/.test(videoUrl)) {
+    return videoUrl
+  }
+
+  return videoUrl.replace(
+    '/video/upload/',
+    `/video/upload/so_0,w_${width},c_fill,g_auto,ar_16:9,q_auto,f_jpg/`,
+  )
+}
+
+export function canRenderCloudinaryPdfPages(pdfUrl: string): boolean {
+  const url = ensureHttpsUrl(pdfUrl)
+  return url.includes('res.cloudinary.com') && url.includes('/image/upload/')
+}
+
+export function cloudinaryPdfPageUrl(pdfUrl: string, page: number, width = 1400): string {
+  const url = ensureHttpsUrl(pdfUrl)
+  if (!canRenderCloudinaryPdfPages(url)) {
+    return url
+  }
+
+  const transform = `pg_${Math.max(1, page)},f_jpg,q_auto,w_${width}`
+  if (/\/upload\/[^/]*pg_\d+/.test(url)) {
+    return url
+  }
+
+  return url.replace('/upload/', `/upload/${transform}/`)
 }
 
 export const CLOUDINARY_DISPLAY = {

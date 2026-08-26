@@ -26,6 +26,10 @@ async function verifyRequestUser(req: Request): Promise<VerifiedRequestUser> {
   }
 
   const data = userSnap.data()!
+  if (data.blocked === true) {
+    throw new Error('No autorizado.')
+  }
+
   const email = typeof data.email === 'string'
     ? data.email.trim().toLowerCase()
     : decoded.email?.trim().toLowerCase() ?? ''

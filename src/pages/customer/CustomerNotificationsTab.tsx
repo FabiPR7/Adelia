@@ -170,7 +170,7 @@ function CustomerNotificationsTab() {
 
       <p className={styles.footerHint}>
         También puedes revisar tus{' '}
-        <Link to="/app/reservas">reservas</Link>
+        <Link to="/app/reservas">reservas y consumo</Link>
         {' '}y{' '}
         <Link to="/app/promociones">promociones</Link>
         .

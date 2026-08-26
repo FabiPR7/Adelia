@@ -140,3 +140,16 @@ export function formatLockoutMessage(lockedUntilMs: number): string {
   
   return `Cuenta bloqueada temporalmente. Intenta de nuevo en ${remainingMinutes} minutos.`
 }
+
+export function isFailedCredentialError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('code' in error)) {
+    return false
+  }
+  const code = String((error as { code: unknown }).code)
+  return (
+    code === 'auth/wrong-password'
+    || code === 'auth/invalid-credential'
+    || code === 'auth/user-not-found'
+    || code === 'auth/invalid-email'
+  )
+}

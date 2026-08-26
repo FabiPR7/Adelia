@@ -1,4 +1,4 @@
-import { collection, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, limit, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { getIdToken } from './auth'
 import type { ReservationChallenge } from '../types/reservationChallenges'
@@ -126,10 +126,12 @@ export function subscribeReservationChallenges(
   const challengedQuery = query(
     collection(db, 'reservationChallenges'),
     where('challengedUid', '==', userId),
+    limit(20),
   )
   const challengerQuery = query(
     collection(db, 'reservationChallenges'),
     where('challengerUid', '==', userId),
+    limit(20),
   )
 
   let challenged: ReservationChallenge[] = []

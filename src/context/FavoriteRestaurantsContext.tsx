@@ -4,17 +4,19 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { useAuth } from './AuthContext'
-import { updateCustomerFavorites } from '../services/customerAuth'
+import { setCustomerFavorite, updateCustomerFavorites } from '../services/customerAuth'
 import { readLocalFavoriteSlugs, toggleFavoriteSlug, writeLocalFavoriteSlugs } from '../utils/favorites'
 
 interface FavoriteRestaurantsValue {
   favoriteSlugs: string[]
   toggleFavorite: (slug: string) => Promise<void>
   isFavorite: (slug: string) => boolean
+  isUpdatingFavorite: (slug: string) => boolean
 }
 
 const FavoriteRestaurantsContext = createContext<FavoriteRestaurantsValue | null>(null)
@@ -29,44 +31,65 @@ function sameSlugs(left: string[], right: string[]): boolean {
 }
 
 export function FavoriteRestaurantsProvider({ children }: { children: ReactNode }) {
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, patchProfileFavorites } = useAuth()
   const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>(() => readLocalFavoriteSlugs())
+  const favoriteSlugsRef = useRef(favoriteSlugs)
+  const pendingSlugsRef = useRef(new Set<string>())
+  const [pendingSlugs, setPendingSlugs] = useState<Set<string>>(() => new Set())
+
+  const applyFavoritesLocally = useCallback((next: string[]) => {
+    favoriteSlugsRef.current = next
+    setFavoriteSlugs((current) => sameSlugs(current, next) ? current : next)
+    writeLocalFavoriteSlugs(next)
+  }, [])
 
   useEffect(() => {
     if (profile?.role !== 'customer' || !user) {
-      setFavoriteSlugs(readLocalFavoriteSlugs())
+      const local = readLocalFavoriteSlugs()
+      favoriteSlugsRef.current = local
+      setFavoriteSlugs((current) => sameSlugs(current, local) ? current : local)
       return
     }
 
     const local = readLocalFavoriteSlugs()
     const remote = profile.favoriteSlugs ?? []
     const merged = [...new Set([...remote, ...local])]
-    setFavoriteSlugs(merged)
-    writeLocalFavoriteSlugs(merged)
+    applyFavoritesLocally(merged)
 
     if (!sameSlugs(merged, remote)) {
+      patchProfileFavorites(merged)
       void updateCustomerFavorites(user.uid, merged)
-        .then(() => refreshProfile())
         .catch(() => undefined)
     }
-  }, [profile?.favoriteSlugs, profile?.role, refreshProfile, user])
+  }, [applyFavoritesLocally, patchProfileFavorites, profile?.favoriteSlugs, profile?.role, user])
 
   const toggleFavorite = useCallback(
     async (slug: string) => {
-      const next = toggleFavoriteSlug(favoriteSlugs, slug)
-      setFavoriteSlugs(next)
-      writeLocalFavoriteSlugs(next)
+      const normalizedSlug = slug.trim()
+      if (!normalizedSlug || pendingSlugsRef.current.has(normalizedSlug)) {
+        return
+      }
 
-      if (user && profile?.role === 'customer') {
-        try {
-          await updateCustomerFavorites(user.uid, next)
-          await refreshProfile()
-        } catch {
-          // Los favoritos locales siguen valiendo sin red.
+      pendingSlugsRef.current.add(normalizedSlug)
+      setPendingSlugs(new Set(pendingSlugsRef.current))
+
+      const next = toggleFavoriteSlug(favoriteSlugsRef.current, normalizedSlug)
+      const saved = next.includes(normalizedSlug)
+      applyFavoritesLocally(next)
+      patchProfileFavorites(next)
+
+      try {
+        if (user && profile?.role === 'customer') {
+          await setCustomerFavorite(user.uid, normalizedSlug, saved)
         }
+      } catch {
+        // Los favoritos locales siguen valiendo sin red.
+      } finally {
+        pendingSlugsRef.current.delete(normalizedSlug)
+        setPendingSlugs(new Set(pendingSlugsRef.current))
       }
     },
-    [favoriteSlugs, profile?.role, refreshProfile, user],
+    [applyFavoritesLocally, patchProfileFavorites, profile?.role, user],
   )
 
   const isFavorite = useCallback(
@@ -74,9 +97,14 @@ export function FavoriteRestaurantsProvider({ children }: { children: ReactNode 
     [favoriteSlugs],
   )
 
+  const isUpdatingFavorite = useCallback(
+    (slug: string) => pendingSlugs.has(slug),
+    [pendingSlugs],
+  )
+
   const value = useMemo(
-    () => ({ favoriteSlugs, toggleFavorite, isFavorite }),
-    [favoriteSlugs, isFavorite, toggleFavorite],
+    () => ({ favoriteSlugs, toggleFavorite, isFavorite, isUpdatingFavorite }),
+    [favoriteSlugs, isFavorite, isUpdatingFavorite, toggleFavorite],
   )
 
   return (

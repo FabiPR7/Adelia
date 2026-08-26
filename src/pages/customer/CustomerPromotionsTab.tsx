@@ -11,13 +11,11 @@ import { useCustomerGamificationContext } from '../../context/CustomerGamificati
 import ApplyMesaTokenModal from '../../components/ApplyMesaTokenModal'
 import { isCustomerPromoLocked } from '../../data/cancellationPenalties'
 import { getPublicCompanyMenuNodes } from '../../services/companyMenu'
-import { getCustomerReservations } from '../../services/firestore'
 import { fetchPublicPromotions, type PublicPromotion } from '../../services/publicPromotions'
 import type { ClaimedPromotionRecord } from '../../types/gamification'
 import type { Reservation } from '../../types'
 import type { MenuNode } from '../../types/company'
 import type { VerifyMinimumSpendResult } from '../../services/minimumSpendApi'
-import { formatCentsAsEuros } from '../../utils/minimumSpendVerification'
 import {
   matchingReservationTokens,
   pendingTokenSpendForCompany,
@@ -248,7 +246,9 @@ function CustomerPromotionsTab() {
     claimPromotion,
     claimTimeLimitedPromotion,
     applyReservationToken,
+    registerPromotionConsumption,
     refreshGamificationData,
+    reservations: customerReservations,
   } = useCustomerGamificationContext()
 
   const [promotions, setPromotions] = useState<PublicPromotion[]>([])
@@ -258,7 +258,6 @@ function CustomerPromotionsTab() {
   const [loadingPromos, setLoadingPromos] = useState(true)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [usingDemoLocation, setUsingDemoLocation] = useState(false)
-  const [customerReservations, setCustomerReservations] = useState<Reservation[]>([])
   const [verifyReservation, setVerifyReservation] = useState<Reservation | null>(null)
   const [verifyMenuNodes, setVerifyMenuNodes] = useState<MenuNode[]>([])
   const [verifyMenuLoading, setVerifyMenuLoading] = useState(false)
@@ -278,31 +277,6 @@ function CustomerPromotionsTab() {
     ),
     [claimedPromotions],
   )
-
-  useEffect(() => {
-    if (!profile?.email) {
-      setCustomerReservations([])
-      return
-    }
-
-    let cancelled = false
-
-    void getCustomerReservations(profile.email)
-      .then((rows) => {
-        if (!cancelled) {
-          setCustomerReservations(rows)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCustomerReservations([])
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [profile?.email])
 
   useEffect(() => {
     if (!user || !profile || promotions.length === 0 || customerReservations.length === 0) {
@@ -361,12 +335,8 @@ function CustomerPromotionsTab() {
   }, [verifyReservation])
 
   useEffect(() => {
-    void refreshGamificationData()
-  }, [refreshGamificationData])
-
-  useEffect(() => {
     const handleFocus = () => {
-      void refreshGamificationData()
+      void refreshGamificationData({ silent: true })
     }
 
     window.addEventListener('focus', handleFocus)
@@ -565,14 +535,8 @@ function CustomerPromotionsTab() {
     setTokenError(null)
     setTokenNotice(null)
     try {
-      const result = await applyReservationToken(itemId, tokenGroup.companyId)
-      if (result.remainderCents > 0) {
-        setTokenNotice(
-          `Carta usada: cubre ${formatCentsAsEuros(result.coverCents)} y faltan ${formatCentsAsEuros(result.remainderCents)}. Verifícalo con el restaurante en una reserva confirmada.`,
-        )
-      } else {
-        setTokenGroup(null)
-      }
+      await applyReservationToken(itemId, tokenGroup.companyId)
+      setTokenGroup(null)
     } catch (error) {
       setTokenError(error instanceof Error ? error.message : 'No se pudo usar la carta.')
     } finally {
@@ -587,25 +551,9 @@ function CustomerPromotionsTab() {
   }
 
   const handleVerifiedMinimumSpend = (
-    reservationId: string,
-    result: VerifyMinimumSpendResult,
+    _reservationId: string,
+    _result: VerifyMinimumSpendResult,
   ) => {
-    setCustomerReservations((current) =>
-      current.map((reservation) =>
-        reservation.id === reservationId
-          ? {
-              ...reservation,
-              promotionVisitStatus: result.promotionVisitStatus,
-              minSpendVerification: result.minSpendVerification,
-            }
-          : reservation,
-      ),
-    )
-
-    if (!result.meetsMinimumSpend) {
-      return
-    }
-
     void refreshProfile().then(() => refreshGamificationData({ silent: true }))
   }
 
@@ -663,7 +611,7 @@ function CustomerPromotionsTab() {
         sortedClaims.length === 0 ? (
           <div className={styles.empty}>
             <p>Aún no has reclamado ninguna oferta.</p>
-            <p className={styles.emptyHint}>Completa las reservas necesarias y pulsa Reclamar.</p>
+            <p className={styles.emptyHint}>Completa las reservas o consumos necesarios y pulsa Reclamar.</p>
           </div>
         ) : (
           <div className={styles.promoFeed}>
@@ -827,6 +775,7 @@ function CustomerPromotionsTab() {
         claimedPromotions={claimedPromotions}
         onClose={() => setLadderMapGroup(null)}
         onClaim={handleClaimRequest}
+        onRegisterConsumption={registerPromotionConsumption}
       />
 
       <PromotionClaimFlowModal

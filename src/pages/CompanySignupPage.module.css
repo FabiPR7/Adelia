@@ -1,0 +1,365 @@
+.page {
+  min-height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(900px 480px at 12% -10%, rgba(255, 196, 140, 0.28), transparent 55%),
+    radial-gradient(800px 420px at 100% 10%, rgba(143, 102, 120, 0.18), transparent 50%),
+    #f4eee6;
+  color: #2d221c;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.glowA,
+.glowB {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+  animation: drift 14s ease-in-out infinite;
+}
+
+.glowA {
+  width: 280px;
+  height: 280px;
+  left: -60px;
+  top: 20%;
+  background: rgba(255, 107, 74, 0.16);
+}
+
+.glowB {
+  width: 340px;
+  height: 340px;
+  right: -80px;
+  bottom: 8%;
+  background: rgba(107, 83, 68, 0.14);
+  animation-delay: -5s;
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(18px, -22px, 0); }
+}
+
+.boot,
+.top,
+.progress,
+.dots,
+.stage {
+  position: relative;
+  z-index: 1;
+}
+
+.boot {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 0.4rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.brand img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.planChip {
+  margin: 0;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: #2d221c;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.progress {
+  max-width: 920px;
+  margin: 0.65rem auto 0;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(45, 34, 28, 0.08);
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6b5344, #2d221c);
+  transition: width 0.45s ease;
+}
+
+.dots {
+  display: flex;
+  gap: 0.7rem;
+  list-style: none;
+  max-width: 920px;
+  margin: 0.7rem auto 0;
+  padding: 0 1.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #b09a8c;
+}
+
+.dotOn {
+  color: #2d221c;
+}
+
+.stage {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2.5rem;
+}
+
+.shell,
+.card {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(45, 34, 28, 0.08);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px rgba(45, 34, 28, 0.08);
+  backdrop-filter: blur(16px);
+  padding: 1.6rem 1.45rem 1.4rem;
+}
+
+.shell {
+  max-width: 520px;
+  margin: 12vh auto 0;
+  text-align: center;
+}
+
+.cardWide {
+  padding-bottom: 1.6rem;
+}
+
+.kicker,
+.eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #a87458;
+}
+
+h1 {
+  margin: 0.35rem 0 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.lead {
+  margin: 0.55rem 0 1.15rem;
+  color: #7a6558;
+  line-height: 1.5;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #6b5344;
+}
+
+.field input {
+  border: 1px solid rgba(45, 34, 28, 0.12);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.82rem 0.9rem;
+  font: inherit;
+  font-weight: 500;
+  color: #2d221c;
+}
+
+.field input:focus {
+  outline: 2px solid rgba(45, 34, 28, 0.25);
+  outline-offset: 1px;
+}
+
+.checks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.8rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  font-size: 0.75rem;
+  color: #b09a8c;
+}
+
+.checkOn {
+  color: #3d6b45;
+}
+
+.mapBlock {
+  margin: 0.4rem 0 1rem;
+  color: #7a6558;
+  font-size: 0.85rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: space-between;
+  margin-top: 0.4rem;
+}
+
+.primary,
+.ghost,
+.publicLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0.75rem 1.15rem;
+  border-radius: 14px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+  background: #2d221c;
+  color: #fff;
+  min-width: 160px;
+}
+
+.primary:disabled {
+  opacity: 0.55;
+}
+
+.ghost {
+  border: 1px solid rgba(45, 34, 28, 0.16);
+  background: transparent;
+  color: #2d221c;
+}
+
+.error {
+  color: #8a2f24;
+  font-size: 0.88rem;
+}
+
+.guideDots {
+  display: flex;
+  gap: 0.4rem;
+  margin: 1.2rem 0;
+}
+
+.guideDot,
+.guideDotOn {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #d9cbbd;
+  cursor: pointer;
+}
+
+.guideDotOn {
+  width: 22px;
+  background: #2d221c;
+}
+
+.preview {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 1rem 0;
+  padding: 0.8rem;
+  border-radius: 18px;
+  background: #f7f1ea;
+}
+
+.preview img,
+.previewFallback {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.previewFallback {
+  display: grid;
+  place-items: center;
+  background: #2d221c;
+  color: #fff;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.8rem;
+}
+
+.preview strong,
+.preview span {
+  display: block;
+}
+
+.preview span {
+  color: #7a6558;
+  font-size: 0.88rem;
+}
+
+.publicLink {
+  width: 100%;
+  margin-bottom: 0.7rem;
+  background: #fff;
+  border: 1px solid rgba(45, 34, 28, 0.16);
+  color: #2d221c;
+}
+
+.hint {
+  font-size: 0.82rem;
+  color: #7a6558;
+}
+
+@media (max-width: 720px) {
+  .checks {
+    grid-template-columns: 1fr;
+  }
+
+  .card,
+  .shell {
+    border-radius: 22px;
+    padding: 1.2rem 1rem 1.15rem;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .primary,
+  .ghost {
+    width: 100%;
+  }
+}

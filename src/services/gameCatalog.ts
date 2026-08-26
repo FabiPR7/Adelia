@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, limit, query } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { applyMissionCatalog } from '../data/gamificationMissions'
 import { applyLevelCatalog } from '../data/gamificationLevels'
@@ -92,8 +92,8 @@ export function loadGameCatalog(): Promise<void> {
 
 async function hydrateGameCatalog(): Promise<void> {
   const [missionsSnap, levelsSnap, configSnap] = await Promise.all([
-    getDocs(collection(db, 'missionCatalog')),
-    getDocs(collection(db, 'levelCatalog')),
+    getDocs(query(collection(db, 'missionCatalog'), limit(80))),
+    getDocs(query(collection(db, 'levelCatalog'), limit(40))),
     getDoc(doc(db, 'gameConfig', 'adelia')),
   ])
 

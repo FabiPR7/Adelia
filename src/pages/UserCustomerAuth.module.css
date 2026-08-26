@@ -260,6 +260,22 @@
   text-decoration: none;
 }
 
+.forgotRow {
+  margin: 0.75rem 0 0;
+  text-align: center;
+}
+
+.forgotLink {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-brown-light);
+  text-decoration: none;
+}
+
+.forgotLink:hover {
+  text-decoration: underline;
+}
+
 .businessLink {
   display: block;
   margin-top: 0.85rem;

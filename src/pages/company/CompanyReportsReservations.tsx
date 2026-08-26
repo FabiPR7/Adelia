@@ -5,6 +5,7 @@ import ReservationTrendChart from '../../components/reports/ReservationTrendChar
 import ReservationWeekdayChart from '../../components/reports/ReservationWeekdayChart'
 import SortableTh from '../../components/reports/SortableTh'
 import { getFirestoreErrorMessage, getReservationsByCompany } from '../../services/firestore'
+import { reportYearOptions, yearBounds } from '../../services/firestoreQuery'
 import type { Reservation } from '../../types'
 import { formatDateSpanish, formatTimeSpanish } from '../../utils/helpers'
 import { downloadExcelFile, formatExcelDate, formatExcelDateTime } from '../../utils/exportSpreadsheet'
@@ -23,7 +24,6 @@ import {
   computeWeekdayChartData,
   filterReservationsInRange,
   formatReportPeriodLabel,
-  getAvailableYears,
   getReportDateRange,
   type ReportGranularity,
   type ReportPeriodConfig,
@@ -93,26 +93,21 @@ function CompanyReportsReservations({ companyId }: CompanyReportsReservationsPro
     setError(null)
 
     try {
-      const data = await getReservationsByCompany(companyId)
+      const range = yearBounds(year)
+      const data = await getReservationsByCompany(companyId, { from: range.start, to: range.end })
       setReservations(data)
     } catch (err) {
       setError(getFirestoreErrorMessage(err))
     } finally {
       setLoading(false)
     }
-  }, [companyId])
+  }, [companyId, year])
 
   useEffect(() => {
     void loadReservations()
   }, [loadReservations])
 
-  const availableYears = useMemo(() => getAvailableYears(reservations), [reservations])
-
-  useEffect(() => {
-    if (availableYears.length > 0 && !availableYears.includes(year)) {
-      setYear(availableYears[0])
-    }
-  }, [availableYears, year])
+  const availableYears = useMemo(() => reportYearOptions(), [])
 
   const periodConfig = useMemo<ReportPeriodConfig>(
     () => ({ granularity, year, month, quarter }),

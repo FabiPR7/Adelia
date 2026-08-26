@@ -119,9 +119,10 @@
 }
 
 .inputForm {
-  padding: 0.65rem 2rem 0.65rem 0.75rem;
+  padding: 0.48rem 1.85rem 0.48rem 0.65rem;
   border-radius: var(--radius-sm);
   box-shadow: none;
+  font-size: 0.875rem;
 }
 
 .rootForm .label {

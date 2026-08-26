@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { getCompanyReviews } from '../services/companyReviews'
 import { getCompanyPromotions } from '../services/promotions'
 import { getReservationsByCompany } from '../services/firestore'
+import { GAMIFICATION_RESERVATION_DAYS, recentDaysBounds } from '../services/firestoreQuery'
 import { syncCompanyGamification } from '../services/companyGamification'
 import { defaultCompanyGamificationState } from '../types/companyGamification'
 import type { CompanyGamificationState } from '../types/companyGamification'
@@ -42,8 +43,9 @@ export function useCompanyGamification(enabled: boolean) {
     setLoading(true)
     setError(null)
     try {
+      const range = recentDaysBounds(GAMIFICATION_RESERVATION_DAYS)
       const [nextReservations, nextReviews, promotions, synced] = await Promise.all([
-        getReservationsByCompany(companyId),
+        getReservationsByCompany(companyId, { from: range.start, to: range.end }),
         getCompanyReviews(companyId),
         getCompanyPromotions(companyId).catch(() => []),
         syncCompanyGamification(),

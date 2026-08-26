@@ -14,6 +14,7 @@ import { adminDb } from '../server/firebase-admin.ts'
 import {
   notifyReservationCancelled,
   notifyReservationConfirmed,
+  notifyReservationReceived,
 } from '../server/notifications/reservationEvents.ts'
 
 const triggerOptions = {
@@ -39,6 +40,12 @@ export const onReservationCreatedSendEmail = onDocumentCreated(
       await upsertCompanyClientFromReservation(adminDb, snapshot.id, snapshot.data()!)
     } catch (error) {
       console.error(`Failed to sync client for reservation ${snapshot.id}:`, error)
+    }
+
+    try {
+      await notifyReservationReceived(snapshot.id, snapshot.data()!)
+    } catch (error) {
+      console.error(`Failed to notify received reservation ${snapshot.id}:`, error)
     }
 
     if (!shouldSendReceivedOnCreate(snapshot.data())) {

@@ -4,11 +4,7 @@ import type {
   ReviewTaggedProduct,
   ReviewTaggedPromotion,
 } from '../types/review'
-import {
-  getCompanyBySlug,
-  getFirestoreErrorMessage,
-  getTablesByCompany,
-} from './firestore'
+import { getFirestoreErrorMessage } from './firestore'
 import { getPublicCompanyMenuBoards, getPublicCompanyMenuNodes } from './companyMenu'
 import type { MenuBoard, MenuNode } from '../types/company'
 import { dateToIsoDate } from '../utils/helpers'
@@ -40,9 +36,13 @@ export interface PublicBookingCompany {
   mainPhotoIndex: number
   videos: string[]
   characteristics: string[]
+  venueTypes: string[]
+  amenities: string[]
+  priceRange: import('../data/companyProfileFacilities').CompanyPriceRange
   latitude: number | null
   longitude: number | null
   timeSlotMinutes: number
+  reservationMode: import('../data/companyReservationMode').CompanyReservationMode
   schedule: CompanySchedule
   floorPlan: FloorPlan
   floorPlans: FloorPlan[]
@@ -108,36 +108,39 @@ export interface PublicBookingPayload {
   inviteeUids?: string[]
 }
 
-async function getCompanyOrThrow(slug: string) {
-  const company = await getCompanyBySlug(slug)
-
-  if (!company) {
-    throw new Error('Restaurante no encontrado.')
-  }
-
-  return company
+async function readPublicError(response: Response, fallback: string): Promise<string> {
+  const payload = (await response.json().catch(() => ({}))) as { error?: string }
+  return payload.error ?? fallback
 }
 
 export async function fetchPublicBookingPage(slug: string): Promise<{
   company: PublicBookingCompany
   tables: PublicBookingTable[]
 }> {
-  try {
-    const company = await getCompanyOrThrow(slug)
-    const tables = await getTablesByCompany(company.id)
+  const response = await fetch(`${API_BASE}/api/public/booking/${encodeURIComponent(slug)}`)
 
-    return {
-      company,
-      tables: tables.map((table) => ({
-        id: table.id,
-        name: table.name,
-        capacity: table.capacity,
-        sortOrder: table.sortOrder,
-        floorPlanId: table.floorPlanId || '',
-      })),
-    }
-  } catch (error) {
-    throw new Error(getFirestoreErrorMessage(error))
+  if (!response.ok) {
+    throw new Error(await readPublicError(response, 'No se pudo cargar el restaurante.'))
+  }
+
+  const payload = (await response.json()) as {
+    company?: PublicBookingCompany
+    tables?: PublicBookingTable[]
+  }
+
+  if (!payload.company) {
+    throw new Error('Restaurante no encontrado.')
+  }
+
+  return {
+    company: payload.company,
+    tables: (payload.tables ?? []).map((table) => ({
+      id: table.id,
+      name: table.name,
+      capacity: table.capacity,
+      sortOrder: table.sortOrder,
+      floorPlanId: table.floorPlanId || '',
+    })),
   }
 }
 
@@ -217,7 +220,7 @@ export async function fetchPublicMenu(slug: string): Promise<{
   nodes: MenuNode[]
 }> {
   try {
-    const company = await getCompanyOrThrow(slug)
+    const { company } = await fetchPublicBookingPage(slug)
     const [boards, nodes] = await Promise.all([
       getPublicCompanyMenuBoards(company.id),
       getPublicCompanyMenuNodes(company.id),
@@ -232,7 +235,7 @@ export async function fetchPublicMenu(slug: string): Promise<{
       nodes: activeNodes,
     }
   } catch (error) {
-    throw new Error(getFirestoreErrorMessage(error))
+    throw new Error(error instanceof Error ? error.message : getFirestoreErrorMessage(error))
   }
 }
 

@@ -5,8 +5,9 @@
  * Usa Firestore como backend (puede migrar a Redis/Upstash si se necesita más performance)
  */
 
-import * as admin from 'firebase-admin'
+import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
+import { adminDb } from '../../server/firebase-admin.ts'
 
 interface RateLimitConfig {
   maxRequests: number      // Máximo de requests
@@ -29,11 +30,11 @@ interface RateLimitEntry {
  * - Combinación de ambos
  */
 export class FirestoreRateLimiter {
-  private db: admin.firestore.Firestore
+  private db: Firestore
   private collectionName = 'rateLimits'
 
   constructor() {
-    this.db = admin.firestore()
+    this.db = adminDb
   }
 
   /**
@@ -81,7 +82,7 @@ export class FirestoreRateLimiter {
         // Si está dentro del límite
         if (data.count < config.maxRequests) {
           transaction.update(docRef, {
-            count: admin.firestore.FieldValue.increment(1),
+            count: FieldValue.increment(1),
           })
 
           return {
@@ -97,21 +98,6 @@ export class FirestoreRateLimiter {
 
         transaction.update(docRef, {
           blockedUntil,
-        })
-
-        // Loguear intento de abuso
-        const securityEventRef = this.db.collection('securityEvents').doc()
-        transaction.set(securityEventRef, {
-          type: 'rate_limit_exceeded',
-          severity: 'medium',
-          details: {
-            key,
-            count: data.count,
-            maxRequests: config.maxRequests,
-            windowSeconds: config.windowSeconds,
-          },
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          environment: process.env.NODE_ENV || 'production',
         })
 
         return {

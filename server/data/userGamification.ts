@@ -1,8 +1,9 @@
-import type { Transaction } from 'firebase-admin/firestore'
+import { FieldValue, type Transaction } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from './collections.ts'
 
 const MAX_STORED_CLAIMS = 20
+const MAX_PENDING_TOKEN_SPEND = 10
 
 export function userGamificationRef(uid: string) {
   return adminDb.collection(COLLECTIONS.userGamification).doc(uid)
@@ -31,9 +32,11 @@ export function compactGamificationForUserDoc(state: Record<string, unknown>): R
 
 export function compactGamificationForStatsDoc(state: Record<string, unknown>): Record<string, unknown> {
   const claims = Array.isArray(state.claimedPromotions) ? state.claimedPromotions : []
+  const pending = Array.isArray(state.pendingTokenSpend) ? state.pendingTokenSpend : []
   return {
     ...state,
     claimedPromotions: claims.slice(-MAX_STORED_CLAIMS),
+    pendingTokenSpend: pending.slice(-MAX_PENDING_TOKEN_SPEND),
   }
 }
 
@@ -48,8 +51,8 @@ export function writeGamification(
   const statsRef = userGamificationRef(uid)
   const userRef = adminDb.collection(COLLECTIONS.users).doc(uid)
 
-  // Reemplaza `state` / `gamification` enteros. Con merge profundo, borrar una carta
-  // del inventario no quitaba la clave y esa carta se podía usar sin límite.
+  // El estado grande vive en `userGamification`. En `users` solo quedan xp/adelinas
+  // para ranking; `gamification` se borra para no duplicar megabytes en cada jugada.
   transaction.set(statsRef, {
     uid,
     xp,
@@ -58,8 +61,8 @@ export function writeGamification(
     updatedAt: new Date(),
   }, { mergeFields: ['uid', 'xp', 'adelinas', 'state', 'updatedAt'] })
   transaction.set(userRef, {
-    gamification: compactGamificationForUserDoc(statsState),
     xp,
     adelinas,
-  }, { mergeFields: ['gamification', 'xp', 'adelinas'] })
+    gamification: FieldValue.delete(),
+  }, { merge: true })
 }

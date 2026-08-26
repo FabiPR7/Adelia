@@ -1,30 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import DiscoveryRatingBadge from './DiscoveryRatingBadge'
+import AdelinaCoin from './AdelinaCoin'
 import {
-  formatDiscoveryRatingBadge,
+  getDiscoveryAdelinaSlotStates,
+  getDiscoveryAverageRating,
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
-import FavoriteButton from './FavoriteButton'
 import styles from './RotatingRestaurantSpotlight.module.css'
 
 export type SpotlightMetric = 'reservations' | 'rating'
 
 interface RotatingRestaurantSpotlightProps {
   title: string
-  subtitle: string
+  subtitle?: string
   restaurants: PublicDiscoveryRestaurant[]
-  metric: SpotlightMetric
+  metric?: SpotlightMetric
   intervalMs?: number
   onOpenRestaurant?: (restaurant: PublicDiscoveryRestaurant) => void
 }
 
 function RotatingRestaurantSpotlight({
   title,
-  subtitle,
   restaurants,
-  metric: _metric,
   intervalMs = 3000,
   onOpenRestaurant,
 }: RotatingRestaurantSpotlightProps) {
@@ -32,13 +29,18 @@ function RotatingRestaurantSpotlight({
   const [fading, setFading] = useState(false)
 
   useEffect(() => {
+    setIndex(0)
+  }, [restaurants])
+
+  useEffect(() => {
     if (restaurants.length <= 1) {
       return
     }
 
+    let fadeTimer = 0
     const timer = window.setInterval(() => {
       setFading(true)
-      window.setTimeout(() => {
+      fadeTimer = window.setTimeout(() => {
         setIndex((current) => (current + 1) % restaurants.length)
         setFading(false)
       }, 220)
@@ -46,6 +48,7 @@ function RotatingRestaurantSpotlight({
 
     return () => {
       window.clearInterval(timer)
+      window.clearTimeout(fadeTimer)
     }
   }, [restaurants.length, intervalMs])
 
@@ -53,65 +56,51 @@ function RotatingRestaurantSpotlight({
     return null
   }
 
-  const restaurant = restaurants[index]
+  const restaurant = restaurants[index] ?? restaurants[0]
+  if (!restaurant) {
+    return null
+  }
+
   const imageUrl = restaurant.photoUrl
-    ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoGallery)
+    ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoThumb)
     : ''
-  const ratingBadge = formatDiscoveryRatingBadge(restaurant)
+  const ratingSlots = getDiscoveryAdelinaSlotStates(restaurant)
+  const averageRating = getDiscoveryAverageRating(restaurant)
+  const ratingLabel = restaurant.reviewCount > 0
+    ? `Valoración ${averageRating} de 5`
+    : 'Sin valoraciones'
 
   return (
     <article className={styles.card}>
-      <div className={styles.cardHead}>
-        <div>
-          <p className={styles.eyebrow}>{title}</p>
-          <h3>{subtitle}</h3>
-        </div>
-        <div className={styles.dots} aria-hidden="true">
-          {restaurants.slice(0, Math.min(restaurants.length, 6)).map((item, dotIndex) => (
-            <span
-              key={item.id}
-              className={dotIndex === index % Math.min(restaurants.length, 6) ? styles.dotActive : styles.dot}
+      <p className={styles.eyebrow}>{title}</p>
+      <button
+        type="button"
+        className={`${styles.tile} ${fading ? styles.tileFade : ''}`}
+        onClick={() => onOpenRestaurant?.(restaurant)}
+        aria-label={`Ver ${restaurant.name}`}
+      >
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className={styles.photo} />
+        ) : (
+          <span className={styles.fallback} aria-hidden="true">
+            {restaurant.name.charAt(0)}
+          </span>
+        )}
+
+        <span className={styles.adelinas} aria-label={ratingLabel}>
+          {ratingSlots.map((state, slotIndex) => (
+            <AdelinaCoin
+              key={slotIndex}
+              size="sm"
+              variant="review"
+              alt=""
+              className={state === 'full' ? styles.coinOn : styles.coinOff}
             />
           ))}
-        </div>
-      </div>
+        </span>
 
-      <div className={`${styles.body} ${fading ? styles.bodyFade : ''}`}>
-        <div className={styles.media}>
-          {imageUrl ? (
-            <img src={imageUrl} alt="" />
-          ) : (
-            <div className={styles.mediaFallback} aria-hidden="true">
-              🍽️
-            </div>
-          )}
-        </div>
-
-        <div className={styles.copy}>
-          <h4>{restaurant.name}</h4>
-          <p>{restaurant.municipality || restaurant.location}</p>
-
-          <div className={styles.stats}>
-            {ratingBadge ? (
-              <DiscoveryRatingBadge rating={ratingBadge} className={styles.statHighlight} />
-            ) : (
-              <span className={styles.statMuted}>Sin reseñas aún</span>
-            )}
-          </div>
-
-          <div className={styles.actions}>
-            {onOpenRestaurant && (
-              <button type="button" className={styles.previewBtn} onClick={() => onOpenRestaurant(restaurant)}>
-                Ver ficha
-              </button>
-            )}
-            <FavoriteButton slug={restaurant.slug} name={restaurant.name} variant="round" />
-            <Link to={`/reservar/${restaurant.slug}`} className={styles.reserveBtn}>
-              Reservar
-            </Link>
-          </div>
-        </div>
-      </div>
+        <span className={styles.name}>{restaurant.name}</span>
+      </button>
     </article>
   )
 }

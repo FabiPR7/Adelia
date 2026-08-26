@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, type FormEvent, useEffect } from 'react'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { auth } from '../config/firebase'
 import { ADELIA_LOGO_URL } from '../constants/brand'
@@ -7,6 +7,7 @@ import { loginCustomer, signInCustomerWithGoogle } from '../services/customerAut
 import { getUserProfile } from '../services/firestore'
 import { getAuthErrorMessage } from '../services/auth'
 import { getPostLoginPath, resolveSafeRedirect } from '../utils/authProfile'
+import { executeRecaptcha, loadRecaptchaScript } from '../services/recaptcha'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
 import LegalLinks from '../components/LegalLinks'
@@ -14,14 +15,20 @@ import styles from './UserCustomerAuth.module.css'
 
 function UserLoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const emailVerified = searchParams.get('verified') === '1'
+  const passwordResetSuccess = (location.state as { passwordReset?: boolean } | null)?.passwordReset === true
   const redirectTo = resolveSafeRedirect(searchParams.get('redirect'))
   const { user, profile, refreshProfile } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadRecaptchaScript().catch(() => undefined)
+  }, [])
 
   if (user && profile) {
     return <Navigate to={redirectTo ?? getPostLoginPath(profile, user)} replace />
@@ -60,7 +67,13 @@ function UserLoginPage() {
     setIsLoading(true)
 
     try {
-      await signInCustomerWithGoogle()
+      let recaptchaToken = ''
+      try {
+        recaptchaToken = await executeRecaptcha('register_google')
+      } catch {
+        recaptchaToken = ''
+      }
+      await signInCustomerWithGoogle(recaptchaToken || undefined)
       await finishLogin()
     } catch (err) {
       setError(getAuthErrorMessage(err))
@@ -89,6 +102,12 @@ function UserLoginPage() {
         <p className={styles.lead}>
           Accede a tus reservas, favoritos, promociones y misiones.
         </p>
+
+        {passwordResetSuccess && (
+          <p className={styles.successBanner} role="status">
+            Contraseña actualizada. Ya puedes iniciar sesión.
+          </p>
+        )}
 
         {emailVerified && (
           <p className={styles.successBanner} role="status">
@@ -136,6 +155,12 @@ function UserLoginPage() {
             {isLoading ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
+
+        <p className={styles.forgotRow}>
+          <Link to="/cuenta/olvide-contrasena" className={styles.forgotLink}>
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </p>
 
         <p className={styles.switchText}>
           ¿No tienes cuenta?{' '}

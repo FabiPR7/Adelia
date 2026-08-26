@@ -55,6 +55,13 @@
   color: var(--color-white);
 }
 
+.pdfMain {
+  flex: 1;
+  width: min(52rem, 100%);
+  margin: 0 auto;
+  padding: 1rem 1rem 2.5rem;
+}
+
 @media (min-width: 1024px) {
   .toolbar {
     max-width: min(960px, 92vw);
