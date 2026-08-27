@@ -284,8 +284,8 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 0.2rem;
-  min-height: 11.5rem;
-  padding: 1rem 0.95rem 0.95rem;
+  min-height: 15.25rem;
+  padding: 1rem 0.95rem 1.75rem;
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.78);
@@ -399,6 +399,39 @@
   font-size: 0.75rem;
   line-height: 1.4;
   color: #6b5b52;
+}
+
+.cardSpecs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.55rem;
+  width: 100%;
+  margin: 0.65rem 0 0;
+  padding: 0.55rem 0.5rem;
+  list-style: none;
+  border-radius: 12px;
+  background: rgba(28, 20, 15, 0.05);
+}
+
+.cardSpecs li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.cardSpecs strong {
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.cardSpecs span {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9a7d6c;
 }
 
 .reco,
@@ -728,6 +761,145 @@
   .perkGrid,
   .deltaGrid {
     grid-template-columns: 1fr;
+  }
+}
+
+.pendingBanner,
+.billingBox,
+.dangerZone {
+  position: relative;
+  z-index: 1;
+  padding: 1rem 1.15rem;
+  border-radius: 18px;
+}
+
+.pendingBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #fff8e8;
+  border: 1px solid rgba(224, 177, 90, 0.45);
+}
+
+.pendingBanner p,
+.dangerZone p {
+  margin: 0.25rem 0 0;
+  color: #6b5b52;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.billingBox {
+  margin-top: 0.9rem;
+  background: #fff6ef;
+  border: 1px solid rgba(255, 90, 60, 0.16);
+}
+
+.billingBox p {
+  margin: 0.2rem 0;
+  font-size: 0.88rem;
+  color: #3f2f28;
+}
+
+.dangerZone {
+  background: #fff7f7;
+  border: 1px solid rgba(159, 18, 57, 0.16);
+}
+
+.dangerZone h3 {
+  margin: 0;
+  font-family: var(--plan-serif);
+  font-size: 1.25rem;
+}
+
+.ghostBtn,
+.dangerBtn {
+  border: none;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ghostBtn {
+  background: #fff;
+  color: #7c4a12;
+  box-shadow: 0 6px 16px rgba(28, 20, 15, 0.08);
+}
+
+.dangerBtn {
+  margin-top: 0.85rem;
+  background: #9f1239;
+  color: #fff;
+}
+
+.dangerBtn:disabled,
+.ghostBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.errorNote {
+  margin: 0.65rem 0 0;
+  color: #9f1239;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.deleteOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(28, 20, 15, 0.45);
+}
+
+.deleteDialog {
+  width: min(32rem, 100%);
+  padding: 1.3rem 1.25rem;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(28, 20, 15, 0.22);
+}
+
+.deleteDialog h2 {
+  margin: 0;
+  font-family: var(--plan-serif);
+  font-size: 1.4rem;
+}
+
+.deleteDialog p {
+  margin: 0.55rem 0 0;
+  color: #6b5b52;
+  line-height: 1.45;
+}
+
+.deleteInput {
+  display: block;
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(28, 20, 15, 0.16);
+  border-radius: 12px;
+  font: inherit;
+}
+
+.deleteActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 720px) {
+  .pendingBanner {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

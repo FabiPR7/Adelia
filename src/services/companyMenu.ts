@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   limit,
   query,
@@ -13,6 +14,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { defaultMenuTemplate, normalizeMenuBackgroundImageOpacity } from '../data/menuTemplates'
+import { clampPublicMenuBoardForPlan, planMaxCount, parsePlanId } from '../data/companyPlanLimits'
 import { db } from '../config/firebase'
 import { COMPANY_MENU_BOARD_LIMIT } from './firestoreQuery'
 import { normalizeMenuCategoryAvailability } from '../utils/menuCategoryAvailability'
@@ -23,6 +25,12 @@ import type {
   MenuNodeInput,
   MenuTemplateConfig,
 } from '../types/company'
+import {
+  getDemoMenuBoards,
+  getDemoMenuNodes,
+  isDemoCompanyId,
+  rejectIfDemoCompanyWrite,
+} from '../data/companyPanelDemo'
 
 function mapTemplate(data: Record<string, unknown>): MenuTemplateConfig {
   const fallback = defaultMenuTemplate()
@@ -123,6 +131,10 @@ function serializeNode(companyId: string, input: MenuNodeInput) {
 }
 
 export async function getCompanyMenuBoards(companyId: string): Promise<MenuBoard[]> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoMenuBoards()
+  }
+
   const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
   const snapshot = await getDocs(query(boardsRef, limit(COMPANY_MENU_BOARD_LIMIT)))
 
@@ -134,14 +146,26 @@ export async function getCompanyMenuBoards(companyId: string): Promise<MenuBoard
 export async function getPublicCompanyMenuBoards(companyId: string): Promise<MenuBoard[]> {
   const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
   const boardsQuery = query(boardsRef, where('active', '==', true), limit(COMPANY_MENU_BOARD_LIMIT))
-  const snapshot = await getDocs(boardsQuery)
+  const [snapshot, companySnap] = await Promise.all([
+    getDocs(boardsQuery),
+    getDoc(doc(db, 'companies', companyId)),
+  ])
+  const planId = parsePlanId(companySnap.data()?.planId)
+  const maxMenus = planMaxCount(planId, 'menus')
 
-  return snapshot.docs
+  const boards = snapshot.docs
     .map((boardDoc) => mapBoard(boardDoc.id, companyId, boardDoc.data() as Record<string, unknown>))
     .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
+    .map((board) => clampPublicMenuBoardForPlan(board, planId))
+
+  return maxMenus == null ? boards : boards.slice(0, maxMenus)
 }
 
 export async function getCompanyMenuNodes(companyId: string, boardId?: string): Promise<MenuNode[]> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoMenuNodes(boardId)
+  }
+
   const nodesRef = collection(db, 'companies', companyId, 'menuNodes')
   const snapshot = await getDocs(
     boardId
@@ -176,6 +200,7 @@ export async function createCompanyMenuBoard(
   companyId: string,
   input: MenuBoardInput,
 ): Promise<string> {
+  rejectIfDemoCompanyWrite(companyId)
   const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
   const docRef = await addDoc(boardsRef, {
     ...serializeBoard(companyId, input),
@@ -190,6 +215,7 @@ export async function updateCompanyMenuBoard(
   boardId: string,
   input: MenuBoardInput,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const boardRef = doc(db, 'companies', companyId, 'menuBoards', boardId)
   await updateDoc(boardRef, serializeBoard(companyId, input))
 }
@@ -199,11 +225,13 @@ export async function setCompanyMenuBoardActive(
   boardId: string,
   active: boolean,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const boardRef = doc(db, 'companies', companyId, 'menuBoards', boardId)
   await updateDoc(boardRef, { active, updatedAt: serverTimestamp() })
 }
 
 export async function deleteCompanyMenuBoard(companyId: string, boardId: string): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const nodes = await getCompanyMenuNodes(companyId, boardId)
   const batch = writeBatch(db)
 
@@ -219,6 +247,7 @@ export async function reorderCompanyMenuBoards(
   companyId: string,
   orderedBoardIds: string[],
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const batch = writeBatch(db)
 
   orderedBoardIds.forEach((boardId, index) => {
@@ -235,6 +264,7 @@ export async function createCompanyMenuNode(
   companyId: string,
   input: MenuNodeInput,
 ): Promise<string> {
+  rejectIfDemoCompanyWrite(companyId)
   const nodesRef = collection(db, 'companies', companyId, 'menuNodes')
   const docRef = await addDoc(nodesRef, {
     ...serializeNode(companyId, input),
@@ -249,16 +279,19 @@ export async function updateCompanyMenuNode(
   nodeId: string,
   input: MenuNodeInput,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const nodeRef = doc(db, 'companies', companyId, 'menuNodes', nodeId)
   await updateDoc(nodeRef, serializeNode(companyId, input))
 }
 
 export async function deleteCompanyMenuNode(companyId: string, nodeId: string): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const nodeRef = doc(db, 'companies', companyId, 'menuNodes', nodeId)
   await deleteDoc(nodeRef)
 }
 
 export async function deleteCompanyMenuNodes(companyId: string, nodeIds: string[]): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   if (nodeIds.length === 0) {
     return
   }
@@ -276,6 +309,7 @@ export async function createCompanyMenuNodesBatch(
   companyId: string,
   inputs: Array<MenuNodeInput & { id: string }>,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   if (inputs.length === 0) {
     return
   }
@@ -301,6 +335,7 @@ export async function reorderCompanyMenuNodes(
   companyId: string,
   updates: Array<{ nodeId: string; sortOrder: number; parentId?: string | null }>,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   if (updates.length === 0) {
     return
   }

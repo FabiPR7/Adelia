@@ -12,6 +12,11 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { COMPANY_PROMOTION_LIMIT } from './firestoreQuery'
+import {
+  getDemoPromotions,
+  isDemoCompanyId,
+  rejectIfDemoCompanyWrite,
+} from '../data/companyPanelDemo'
 import type { CompanyPromotion, MenuNode, PromotionInput } from '../types/company'
 import {
   buildPromotionProductRefs,
@@ -79,6 +84,10 @@ function serializePromotion(
 }
 
 export async function getCompanyPromotions(companyId: string): Promise<CompanyPromotion[]> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoPromotions()
+  }
+
   const promotionsRef = collection(db, 'companies', companyId, 'promotions')
   const snapshot = await getDocs(query(promotionsRef, limit(COMPANY_PROMOTION_LIMIT)))
 
@@ -94,6 +103,7 @@ export async function createCompanyPromotion(
   input: PromotionInput,
   menuProducts: MenuNode[] = [],
 ): Promise<string> {
+  rejectIfDemoCompanyWrite(companyId)
   const productRefs = buildPromotionProductRefs(input.productIds, menuProducts)
   const promotionsRef = collection(db, 'companies', companyId, 'promotions')
   const docRef = await addDoc(promotionsRef, {
@@ -111,12 +121,14 @@ export async function updateCompanyPromotion(
   input: PromotionInput,
   menuProducts: MenuNode[] = [],
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const productRefs = buildPromotionProductRefs(input.productIds, menuProducts)
   const promotionRef = doc(db, 'companies', companyId, 'promotions', promotionId)
   await updateDoc(promotionRef, serializePromotion(companyId, input, productRefs))
 }
 
 export async function deleteCompanyPromotion(companyId: string, promotionId: string): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const promotionRef = doc(db, 'companies', companyId, 'promotions', promotionId)
   await deleteDoc(promotionRef)
 }
@@ -126,6 +138,7 @@ export async function setCompanyPromotionActive(
   promotionId: string,
   active: boolean,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const promotionRef = doc(db, 'companies', companyId, 'promotions', promotionId)
   await updateDoc(promotionRef, {
     active,

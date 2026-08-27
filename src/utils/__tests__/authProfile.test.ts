@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveSafeRedirect } from '../authProfile'
+import { resolveSafeRedirect, unauthenticatedPathForRole } from '../authProfile'
 
 describe('resolveSafeRedirect', () => {
   it('acepta rutas internas relativas', () => {
@@ -16,5 +16,16 @@ describe('resolveSafeRedirect', () => {
     expect(resolveSafeRedirect('javascript:alert(1)')).toBeNull()
     expect(resolveSafeRedirect(null)).toBeNull()
     expect(resolveSafeRedirect('')).toBeNull()
+  })
+})
+
+describe('unauthenticatedPathForRole', () => {
+  it('manda empresas y admins al login de restaurante', () => {
+    expect(unauthenticatedPathForRole('admin')).toBe('/login')
+    expect(unauthenticatedPathForRole('company')).toBe('/login')
+  })
+
+  it('manda clientes al login de comensales', () => {
+    expect(unauthenticatedPathForRole('customer')).toBe('/cuenta/entrar')
   })
 })

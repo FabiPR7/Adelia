@@ -10,6 +10,7 @@ import {
 import { adjustMainPhotoIndexAfterRemove } from '../utils/companyPhotos'
 import { prepareVideoForUpload, type VideoPreparePhase } from '../utils/videoMedia'
 import { isAllowedVideoFile, VIDEO_FILE_ACCEPT } from '../constants/fileUpload'
+import { useCompanyDemo } from '../context/CompanyDemoContext'
 import styles from './MediaGalleryUploader.module.css'
 
 interface MediaGalleryUploaderProps {
@@ -83,6 +84,7 @@ function MediaGalleryUploader({
   onMainPhotoIndexChange,
   onChange,
 }: MediaGalleryUploaderProps) {
+  const demo = useCompanyDemo()
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -175,7 +177,7 @@ function MediaGalleryUploader({
         accept={accept}
         className={styles.hiddenInput}
         onChange={handleFileChange}
-        disabled={isUploading || !canAddMore}
+        disabled={isUploading || !canAddMore || demo}
       />
 
       {error && (
@@ -215,7 +217,7 @@ function MediaGalleryUploader({
               ) : (
                 <PreviewVideo url={url} />
               )}
-              {canSetMain && (
+              {canSetMain && !demo && (
                 <button
                   type="button"
                   className={`${styles.mainButton} ${index === mainPhotoIndex ? styles.mainButtonActive : ''}`}
@@ -226,6 +228,7 @@ function MediaGalleryUploader({
                   ★
                 </button>
               )}
+              {demo ? null : (
               <button
                 type="button"
                 className={styles.removeButton}
@@ -234,10 +237,11 @@ function MediaGalleryUploader({
               >
                 ×
               </button>
+              )}
             </div>
         ))}
 
-        {canAddMore && !isUploading && (
+        {canAddMore && !isUploading && !demo && (
           <button
             type="button"
             className={styles.addButton}

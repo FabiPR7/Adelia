@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ADELIA_LOGO_EMAIL_URL } from '../../constants/brand'
 import { useAuth } from '../../context/AuthContext'
+import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import { previewCompanyEmailTemplate } from '../../services/companyEmailApi'
 import { getFirestoreErrorMessage, updateCompanyEmailTemplates } from '../../services/firestore'
 import type { EmailTemplateKind, ReservationEmailTemplate } from '../../types'
@@ -35,6 +36,7 @@ const TEMPLATE_META: Record<
 
 function CompanyEmailTemplate({ kind }: CompanyEmailTemplateProps) {
   const { company, refreshCompany } = useAuth()
+  const demo = useCompanyDemo()
   const meta = TEMPLATE_META[kind]
 
   const [form, setForm] = useState<ReservationEmailTemplate>(() =>
@@ -391,6 +393,9 @@ function CompanyEmailTemplate({ kind }: CompanyEmailTemplateProps) {
             <img src={ADELIA_LOGO_EMAIL_URL} alt="" width={48} height={48} style={{ display: 'block', marginTop: '0.5rem' }} />
           </div>
 
+          {demo ? (
+            <p className={styles.statusMessage}>En la demo las plantillas se pueden ver, no guardar.</p>
+          ) : (
           <div className={styles.actions}>
             <button
               type="button"
@@ -409,6 +414,7 @@ function CompanyEmailTemplate({ kind }: CompanyEmailTemplateProps) {
               </button>
             )}
           </div>
+          )}
 
           {status && <p className={styles.statusMessage}>{status}</p>}
           {error && <p className={styles.errorMessage}>{error}</p>}

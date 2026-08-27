@@ -13,17 +13,17 @@
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || ''
 
+export function isRecaptchaConfigured(): boolean {
+  return Boolean(RECAPTCHA_SITE_KEY)
+}
+
 /**
  * Carga el script de reCAPTCHA v3 dinámicamente
  */
 export function loadRecaptchaScript(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!RECAPTCHA_SITE_KEY) {
-      if (import.meta.env.DEV) {
-        resolve()
-        return
-      }
-      reject(new Error('reCAPTCHA no configurada'))
+      resolve()
       return
     }
 
@@ -81,30 +81,15 @@ export function loadRecaptchaScript(): Promise<void> {
  */
 export async function executeRecaptcha(action: string): Promise<string> {
   if (!RECAPTCHA_SITE_KEY) {
-    console.warn('⚠️ RECAPTCHA_SITE_KEY no configurada. Ver src/services/recaptcha.ts')
-    // En desarrollo, retornar token dummy
-    if (import.meta.env.DEV) {
-      return 'dev_mode_no_captcha'
-    }
-    throw new Error('reCAPTCHA no configurada')
+    return import.meta.env.DEV ? 'dev_mode_no_captcha' : ''
   }
 
-  try {
-    // Asegurar que el script está cargado
-    await loadRecaptchaScript()
-
-    // Ejecutar reCAPTCHA
-    const token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action })
-    
-    if (!token) {
-      throw new Error('No se obtuvo token de reCAPTCHA')
-    }
-
-    return token
-  } catch (error) {
-    console.error('Error ejecutando reCAPTCHA:', error)
-    throw error
+  await loadRecaptchaScript()
+  const token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action })
+  if (!token) {
+    throw new Error('No se obtuvo token de reCAPTCHA')
   }
+  return token
 }
 
 /**
@@ -123,7 +108,6 @@ export async function verifyRecaptchaToken(
 ): Promise<boolean> {
   // Esta función debe implementarse en Cloud Functions
   // Aquí solo está la firma para referencia
-  console.warn('verifyRecaptchaToken debe implementarse en Cloud Functions')
   return false
 }
 

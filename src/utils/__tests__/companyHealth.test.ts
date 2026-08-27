@@ -49,6 +49,8 @@ function company(overrides: Partial<Company> = {}): Company {
     planBilling: 'monthly',
     planStartedAt: new Date(2026, 0, 10),
     planLastPaidAt: null,
+    pendingPlanId: null,
+    pendingPlanAt: null,
     discoveryFeatured: false,
     createdAt: new Date(),
     ...overrides,

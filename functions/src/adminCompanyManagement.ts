@@ -22,18 +22,18 @@ function slugify(text: string): string {
 }
 
 function slugToAuthEmail(slug: string): string {
-  return `${slug}@adeliareservas.com`
+  return `${slug}@adelia.app`
 }
 
 function defaultSchedule() {
   return {
-    monday: { open: '13:00', close: '16:00', enabled: true },
-    tuesday: { open: '13:00', close: '16:00', enabled: true },
-    wednesday: { open: '13:00', close: '16:00', enabled: true },
-    thursday: { open: '13:00', close: '16:00', enabled: true },
-    friday: { open: '13:00', close: '16:00', enabled: true },
-    saturday: { open: '13:00', close: '16:00', enabled: true },
-    sunday: { open: '13:00', close: '16:00', enabled: true },
+    monday: { open: '13:00', close: '16:00', active: true },
+    tuesday: { open: '13:00', close: '16:00', active: true },
+    wednesday: { open: '13:00', close: '16:00', active: true },
+    thursday: { open: '13:00', close: '16:00', active: true },
+    friday: { open: '13:00', close: '16:00', active: true },
+    saturday: { open: '13:00', close: '16:00', active: true },
+    sunday: { open: '13:00', close: '16:00', active: true },
   }
 }
 
@@ -143,11 +143,12 @@ export const adminCreateCompany = onCall(
         },
         reviewCount: 0,
         reviewRatingSum: 0,
-        depositDays: null,
-        depositCents: null,
+        mainPhotoIndex: 0,
+        depositMinPax: null,
+        depositPerGuestCents: null,
+        depositEnabled: false,
         depositCancellationHours: null,
-        stripeAccountId: '',
-        showReservationDeposit: false,
+        stripeAccountId: null,
         createdAt: now,
       })
 
@@ -156,6 +157,7 @@ export const adminCreateCompany = onCall(
         email,
         role: 'company',
         companyId,
+        loginName: name.trim(),
         displayName: name.trim(),
         phone: phone.trim(),
         photoUrl: '',
@@ -180,7 +182,7 @@ export const adminCreateCompany = onCall(
       // Documento de login
       batch.set(adminDb.collection('logins').doc(loginId), {
         authEmail: email,
-        loginName: slug,
+        loginName: name.trim(),
         role: 'company',
         companyId,
         createdAt: now,
@@ -188,7 +190,7 @@ export const adminCreateCompany = onCall(
 
       // Credenciales de empresa
       batch.set(adminDb.collection('companyCredentials').doc(companyId), {
-        loginName: slug,
+        loginName: name.trim(),
         authEmail: email,
         ownerUid,
         mustChangePassword: true,
@@ -205,7 +207,7 @@ export const adminCreateCompany = onCall(
           slug,
           ownerUid,
         },
-        loginName: slug,
+        loginName: name.trim(),
       }
     } catch (error) {
       console.error('Error creating company:', error)

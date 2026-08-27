@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import LegalLinks from '../components/LegalLinks'
 import {
   COMPANY_PLANS,
-  companyPlanMailto,
   isPaidCompanyPlan,
 } from '../data/companyPlans'
+import { DemoCompanyAuthProvider } from '../context/CompanyDemoContext'
 import { fetchSaasBillingStatus, startSaasPlanCheckout } from '../services/saasBilling'
 import styles from './CompanyPlansPage.module.css'
+
+const CompanyDashboard = lazy(() => import('./CompanyDashboard'))
 
 function CheckIcon() {
   return (
@@ -89,10 +91,13 @@ function CompanyPlansPage() {
       <main className={styles.main}>
         <header className={styles.intro}>
           <p className={styles.eyebrow}>Planes para restaurantes</p>
-          <h1>Elige cómo quieres trabajar con Adelia</h1>
+          <h1>Tres planes. Sin comisión por reserva.</h1>
           <p>
-            Sin comisión por reserva. Mesa es gratis. Sala y Local se pagan a Adelia con Stripe,
-            a la cuenta de la plataforma.
+            Mesa es gratis. Sala (39 €/mes) digitaliza la sala. Local (59 €/mes) desbloquea informes,
+            todas las promociones, Compite y más visibilidad.
+          </p>
+          <p className={styles.demoJump}>
+            <a href="#demo-panel">Prueba el panel con datos de ejemplo</a>
           </p>
         </header>
 
@@ -107,7 +112,7 @@ function CompanyPlansPage() {
 
         {billingConfigured === false ? (
           <p className={styles.notice} role="status">
-            El pago online aún no está disponible en este entorno. Mesa sigue abierto por correo.
+            El pago online aún no está disponible en este entorno. Sala y Local no se pueden contratar ahora. Mesa sigue gratis.
           </p>
         ) : null}
 
@@ -131,7 +136,7 @@ function CompanyPlansPage() {
             return (
               <article
                 key={plan.id}
-                className={`${styles.card} ${plan.highlighted ? styles.cardHighlight : ''}`}
+                className={`${styles.card} ${styles[`card_${plan.id}`]} ${plan.highlighted ? styles.cardHighlight : ''}`}
               >
                 {plan.badge ? <p className={styles.ribbon}>{plan.badge}</p> : null}
 
@@ -152,6 +157,15 @@ function CompanyPlansPage() {
                   </p>
                 )}
                 <p className={styles.vat}>{plan.vatNote}</p>
+
+                <ul className={styles.specs} aria-label={`Límites de ${plan.name}`}>
+                  {plan.specs.map((spec) => (
+                    <li key={spec.label}>
+                      <strong>{spec.value}</strong>
+                      <span>{spec.label}</span>
+                    </li>
+                  ))}
+                </ul>
 
                 <ul className={styles.chips} aria-label={`Incluye en ${plan.name}`}>
                   {plan.chips.map((chip) => (
@@ -184,9 +198,9 @@ function CompanyPlansPage() {
                     {busy ? 'Abriendo Stripe…' : plan.ctaLabel}
                   </button>
                 ) : (
-                  <a href={companyPlanMailto(plan)} className={`${styles.cta} ${styles.ctaGhost}`}>
+                  <Link to="/empresa/alta?plan=mesa" className={`${styles.cta} ${styles.ctaGhost}`}>
                     {plan.ctaLabel}
-                  </a>
+                  </Link>
                 )}
 
                 {paid ? (
@@ -194,20 +208,96 @@ function CompanyPlansPage() {
                     Tarjeta, Apple Pay o Google Pay. Cancela cuando quieras.
                   </p>
                 ) : (
-                  <p className={styles.ctaHint}>Te activamos la cuenta. Sin tarjeta.</p>
+                  <p className={styles.ctaHint}>
+                    Alta ahora, sin tarjeta. Reservas, 1 carta en lista y QR.
+                  </p>
                 )}
               </article>
             )
           })}
         </section>
 
+        <section className={styles.compare} aria-label="Comparar planes">
+          <h2>Comparativa</h2>
+          <div className={styles.compareWrap}>
+            <table className={styles.compareTable}>
+              <thead>
+                <tr>
+                  <th scope="col"> </th>
+                  {COMPANY_PLANS.map((plan) => (
+                    <th key={plan.id} scope="col">
+                      {plan.name}
+                      <span>{plan.priceMonthly === 0 ? 'Gratis' : `${plan.priceMonthly} €/mes`}</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Cartas', '1 en lista', '3 con fotos', '5 digital o PDF'],
+                  ['Excel de productos', '—', 'Incluido', 'Incluido'],
+                  ['Carta PDF', '—', '—', 'Incluido'],
+                  ['Mesas', '8', '15', '50'],
+                  ['Mapas activos', '—', '1', '5'],
+                  ['Promociones', '—', '3 Oferta', '5 de cada tipo'],
+                  ['Informes', '—', 'Reservas y clientes', 'Todos'],
+                  ['Compite', '—', '—', 'Premios y descuentos'],
+                  ['Fianzas', '—', 'Incluido', 'Incluido'],
+                  ['Visibilidad', 'Ficha pública', 'Ficha pública', 'Mayor visibilidad'],
+                ].map(([label, mesa, sala, local]) => (
+                  <tr key={label}>
+                    <th scope="row">{label}</th>
+                    <td>{mesa}</td>
+                    <td>{sala}</td>
+                    <td>{local}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <ul className={styles.trust}>
-          <li>El cobro entra en la cuenta Stripe de Adelia, no en la del restaurante.</li>
-          <li>En iPhone o Mac con Safari puedes pagar con Apple Pay; en Chrome, con Google Pay.</li>
-          <li>Las fianzas de reserva, cuando las actives, van al Stripe Connect de cada local.</li>
-          <li>Sin comisión por cubierto ni por reserva.</li>
+          <li>
+            <strong>Cobro a Adelia</strong>
+            El plan entra en la cuenta Stripe de la plataforma, no en la del restaurante.
+          </li>
+          <li>
+            <strong>Apple Pay y Google Pay</strong>
+            En Safari puedes pagar con Apple Pay; en Chrome, con Google Pay.
+          </li>
+          <li>
+            <strong>Fianzas aparte</strong>
+            Cuando las actives, van al Stripe Connect de cada local.
+          </li>
+          <li>
+            <strong>Sin comisión</strong>
+            Ni por cubierto ni por reserva. Solo el plan mensual.
+          </li>
         </ul>
       </main>
+
+      <section className={styles.demoBand} id="demo-panel" aria-labelledby="demo-panel-title">
+        <div className={styles.demoInner}>
+          <header className={styles.demoIntro}>
+            <p className={styles.eyebrow}>Prueba el panel</p>
+            <h2 id="demo-panel-title">Así se trabaja un restaurante en Adelia</h2>
+            <p>
+              Entra en reservas, carta, clientes, informes y Compite. Es el panel real, con un local de
+              ejemplo: puedes navegar, no se guarda nada y no hay alta, edición ni borrado.
+            </p>
+          </header>
+          <Suspense
+            fallback={
+              <p className={styles.demoFallback}>Cargando el panel de ejemplo…</p>
+            }
+          >
+            <DemoCompanyAuthProvider>
+              <CompanyDashboard demo />
+            </DemoCompanyAuthProvider>
+          </Suspense>
+        </div>
+      </section>
 
       <footer className={styles.siteFooter}>
         <LegalLinks from="/empresa/planes" />

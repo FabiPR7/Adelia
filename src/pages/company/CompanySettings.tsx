@@ -6,6 +6,19 @@ import LocationMapPicker from '../../components/LocationMapPicker'
 import MediaGalleryUploader from '../../components/MediaGalleryUploader'
 import ProfileToggleGrid from '../../components/ProfileToggleGrid'
 import { useAuth } from '../../context/AuthContext'
+import { useCompanyDemo } from '../../context/CompanyDemoContext'
+import { parseCompanyPlanId, getCompanyPlan } from '../../data/companyPlans'
+import {
+  clampFloorPlansEnabled,
+  planAllowsDeposits,
+  planAllowsFloorPlan,
+  planAllowsMoreThan,
+  planMaxCount,
+  planMaxFloorPlans,
+  planRequiredForCount,
+  requiredPlanName,
+} from '../../data/companyPlanLimits'
+import { LockedControl, PlanLockHint } from '../../components/PlanLockHint'
 import {
   COMPANY_CHARACTERISTIC_OPTIONS,
   MAX_COMPANY_CHARACTERISTICS,
@@ -189,6 +202,13 @@ const CompanySettings = forwardRef(function CompanySettings(
   ref: Ref<CompanySettingsHandle>,
 ) {
   const { company, refreshCompany } = useAuth()
+  const demo = useCompanyDemo()
+  const planId = parseCompanyPlanId(company?.planId)
+  const allowsDeposits = planAllowsDeposits(planId)
+  const allowsFloorPlan = planAllowsFloorPlan(planId)
+  const maxTables = planMaxCount(planId, 'tables')
+  const maxActiveMaps = planMaxCount(planId, 'active_maps')
+  const maxFloorPlans = planMaxFloorPlans(planId) ?? MAX_FLOOR_PLANS
   const [form, setForm] = useState<CompanySettingsPayload | null>(null)
   const [tables, setTables] = useState<TableInput[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -221,7 +241,8 @@ const CompanySettings = forwardRef(function CompanySettings(
   }, [form, tables, timeSlotMinutesInput])
 
   const stripeReadyForDeposits = stripeStatus?.readyForDeposits === true
-  const canEnableDeposits = stripeReadyForDeposits && !stripeStatusLoading
+  const canEnableDeposits = allowsDeposits && stripeReadyForDeposits && !stripeStatusLoading
+  const canAddTable = planAllowsMoreThan(planId, 'tables', tables.length)
 
   const markSectionSaved = (section: SettingsSection, state: SettingsEditorState) => {
     setSavedSnapshots((current) => ({
@@ -489,15 +510,19 @@ const CompanySettings = forwardRef(function CompanySettings(
       return false
     }
 
-    if (form.reservationMode !== 'none' && form.depositEnabled && !stripeReadyForDeposits) {
-      setError('Completa la conexión con Stripe antes de activar las fianzas.')
+    if (form.reservationMode !== 'none' && form.depositEnabled && !canEnableDeposits) {
+      setError(
+        !allowsDeposits
+          ? `Las fianzas están en el plan ${requiredPlanName('deposits')}.`
+          : 'Completa la conexión con Stripe antes de activar las fianzas.',
+      )
       return false
     }
 
     const reservationSettings = normalizeCompanySettingsPayload({
       ...form,
       timeSlotMinutes,
-      depositEnabled: form.depositEnabled && stripeReadyForDeposits,
+      depositEnabled: form.depositEnabled && canEnableDeposits,
     })
     const savedTimeSlotInput = String(timeSlotMinutes)
 
@@ -557,7 +582,10 @@ const CompanySettings = forwardRef(function CompanySettings(
         floorPlanId: table.floorPlanId || form.floorPlans[0]?.id || '',
       }))
 
-      const floorPlans = syncAllFloorPlans(form.floorPlans, savedTables)
+      const floorPlans = clampFloorPlansEnabled(
+        syncAllFloorPlans(form.floorPlans, savedTables),
+        planId,
+      )
 
       await updateCompanyFloorPlans(company.id, floorPlans)
       setTables(savedTables)
@@ -599,6 +627,16 @@ const CompanySettings = forwardRef(function CompanySettings(
   }
 
   const addTable = () => {
+    if (!canAddTable) {
+      setError(
+        maxTables === 1
+          ? `En tu plan solo puedes tener 1 mesa. Pasa a ${requiredPlanName('tables', planRequiredForCount('tables', tables.length + 1))} para añadir más.`
+          : `En tu plan puedes tener hasta ${maxTables} mesas. Pasa a ${requiredPlanName('tables', planRequiredForCount('tables', tables.length + 1))} para añadir más.`,
+      )
+      return
+    }
+
+    setError(null)
     setTables((current) => {
       const next = [...current, emptyTable(current.length, selectedMapId || form?.floorPlans[0]?.id)]
       syncMapsWithTables(next)
@@ -614,14 +652,30 @@ const CompanySettings = forwardRef(function CompanySettings(
     })
   }
 
-  const setMapEnabled = (planId: string, enabled: boolean) => {
+  const setMapEnabled = (mapId: string, enabled: boolean) => {
+    if (enabled) {
+      if (!allowsFloorPlan || maxActiveMaps === 0) {
+        setError('No puedes activar el mapa siendo de este plan. Pasa a Sala para que los clientes elijan mesa.')
+        return
+      }
+
+      const otherEnabled = (form?.floorPlans ?? []).filter((plan) => plan.enabled && plan.id !== mapId).length
+      if (maxActiveMaps != null && otherEnabled >= maxActiveMaps) {
+        setError(
+          `En ${getCompanyPlan(planId).name} solo puedes tener ${maxActiveMaps === 1 ? '1 mapa activo' : `${maxActiveMaps} mapas activos`}. Pasa a ${requiredPlanName('active_maps', planRequiredForCount('active_maps', otherEnabled + 1))} para activar más.`,
+        )
+        return
+      }
+    }
+
+    setError(null)
     setForm((current) => {
       if (!current) {
         return current
       }
 
       const nextPlans = current.floorPlans.map((plan) =>
-        plan.id === planId ? { ...plan, enabled } : plan,
+        plan.id === mapId ? { ...plan, enabled } : plan,
       )
 
       return {
@@ -652,11 +706,11 @@ const CompanySettings = forwardRef(function CompanySettings(
 
   const addFloorPlan = () => {
     setForm((current) => {
-      if (!current || current.floorPlans.length >= MAX_FLOOR_PLANS) {
+      if (!current || current.floorPlans.length >= maxFloorPlans) {
         return current
       }
 
-      const nextPlan = createNamedFloorPlan(`Mapa ${current.floorPlans.length + 1}`, true)
+      const nextPlan = createNamedFloorPlan(`Mapa ${current.floorPlans.length + 1}`, false)
       const nextPlans = [...current.floorPlans, nextPlan]
       setSelectedMapId(nextPlan.id)
       return {
@@ -703,7 +757,8 @@ const CompanySettings = forwardRef(function CompanySettings(
     section: SettingsSection,
     label: string,
     onSave: () => Promise<boolean> | boolean,
-  ) => (
+  ) =>
+    demo ? null : (
     <div className={styles.sectionActions}>
       <button
         type="button"
@@ -727,7 +782,7 @@ const CompanySettings = forwardRef(function CompanySettings(
     setSuccess(null)
 
     try {
-      const floorPlans = syncAllFloorPlans(form.floorPlans, tables)
+      const floorPlans = clampFloorPlansEnabled(syncAllFloorPlans(form.floorPlans, tables), planId)
       await updateCompanyFloorPlans(company.id, floorPlans)
       const nextForm = { ...form, ...withFloorPlans(floorPlans) }
       setForm(nextForm)
@@ -1153,7 +1208,11 @@ const CompanySettings = forwardRef(function CompanySettings(
             <div className={styles.depositSettingsHeader}>
               <div>
                 <h4>Fianza por reserva</h4>
-                {!canEnableDeposits ? (
+                {!allowsDeposits ? (
+                  <p className={styles.depositLockedHint}>
+                    Las fianzas están en el plan {requiredPlanName('deposits')}.
+                  </p>
+                ) : !canEnableDeposits ? (
                   <p className={styles.depositLockedHint}>
                     {stripeStatusLoading
                       ? 'Comprobando estado de Stripe…'
@@ -1166,16 +1225,19 @@ const CompanySettings = forwardRef(function CompanySettings(
                   </p>
                 )}
               </div>
-              <label
-                className={`${styles.depositSwitchInline} ${
-                  !canEnableDeposits ? styles.depositSwitchInlineDisabled : ''
-                }`}
-                title={
-                  canEnableDeposits
-                    ? undefined
-                    : 'Completa la conexión con Stripe para activar fianzas'
-                }
-              >
+              <div className={styles.lockedField}>
+                <label
+                  className={`${styles.depositSwitchInline} ${
+                    !canEnableDeposits ? styles.depositSwitchInlineDisabled : ''
+                  }`}
+                  title={
+                    canEnableDeposits
+                      ? undefined
+                      : !allowsDeposits
+                        ? `Las fianzas están en el plan ${requiredPlanName('deposits')}`
+                        : 'Completa la conexión con Stripe para activar fianzas'
+                  }
+                >
                 <span className={styles.depositSwitchText}>Activar fianzas</span>
                 <span className={styles.depositSwitch}>
                   <input
@@ -1196,6 +1258,10 @@ const CompanySettings = forwardRef(function CompanySettings(
                   <span className={styles.depositSwitchSlider} aria-hidden="true" />
                 </span>
               </label>
+                {!allowsDeposits ? (
+                  <PlanLockHint feature="activar las fianzas" capabilityId="deposits" />
+                ) : null}
+              </div>
             </div>
 
             {form.depositEnabled && canEnableDeposits ? (
@@ -1538,6 +1604,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                         </option>
                       ))}
                     </select>
+                    {demo ? null : (
                     <button
                       type="button"
                       className={styles.tablesDeleteButton}
@@ -1553,13 +1620,23 @@ const CompanySettings = forwardRef(function CompanySettings(
                         />
                       </svg>
                     </button>
+                    )}
                   </div>
                 ))
               )}
             </div>
-            <button type="button" className={styles.addButton} onClick={addTable}>
-              + Añadir mesa
-            </button>
+            {demo ? null : (
+            <LockedControl
+              locked={!canAddTable}
+              feature="añadir más mesas"
+              capabilityId="tables"
+              requiredPlanId={planRequiredForCount('tables', tables.length + 1)}
+            >
+              <button type="button" className={styles.addButton} onClick={addTable}>
+                + Añadir mesa
+              </button>
+            </LockedControl>
+            )}
             {renderSectionSave('tables', 'Guardar mesas', handleSaveTables)}
           </div>
 
@@ -1586,11 +1663,13 @@ const CompanySettings = forwardRef(function CompanySettings(
                     })}
                   </div>
                   <div className={styles.mapTabActions}>
+                    {demo ? null : (
+                      <>
                     <button
                       type="button"
                       className={styles.mapAddButton}
                       onClick={addFloorPlan}
-                      disabled={form.floorPlans.length >= MAX_FLOOR_PLANS}
+                      disabled={form.floorPlans.length >= maxFloorPlans}
                     >
                       + Añadir mapa
                     </button>
@@ -1603,6 +1682,8 @@ const CompanySettings = forwardRef(function CompanySettings(
                         Quitar mapa
                       </button>
                     ) : null}
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className={styles.mapMetaRow}>
@@ -1623,20 +1704,36 @@ const CompanySettings = forwardRef(function CompanySettings(
                     />
                   </label>
                   {selectedPlan ? (
-                    <label className={styles.mapSwitchInline}>
-                      <span className={styles.mapSwitchText}>
-                        {selectedPlan.enabled ? 'Activo al reservar' : 'Inactivo al reservar'}
-                      </span>
-                      <span className={styles.mapSwitch}>
-                        <input
-                          type="checkbox"
-                          className={styles.mapSwitchInput}
-                          checked={selectedPlan.enabled}
-                          onChange={(e) => setMapEnabled(selectedPlan.id, e.target.checked)}
+                    <div className={styles.lockedField}>
+                      <label className={styles.mapSwitchInline}>
+                        <span className={styles.mapSwitchText}>
+                          {selectedPlan.enabled ? 'Activo al reservar' : 'Inactivo al reservar'}
+                        </span>
+                        <span className={styles.mapSwitch}>
+                          <input
+                            type="checkbox"
+                            className={styles.mapSwitchInput}
+                            checked={selectedPlan.enabled}
+                            onChange={(e) => setMapEnabled(selectedPlan.id, e.target.checked)}
+                          />
+                          <span className={styles.mapSwitchSlider} aria-hidden="true" />
+                        </span>
+                      </label>
+                      {!allowsFloorPlan ? (
+                        <PlanLockHint feature="activar el mapa al reservar" capabilityId="floor_plan" />
+                      ) : maxActiveMaps != null
+                        && !selectedPlan.enabled
+                        && (form.floorPlans.filter((plan) => plan.enabled).length >= maxActiveMaps) ? (
+                        <PlanLockHint
+                          feature={maxActiveMaps === 1 ? 'activar más de un mapa' : 'activar más mapas'}
+                          capabilityId="active_maps"
+                          requiredPlanId={planRequiredForCount(
+                            'active_maps',
+                            form.floorPlans.filter((plan) => plan.enabled).length + 1,
+                          )}
                         />
-                        <span className={styles.mapSwitchSlider} aria-hidden="true" />
-                      </span>
-                    </label>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
                 <p className={styles.mapEnabledHint}>
@@ -1649,6 +1746,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                     <FloorPlanEditor
                       key={selectedPlan.id}
                       embedded
+                      readOnly={demo}
                       tables={tablesForFloorPlan(tables, selectedPlan, form.floorPlans)}
                       floorPlan={selectedPlan}
                       onChange={(floorPlan) =>
@@ -1671,6 +1769,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                   ) : null}
                 </Suspense>
                 <div className={styles.mapActions}>
+                  {demo ? null : (
                   <button
                     type="button"
                     className={styles.saveMapButton}
@@ -1679,6 +1778,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                   >
                     {isSavingMap ? 'Guardando mapa…' : 'Guardar mapa'}
                   </button>
+                  )}
                 </div>
               </>
             ) : (

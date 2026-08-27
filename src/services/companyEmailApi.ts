@@ -1,5 +1,6 @@
 import type { EmailTemplateKind, ReservationEmailTemplate } from '../types'
 import { getIdToken } from './auth'
+import { getDemoEmailPreview, isDemoCompanyId } from '../data/companyPanelDemo'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -8,6 +9,10 @@ export async function previewCompanyEmailTemplate(
   kind: EmailTemplateKind,
   template: ReservationEmailTemplate,
 ): Promise<{ html: string; subject: string } | null> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoEmailPreview(kind)
+  }
+
   const token = await getIdToken()
 
   if (!token) {

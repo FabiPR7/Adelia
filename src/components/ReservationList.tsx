@@ -8,6 +8,7 @@ interface ReservationListProps {
   tableMeta: Record<string, { name: string; capacity: number }>
   selectedDate: Date
   canCreate?: boolean
+  readOnly?: boolean
   onAdd: () => void
   onEdit: (reservation: Reservation) => void
   onDelete: (reservation: Reservation) => void
@@ -25,6 +26,7 @@ function ReservationList({
   tableMeta,
   selectedDate,
   canCreate = true,
+  readOnly = false,
   onAdd,
   onEdit,
   onDelete,
@@ -238,7 +240,7 @@ function ReservationList({
                       </div>
                     </div>
                     <span className={styles.cellActions}>
-                      {isLocked ? (
+                      {readOnly ? null : isLocked ? (
                         <span className={styles.lockedHint}>Solo asistencia</span>
                       ) : (
                         <>

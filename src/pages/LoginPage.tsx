@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getAuthErrorMessage, loginWithUsername } from '../services/auth'
+import { getAuthErrorMessage, loginWithUsername, logout } from '../services/auth'
 import { getFirestoreErrorMessage, getCompanyCredentialsMustChange, getUserProfile } from '../services/firestore'
 import { getPostLoginPath, resolveMustChangePassword } from '../utils/authProfile'
 import { ADELIA_LOGO_URL } from '../constants/brand'
@@ -31,14 +31,22 @@ function LoginPage() {
       try {
         profile = await getUserProfile(user.uid)
       } catch (firestoreError) {
+        await logout()
         setError(getFirestoreErrorMessage(firestoreError))
         return
       }
 
       if (!profile) {
+        await logout()
         setError(
           'No se pudo leer tu perfil. Despliega las reglas con npm run deploy:rules y vuelve a entrar.',
         )
+        return
+      }
+
+      if (profile.role === 'customer') {
+        await refreshProfile()
+        navigate(getPostLoginPath(profile, user), { replace: true })
         return
       }
 

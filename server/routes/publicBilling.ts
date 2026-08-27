@@ -8,7 +8,7 @@ import {
   saasBillingStatus,
 } from '../stripe/saasBilling.ts'
 import { parseSaasCheckoutPlanId } from '../stripe/saasCatalog.ts'
-import { completePaidCompanySignup } from '../data/createCompanyFromCheckout.ts'
+import { completeFreeCompanySignup, completePaidCompanySignup } from '../data/createCompanyFromCheckout.ts'
 
 function checkoutReturnUrl(req: Request): string {
   const origin = typeof req.headers.origin === 'string' ? req.headers.origin : ''
@@ -26,12 +26,25 @@ function asCheckoutSessionId(value: unknown): string {
   return id
 }
 
-function checkoutReturnUrl(req: Request): string {
-  const origin = typeof req.headers.origin === 'string' ? req.headers.origin : ''
-  if (origin && isAllowedOrigin(origin)) {
-    return origin.replace(/\/$/, '')
+function signupProfileFromBody(body: Record<string, unknown>) {
+  return {
+    email: String(body.email ?? ''),
+    phone: String(body.phone ?? ''),
+    password: String(body.password ?? ''),
+    name: String(body.name ?? ''),
+    location: String(body.location ?? ''),
+    website: typeof body.website === 'string' ? body.website : '',
+    municipality: typeof body.municipality === 'string' ? body.municipality : '',
+    postalCode: typeof body.postalCode === 'string' ? body.postalCode : '',
+    country: typeof body.country === 'string' ? body.country : '',
+    latitude: typeof body.latitude === 'number' ? body.latitude : null,
+    longitude: typeof body.longitude === 'number' ? body.longitude : null,
+    logoUrl: typeof body.logoUrl === 'string' ? body.logoUrl : '',
+    photos: Array.isArray(body.photos) ? body.photos as string[] : [],
+    characteristics: Array.isArray(body.characteristics) ? body.characteristics as string[] : [],
+    venueTypes: Array.isArray(body.venueTypes) ? body.venueTypes as string[] : [],
+    amenities: Array.isArray(body.amenities) ? body.amenities as string[] : [],
   }
-  return getAppBaseUrl()
 }
 
 const router = Router()
@@ -89,22 +102,7 @@ router.post('/complete-signup', async (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>
     const result = await completePaidCompanySignup({
       sessionId: asCheckoutSessionId(body.sessionId),
-      email: String(body.email ?? ''),
-      phone: String(body.phone ?? ''),
-      password: String(body.password ?? ''),
-      name: String(body.name ?? ''),
-      location: String(body.location ?? ''),
-      website: typeof body.website === 'string' ? body.website : '',
-      municipality: typeof body.municipality === 'string' ? body.municipality : '',
-      postalCode: typeof body.postalCode === 'string' ? body.postalCode : '',
-      country: typeof body.country === 'string' ? body.country : '',
-      latitude: typeof body.latitude === 'number' ? body.latitude : null,
-      longitude: typeof body.longitude === 'number' ? body.longitude : null,
-      logoUrl: typeof body.logoUrl === 'string' ? body.logoUrl : '',
-      photos: Array.isArray(body.photos) ? body.photos as string[] : [],
-      characteristics: Array.isArray(body.characteristics) ? body.characteristics as string[] : [],
-      venueTypes: Array.isArray(body.venueTypes) ? body.venueTypes as string[] : [],
-      amenities: Array.isArray(body.amenities) ? body.amenities as string[] : [],
+      ...signupProfileFromBody(body),
     })
 
     res.json(result)
@@ -114,6 +112,21 @@ router.post('/complete-signup', async (req: Request, res: Response) => {
       return
     }
     console.error('Company signup error:', error)
+    const message = error instanceof Error ? error.message : 'No se pudo crear la empresa.'
+    res.status(500).json({ error: message })
+  }
+})
+
+router.post('/complete-free-signup', async (req: Request, res: Response) => {
+  try {
+    const result = await completeFreeCompanySignup(signupProfileFromBody(req.body as Record<string, unknown>))
+    res.json(result)
+  } catch (error) {
+    if (error instanceof InputError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
+    console.error('Free company signup error:', error)
     const message = error instanceof Error ? error.message : 'No se pudo crear la empresa.'
     res.status(500).json({ error: message })
   }

@@ -16,7 +16,7 @@ import {
 } from '../data/companyCharacteristics'
 import { COMPANY_AMENITIES, COMPANY_VENUE_TYPES, MAX_COMPANY_VENUE_TYPES } from '../data/companyProfileFacilities'
 import { loginWithUsername } from '../services/auth'
-import { completePaidCompanySignup, fetchSaasCheckoutSession } from '../services/saasBilling'
+import { completeFreeCompanySignup, completePaidCompanySignup, fetchSaasCheckoutSession } from '../services/saasBilling'
 import type { CitySuggestion } from '../services/citySearch'
 import type { GeoCoordinates } from '../utils/geo'
 import {
@@ -40,7 +40,7 @@ const STEPS = [
 
 type StepId = (typeof STEPS)[number]['id']
 
-const TUTORIAL = [
+const PAID_TUTORIAL = [
   {
     kicker: 'Reservas',
     title: 'El calendario trabaja por ti',
@@ -58,6 +58,24 @@ const TUTORIAL = [
   },
 ] as const
 
+const MESA_TUTORIAL = [
+  {
+    kicker: 'Reservas',
+    title: 'El día, en un calendario',
+    copy: 'Altas, estados y correos automáticos. Lo básico para no perder ninguna mesa.',
+  },
+  {
+    kicker: 'Carta y QR',
+    title: 'Una carta y un código en la puerta',
+    copy: 'En Mesa tienes 1 carta en lista, sin fotos. El cliente reserva y ve el QR.',
+  },
+  {
+    kicker: 'Crece cuando quieras',
+    title: 'Esto es solo el principio',
+    copy: 'Planos, promociones, informes y Compite llegan con Sala o Local. Puedes subir de plan cuando te haga falta.',
+  },
+] as const
+
 const slide = {
   initial: { opacity: 0, y: 28, scale: 0.98 },
   animate: { opacity: 1, y: 0, scale: 1 },
@@ -68,6 +86,7 @@ function CompanySignupPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const sessionId = searchParams.get('session_id') ?? ''
+  const isFreeMesa = !sessionId && (searchParams.get('plan') === 'mesa' || searchParams.get('plan') === 'free')
   const { refreshProfile } = useAuth()
 
   const [step, setStep] = useState<StepId>('account')
@@ -105,10 +124,17 @@ function CompanySignupPage() {
   )
   const passwordReady = isPasswordValid(passwordChecks)
   const stepIndex = STEPS.findIndex((item) => item.id === step)
+  const tutorial = isFreeMesa ? MESA_TUTORIAL : PAID_TUTORIAL
 
   useEffect(() => {
+    if (isFreeMesa) {
+      setPlanName('Mesa')
+      setLoadingSession(false)
+      return
+    }
+
     if (!sessionId) {
-      setSessionError('Falta el pago. Vuelve a planes y contrata Sala o Local.')
+      setSessionError('Falta el pago. Vuelve a planes y contrata Sala o Local, o empieza gratis con Mesa.')
       setLoadingSession(false)
       return
     }
@@ -154,7 +180,7 @@ function CompanySignupPage() {
     return () => {
       cancelled = true
     }
-  }, [sessionId])
+  }, [isFreeMesa, sessionId])
 
   const geocodeQuery = [location, city?.name, city?.country].filter(Boolean).join(', ')
 
@@ -190,8 +216,7 @@ function CompanySignupPage() {
 
     setBusy(true)
     try {
-      const result = await completePaidCompanySignup({
-        sessionId,
+      const payload = {
         email: email.trim(),
         phone: formatSpanishPhoneForStorage(phone),
         password,
@@ -208,7 +233,10 @@ function CompanySignupPage() {
         characteristics: skipStyle ? [] : characteristics,
         venueTypes: skipStyle ? [] : venueTypes,
         amenities: skipStyle ? [] : amenities,
-      })
+      }
+      const result = isFreeMesa
+        ? await completeFreeCompanySignup(payload)
+        : await completePaidCompanySignup({ sessionId, ...payload })
       setSlug(result.slug)
       setLoginName(result.loginName)
       try {
@@ -272,8 +300,16 @@ function CompanySignupPage() {
           <img src={ADELIA_LOGO_URL} alt="" />
           <span>Adelia</span>
         </Link>
-        <p className={styles.planChip}>{planName ? `Plan ${planName}` : 'Alta empresa'}</p>
+        <p className={styles.planChip}>{isFreeMesa ? 'Plan Mesa · gratis' : planName ? `Plan ${planName}` : 'Alta empresa'}</p>
       </header>
+
+      {isFreeMesa ? (
+        <aside className={styles.limitNote} role="note">
+          <strong>Solo funciones básicas.</strong>
+          {' '}
+          Reservas del día, 1 carta sin fotos y QR. Sin planos, promociones ni informes. Puedes pasar a Sala o Local cuando quieras.
+        </aside>
+      ) : null}
 
       <div className={styles.progress} aria-hidden="true">
         <span style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }} />
@@ -416,11 +452,11 @@ function CompanySignupPage() {
           {step === 'guide' ? (
             <motion.section key="guide" className={styles.card} {...slide} transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}>
               <p className={styles.kicker}>Tour rápido</p>
-              <h1>{TUTORIAL[guideIndex].title}</h1>
-              <p className={styles.eyebrow}>{TUTORIAL[guideIndex].kicker}</p>
-              <p className={styles.lead}>{TUTORIAL[guideIndex].copy}</p>
+              <h1>{tutorial[guideIndex].title}</h1>
+              <p className={styles.eyebrow}>{tutorial[guideIndex].kicker}</p>
+              <p className={styles.lead}>{tutorial[guideIndex].copy}</p>
               <div className={styles.guideDots}>
-                {TUTORIAL.map((item, index) => (
+                {tutorial.map((item, index) => (
                   <button
                     key={item.title}
                     type="button"
@@ -440,14 +476,14 @@ function CompanySignupPage() {
                   type="button"
                   className={styles.primary}
                   onClick={() => {
-                    if (guideIndex < TUTORIAL.length - 1) {
+                    if (guideIndex < tutorial.length - 1) {
                       setGuideIndex((current) => current + 1)
                       return
                     }
                     setStep('spotlight')
                   }}
                 >
-                  {guideIndex < TUTORIAL.length - 1 ? 'Siguiente' : 'Ver cómo te ven'}
+                  {guideIndex < tutorial.length - 1 ? 'Siguiente' : 'Ver cómo te ven'}
                 </button>
               </div>
             </motion.section>
@@ -475,6 +511,11 @@ function CompanySignupPage() {
                 <a className={styles.publicLink} href={`/reservar/${slug}`} target="_blank" rel="noreferrer">
                   Abrir tu página en Adelia
                 </a>
+              ) : null}
+              {isFreeMesa ? (
+                <p className={styles.hint}>
+                  Recuerda: Mesa cubre lo esencial. Planos, promos e informes están en Sala y Local.
+                </p>
               ) : null}
               <p className={styles.hint}>
                 Más tarde entras con el nombre <strong>{loginName || name}</strong> y tu contraseña.

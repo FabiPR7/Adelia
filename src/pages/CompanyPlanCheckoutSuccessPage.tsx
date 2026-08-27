@@ -67,7 +67,14 @@ function CompanyPlanCheckoutSuccessPage() {
           ) : (
             <>
               {session.paid ? (
-                <Navigate to={`/empresa/alta?session_id=${encodeURIComponent(sessionId)}`} replace />
+                <Navigate
+                  to={
+                    searchParams.get('next') === 'panel'
+                      ? '/panel?tab=plan'
+                      : `/empresa/alta?session_id=${encodeURIComponent(sessionId)}`
+                  }
+                  replace
+                />
               ) : (
                 <>
                   <h1>Pago iniciado</h1>

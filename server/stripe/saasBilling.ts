@@ -9,6 +9,11 @@ import {
   SAAS_CHECKOUT_PLANS,
   type SaasCheckoutPlanId,
 } from './saasCatalog.ts'
+import { getOrCreateSaasPrice } from './saasPrices.ts'
+import { syncCompanyFromStripeSubscription } from './saasPlanChanges.ts'
+import { applyPlanFeatureLimits } from '../company/enforcePlanLimits.ts'
+import { sendPlanPaymentReceiptEmail } from '../email/planPaymentConfirmation.ts'
+import { isValidClientEmail } from '../email/config.ts'
 
 export function isStripeTestMode(): boolean {
   return (getStripeSecretKey() ?? '').startsWith('sk_test_')
@@ -21,46 +26,6 @@ export function saasBillingStatus() {
   }
 }
 
-async function getOrCreateSaasPrice(
-  stripe: Stripe,
-  planId: SaasCheckoutPlanId,
-): Promise<string> {
-  const spec = SAAS_CHECKOUT_PLANS[planId]
-  const existing = await stripe.prices.list({
-    lookup_keys: [spec.lookupKey],
-    active: true,
-    limit: 1,
-  })
-
-  if (existing.data[0]?.id) {
-    return existing.data[0].id
-  }
-
-  const product = await stripe.products.create({
-    name: spec.productName,
-    description: `Suscripción mensual al plan ${spec.name} de Adelia.`,
-    metadata: {
-      type: SAAS_CHECKOUT_META,
-      planId,
-    },
-  })
-
-  const price = await stripe.prices.create({
-    product: product.id,
-    currency: 'eur',
-    unit_amount: spec.amountCents,
-    recurring: { interval: 'month' },
-    lookup_key: spec.lookupKey,
-    transfer_lookup_key: true,
-    metadata: {
-      type: SAAS_CHECKOUT_META,
-      planId,
-    },
-  })
-
-  return price.id
-}
-
 function customText(session: Stripe.Checkout.Session, key: string): string {
   const field = session.custom_fields?.find((item) => item.key === key)
   const value = field?.text?.value
@@ -70,7 +35,9 @@ function customText(session: Stripe.Checkout.Session, key: string): string {
 export async function createSaasCheckoutSession(input: {
   planId: SaasCheckoutPlanId
   companyId?: string
+  customerId?: string
   appUrl?: string
+  successNext?: 'signup' | 'panel'
 }): Promise<{ url: string; testMode: boolean }> {
   if (!isStripeConfigured()) {
     throw new Error('Stripe no está configurado en el servidor.')
@@ -90,31 +57,43 @@ export async function createSaasCheckoutSession(input: {
     metadata.companyId = input.companyId
   }
 
+  const successQuery = input.successNext === 'panel'
+    ? 'session_id={CHECKOUT_SESSION_ID}&next=panel'
+    : 'session_id={CHECKOUT_SESSION_ID}'
+  const cancelUrl = input.successNext === 'panel'
+    ? `${appUrl}/panel?tab=plan`
+    : `${appUrl}/empresa/planes?cancelado=1`
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     locale: 'es',
     billing_address_collection: 'required',
     phone_number_collection: { enabled: true },
+    tax_id_collection: { enabled: true },
     allow_promotion_codes: true,
-    // Tarjeta + wallets (Apple Pay / Google Pay / Link) en el Checkout alojado de Stripe.
     payment_method_types: ['card'],
-    success_url: `${appUrl}/empresa/planes/exito?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/empresa/planes?cancelado=1`,
+    success_url: `${appUrl}/empresa/planes/exito?${successQuery}`,
+    cancel_url: cancelUrl,
     line_items: [{ price: priceId, quantity: 1 }],
-    custom_fields: [
-      {
-        key: 'restaurant_name',
-        label: { type: 'custom', custom: 'Nombre del restaurante' },
-        type: 'text',
-        text: { maximum_length: 80 },
-      },
-      {
-        key: 'city',
-        label: { type: 'custom', custom: 'Ciudad' },
-        type: 'text',
-        text: { maximum_length: 60 },
-      },
-    ],
+    ...(input.customerId ? { customer: input.customerId, customer_update: { name: 'auto', address: 'auto' } } : {}),
+    ...(input.companyId
+      ? {}
+      : {
+          custom_fields: [
+            {
+              key: 'restaurant_name',
+              label: { type: 'custom', custom: 'Nombre del restaurante' },
+              type: 'text',
+              text: { maximum_length: 80 },
+            },
+            {
+              key: 'city',
+              label: { type: 'custom', custom: 'Ciudad' },
+              type: 'text',
+              text: { maximum_length: 60 },
+            },
+          ],
+        }),
     metadata,
     subscription_data: {
       metadata,
@@ -157,6 +136,12 @@ export async function readPublicSaasCheckoutSession(sessionId: string): Promise<
 
   const planId = parseSaasCheckoutPlanId(session.metadata.planId)
   const spec = planId ? SAAS_CHECKOUT_PLANS[planId] : null
+  const paid = session.payment_status === 'paid' || session.status === 'complete'
+
+  if (paid) {
+    await upsertSaasSubscriptionFromCheckout(session)
+  }
+
   const amount = session.amount_total
   const amountLabel =
     typeof amount === 'number'
@@ -166,7 +151,8 @@ export async function readPublicSaasCheckoutSession(sessionId: string): Promise<
         : ''
 
   const leadSnap = await adminDb.collection(COLLECTIONS.saasSubscriptions).doc(sessionId).get()
-  const companyId = typeof leadSnap.data()?.companyId === 'string' ? leadSnap.data()?.companyId as string : ''
+  const companyId = session.metadata?.companyId?.trim()
+    || (typeof leadSnap.data()?.companyId === 'string' ? leadSnap.data()?.companyId as string : '')
 
   return {
     planId: planId ?? '',
@@ -175,10 +161,164 @@ export async function readPublicSaasCheckoutSession(sessionId: string): Promise<
     phone: session.customer_details?.phone ?? '',
     restaurantName: customText(session, 'restaurant_name'),
     city: customText(session, 'city'),
-    paid: session.payment_status === 'paid' || session.status === 'complete',
+    paid,
     testMode: session.livemode !== true,
     amountLabel,
     companyId,
+  }
+}
+
+async function claimPlanReceipt(receiptId: string): Promise<boolean> {
+  const ref = adminDb.collection(COLLECTIONS.saasReceipts).doc(receiptId)
+  try {
+    return await adminDb.runTransaction(async (transaction) => {
+      const snap = await transaction.get(ref)
+      if (snap.exists) {
+        return false
+      }
+      transaction.set(ref, { sentAt: FieldValue.serverTimestamp() })
+      return true
+    })
+  } catch (error) {
+    console.error('Plan receipt claim error:', error)
+    return false
+  }
+}
+
+async function releasePlanReceipt(receiptId: string): Promise<void> {
+  await adminDb.collection(COLLECTIONS.saasReceipts).doc(receiptId).delete().catch(() => undefined)
+}
+
+async function loadInvoice(invoiceRef: Stripe.Checkout.Session['invoice']): Promise<Stripe.Invoice | null> {
+  if (!invoiceRef) {
+    return null
+  }
+  if (typeof invoiceRef !== 'string') {
+    return invoiceRef
+  }
+  try {
+    return await createStripeClient().invoices.retrieve(invoiceRef)
+  } catch {
+    return null
+  }
+}
+
+async function sendPaidPlanReceiptFromCheckout(session: Stripe.Checkout.Session): Promise<void> {
+  if (session.payment_status !== 'paid' && session.status !== 'complete') {
+    return
+  }
+  const planId = parseSaasCheckoutPlanId(session.metadata?.planId)
+  if (!planId) {
+    return
+  }
+
+  const invoice = await loadInvoice(session.invoice)
+    ?? await loadInvoice(
+      await createStripeClient().checkout.sessions.retrieve(session.id, { expand: ['invoice'] })
+        .then((full) => full.invoice)
+        .catch(() => null),
+    )
+  const receiptId = invoice?.id || session.id
+  if (!(await claimPlanReceipt(receiptId))) {
+    return
+  }
+
+  const companyId = session.metadata?.companyId?.trim() || ''
+  let restaurantName = customText(session, 'restaurant_name')
+  let contactEmail = ''
+  if (companyId) {
+    const companySnap = await adminDb.collection(COLLECTIONS.companies).doc(companyId).get()
+    const data = companySnap.data()
+    restaurantName = restaurantName || (typeof data?.name === 'string' ? data.name : '')
+    contactEmail = typeof data?.contactEmail === 'string' ? data.contactEmail : ''
+  }
+
+  const to = (session.customer_details?.email || session.customer_email || contactEmail || '').trim()
+  if (!isValidClientEmail(to)) {
+    await releasePlanReceipt(receiptId)
+    return
+  }
+
+  try {
+    await sendPlanPaymentReceiptEmail({
+      to,
+      restaurantName,
+      planId,
+      amountCents: session.amount_total ?? SAAS_CHECKOUT_PLANS[planId].amountCents,
+      paidAt: session.created ? new Date(session.created * 1000) : new Date(),
+      currency: session.currency ?? 'eur',
+      invoiceNumber: invoice?.number ?? undefined,
+      invoiceUrl: invoice?.hosted_invoice_url ?? undefined,
+      invoicePdfUrl: invoice?.invoice_pdf ?? undefined,
+      renewal: false,
+    })
+  } catch (error) {
+    await releasePlanReceipt(receiptId)
+    throw error
+  }
+}
+
+async function sendPaidPlanReceiptFromInvoice(invoice: Stripe.Invoice): Promise<void> {
+  if (invoice.status !== 'paid') {
+    return
+  }
+  if (invoice.billing_reason === 'subscription_create') {
+    return
+  }
+
+  const receiptId = invoice.id
+  if (!(await claimPlanReceipt(receiptId))) {
+    return
+  }
+
+  const companyId = invoiceCompanyId(invoice)
+  let restaurantName = ''
+  let contactEmail = ''
+  const rawInvoice = invoice as unknown as Record<string, unknown>
+  const subscriptionDetails = rawInvoice.subscription_details as { metadata?: Record<string, string> } | undefined
+  let planId = parseSaasCheckoutPlanId(subscriptionDetails?.metadata?.planId)
+    ?? parseSaasCheckoutPlanId(invoice.lines?.data?.[0]?.metadata?.planId)
+    ?? parseSaasCheckoutPlanId(invoice.metadata?.planId)
+
+  if (companyId) {
+    const companySnap = await adminDb.collection(COLLECTIONS.companies).doc(companyId).get()
+    const data = companySnap.data()
+    restaurantName = typeof data?.name === 'string' ? data.name : ''
+    contactEmail = typeof data?.contactEmail === 'string' ? data.contactEmail : ''
+    if (!planId) {
+      planId = parseSaasCheckoutPlanId(data?.planId)
+    }
+  }
+
+  if (!planId) {
+    await releasePlanReceipt(receiptId)
+    return
+  }
+
+  const to = (invoice.customer_email || contactEmail || '').trim()
+  if (!isValidClientEmail(to)) {
+    await releasePlanReceipt(receiptId)
+    return
+  }
+
+  try {
+    await sendPlanPaymentReceiptEmail({
+      to,
+      restaurantName,
+      planId,
+      amountCents: invoice.amount_paid || invoice.total || SAAS_CHECKOUT_PLANS[planId].amountCents,
+      paidAt: invoice.status_transitions?.paid_at
+        ? new Date(invoice.status_transitions.paid_at * 1000)
+        : new Date(),
+      currency: invoice.currency ?? 'eur',
+      invoiceNumber: invoice.number ?? undefined,
+      invoiceUrl: invoice.hosted_invoice_url ?? undefined,
+      invoicePdfUrl: invoice.invoice_pdf ?? undefined,
+      renewal: invoice.billing_reason === 'subscription_cycle',
+    })
+  } catch (error) {
+    await releasePlanReceipt(receiptId)
+    throw error
   }
 }
 
@@ -223,6 +363,10 @@ async function upsertSaasSubscriptionFromCheckout(session: Stripe.Checkout.Sessi
     { merge: true },
   )
 
+  await sendPaidPlanReceiptFromCheckout(session).catch((error) => {
+    console.error('Plan payment receipt error:', error)
+  })
+
   if (!companyId) {
     return
   }
@@ -235,10 +379,13 @@ async function upsertSaasSubscriptionFromCheckout(session: Stripe.Checkout.Sessi
       planLastPaidAt: FieldValue.serverTimestamp(),
       stripeBillingCustomerId: customerId || null,
       stripeSubscriptionId: subscriptionId || null,
+      pendingPlanId: FieldValue.delete(),
+      pendingPlanAt: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
   )
+  await applyPlanFeatureLimits(companyId, planId)
 }
 
 function stripeObjectId(value: unknown): string {
@@ -310,6 +457,9 @@ async function markCompanyPaidFromInvoice(invoice: Stripe.Invoice): Promise<void
     },
     { merge: true },
   )
+  await sendPaidPlanReceiptFromInvoice(invoice).catch((error) => {
+    console.error('Plan invoice receipt error:', error)
+  })
 }
 
 export async function handleSaasStripeEvent(event: Stripe.Event): Promise<void> {
@@ -320,5 +470,14 @@ export async function handleSaasStripeEvent(event: Stripe.Event): Promise<void> 
 
   if (event.type === 'invoice.paid') {
     await markCompanyPaidFromInvoice(event.data.object as Stripe.Invoice)
+    return
+  }
+
+  if (
+    event.type === 'customer.subscription.updated'
+    || event.type === 'customer.subscription.deleted'
+    || event.type === 'customer.subscription.created'
+  ) {
+    await syncCompanyFromStripeSubscription(event.data.object as Stripe.Subscription)
   }
 }

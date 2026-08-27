@@ -9,6 +9,7 @@ import { defaultSchedule, mapCompanyDoc, slugToAuthEmail, slugify, companySubscr
 import { syncRestaurantIndex } from '../data/restaurantIndex.ts'
 import { writeCompanyOps } from '../data/companyOps.ts'
 import { defaultCompanyEmailTemplates } from '../email/emailTemplateDefaults.ts'
+import { applyPlanFeatureLimitsIfChanged } from '../company/enforcePlanLimits.ts'
 
 const router = Router()
 
@@ -75,7 +76,21 @@ async function markMustChangePassword(ownerUid: string, companyId: string) {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, location, phone, website, password, planId, planBilling, planStartedAt } = req.body
+    const {
+      name,
+      location,
+      phone,
+      website,
+      password,
+      planId,
+      planBilling,
+      planStartedAt,
+      municipality,
+      postalCode,
+      country,
+      contactEmail,
+      discoveryFeatured,
+    } = req.body
 
     if (!name || !location || !phone || !password) {
       res.status(400).json({ error: 'Faltan campos obligatorios.' })
@@ -132,6 +147,11 @@ router.post('/', async (req: Request, res: Response) => {
         phone,
         website: website ?? '',
         location,
+        municipality: typeof municipality === 'string' ? municipality.trim() : '',
+        postalCode: typeof postalCode === 'string' ? postalCode.trim() : '',
+        country: typeof country === 'string' && country.trim() ? country.trim() : 'España',
+        contactEmail: typeof contactEmail === 'string' ? contactEmail.trim() : '',
+        discoveryFeatured: discoveryFeatured === true,
         timeSlotMinutes: 120,
         reservationMode: 'optional',
         schedule: defaultSchedule(),
@@ -166,8 +186,12 @@ router.post('/', async (req: Request, res: Response) => {
         name,
         slug,
         location,
+        municipality: typeof municipality === 'string' ? municipality.trim() : '',
+        postalCode: typeof postalCode === 'string' ? postalCode.trim() : '',
+        country: typeof country === 'string' && country.trim() ? country.trim() : 'España',
         phone,
         website: website ?? '',
+        discoveryFeatured: discoveryFeatured === true,
       })
 
       const snapshot = await companyRef.get()
@@ -291,7 +315,22 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 
     const { id } = req.params
-    const { name, location, phone, website, password, planId, planBilling, planStartedAt } = req.body
+    const {
+      name,
+      location,
+      phone,
+      website,
+      password,
+      planId,
+      planBilling,
+      planStartedAt,
+      municipality,
+      postalCode,
+      country,
+      contactEmail,
+      discoveryFeatured,
+      planLastPaidAt,
+    } = req.body
 
     const companyRef = adminDb.collection('companies').doc(id)
     const companySnap = await companyRef.get()
@@ -315,6 +354,16 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (location) updates.location = location
     if (phone) updates.phone = phone
     if (website !== undefined) updates.website = website
+    if (municipality !== undefined) updates.municipality = String(municipality).trim()
+    if (postalCode !== undefined) updates.postalCode = String(postalCode).trim()
+    if (country !== undefined) updates.country = String(country).trim() || 'España'
+    if (contactEmail !== undefined) updates.contactEmail = String(contactEmail).trim()
+    if (discoveryFeatured !== undefined) updates.discoveryFeatured = discoveryFeatured === true
+    if (planLastPaidAt === 'clear') {
+      updates.planLastPaidAt = FieldValue.delete()
+    } else if (planLastPaidAt === 'now') {
+      updates.planLastPaidAt = Timestamp.now()
+    }
 
     const subscription = companySubscriptionFields({
       currentPlanId: companyData.planId,
@@ -335,6 +384,10 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     if (Object.keys(updates).length > 0) {
       await companyRef.update(updates)
+    }
+
+    if (subscription.planId !== companyData.planId) {
+      await applyPlanFeatureLimitsIfChanged(id, companyData.planId, subscription.planId)
     }
 
     const nextLoginName = (updates.name as string) ?? (companyData.name as string)
@@ -360,11 +413,16 @@ router.put('/:id', async (req: Request, res: Response) => {
       await removeLoginIndex(previousLoginName)
       const authEmail =
         (credentialsSnap.data()?.authEmail as string) ??
-        slugToAuthEmail(companyData.slug as string)
+        slugToAuthEmail((updates.slug as string | undefined) ?? (companyData.slug as string))
       await syncLoginIndex(nextLoginName, authEmail, 'company', id)
+      await adminDb.collection('users').doc(companyData.ownerUid as string).set(
+        { loginName: nextLoginName },
+        { merge: true },
+      )
     }
 
     const updatedSnap = await companyRef.get()
+    await syncRestaurantIndex(id, updatedSnap.data())
 
     res.json({
       company: mapCompanyDoc(updatedSnap.id, updatedSnap.data()!),

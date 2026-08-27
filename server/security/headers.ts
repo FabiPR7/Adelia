@@ -13,7 +13,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   res.setHeader('Cache-Control', 'no-store')
   const https = req.secure || req.headers['x-forwarded-proto'] === 'https'
   if (https) {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
   }
   if (req.path !== '/api/health') {
     res.setHeader('Pragma', 'no-cache')

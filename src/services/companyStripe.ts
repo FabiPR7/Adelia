@@ -1,4 +1,9 @@
 import { getIdToken } from './auth'
+import {
+  getDemoStripeStatus,
+  isDemoCompanyId,
+  rejectIfDemoCompanyWrite,
+} from '../data/companyPanelDemo'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -41,13 +46,18 @@ async function companyStripeFetch<T>(
 }
 
 export async function fetchCompanyStripeStatus(companyId: string): Promise<CompanyStripeStatus> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoStripeStatus()
+  }
   return companyStripeFetch<CompanyStripeStatus>(companyId, 'status')
 }
 
 export async function startCompanyStripeConnect(companyId: string): Promise<{ url: string } & CompanyStripeStatus> {
+  rejectIfDemoCompanyWrite(companyId)
   return companyStripeFetch(companyId, 'connect', { method: 'POST' })
 }
 
 export async function openCompanyStripeDashboard(companyId: string): Promise<{ url: string }> {
+  rejectIfDemoCompanyWrite(companyId)
   return companyStripeFetch(companyId, 'dashboard', { method: 'POST' })
 }

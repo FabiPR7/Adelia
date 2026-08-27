@@ -23,6 +23,7 @@ import { notifyReservationCancelled } from '../notifications/reservationEvents.t
 import { cancelInvitesForReservation, createReservationInvites } from '../reservations/invites.ts'
 import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../reservations/bookReservation.ts'
 import { readCompanyOps } from '../data/companyOps.ts'
+import { clampEnabledMaps, parseStoredPlanId, planAllowsDeposits } from '../company/planLimits.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { consumeInventoryItem, numberRecord } from '../gamification/inventory.ts'
 import { DEPOSIT_PASS_ITEM_ID, EXTRA_PAX_ITEM_ID } from '../gamification/inventoryItems.ts'
@@ -120,13 +121,20 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
   const characteristics = stringList(data.characteristics, 20)
   const venueTypes = stringList(data.venueTypes, 3)
   const amenities = stringList(data.amenities, 40)
-  const floorPlan = data.floorPlan ?? { enabled: false }
+  const planId = parseStoredPlanId(data.planId)
+  const rawFloorPlan = data.floorPlan ?? { enabled: false }
+  const rawFloorPlans = Array.isArray(data.floorPlans) && data.floorPlans.length > 0
+    ? data.floorPlans
+    : [rawFloorPlan]
+  const floorPlans = clampEnabledMaps(rawFloorPlans as Array<{ enabled?: unknown }>, planId)
+  const floorPlan = clampEnabledMaps([rawFloorPlan as { enabled?: unknown }], planId)[0]
   const depositMinPax = typeof data.depositMinPax === 'number' && data.depositMinPax > 0
     ? Math.trunc(data.depositMinPax)
     : null
   const depositPerGuestCents = typeof data.depositPerGuestCents === 'number' && data.depositPerGuestCents > 0
     ? Math.trunc(data.depositPerGuestCents)
     : null
+  const depositsAllowed = planAllowsDeposits(planId)
 
   return {
     id,
@@ -155,15 +163,13 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
     reservationMode: parseCompanyReservationMode(data.reservationMode),
     schedule: data.schedule ?? defaultSchedule(),
     floorPlan,
-    floorPlans: Array.isArray(data.floorPlans) && data.floorPlans.length > 0
-      ? data.floorPlans
-      : [floorPlan],
+    floorPlans,
     reviewCount: typeof data.reviewCount === 'number' ? data.reviewCount : 0,
     reviewRatingSum: typeof data.reviewRatingSum === 'number' ? data.reviewRatingSum : 0,
     reviewAdelinas: typeof data.reviewAdelinas === 'number' ? data.reviewAdelinas : 0,
-    depositMinPax,
-    depositPerGuestCents,
-    depositEnabled: data.depositEnabled === true || depositMinPax != null,
+    depositMinPax: depositsAllowed ? depositMinPax : null,
+    depositPerGuestCents: depositsAllowed ? depositPerGuestCents : null,
+    depositEnabled: depositsAllowed && (data.depositEnabled === true || depositMinPax != null),
     depositCancellationHours: typeof data.depositCancellationHours === 'number'
       && data.depositCancellationHours > 0
       ? Math.trunc(data.depositCancellationHours)

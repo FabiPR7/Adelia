@@ -6,6 +6,16 @@ import PromotionProductPicker from '../../components/promotions/PromotionProduct
 import PromotionScanLanding from '../../components/promotions/PromotionScanLanding'
 import QrCustomizerModal from '../../components/QrCustomizerModal'
 import { useAuth } from '../../context/AuthContext'
+import { useCompanyDemo } from '../../context/CompanyDemoContext'
+import { getCompanyPlan, parseCompanyPlanId } from '../../data/companyPlans'
+import {
+  planAllowsPromotionType,
+  planMaxPromosOfType,
+  planRequiredForPromoCount,
+  promotionTypeCapability,
+  requiredPlanName,
+} from '../../data/companyPlanLimits'
+import { LockedControl } from '../../components/PlanLockHint'
 import { getCompanyMenuNodes } from '../../services/companyMenu'
 import {
   createCompanyPromotion,
@@ -118,6 +128,8 @@ function promotionSummary(promotion: CompanyPromotion): string {
 
 function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
   const { user, profile, company, refreshCompany } = useAuth()
+  const demo = useCompanyDemo()
+  const planId = parseCompanyPlanId(company?.planId)
   const [promotions, setPromotions] = useState<CompanyPromotion[]>([])
   const [menuNodes, setMenuNodes] = useState<MenuNode[]>([])
   const [selectedType, setSelectedType] = useState<PromotionType>('reservation_ladder')
@@ -310,7 +322,47 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
     [promotions, selectedType],
   )
 
+  const selectedTypeCount = promotions.filter((promotion) => promotion.type === selectedType).length
+  const selectedTypeMax = planMaxPromosOfType(planId, selectedType)
+  const selectedTypeAllowed = planAllowsPromotionType(planId, selectedType)
+  const canCreatePromo = selectedTypeAllowed && (selectedTypeMax == null || selectedTypeCount < selectedTypeMax)
+  const nextPromoPlanId = planRequiredForPromoCount(selectedType, selectedTypeCount + 1)
+
+  const promoCapMessage = () => {
+    const typeLabel = PROMOTION_TYPE_LABELS[selectedType].toLowerCase()
+    const planName = getCompanyPlan(planId).name
+    if (selectedTypeMax == null) {
+      return `No puedes crear más promociones de ${typeLabel}.`
+    }
+    if (nextPromoPlanId === planId || planMaxPromosOfType(nextPromoPlanId, selectedType) === selectedTypeMax) {
+      return `En ${planName} el máximo es ${selectedTypeMax} promociones de ${typeLabel}.`
+    }
+    return `En ${planName} puedes tener ${selectedTypeMax} promociones de ${typeLabel}. Pasa a ${requiredPlanName(promotionTypeCapability(selectedType), nextPromoPlanId)} para crear más.`
+  }
+
+  useEffect(() => {
+    if (selectedTypeAllowed) {
+      return
+    }
+
+    const fallback = PROMOTION_TYPES.find((type) => planAllowsPromotionType(planId, type))
+    if (fallback) {
+      setSelectedType(fallback)
+      setForm(defaultPromotionInput(fallback))
+    }
+  }, [planId, selectedType, selectedTypeAllowed])
+
   const startCreate = () => {
+    if (!selectedTypeAllowed) {
+      setFormError(`Este tipo de promoción está en el plan ${requiredPlanName(promotionTypeCapability(selectedType))}.`)
+      return
+    }
+
+    if (!canCreatePromo) {
+      setFormError(promoCapMessage())
+      return
+    }
+
     setEditingId(null)
     setForm(defaultPromotionInput(selectedType))
     setFormError(null)
@@ -330,6 +382,16 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
   }
 
   const handleSave = async () => {
+    if (!planAllowsPromotionType(planId, selectedType)) {
+      setFormError(`Este tipo de promoción está en el plan ${requiredPlanName(promotionTypeCapability(selectedType))}.`)
+      return
+    }
+
+    if (!editingId && !canCreatePromo) {
+      setFormError(promoCapMessage())
+      return
+    }
+
     const payload: PromotionInput = {
       ...form,
       type: selectedType,
@@ -453,6 +515,8 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
               </label>
 
               <div className={styles.pinActions}>
+                {demo ? null : (
+                  <>
                 <button
                   type="button"
                   className={styles.actionButton}
@@ -469,6 +533,8 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                 >
                   {pinSaving ? 'Guardando…' : 'Guardar'}
                 </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -505,23 +571,50 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
 
       <div className={styles.toolbar}>
         <div className={styles.typeToggle} role="tablist" aria-label="Tipo de promoción">
-          {PROMOTION_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              role="tab"
-              aria-selected={selectedType === type}
-              className={`${styles.typeButton} ${selectedType === type ? styles.typeButtonActive : ''}`}
-              onClick={() => handleTypeChange(type)}
-            >
-              {PROMOTION_TYPE_LABELS[type]}
-            </button>
-          ))}
+          {PROMOTION_TYPES.map((type) => {
+            const typeLocked = !planAllowsPromotionType(planId, type)
+            const button = (
+              <button
+                key={type}
+                type="button"
+                role="tab"
+                aria-selected={selectedType === type}
+                className={`${styles.typeButton} ${selectedType === type ? styles.typeButtonActive : ''}`}
+                onClick={() => handleTypeChange(type)}
+              >
+                {PROMOTION_TYPE_LABELS[type]}
+              </button>
+            )
+
+            if (!typeLocked) {
+              return button
+            }
+
+            return (
+              <LockedControl
+                key={type}
+                locked
+                feature={PROMOTION_TYPE_LABELS[type].toLowerCase()}
+                capabilityId={promotionTypeCapability(type)}
+              >
+                {button}
+              </LockedControl>
+            )
+          })}
         </div>
 
-        <button type="button" className={`${styles.actionButton} ${styles.actionButtonPrimary}`} onClick={startCreate}>
-          Nueva promoción
-        </button>
+        <LockedControl
+          locked={!canCreatePromo || !selectedTypeAllowed}
+          feature="crear más promociones"
+          capabilityId={promotionTypeCapability(selectedType)}
+          requiredPlanId={nextPromoPlanId}
+        >
+          {demo ? null : (
+          <button type="button" className={`${styles.actionButton} ${styles.actionButtonPrimary}`} onClick={startCreate}>
+            Nueva promoción
+          </button>
+          )}
+        </LockedControl>
 
         <button
           type="button"
@@ -995,6 +1088,9 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
 
           {formError && <div className={styles.formError}>{formError}</div>}
 
+          {demo ? (
+            <p className={styles.formError}>En la demo las promociones se pueden ver, no crear ni editar.</p>
+          ) : (
           <div className={styles.formActions}>
             <button
               type="button"
@@ -1021,6 +1117,7 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
               </button>
             )}
           </div>
+          )}
         </section>
       </div>
 

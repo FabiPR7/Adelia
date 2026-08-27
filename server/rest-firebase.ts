@@ -78,6 +78,10 @@ export async function getUserRoleWithRest(idToken: string, uid: string) {
 }
 
 export async function signInWithPasswordRest(email: string, password: string) {
+  if (!apiKey) {
+    throw new Error('Falta VITE_FIREBASE_API_KEY en la API.')
+  }
+
   const response = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
     {

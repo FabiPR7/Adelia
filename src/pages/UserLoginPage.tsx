@@ -31,6 +31,9 @@ function UserLoginPage() {
   }, [])
 
   if (user && profile) {
+    if (profile.role !== 'customer') {
+      return <Navigate to={getPostLoginPath(profile, user)} replace />
+    }
     return <Navigate to={redirectTo ?? getPostLoginPath(profile, user)} replace />
   }
 
@@ -39,8 +42,13 @@ function UserLoginPage() {
     const currentUser = auth.currentUser
     const nextProfile = currentUser ? await getUserProfile(currentUser.uid) : null
 
-    if (!nextProfile || nextProfile.role !== 'customer') {
-      setError('Esta cuenta no es de cliente. Usa el acceso de empresas.')
+    if (!nextProfile) {
+      setError('No se pudo leer tu perfil. Vuelve a intentarlo.')
+      return
+    }
+
+    if (nextProfile.role !== 'customer') {
+      navigate(getPostLoginPath(nextProfile, currentUser), { replace: true })
       return
     }
 

@@ -8,6 +8,7 @@ import {
   isAllowedImageExtension,
   formatFileSize,
 } from '../constants/fileUpload'
+import { useCompanyDemo } from '../context/CompanyDemoContext'
 import styles from './ImageUploader.module.css'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -59,6 +60,7 @@ function ImageUploader({
   label = 'Imagen',
   hint,
 }: ImageUploaderProps) {
+  const demo = useCompanyDemo()
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState(currentImageUrl)
@@ -158,7 +160,7 @@ function ImageUploader({
         accept="image/*"
         className={styles.hiddenInput}
         onChange={handleFileChange}
-        disabled={isUploading}
+        disabled={isUploading || demo}
       />
 
       {error && (
@@ -167,7 +169,15 @@ function ImageUploader({
         </div>
       )}
 
-      {isUploading ? (
+      {demo ? (
+        displayUrl ? (
+          <div className={styles.previewBox}>
+            <img src={optimizedDisplayUrl} alt="Vista previa" className={styles.previewImage} />
+          </div>
+        ) : (
+          <p className={styles.hint}>Sin imagen</p>
+        )
+      ) : isUploading ? (
         <div className={styles.loaderBox} aria-live="polite">
           <span className={styles.spinner} aria-hidden="true" />
           <span>Subiendo imagen…</span>

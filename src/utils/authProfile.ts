@@ -1,5 +1,5 @@
 import type { User } from 'firebase/auth'
-import type { AppUser } from '../types'
+import type { AppUser, UserRole } from '../types'
 
 export function computeMustChangePassword(
   profile: AppUser,
@@ -46,6 +46,10 @@ export function resolveSafeRedirect(redirect: string | null | undefined): string
     return null
   }
   return redirect
+}
+
+export function unauthenticatedPathForRole(role: UserRole): string {
+  return role === 'customer' ? '/cuenta/entrar' : '/login'
 }
 
 export function getPostLoginPath(profile: AppUser, user?: { emailVerified: boolean } | null) {

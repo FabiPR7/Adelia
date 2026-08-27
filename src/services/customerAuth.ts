@@ -133,6 +133,12 @@ export async function loginCustomer(email: string, password: string): Promise<Us
   const identifier = email.trim().toLowerCase()
   await preLoginCustomer(identifier, password)
   const credential = await signInWithEmailAndPassword(auth, identifier, password)
+  const profile = await getUserProfile(credential.user.uid).catch(() => null)
+  const role = profile?.role
+
+  if (role === 'admin' || role === 'company') {
+    return credential.user
+  }
 
   if (!credential.user.emailVerified) {
     await sendCustomerVerificationEmail(credential.user).catch(() => {
@@ -143,9 +149,6 @@ export async function loginCustomer(email: string, password: string): Promise<Us
       'Confirma tu email antes de entrar. Revisa tu bandeja (y spam) y vuelve a intentarlo.',
     )
   }
-
-  const profile = await getUserProfile(credential.user.uid).catch(() => null)
-  const role = profile?.role
 
   if (role !== 'customer') {
     await signOut(auth)

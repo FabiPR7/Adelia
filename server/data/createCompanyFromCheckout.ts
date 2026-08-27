@@ -76,8 +76,7 @@ function optionalCoord(value: unknown): number | null {
   return value
 }
 
-export async function completePaidCompanySignup(input: {
-  sessionId: string
+interface CompanySignupProfile {
   email: string
   phone: string
   password: string
@@ -94,64 +93,40 @@ export async function completePaidCompanySignup(input: {
   characteristics?: string[]
   venueTypes?: string[]
   amenities?: string[]
-}): Promise<{ companyId: string; slug: string; loginName: string }> {
-  if (!canUseAdminSdk) {
-    throw new Error('El alta no está disponible en este servidor.')
-  }
-  if (!isStripeConfigured()) {
-    throw new Error('Stripe no está configurado.')
-  }
+}
 
-  const sessionId = asPlainText(input.sessionId, 200, 'La sesión de pago')
-  const password = requirePassword(input.password)
-  const contactEmail = asEmail(input.email)
-  const phone = requireSpanishPhone(input.phone)
-  const name = asPlainText(input.name, 80, 'El nombre del local')
-  const location = asPlainText(input.location, 200, 'La dirección')
-  const website = optionalWebsite(input.website)
-  const municipality = asOptionalTrimmed(input.municipality, 80)
-  const postalCode = asOptionalTrimmed(input.postalCode, 12)
-  const country = asOptionalTrimmed(input.country, 60) || 'España'
-  const latitude = optionalCoord(input.latitude)
-  const longitude = optionalCoord(input.longitude)
-  const photos = optionalHttpsUrls(input.photos, 5)
-  const logoUrl = optionalHttpsUrls(input.logoUrl ? [input.logoUrl] : [], 1)[0] ?? ''
-  const characteristics = optionalLabels(input.characteristics, 10)
-  const venueTypes = optionalIds(input.venueTypes, 3)
-  const amenities = optionalIds(input.amenities, 40)
-
-  const stripe = createStripeClient()
-  const session = await stripe.checkout.sessions.retrieve(sessionId)
-
-  if (session.metadata?.type !== SAAS_CHECKOUT_META) {
-    throw new InputError('Ese pago no corresponde a un plan de Adelia.')
+function parseSignupProfile(input: CompanySignupProfile) {
+  return {
+    password: requirePassword(input.password),
+    contactEmail: asEmail(input.email),
+    phone: requireSpanishPhone(input.phone),
+    name: asPlainText(input.name, 80, 'El nombre del local'),
+    location: asPlainText(input.location, 200, 'La dirección'),
+    website: optionalWebsite(input.website),
+    municipality: asOptionalTrimmed(input.municipality, 80),
+    postalCode: asOptionalTrimmed(input.postalCode, 12),
+    country: asOptionalTrimmed(input.country, 60) || 'España',
+    latitude: optionalCoord(input.latitude),
+    longitude: optionalCoord(input.longitude),
+    photos: optionalHttpsUrls(input.photos, 5),
+    logoUrl: optionalHttpsUrls(input.logoUrl ? [input.logoUrl] : [], 1)[0] ?? '',
+    characteristics: optionalLabels(input.characteristics, 10),
+    venueTypes: optionalIds(input.venueTypes, 3),
+    amenities: optionalIds(input.amenities, 40),
   }
-  if (session.payment_status !== 'paid' && session.status !== 'complete') {
-    throw new InputError('Todavía no consta el pago. Espera un momento e inténtalo de nuevo.')
-  }
+}
 
-  const planId = parseSaasCheckoutPlanId(session.metadata.planId)
-  if (!planId) {
-    throw new InputError('El plan pagado no es válido.')
-  }
-
-  const leadRef = adminDb.collection(COLLECTIONS.saasSubscriptions).doc(sessionId)
-  const leadSnap = await leadRef.get()
-  const existingCompanyId = typeof leadSnap.data()?.companyId === 'string'
-    ? leadSnap.data()?.companyId as string
-    : ''
-
-  if (existingCompanyId) {
-    const companySnap = await adminDb.collection(COLLECTIONS.companies).doc(existingCompanyId).get()
-    if (companySnap.exists) {
-      const data = companySnap.data()!
-      return {
-        companyId: existingCompanyId,
-        slug: String(data.slug ?? ''),
-        loginName: String(data.name ?? name),
-      }
-    }
-  }
+async function provisionCompanyAccount(
+  profile: ReturnType<typeof parseSignupProfile>,
+  plan: {
+    planId: 'free' | 'basic' | 'premium'
+    planBilling: 'monthly' | null
+    stripeBillingCustomerId: string | null
+    stripeSubscriptionId: string | null
+    markPlanPaid: boolean
+  },
+): Promise<{ companyId: string; slug: string; loginName: string }> {
+  const { password, contactEmail, phone, name, location, website, municipality, postalCode, country, latitude, longitude, photos, logoUrl, characteristics, venueTypes, amenities } = profile
 
   const slug = slugify(name)
   if (!slug) {
@@ -166,9 +141,6 @@ export async function completePaidCompanySignup(input: {
   const authEmail = slugToAuthEmail(slug)
   const companyRef = adminDb.collection(COLLECTIONS.companies).doc()
   const now = Timestamp.now()
-  const customerId = typeof session.customer === 'string' ? session.customer : ''
-  const subscriptionId = typeof session.subscription === 'string' ? session.subscription : ''
-
   let ownerUid = ''
 
   try {
@@ -224,12 +196,12 @@ export async function completePaidCompanySignup(input: {
       timeSlotMinutes: 120,
       reservationMode: 'optional',
       schedule: defaultSchedule(),
-      planId,
-      planBilling: 'monthly',
-      planStartedAt: now,
-      planLastPaidAt: now,
-      stripeBillingCustomerId: customerId || null,
-      stripeSubscriptionId: subscriptionId || null,
+      planId: plan.planId,
+      planBilling: plan.planBilling,
+      planStartedAt: plan.markPlanPaid ? now : null,
+      planLastPaidAt: plan.markPlanPaid ? now : null,
+      stripeBillingCustomerId: plan.stripeBillingCustomerId,
+      stripeSubscriptionId: plan.stripeSubscriptionId,
       discoveryFeatured: false,
       createdAt: now,
     })
@@ -260,15 +232,6 @@ export async function completePaidCompanySignup(input: {
     const companySnap = await companyRef.get()
     await syncRestaurantIndex(companyRef.id, companySnap.data())
 
-    await leadRef.set(
-      {
-        companyId: companyRef.id,
-        status: 'activated',
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    )
-
     return {
       companyId: companyRef.id,
       slug,
@@ -282,4 +245,87 @@ export async function completePaidCompanySignup(input: {
     await companyRef.delete().catch(() => undefined)
     throw error
   }
+}
+
+export async function completePaidCompanySignup(input: CompanySignupProfile & {
+  sessionId: string
+}): Promise<{ companyId: string; slug: string; loginName: string }> {
+  if (!canUseAdminSdk) {
+    throw new Error('El alta no está disponible en este servidor.')
+  }
+  if (!isStripeConfigured()) {
+    throw new Error('Stripe no está configurado.')
+  }
+
+  const sessionId = asPlainText(input.sessionId, 200, 'La sesión de pago')
+  const profile = parseSignupProfile(input)
+
+  const stripe = createStripeClient()
+  const session = await stripe.checkout.sessions.retrieve(sessionId)
+
+  if (session.metadata?.type !== SAAS_CHECKOUT_META) {
+    throw new InputError('Ese pago no corresponde a un plan de Adelia.')
+  }
+  if (session.payment_status !== 'paid' && session.status !== 'complete') {
+    throw new InputError('Todavía no consta el pago. Espera un momento e inténtalo de nuevo.')
+  }
+
+  const planId = parseSaasCheckoutPlanId(session.metadata.planId)
+  if (!planId) {
+    throw new InputError('El plan pagado no es válido.')
+  }
+
+  const leadRef = adminDb.collection(COLLECTIONS.saasSubscriptions).doc(sessionId)
+  const leadSnap = await leadRef.get()
+  const existingCompanyId = typeof leadSnap.data()?.companyId === 'string'
+    ? leadSnap.data()?.companyId as string
+    : ''
+
+  if (existingCompanyId) {
+    const companySnap = await adminDb.collection(COLLECTIONS.companies).doc(existingCompanyId).get()
+    if (companySnap.exists) {
+      const data = companySnap.data()!
+      return {
+        companyId: existingCompanyId,
+        slug: String(data.slug ?? ''),
+        loginName: String(data.name ?? profile.name),
+      }
+    }
+  }
+
+  const created = await provisionCompanyAccount(profile, {
+    planId,
+    planBilling: 'monthly',
+    stripeBillingCustomerId: typeof session.customer === 'string' ? session.customer : null,
+    stripeSubscriptionId: typeof session.subscription === 'string' ? session.subscription : null,
+    markPlanPaid: true,
+  })
+
+  await leadRef.set(
+    {
+      companyId: created.companyId,
+      status: 'activated',
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
+
+  return created
+}
+
+export async function completeFreeCompanySignup(
+  input: CompanySignupProfile,
+): Promise<{ companyId: string; slug: string; loginName: string }> {
+  if (!canUseAdminSdk) {
+    throw new Error('El alta no está disponible en este servidor.')
+  }
+
+  const profile = parseSignupProfile(input)
+  return provisionCompanyAccount(profile, {
+    planId: 'free',
+    planBilling: null,
+    stripeBillingCustomerId: null,
+    stripeSubscriptionId: null,
+    markPlanPaid: false,
+  })
 }

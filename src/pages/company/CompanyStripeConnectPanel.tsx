@@ -5,6 +5,7 @@ import {
   startCompanyStripeConnect,
   type CompanyStripeStatus,
 } from '../../services/companyStripe'
+import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import styles from './CompanyStripeConnectPanel.module.css'
 
 interface CompanyStripeConnectPanelProps {
@@ -38,6 +39,7 @@ export default function CompanyStripeConnectPanel({
   autoRefresh = false,
   onStatusChange,
 }: CompanyStripeConnectPanelProps) {
+  const demo = useCompanyDemo()
   const [status, setStatus] = useState<CompanyStripeStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
@@ -117,6 +119,7 @@ export default function CompanyStripeConnectPanel({
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
+      {demo ? null : (
       <div className={styles.actions}>
         <button
           type="button"
@@ -145,6 +148,7 @@ export default function CompanyStripeConnectPanel({
           Actualizar estado
         </button>
       </div>
+      )}
     </div>
   )
 }

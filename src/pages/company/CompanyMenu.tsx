@@ -6,6 +6,21 @@ import MenuExcelImportModal, { type MenuExcelImportMode } from '../../components
 import MenuPdfViewer from '../../components/menu/MenuPdfViewer'
 import MenuPreview from '../../components/menu/MenuPreview'
 import { useAuth } from '../../context/AuthContext'
+import { useCompanyDemo } from '../../context/CompanyDemoContext'
+import { parseCompanyPlanId } from '../../data/companyPlans'
+import {
+  clampMenuTemplateForPlan,
+  menuBoardActivationBlockReason,
+  planAllowsExcel,
+  planAllowsMenuGrid,
+  planAllowsMenuPdf,
+  planAllowsMenuPhotos,
+  planAllowsMoreThan,
+  planMaxCount,
+  planRequiredForCount,
+  requiredPlanName,
+} from '../../data/companyPlanLimits'
+import { LockedControl, PlanLockHint } from '../../components/PlanLockHint'
 import {
   defaultMenuTemplate,
   getMenuTemplatePreset,
@@ -169,6 +184,8 @@ function nodeToCopyForm(node: MenuNode, productNames: string[]): NodeFormState {
 
 function CompanyMenu({ companyId }: CompanyMenuProps) {
   const { user, profile, company, refreshCompany } = useAuth()
+  const demo = useCompanyDemo()
+  const planId = parseCompanyPlanId(company?.planId)
   const [boards, setBoards] = useState<MenuBoard[]>([])
   const [nodes, setNodes] = useState<MenuNode[]>([])
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
@@ -207,6 +224,13 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
 
     return getPublicMenuBoardUrl(company.slug, selectedBoard.id)
   }, [company?.slug, selectedBoard])
+
+  const canAddMenu = planAllowsMoreThan(planId, 'menus', boards.length)
+  const canUsePhotos = planAllowsMenuPhotos(planId)
+  const canUseGrid = planAllowsMenuGrid(planId)
+  const canUsePdf = planAllowsMenuPdf(planId)
+  const canUseExcel = planAllowsExcel(planId)
+  const nextMenuPlanName = requiredPlanName('menus', planRequiredForCount('menus', boards.length + 1))
 
   useEffect(() => {
     setMenuShareCopied(false)
@@ -254,8 +278,14 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
     }
 
     setBoardNameDraft(selectedBoard.name)
-    setTemplateDraft(selectedBoard.template)
-  }, [selectedBoard])
+    setTemplateDraft(clampMenuTemplateForPlan(selectedBoard.template, planId))
+  }, [planId, selectedBoard])
+
+  useEffect(() => {
+    if (!canUsePdf && editorTab === 'pdf') {
+      setEditorTab('content')
+    }
+  }, [canUsePdf, editorTab])
 
   const persistBoard = async (input: MenuBoardInput) => {
     if (!selectedBoard) {
@@ -266,16 +296,20 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
     setError(null)
 
     try {
-      await updateCompanyMenuBoard(companyId, selectedBoard.id, input)
+      const nextInput = {
+        ...input,
+        template: clampMenuTemplateForPlan(input.template, planId),
+      }
+      await updateCompanyMenuBoard(companyId, selectedBoard.id, nextInput)
       setBoards((current) =>
         current.map((board) =>
           board.id === selectedBoard.id
             ? {
                 ...board,
-                ...input,
-                pdfUrl: input.pdfUrl ?? board.pdfUrl,
-                pdfFileName: input.pdfFileName ?? board.pdfFileName,
-                pdfPages: input.pdfPages ?? board.pdfPages,
+                ...nextInput,
+                pdfUrl: nextInput.pdfUrl ?? board.pdfUrl,
+                pdfFileName: nextInput.pdfFileName ?? board.pdfFileName,
+                pdfPages: nextInput.pdfPages ?? board.pdfPages,
                 updatedAt: new Date(),
               }
             : board,
@@ -372,16 +406,22 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
       return
     }
 
+    if (!canAddMenu) {
+      setCreateBoardError(`En tu plan puedes tener ${planMaxCount(planId, 'menus') === 1 ? '1 carta' : `hasta ${planMaxCount(planId, 'menus')} cartas`}. Pasa a ${nextMenuPlanName} para crear más.`)
+      return
+    }
+
     setSaving(true)
     setError(null)
     setCreateBoardError(null)
 
     try {
+      const activeCount = boards.filter((board) => board.active).length
       const id = await createCompanyMenuBoard(companyId, {
         name,
-        active: true,
+        active: planMaxCount(planId, 'menus') == null || activeCount < (planMaxCount(planId, 'menus') ?? 0),
         sortOrder: boards.length,
-        template: defaultMenuTemplate(),
+        template: clampMenuTemplateForPlan(defaultMenuTemplate(), planId),
       })
 
       await loadMenu()
@@ -397,6 +437,14 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
   }
 
   const handleToggleBoardActive = async (board: MenuBoard) => {
+    if (!board.active) {
+      const reason = menuBoardActivationBlockReason(board, boards, planId)
+      if (reason) {
+        setError(reason)
+        return
+      }
+    }
+
     setSaving(true)
     try {
       await setCompanyMenuBoardActive(companyId, board.id, !board.active)
@@ -469,10 +517,15 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
       return
     }
 
-    setTemplateDraft({ ...preset.config })
+    setTemplateDraft(clampMenuTemplateForPlan({ ...preset.config }, planId))
   }
 
   const handlePdfFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!canUsePdf) {
+      setError(`Subir un PDF está en el plan ${requiredPlanName('menu_pdf')}.`)
+      event.target.value = ''
+      return
+    }
     const file = event.target.files?.[0]
     event.target.value = ''
 
@@ -597,7 +650,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
       allergens: nodeForm.allergens,
       priceCents,
       priceCurrency: nodeForm.priceCurrency,
-      photoUrl: nodeForm.photoUrl,
+      photoUrl: canUsePhotos || nodeForm.mode === 'edit' ? nodeForm.photoUrl : '',
       active: nodeForm.active,
       availability: nodeForm.nodeType === 'family'
         ? formToAvailability(nodeForm)
@@ -937,17 +990,34 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
           <p>Crea cartas por categoría (desayuno, cena…), organiza familias y productos, personaliza el diseño o sube un PDF.</p>
         </div>
         <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.secondaryBtn}
-            onClick={() => openExcelImportModal('new-board')}
-            disabled={saving}
+          {demo ? null : (
+            <>
+          <LockedControl
+            locked={!canUseExcel}
+            feature="importar la carta desde Excel"
+            capabilityId="excel"
           >
-            Desde Excel
-          </button>
-          <button type="button" className={styles.primaryBtn} onClick={openCreateBoardModal} disabled={saving}>
-            + Agregar carta
-          </button>
+            <button
+              type="button"
+              className={styles.secondaryBtn}
+              onClick={() => openExcelImportModal('new-board')}
+              disabled={saving}
+            >
+              Desde Excel
+            </button>
+          </LockedControl>
+          <LockedControl
+            locked={!canAddMenu}
+            feature="crear más cartas"
+            capabilityId="menus"
+            requiredPlanId={planRequiredForCount('menus', boards.length + 1)}
+          >
+            <button type="button" className={styles.primaryBtn} onClick={openCreateBoardModal} disabled={saving}>
+              + Agregar carta
+            </button>
+          </LockedControl>
+            </>
+          )}
         </div>
       </header>
 
@@ -1009,16 +1079,34 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                 </div>
 
                 <div className={styles.tabs}>
-                  {(['content', 'design', 'pdf'] as EditorTab[]).map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      className={editorTab === tab ? styles.tabActive : styles.tab}
-                      onClick={() => setEditorTab(tab)}
-                    >
-                      {tab === 'content' ? 'Contenido' : tab === 'design' ? 'Diseño y vista previa' : 'Subir PDF'}
-                    </button>
-                  ))}
+                  {(['content', 'design', 'pdf'] as EditorTab[]).map((tab) => {
+                    const pdfLocked = tab === 'pdf' && !canUsePdf
+                    const tabButton = (
+                      <button
+                        key={tab}
+                        type="button"
+                        className={editorTab === tab ? styles.tabActive : styles.tab}
+                        onClick={() => setEditorTab(tab)}
+                      >
+                        {tab === 'content' ? 'Contenido' : tab === 'design' ? 'Diseño y vista previa' : 'Subir PDF'}
+                      </button>
+                    )
+
+                    if (!pdfLocked) {
+                      return tabButton
+                    }
+
+                    return (
+                      <LockedControl
+                        key={tab}
+                        locked
+                        feature="subir la carta en PDF"
+                        capabilityId="menu_pdf"
+                      >
+                        {tabButton}
+                      </LockedControl>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -1030,14 +1118,26 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                       : 'Organiza familias y productos. Sirven para la vista previa, reseñas y promociones. También puedes subir un PDF.'}
                   </p>
                   <div className={styles.contentToolbar}>
+                    {demo ? null : (
+                      <>
                     <button type="button" onClick={() => openCreateNode('family', null)}>+ Familia</button>
                     <button type="button" onClick={() => openCreateNode('product', null)}>+ Producto suelto</button>
+                      </>
+                    )}
                     <button type="button" onClick={() => setExcelExportOpen(true)}>
                       Descargar Excel
                     </button>
-                    <button type="button" onClick={() => openExcelImportModal('existing-board')}>
-                      Importar Excel
-                    </button>
+                    {demo ? null : (
+                    <LockedControl
+                      locked={!canUseExcel}
+                      feature="importar la carta desde Excel"
+                      capabilityId="excel"
+                    >
+                      <button type="button" onClick={() => openExcelImportModal('existing-board')}>
+                        Importar Excel
+                      </button>
+                    </LockedControl>
+                    )}
                     <span className={styles.toolbarDivider} aria-hidden="true" />
                     <button
                       type="button"
@@ -1176,29 +1276,59 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                               ))}
                             </select>
                           </label>
-                          <label>
-                            Disposición
-                            <select
-                              value={templateDraft.layout}
-                              onChange={(event) =>
-                                setTemplateDraft({
-                                  ...templateDraft,
-                                  layout: event.target.value as MenuTemplateConfig['layout'],
-                                })
-                              }
-                            >
-                              {MENU_LAYOUT_OPTIONS.map((option) => (
-                                <option key={option.id} value={option.id}>{option.label}</option>
-                              ))}
-                            </select>
-                          </label>
+                          <div className={styles.lockedField}>
+                            <label>
+                              Disposición
+                              <select
+                                value={templateDraft.layout}
+                                onChange={(event) => {
+                                  const layout = event.target.value as MenuTemplateConfig['layout']
+                                  if (layout === 'grid' && !canUseGrid) {
+                                    return
+                                  }
+                                  setTemplateDraft({ ...templateDraft, layout })
+                                }}
+                              >
+                                {MENU_LAYOUT_OPTIONS.map((option) => (
+                                  <option
+                                    key={option.id}
+                                    value={option.id}
+                                    disabled={option.id === 'grid' && !canUseGrid}
+                                  >
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            {!canUseGrid ? (
+                              <PlanLockHint feature="la disposición en cuadrícula" capabilityId="menu_photos" />
+                            ) : null}
+                          </div>
                         </div>
                       </section>
 
                       <section className={styles.designSection}>
                         <h3>Contenido visible</h3>
                         <div className={styles.toggleGrid}>
-                          <label><input type="checkbox" checked={templateDraft.showPhotos} onChange={(event) => setTemplateDraft({ ...templateDraft, showPhotos: event.target.checked })} /> Mostrar fotos</label>
+                          <div className={styles.lockedField}>
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={templateDraft.showPhotos}
+                                disabled={!canUsePhotos}
+                                onChange={(event) => {
+                                  if (!canUsePhotos) {
+                                    return
+                                  }
+                                  setTemplateDraft({ ...templateDraft, showPhotos: event.target.checked })
+                                }}
+                              />{' '}
+                              Mostrar fotos
+                            </label>
+                            {!canUsePhotos ? (
+                              <PlanLockHint feature="fotos en los platos" capabilityId="menu_photos" />
+                            ) : null}
+                          </div>
                           <label><input type="checkbox" checked={templateDraft.showDescriptions} onChange={(event) => setTemplateDraft({ ...templateDraft, showDescriptions: event.target.checked })} /> Descripciones</label>
                           <label><input type="checkbox" checked={templateDraft.showAllergens} onChange={(event) => setTemplateDraft({ ...templateDraft, showAllergens: event.target.checked })} /> Alérgenos</label>
                         </div>
@@ -1239,9 +1369,11 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                     </div>
 
                     <div className={styles.designToolsFooter}>
+                      {demo ? null : (
                       <button type="button" className={styles.primaryBtn} onClick={() => void handleSaveTemplate()} disabled={saving}>
                         Guardar diseño
                       </button>
+                      )}
                     </div>
                   </aside>
 
@@ -1571,12 +1703,21 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                     })}
                   </div>
                 </div>
-                <ImageUploader
-                  label="Foto del producto"
-                  currentImageUrl={nodeForm.photoUrl}
-                  onImageUploaded={(url) => setNodeForm({ ...nodeForm, photoUrl: url })}
-                  onImageRemoved={() => setNodeForm({ ...nodeForm, photoUrl: '' })}
-                />
+                {nodeForm.nodeType === 'product' ? (
+                  canUsePhotos ? (
+                    <ImageUploader
+                      label="Foto del producto"
+                      currentImageUrl={nodeForm.photoUrl}
+                      onImageUploaded={(url) => setNodeForm({ ...nodeForm, photoUrl: url })}
+                      onImageRemoved={() => setNodeForm({ ...nodeForm, photoUrl: '' })}
+                    />
+                  ) : (
+                    <div className={styles.lockedField}>
+                      <p className={styles.lockedHint}>Foto del producto</p>
+                      <PlanLockHint feature="añadir imágenes a los productos" capabilityId="menu_photos" />
+                    </div>
+                  )
+                ) : null}
                 <label className={styles.checkboxLine}>
                   <input
                     type="checkbox"

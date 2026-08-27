@@ -19,6 +19,7 @@ export const COLLECTIONS = {
   companyCredentials: 'companyCredentials',
   logins: 'logins',
   notificationJobs: 'notificationJobs',
+  saasReceipts: 'saasReceipts',
   missionCatalog: 'missionCatalog',
   levelCatalog: 'levelCatalog',
   gameConfig: 'gameConfig',

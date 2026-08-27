@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import type { UserRole } from '../types'
+import { getPostLoginPath, unauthenticatedPathForRole } from '../utils/authProfile'
 
 interface RoleRouteProps {
   children: React.ReactNode
@@ -28,19 +29,11 @@ function RoleRoute({ children, role, requirePasswordChanged = false }: RoleRoute
   }
 
   if (!user || !profile) {
-    return <Navigate to="/cuenta/entrar" replace />
+    return <Navigate to={unauthenticatedPathForRole(role)} replace />
   }
 
   if (profile.role !== role) {
-    if (profile.role === 'admin') {
-      return <Navigate to="/admin" replace />
-    }
-
-    if (profile.role === 'customer') {
-      return <Navigate to="/app/explorar" replace />
-    }
-
-    return <Navigate to="/panel" replace />
+    return <Navigate to={getPostLoginPath(profile, user)} replace />
   }
 
   if (requirePasswordChanged && profile.mustChangePassword) {

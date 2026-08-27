@@ -1013,6 +1013,19 @@
   font-weight: 600;
 }
 
+.lockedField {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lockedHint {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-brown);
+}
+
 .fieldLabel {
   display: block;
   margin-bottom: 0.35rem;

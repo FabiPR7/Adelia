@@ -967,7 +967,7 @@ export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: stri
   { id: 'reservation-settings', label: 'Reservas y horario', hint: 'Modo, duración y días' },
   { id: 'tables', label: 'Mesas', hint: 'Capacidad y mapa' },
   { id: 'menu', label: 'Carta', hint: 'Productos, diseño y PDF' },
-  { id: 'plan', label: 'Plan', hint: 'Suscripción y límites' },
+  { id: 'plan', label: 'Plan', hint: 'Suscripción y baja' },
 ]
 
 export function isClientsTab(tab: CompanyTab): tab is ClientsSection {

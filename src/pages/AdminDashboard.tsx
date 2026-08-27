@@ -257,6 +257,7 @@ function AdminDashboard() {
           phone: form.phone,
           contactEmail: form.contactEmail,
           website: form.website,
+          password: form.password.trim() || undefined,
           planId: form.planId,
           planBilling: form.planId === 'free' ? null : form.planBilling ?? 'monthly',
           planStartedAt: monthlyDate,

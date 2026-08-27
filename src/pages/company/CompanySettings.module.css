@@ -1087,6 +1087,12 @@ input:disabled {
   font-weight: 500;
 }
 
+.lockedField {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .mapNameField input {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);

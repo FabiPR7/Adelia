@@ -2,6 +2,11 @@ export const COMPANY_PLANS_CONTACT_EMAIL = 'contacto@adeliareservas.com'
 
 export type CompanyPlanId = 'free' | 'basic' | 'premium' | 'premium_plus'
 
+export interface CompanyPlanSpec {
+  label: string
+  value: string
+}
+
 export interface CompanyPlan {
   id: CompanyPlanId
   name: string
@@ -14,6 +19,7 @@ export interface CompanyPlan {
   comingSoon?: boolean
   includesPrevious?: string
   chips: string[]
+  specs: CompanyPlanSpec[]
   features: string[]
   ctaLabel: string
 }
@@ -26,7 +32,13 @@ export const COMPANY_PLANS: CompanyPlan[] = [
     priceMonthly: 0,
     period: '',
     vatNote: 'Sin tarjeta · sin comisión por reserva',
-    chips: ['1 carta', 'Sin imágenes', 'Sin plano de sala'],
+    chips: ['1 carta', '8 mesas', 'Sin plano activo'],
+    specs: [
+      { label: 'Cartas', value: '1' },
+      { label: 'Mesas', value: '8' },
+      { label: 'Mapas', value: '—' },
+      { label: 'Promos', value: '—' },
+    ],
     features: [
       'Apareces en la web de Adelia: búsqueda y ficha pública del local',
       'Perfil: logo, hasta 5 fotos, descripción, características y mapa',
@@ -34,8 +46,8 @@ export const COMPANY_PLANS: CompanyPlan[] = [
       'Correos automáticos de solicitud y de confirmación (plantilla Adelia)',
       'Enlace público de reservas y código QR para la puerta',
       'Consulta y respuesta de reseñas de tus clientes',
-      '1 carta digital en lista, sin fotografías de platos',
-      'Mesas en listado: el cliente no elige mesa sobre un plano',
+      '1 carta digital en lista, sin fotografías de platos ni PDF',
+      'Hasta 8 mesas en listado: puedes dibujar un mapa, pero no activarlo',
     ],
     ctaLabel: 'Empezar con Mesa',
   },
@@ -47,15 +59,22 @@ export const COMPANY_PLANS: CompanyPlan[] = [
     period: '/mes',
     vatNote: '+ IVA · sin comisión por reserva',
     includesPrevious: 'Incluye todo Mesa',
-    chips: ['2 cartas', '12 mesas', 'Planos', 'Oferta y horario'],
+    chips: ['3 cartas', '15 mesas', '1 mapa', 'Excel', 'Fianzas'],
+    specs: [
+      { label: 'Cartas', value: '3' },
+      { label: 'Mesas', value: '15' },
+      { label: 'Mapas', value: '1' },
+      { label: 'Promos', value: '3 Oferta' },
+    ],
     features: [
-      'Hasta 12 mesas con planos de sala: el cliente elige mesa al reservar',
-      '2 cartas con fotografías, plantillas y diseño',
+      'Hasta 15 mesas y 1 mapa activo: el cliente elige mesa al reservar',
+      '3 cartas con fotografías y disposición en lista o cuadrícula',
+      'Importación Excel de productos de la carta',
       'QR de carta y de reservas con la imagen de tu local',
-      'Promociones Oferta (premio por número de reservas)',
-      'Promociones de tiempo limitado (solo en un horario, con usos máximos)',
+      'Hasta 3 promociones Oferta (premio por número de reservas)',
       'Ficha e historial de los clientes que te reservan',
-      'Informes, estadísticas y KPIs para entender tu negocio',
+      'Informes de reservas y de clientes',
+      'Fianzas de reserva para asegurar tu mesa',
       'Correos de confirmación con tu marca y un bloque de promoción',
     ],
     ctaLabel: 'Contratar Sala',
@@ -70,14 +89,21 @@ export const COMPANY_PLANS: CompanyPlan[] = [
     badge: 'Recomendado',
     highlighted: true,
     includesPrevious: 'Incluye todo Sala',
-    chips: ['Sin límite', '3 tipos de promo', 'Compite', 'Fianzas'],
+    chips: ['5 cartas', '50 mesas', '5 mapas', 'PDF y Excel', 'Compite'],
+    specs: [
+      { label: 'Cartas', value: '5' },
+      { label: 'Mesas', value: '50' },
+      { label: 'Mapas', value: '5' },
+      { label: 'Promos', value: '5 de cada tipo' },
+    ],
     features: [
-      'Mesas y planos de sala sin límite',
-      'Cartas ilimitadas, importación Excel y todas las plantillas',
-      'Promociones de asistencia puntual: llena con promociones momentáneas que tus más fieles podrán conseguir',
-      'Informes avanzados para entender en profundidad',
-      'Compite: gana visibilidad, descuentos y premios para tu restaurante',
-      'Fianzas de reserva para asegurar tu mesa',
+      'Hasta 50 mesas y 5 mapas activos: el cliente elige mesa al reservar',
+      'Hasta 5 cartas, digitales o en PDF, con fotos y todas las plantillas',
+      'Importación Excel de productos y carta en PDF',
+      'Hasta 5 promociones de cada tipo: Oferta, tiempo limitado y asistencia',
+      'Todos los informes: reservas, clientes, productos y reseñas',
+      'Compite: visibilidad, descuentos de la app y premios para el restaurante',
+      'Mayor visibilidad en el descubrimiento de Adelia',
       'Vídeos en el perfil público',
     ],
     ctaLabel: 'Contratar Local',
@@ -94,6 +120,7 @@ const LEGACY_CASA_PLAN: CompanyPlan = {
   vatNote: '+ IVA',
   includesPrevious: 'Incluye todo Local',
   chips: ['Varios locales'],
+  specs: [],
   features: [],
   ctaLabel: 'No disponible',
 }
@@ -153,7 +180,7 @@ export const COMPANY_PLAN_CAPABILITIES: CompanyPlanCapability[] = [
   {
     id: 'menus',
     label: 'Cartas digitales',
-    values: { free: 1, basic: 2, premium: 'unlimited', premium_plus: 'unlimited' },
+    values: { free: 1, basic: 3, premium: 5, premium_plus: 5 },
   },
   {
     id: 'menu_photos',
@@ -163,17 +190,27 @@ export const COMPANY_PLAN_CAPABILITIES: CompanyPlanCapability[] = [
   {
     id: 'excel',
     label: 'Importación Excel de la carta',
+    values: { free: false, basic: true, premium: true, premium_plus: true },
+  },
+  {
+    id: 'menu_pdf',
+    label: 'Carta en PDF',
     values: { free: false, basic: false, premium: true, premium_plus: true },
   },
   {
     id: 'tables',
     label: 'Mesas',
-    values: { free: 'list', basic: 12, premium: 'unlimited', premium_plus: 'unlimited' },
+    values: { free: 8, basic: 15, premium: 50, premium_plus: 50 },
   },
   {
     id: 'floor_plan',
     label: 'Planos de sala: el cliente elige mesa',
     values: { free: false, basic: true, premium: true, premium_plus: true },
+  },
+  {
+    id: 'active_maps',
+    label: 'Mapas activos al reservar',
+    values: { free: false, basic: 1, premium: 5, premium_plus: 5 },
   },
   {
     id: 'qr_branded',
@@ -183,12 +220,12 @@ export const COMPANY_PLAN_CAPABILITIES: CompanyPlanCapability[] = [
   {
     id: 'promos_offer',
     label: 'Promos Oferta (premio por número de reservas)',
-    values: { free: false, basic: true, premium: true, premium_plus: true },
+    values: { free: false, basic: 3, premium: 5, premium_plus: 5 },
   },
   {
     id: 'promos_limited',
     label: 'Promos de tiempo limitado',
-    values: { free: false, basic: true, premium: true, premium_plus: true },
+    values: { free: false, basic: false, premium: 5, premium_plus: 5 },
   },
   {
     id: 'clients',
@@ -208,7 +245,7 @@ export const COMPANY_PLAN_CAPABILITIES: CompanyPlanCapability[] = [
   {
     id: 'promos_attendance',
     label: 'Promos de asistencia puntual',
-    values: { free: false, basic: false, premium: true, premium_plus: true },
+    values: { free: false, basic: false, premium: 5, premium_plus: 5 },
   },
   {
     id: 'reports_advanced',
@@ -223,7 +260,7 @@ export const COMPANY_PLAN_CAPABILITIES: CompanyPlanCapability[] = [
   {
     id: 'deposits',
     label: 'Fianzas de reserva',
-    values: { free: false, basic: false, premium: true, premium_plus: true },
+    values: { free: false, basic: true, premium: true, premium_plus: true },
   },
   {
     id: 'videos',
@@ -242,8 +279,8 @@ export const COMPANY_PLAN_CAPABILITIES: CompanyPlanCapability[] = [
   },
   {
     id: 'featured',
-    label: 'Destacado en el descubrimiento de Adelia',
-    values: { free: false, basic: false, premium: false, premium_plus: true },
+    label: 'Mayor visibilidad en el descubrimiento de Adelia',
+    values: { free: false, basic: false, premium: true, premium_plus: true },
   },
   {
     id: 'priority',
@@ -532,6 +569,14 @@ export function formatCompanyPlanPrice(plan: CompanyPlan): string {
   return `${plan.priceMonthly} €${plan.period}`
 }
 
+export function formatCompanyPlanChoiceLabel(plan: Pick<CompanyPlan, 'name' | 'priceMonthly'>): string {
+  if (plan.priceMonthly === 0) {
+    return `${plan.name} · Gratis`
+  }
+
+  return `${plan.name} · ${plan.priceMonthly} €/mes`
+}
+
 function capRank(value: CompanyPlanCapValue): number {
   if (value === false) {
     return 0
@@ -577,6 +622,18 @@ export function formatPlanCapValue(capability: CompanyPlanCapability, planId: Co
 
   if (capability.id === 'tables') {
     return `Hasta ${value} mesas`
+  }
+
+  if (
+    capability.id === 'promos_offer'
+    || capability.id === 'promos_limited'
+    || capability.id === 'promos_attendance'
+  ) {
+    return value === 1 ? '1 de este tipo' : `Hasta ${value} de este tipo`
+  }
+
+  if (capability.id === 'active_maps') {
+    return value === 1 ? '1 mapa activo' : `Hasta ${value} mapas activos`
   }
 
   return String(value)
@@ -625,6 +682,151 @@ export function compareCompanyPlans(fromId: CompanyPlanId, toId: CompanyPlanId):
     direction: toIndex > fromIndex ? 'upgrade' : toIndex < fromIndex ? 'downgrade' : 'same',
     gained,
     lost,
+  }
+}
+
+export type CompanyPlanChangeKind =
+  | 'none'
+  | 'start_paid'
+  | 'upgrade_now'
+  | 'downgrade_later'
+  | 'cancel_later'
+
+export interface CompanyPlanChangePreview {
+  kind: CompanyPlanChangeKind
+  fromId: CompanyPlanId
+  toId: CompanyPlanId
+  fromPlan: CompanyPlan
+  toPlan: CompanyPlan
+  comparison: CompanyPlanComparison
+  /** Diferencia de tarifa mensual en euros (Sala→Local = 20). */
+  monthlyDelta: number
+  chargeNowMonthly: number
+}
+
+export function previewCompanyPlanChange(
+  fromId: CompanyPlanId,
+  toId: CompanyPlanId,
+): CompanyPlanChangePreview {
+  const fromPlan = getCompanyPlan(fromId)
+  const toPlan = getCompanyPlan(toId)
+  const comparison = compareCompanyPlans(fromId, toId)
+  const monthlyDelta = Math.abs(toPlan.priceMonthly - fromPlan.priceMonthly)
+
+  if (comparison.direction === 'same') {
+    return {
+      kind: 'none',
+      fromId,
+      toId,
+      fromPlan,
+      toPlan,
+      comparison,
+      monthlyDelta: 0,
+      chargeNowMonthly: 0,
+    }
+  }
+
+  if (fromPlan.priceMonthly === 0 && toPlan.priceMonthly > 0) {
+    return {
+      kind: 'start_paid',
+      fromId,
+      toId,
+      fromPlan,
+      toPlan,
+      comparison,
+      monthlyDelta,
+      chargeNowMonthly: toPlan.priceMonthly,
+    }
+  }
+
+  if (toPlan.priceMonthly === 0) {
+    return {
+      kind: 'cancel_later',
+      fromId,
+      toId,
+      fromPlan,
+      toPlan,
+      comparison,
+      monthlyDelta,
+      chargeNowMonthly: 0,
+    }
+  }
+
+  if (toPlan.priceMonthly > fromPlan.priceMonthly) {
+    return {
+      kind: 'upgrade_now',
+      fromId,
+      toId,
+      fromPlan,
+      toPlan,
+      comparison,
+      monthlyDelta,
+      chargeNowMonthly: monthlyDelta,
+    }
+  }
+
+  return {
+    kind: 'downgrade_later',
+    fromId,
+    toId,
+    fromPlan,
+    toPlan,
+    comparison,
+    monthlyDelta,
+    chargeNowMonthly: 0,
+  }
+}
+
+export function formatPlanChangePeriodEnd(date: Date | null): string {
+  if (!date) {
+    return 'el final del periodo pagado'
+  }
+
+  return formatCompanyPlanStartedAt(date)
+}
+
+export function companyPlanChangeBillingCopy(
+  preview: CompanyPlanChangePreview,
+  periodEnd: Date | null,
+): { title: string; charge: string; next: string } {
+  const until = formatPlanChangePeriodEnd(periodEnd)
+
+  if (preview.kind === 'start_paid') {
+    return {
+      title: `Activar ${preview.toPlan.name}`,
+      charge: `Empiezas a pagar ${formatCompanyPlanPrice(preview.toPlan)} ahora. Las ventajas de ${preview.toPlan.name} se encienden al confirmar el pago.`,
+      next: `A partir de hoy, cada mes se cobra ${preview.toPlan.priceMonthly} €.`,
+    }
+  }
+
+  if (preview.kind === 'upgrade_now') {
+    return {
+      title: `Pasar a ${preview.toPlan.name}`,
+      charge: `Hoy Stripe cobra la diferencia (${preview.monthlyDelta} €), ajustada a los días que quedan de este mes. Las ventajas de ${preview.toPlan.name} se activan al instante.`,
+      next: `En la siguiente renovación pasarás a pagar ${preview.toPlan.priceMonthly} €/mes.`,
+    }
+  }
+
+  if (preview.kind === 'downgrade_later') {
+    return {
+      title: `Bajar a ${preview.toPlan.name}`,
+      charge: `Hoy no se cobra nada. Sigues con ${preview.fromPlan.name} y todas sus ventajas hasta ${until}.`,
+      next: `Ese día pasas a ${preview.toPlan.name} y el siguiente cobro será ${preview.toPlan.priceMonthly} €.`,
+    }
+  }
+
+  if (preview.kind === 'cancel_later') {
+    return {
+      title: 'Pasar a Mesa',
+      charge: `Dejamos de cobrarte. Sigues con ${preview.fromPlan.name} hasta ${until}.`,
+      next: `Ese día pasas a Mesa (gratis) y no hay más cargos.`,
+    }
+  }
+
+  return {
+    title: `Sigues en ${preview.fromPlan.name}`,
+    charge: 'No hay ningún cambio de plan.',
+    next: '',
   }
 }
 

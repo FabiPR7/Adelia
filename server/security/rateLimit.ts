@@ -121,7 +121,7 @@ function bucketFor(req: Request): {
     || url.startsWith('/api/auth/change-initial-password')
     || url.startsWith('/api/auth/complete-initial-password-change')
   ) {
-    return { name: 'auth', max: 5, windowMs: 15 * 60_000, key: clientKey(req), distributed: true }
+    return { name: 'auth', max: 20, windowMs: 15 * 60_000, key: clientKey(req), distributed: true }
   }
 
   if (url.startsWith('/api/auth/customer/bootstrap')) {
@@ -136,6 +136,7 @@ function bucketFor(req: Request): {
       || url.includes('/public/booking/cancel')
       || url.startsWith('/api/public/billing/checkout')
       || url.startsWith('/api/public/billing/complete-signup')
+      || url.startsWith('/api/public/billing/complete-free-signup')
     )
   ) {
     return { name: 'publicWrite', max: 8, windowMs: 60_000, key: clientKey(req), distributed: true }
@@ -174,8 +175,9 @@ export async function apiRateLimit(req: Request, res: Response, next: NextFuncti
   }
 
   const store = storeFor(bucket.name)
+  const retryAfter = String(Math.ceil(bucket.windowMs / 1000))
   if (!take(store, bucket.key, bucket.max, bucket.windowMs)) {
-    res.setHeader('Retry-After', '60')
+    res.setHeader('Retry-After', retryAfter)
     res.status(429).json({ error: 'Demasiadas peticiones. Espera un momento.' })
     return
   }
@@ -183,7 +185,7 @@ export async function apiRateLimit(req: Request, res: Response, next: NextFuncti
   if (bucket.distributed) {
     const allowed = await takeDistributed(bucket.name, bucket.key, bucket.max, bucket.windowMs)
     if (!allowed) {
-      res.setHeader('Retry-After', '60')
+      res.setHeader('Retry-After', retryAfter)
       res.status(429).json({ error: 'Demasiadas peticiones. Espera un momento.' })
       return
     }

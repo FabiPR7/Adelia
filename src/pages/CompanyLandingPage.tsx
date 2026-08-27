@@ -437,8 +437,8 @@ function CompanyLandingPage() {
           <p className={styles.eyebrow}>Empieza hoy</p>
           <h2>Tu restaurante merece llenarse</h2>
           <p>
-            Elige tu plan y te activamos la cuenta. Configuras mesas, perfil y promos
-            en una tarde. Tus clientes reservan desde el mismo día.
+            Elige Mesa (gratis), Sala (39 €/mes) o Local (59 €/mes). Configuras mesas, perfil y
+            promos en una tarde. Tus clientes reservan desde el mismo día.
           </p>
           <div className={styles.ctaActions}>
             <Link to="/empresa/planes" className={styles.ctaPrimary}>

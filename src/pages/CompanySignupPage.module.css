@@ -96,6 +96,24 @@
   text-transform: uppercase;
 }
 
+.limitNote {
+  position: relative;
+  z-index: 1;
+  max-width: 920px;
+  margin: 0.85rem auto 0;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: rgba(255, 244, 228, 0.95);
+  border: 1px solid rgba(176, 122, 48, 0.28);
+  color: #5c4318;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.limitNote strong {
+  font-weight: 800;
+}
+
 .progress {
   max-width: 920px;
   margin: 0.65rem auto 0;

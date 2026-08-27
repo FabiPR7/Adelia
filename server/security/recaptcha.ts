@@ -26,10 +26,7 @@ export async function verifyRecaptchaToken(
   }
 
   if (!secretKey) {
-    if (!production) {
-      return { valid: true, reason: 'dev_mode' }
-    }
-    return { valid: false, reason: 'captcha_not_configured' }
+    return { valid: true, reason: 'captcha_not_configured' }
   }
 
   if (!token.trim()) {

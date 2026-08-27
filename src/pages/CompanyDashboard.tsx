@@ -21,7 +21,14 @@ import type { CompanySettingsHandle } from './company/CompanySettings'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import CompanyNotificationsBell from '../components/CompanyNotificationsBell'
+import { LockedControl, PlanLockedPanel } from '../components/PlanLockHint'
 import LegalLinks from '../components/LegalLinks'
+import { parseCompanyPlanId } from '../data/companyPlans'
+import {
+  lockedCapabilityForTab,
+  lockedTabFeatureLabel,
+  planAllowsCompite,
+} from '../data/companyPlanLimits'
 import { syncCompanyGamification } from '../services/companyGamification'
 import styles from './CompanyDashboard.module.css'
 
@@ -116,7 +123,7 @@ function SidebarNavGroup({ label, hint, open, active, onToggle, children }: Side
   )
 }
 
-function CompanyDashboard() {
+function CompanyDashboard({ demo = false }: { demo?: boolean }) {
   const { company } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<CompanyTab>('reservations')
@@ -131,13 +138,16 @@ function CompanyDashboard() {
   const settingsRef = useRef<CompanySettingsHandle>(null)
 
   useEffect(() => {
-    if (!company?.id || !isCompiteTab(activeTab)) {
+    if (demo || !company?.id || !isCompiteTab(activeTab)) {
       return
     }
     void syncCompanyGamification().catch(() => undefined)
-  }, [activeTab, company?.id])
+  }, [activeTab, company?.id, demo])
 
   useEffect(() => {
+    if (demo) {
+      return
+    }
     const tab = searchParams.get('tab')
     const knownTabs = new Set<string>([
       'reservation-settings',
@@ -167,7 +177,7 @@ function CompanyDashboard() {
       next.delete('stripe')
       setSearchParams(next, { replace: true })
     }
-  }, [searchParams, setSearchParams])
+  }, [demo, searchParams, setSearchParams])
 
   const handleLogout = async () => {
     await logout()
@@ -196,7 +206,7 @@ function CompanyDashboard() {
       return
     }
 
-    if (isSettingsEditorTab(activeTab) && settingsRef.current?.isSectionDirty(activeTab)) {
+    if (!demo && isSettingsEditorTab(activeTab) && settingsRef.current?.isSectionDirty(activeTab)) {
       setPendingTab(tab)
       setUnsavedSection(activeTab)
       setUnsavedDialogOpen(true)
@@ -255,6 +265,8 @@ function CompanyDashboard() {
   const logoSrc = company.logoUrl
     ? optimizeCloudinaryUrl(company.logoUrl, CLOUDINARY_DISPLAY.logo)
     : ADELIA_LOGO_URL
+  const planId = parseCompanyPlanId(company.planId)
+  const goToPlan = () => attemptNavigate('plan')
   const inMenu = activeTab === 'menu'
   const inPlan = activeTab === 'plan'
   const inSettingsEditor = isSettingsEditorTab(activeTab)
@@ -264,9 +276,64 @@ function CompanyDashboard() {
   const settingsSection = inSettingsEditor ? activeTab : lastSettingsSection
   const unsavedSectionLabel =
     SETTINGS_SECTIONS.find((section) => section.id === unsavedSection)?.label ?? 'Ajustes'
+  const lockedTabCap = lockedCapabilityForTab(activeTab, planId)
+  const compiteLocked = !planAllowsCompite(planId)
+
+  const renderSubNav = (section: { id: CompanyTab; label: string; hint: string }) => {
+    const lockCap = lockedCapabilityForTab(section.id, planId)
+    const button = (
+      <button
+        key={section.id}
+        type="button"
+        className={`${styles.navSubItem} ${activeTab === section.id ? styles.navSubItemActive : ''}`}
+        onClick={() => attemptNavigate(section.id)}
+      >
+        <span className={styles.navSubLabel}>{section.label}</span>
+        <span className={styles.navHint}>{section.hint}</span>
+      </button>
+    )
+
+    if (!lockCap) {
+      return button
+    }
+
+    return (
+      <LockedControl
+        key={section.id}
+        locked
+        variant="nav"
+        feature={lockedTabFeatureLabel(section.id)}
+        capabilityId={lockCap}
+        onUpgrade={goToPlan}
+      >
+        {button}
+      </LockedControl>
+    )
+  }
+
+  const renderCompiteBell = () =>
+    compiteLocked ? (
+      <LockedControl
+        locked
+        feature="Compite"
+        capabilityId="compite"
+        onUpgrade={goToPlan}
+      >
+        <span>
+          <span style={{ pointerEvents: 'none' }}>
+            <CompanyNotificationsBell onOpen={() => undefined} />
+          </span>
+        </span>
+      </LockedControl>
+    ) : (
+      <CompanyNotificationsBell onOpen={() => attemptNavigate('compite-notifications')} />
+    )
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${demo ? styles.pageDemo : ''}`}>
+      {demo ? (
+        <p className={styles.demoRibbon}>Vista de ejemplo · puedes navegar, no se guarda nada</p>
+      ) : null}
       {sidebarOpen && (
         <button
           type="button"
@@ -283,7 +350,7 @@ function CompanyDashboard() {
             <h1>{company.name}</h1>
             <p>{company.location || 'Sin dirección'}</p>
           </div>
-          <CompanyNotificationsBell onOpen={() => attemptNavigate('compite-notifications')} />
+          {renderCompiteBell()}
           <button
             type="button"
             className={styles.sidebarClose}
@@ -311,19 +378,7 @@ function CompanyDashboard() {
             active={inClients}
             onToggle={() => toggleGroup('clients')}
           >
-            {CLIENTS_SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                className={`${styles.navSubItem} ${
-                  activeTab === section.id ? styles.navSubItemActive : ''
-                }`}
-                onClick={() => attemptNavigate(section.id)}
-              >
-                <span className={styles.navSubLabel}>{section.label}</span>
-                <span className={styles.navHint}>{section.hint}</span>
-              </button>
-            ))}
+            {CLIENTS_SECTIONS.map((section) => renderSubNav(section))}
           </SidebarNavGroup>
 
           <SidebarNavGroup
@@ -333,19 +388,7 @@ function CompanyDashboard() {
             active={inReports}
             onToggle={() => toggleGroup('reports')}
           >
-            {REPORTS_SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                className={`${styles.navSubItem} ${
-                  activeTab === section.id ? styles.navSubItemActive : ''
-                }`}
-                onClick={() => attemptNavigate(section.id)}
-              >
-                <span className={styles.navSubLabel}>{section.label}</span>
-                <span className={styles.navHint}>{section.hint}</span>
-              </button>
-            ))}
+            {REPORTS_SECTIONS.map((section) => renderSubNav(section))}
           </SidebarNavGroup>
 
           <SidebarNavGroup
@@ -377,19 +420,7 @@ function CompanyDashboard() {
             active={inCompite}
             onToggle={() => toggleGroup('compite')}
           >
-            {COMPITE_SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                className={`${styles.navSubItem} ${
-                  activeTab === section.id ? styles.navSubItemActive : ''
-                }`}
-                onClick={() => attemptNavigate(section.id)}
-              >
-                <span className={styles.navSubLabel}>{section.label}</span>
-                <span className={styles.navHint}>{section.hint}</span>
-              </button>
-            ))}
+            {COMPITE_SECTIONS.map((section) => renderSubNav(section))}
           </SidebarNavGroup>
 
           <button
@@ -403,14 +434,16 @@ function CompanyDashboard() {
         </nav>
 
         <div className={styles.sidebarFooter}>
-          <LegalLinks variant="sidebar" from="/panel" />
+          <LegalLinks variant="sidebar" from={demo ? '/empresa/planes' : '/panel'} />
           <div className={styles.meta}>
             <span>{company.phone || '—'}</span>
             <span>{company.contactEmail || company.website || '—'}</span>
           </div>
-          <button type="button" className={styles.logoutButton} onClick={() => setLogoutConfirmOpen(true)}>
-            Cerrar sesión
-          </button>
+          {demo ? null : (
+            <button type="button" className={styles.logoutButton} onClick={() => setLogoutConfirmOpen(true)}>
+              Cerrar sesión
+            </button>
+          )}
         </div>
       </aside>
 
@@ -434,10 +467,10 @@ function CompanyDashboard() {
               <span>{settingsSectionLabel(activeTab)}</span>
             </div>
           </div>
-          <CompanyNotificationsBell onOpen={() => attemptNavigate('compite-notifications')} />
+          {renderCompiteBell()}
         </header>
 
-        <main className={styles.main}>
+        <main className={`${styles.main} ${demo ? styles.demoReadOnly : ''}`}>
           <Suspense
             fallback={
               <div className={styles.pageLoading}>
@@ -445,27 +478,37 @@ function CompanyDashboard() {
               </div>
             }
           >
-            {activeTab === 'reservations' ? <CompanyReservations companyId={company.id} /> : null}
-            {activeTab === 'clients-reservations' ? <CompanyClients companyId={company.id} /> : null}
-            {activeTab === 'clients-promotions' ? <CompanyPromotions companyId={company.id} /> : null}
-            {activeTab === 'clients-reviews' ? <CompanyReviews companyId={company.id} /> : null}
-            {activeTab === 'clients-email-received' ? <CompanyEmailTemplate kind="received" /> : null}
-            {activeTab === 'clients-email-confirmation' ? <CompanyEmailTemplate kind="confirmation" /> : null}
-            {activeTab === 'reports-reservations' ? <CompanyReportsReservations companyId={company.id} /> : null}
-            {activeTab === 'reports-clients' ? <CompanyReportsClients companyId={company.id} /> : null}
-            {activeTab === 'reports-products' ? <CompanyReportsProducts companyId={company.id} /> : null}
-            {activeTab === 'reports-reviews' ? <CompanyReportsReviews companyId={company.id} /> : null}
-            {activeTab === 'compite-notifications' ? (
-              <CompanyCompiteNotifications onOpenTab={attemptNavigate} />
-            ) : null}
-            {activeTab === 'compite-missions' ? <CompanyCompiteMissions /> : null}
-            {activeTab === 'compite-ranking' ? <CompanyCompiteRanking /> : null}
-            {activeTab === 'help' ? <CompanyHelp /> : null}
-            {inMenu ? <CompanyMenu companyId={company.id} /> : null}
-            {inPlan ? <CompanyPlan /> : null}
-            {inSettingsEditor ? (
-              <CompanySettings ref={settingsRef} activeSection={settingsSection} />
-            ) : null}
+            {lockedTabCap ? (
+              <PlanLockedPanel
+                feature={lockedTabFeatureLabel(activeTab)}
+                capabilityId={lockedTabCap}
+                onUpgrade={goToPlan}
+              />
+            ) : (
+              <>
+                {activeTab === 'reservations' ? <CompanyReservations companyId={company.id} /> : null}
+                {activeTab === 'clients-reservations' ? <CompanyClients companyId={company.id} /> : null}
+                {activeTab === 'clients-promotions' ? <CompanyPromotions companyId={company.id} /> : null}
+                {activeTab === 'clients-reviews' ? <CompanyReviews companyId={company.id} /> : null}
+                {activeTab === 'clients-email-received' ? <CompanyEmailTemplate kind="received" /> : null}
+                {activeTab === 'clients-email-confirmation' ? <CompanyEmailTemplate kind="confirmation" /> : null}
+                {activeTab === 'reports-reservations' ? <CompanyReportsReservations companyId={company.id} /> : null}
+                {activeTab === 'reports-clients' ? <CompanyReportsClients companyId={company.id} /> : null}
+                {activeTab === 'reports-products' ? <CompanyReportsProducts companyId={company.id} /> : null}
+                {activeTab === 'reports-reviews' ? <CompanyReportsReviews companyId={company.id} /> : null}
+                {activeTab === 'compite-notifications' ? (
+                  <CompanyCompiteNotifications onOpenTab={attemptNavigate} />
+                ) : null}
+                {activeTab === 'compite-missions' ? <CompanyCompiteMissions /> : null}
+                {activeTab === 'compite-ranking' ? <CompanyCompiteRanking /> : null}
+                {activeTab === 'help' ? <CompanyHelp /> : null}
+                {inMenu ? <CompanyMenu companyId={company.id} /> : null}
+                {inPlan ? <CompanyPlan /> : null}
+                {inSettingsEditor ? (
+                  <CompanySettings ref={settingsRef} activeSection={settingsSection} />
+                ) : null}
+              </>
+            )}
           </Suspense>
         </main>
       </div>
@@ -479,6 +522,7 @@ function CompanyDashboard() {
         onSave={() => void handleSaveUnsavedChanges()}
       />
 
+      {demo ? null : (
       <ConfirmDialog
         isOpen={logoutConfirmOpen}
         title="Cerrar sesión"
@@ -487,6 +531,7 @@ function CompanyDashboard() {
         onConfirm={() => void handleLogout()}
         onCancel={() => setLogoutConfirmOpen(false)}
       />
+      )}
     </div>
   )
 }

@@ -14,7 +14,7 @@ import { loadGameCatalog } from '../services/gameCatalog'
 import { resolveMustChangePassword } from '../utils/authProfile'
 import type { AppUser, Company } from '../types'
 
-interface AuthContextValue {
+export interface AuthContextValue {
   user: User | null
   profile: AppUser | null
   company: Company | null
@@ -26,7 +26,7 @@ interface AuthContextValue {
   patchProfileFavorites: (favoriteSlugs: string[]) => void
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+export const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)

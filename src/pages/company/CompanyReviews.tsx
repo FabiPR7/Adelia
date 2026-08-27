@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import AdelinaCoin from '../../components/AdelinaCoin'
 import ReviewCommentBody from '../../components/ReviewCommentBody'
 import { useAuth } from '../../context/AuthContext'
+import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import { getCompanyReviews, submitCompanyReviewReply } from '../../services/companyReviews'
 import { getFirestoreErrorMessage } from '../../services/firestore'
 import type { AdelinaSlotState, CompanyReview, CompanyReviewOwnerReply } from '../../types/review'
@@ -84,6 +85,7 @@ interface ReviewCardProps {
 }
 
 function ReviewCard({ review, companyId, companyName, companySlug, onReplySaved }: ReviewCardProps) {
+  const demo = useCompanyDemo()
   const authorName = review.customerName.trim() || 'Cliente'
   const tagCount = review.taggedProducts.length + review.taggedPromotions.length
   const ratingSlots = getAdelinaSlotStates(review.rating, 1)
@@ -224,6 +226,7 @@ function ReviewCard({ review, companyId, companyName, companySlug, onReplySaved 
               ) : null}
             </div>
             <p className={styles.replyText}>{review.ownerReply?.text}</p>
+            {demo ? null : (
             <button
               type="button"
               className={styles.replyEditButton}
@@ -231,10 +234,11 @@ function ReviewCard({ review, companyId, companyName, companySlug, onReplySaved 
             >
               Editar respuesta
             </button>
+            )}
           </div>
         ) : null}
 
-        {!hasReply && !replyOpen ? (
+        {!demo && !hasReply && !replyOpen ? (
           <button
             type="button"
             className={styles.replyActionButton}

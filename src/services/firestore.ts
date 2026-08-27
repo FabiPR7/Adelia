@@ -47,6 +47,14 @@ import {
   computeReservationCountsByMonth as computeReservationCountsByMonthUtil,
 } from '../utils/reservationSlots'
 import { combineDateAndTime, dateToIsoDate, defaultSchedule, generateUuid, isSameDay, slugToAuthEmail, slugify } from '../utils/helpers'
+import {
+  filterDemoReservations,
+  getDemoCompany,
+  getDemoTables,
+  getDemoVerifiedConsumptions,
+  isDemoCompanyId,
+  rejectIfDemoCompanyWrite,
+} from '../data/companyPanelDemo'
 import { MAX_COMPANY_CHARACTERISTICS } from '../data/companyCharacteristics'
 import { parseCompanyReservationMode } from '../data/companyReservationMode'
 import { parseCompanyProfileFacilities } from '../data/companyProfileFacilities'
@@ -108,6 +116,12 @@ export async function resolveLoginAuthEmail(username: string, password: string):
   })
 
   if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error('Demasiados intentos. Espera unos minutos e inténtalo de nuevo.')
+    }
+    if (response.status === 503) {
+      throw new Error('Inicio de sesión no disponible ahora mismo.')
+    }
     throw new Error('Nombre o contraseña incorrectos.')
   }
 
@@ -861,6 +875,10 @@ export async function getCompanyById(
   id: string,
   options?: { includePrivateOps?: boolean },
 ): Promise<Company | null> {
+  if (isDemoCompanyId(id)) {
+    return getDemoCompany()
+  }
+
   const snapshot = await getDoc(doc(db, 'companies', id))
 
   if (!snapshot.exists()) {
@@ -997,6 +1015,14 @@ export async function getReservationsByCompany(
   companyId: string,
   options?: CompanyReservationQuery,
 ): Promise<Reservation[]> {
+  if (isDemoCompanyId(companyId)) {
+    return filterDemoReservations({
+      from: options?.from,
+      to: options?.to,
+      clientEmail: options?.clientEmail,
+    })
+  }
+
   const fromMs = options?.from?.getTime() ?? 0
   const toMs = options?.to?.getTime() ?? 0
   const emailKey = options?.clientEmail?.trim().toLowerCase() ?? ''
@@ -1051,6 +1077,10 @@ export async function getReservationsByCompany(
 export async function getVerifiedConsumptionsByCompany(
   companyId: string,
 ): Promise<VerifiedConsumptionRecord[]> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoVerifiedConsumptions()
+  }
+
   const snapshot = await getDocs(
     query(
       collection(db, 'companies', companyId, 'verifiedConsumptions'),
@@ -1195,6 +1225,7 @@ export async function createReservation(
   schedule: Company['schedule'],
   cachedDayReservations?: Reservation[],
 ): Promise<Reservation> {
+  rejectIfDemoCompanyWrite(companyId)
   const bookingStatus: Reservation['status'] = 'completed'
   const dayReservations =
     cachedDayReservations ?? (await getReservationsForDate(companyId, date))
@@ -1282,6 +1313,7 @@ export async function updateReservation(
   schedule: Company['schedule'],
   cachedDayReservations?: Reservation[],
 ): Promise<Reservation> {
+  rejectIfDemoCompanyWrite(companyId)
   const dayReservations =
     cachedDayReservations ?? (await getReservationsForDate(companyId, date))
 
@@ -1335,6 +1367,7 @@ export async function updateReservationStatus(
   status: 'confirmed' | 'cancelled',
   options?: { promotionVisitStatus?: PromotionVisitStatus },
 ): Promise<void> {
+  rejectIfDemoCompanyWrite()
   const update: Record<string, unknown> = { status }
 
   if (status === 'cancelled') {
@@ -1362,10 +1395,12 @@ export async function updateReservationPromotionVisitStatus(
   reservationId: string,
   promotionVisitStatus: PromotionVisitStatus,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite()
   await updateDoc(doc(db, 'reservations', reservationId), { promotionVisitStatus })
 }
 
 export async function deleteReservation(reservationId: string): Promise<void> {
+  rejectIfDemoCompanyWrite()
   await deleteDoc(doc(db, 'reservations', reservationId))
   invalidateCompanyReservationCache()
 }
@@ -1393,6 +1428,10 @@ export async function getTableNamesByCompany(
 }
 
 export async function getTablesByCompany(companyId: string): Promise<RestaurantTable[]> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoTables()
+  }
+
   const snapshot = await getDocs(
     query(collection(db, 'tables'), where('companyId', '==', companyId), limit(COMPANY_TABLE_LIMIT)),
   )
@@ -1421,6 +1460,7 @@ export async function updateCompanySettings(
   companyId: string,
   payload: CompanySettingsPayload,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const normalizedPayload = normalizeCompanySettingsPayload(payload)
 
   const trimmedName = normalizedPayload.name.trim()
@@ -1498,6 +1538,7 @@ export async function updateCompanyEmailTemplates(
   companyId: string,
   templates: CompanyEmailTemplates,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const normalized = normalizeCompanyEmailTemplates(templates)
   const payload = {
     emailTemplates: normalized,
@@ -1518,6 +1559,7 @@ export async function updateCompanyFloorPlans(
   companyId: string,
   floorPlans: import('../types/company').FloorPlan[],
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const plans = floorPlans.length > 0 ? floorPlans : [parseFloorPlan(undefined)]
   await updateDoc(doc(db, 'companies', companyId), {
     floorPlan: serializeFloorPlanForFirestore(primaryFloorPlan(plans)),
@@ -1531,6 +1573,7 @@ export async function updateCompanyQrBranding(
   kind: QrBrandingKind,
   config: QrBrandingConfig,
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const companySnap = await getDoc(doc(db, 'companies', companyId))
   const currentBranding = parseCompanyQrBranding(companySnap.data()?.qrBranding)
   const normalizedConfig = normalizeQrBrandingConfig(config)
@@ -1548,6 +1591,7 @@ export async function replaceCompanyTables(
   companyId: string,
   tables: TableInput[],
 ): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
   const existing = await getDocs(
     query(collection(db, 'tables'), where('companyId', '==', companyId), limit(COMPANY_TABLE_LIMIT)),
   )
@@ -1639,6 +1683,8 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
         planBilling: parseCompanyPlanBilling(data.planBilling, planId),
         planStartedAt: planId === 'free' ? null : parseCompanyPlanStartedAt(data.planStartedAt),
         planLastPaidAt: planId === 'free' ? null : parseCompanyPlanStartedAt(data.planLastPaidAt),
+        pendingPlanId: data.pendingPlanId ? parseCompanyPlanId(data.pendingPlanId) : null,
+        pendingPlanAt: parseCompanyPlanStartedAt(data.pendingPlanAt),
         discoveryFeatured: data.discoveryFeatured === true,
       }
     })(),

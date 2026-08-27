@@ -9,6 +9,11 @@ import {
   normalizePromotionPinCode,
   validatePromotionPinCode,
 } from '../utils/promotionPin'
+import {
+  getDemoPinSettings,
+  isDemoCompanyId,
+  rejectIfDemoCompanyWrite,
+} from '../data/companyPanelDemo'
 
 export interface PromotionPinSaveInput {
   code: string
@@ -53,6 +58,10 @@ async function persistPromotionPin(
 }
 
 export async function getPromotionPinSettings(companyId: string): Promise<PromotionPinSettings> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoPinSettings()
+  }
+
   const companyRef = doc(db, 'companies', companyId)
   const privateRef = doc(db, 'companies', companyId, 'private', 'promotionPin')
   const [privateSnapshot, companySnapshot] = await Promise.all([
@@ -85,6 +94,7 @@ export async function savePromotionPinSettings(
   input: PromotionPinSaveInput,
   options?: { regenerate?: boolean },
 ): Promise<PromotionPinSettings> {
+  rejectIfDemoCompanyWrite(companyId)
   const code = options?.regenerate
     ? generatePromotionPinCode()
     : normalizePromotionPinCode(input.code)

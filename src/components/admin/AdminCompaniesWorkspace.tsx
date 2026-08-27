@@ -3,6 +3,7 @@ import type { AdminCompany } from '../../types'
 import {
   COMPANY_PLANS,
   dateToInputValue,
+  formatCompanyPlanChoiceLabel,
   formatCompanyPlanStartedAt,
   isAllowedMonthlyBillingDate,
   monthlyChargeLabel,
@@ -315,7 +316,7 @@ function AdminCompaniesWorkspace({
                 className={planFilter === plan.id ? styles.planFilterOn : ''}
                 onClick={() => setPlanFilter(plan.id)}
               >
-                {plan.name}
+                {plan.priceMonthly === 0 ? `${plan.name} · Gratis` : `${plan.name} · ${plan.priceMonthly}€`}
               </button>
             ))}
           </div>
@@ -451,7 +452,10 @@ function AdminCompaniesWorkspace({
 
               <fieldset className={styles.fieldset}>
                 <legend>Plan en Adelia</legend>
-                <p className={styles.hint}>El restaurante no puede cambiar esto. Solo lo asignas tú.</p>
+                <p className={styles.hint}>
+                  Puedes asignar Mesa (gratis), Sala (39 €/mes) o Local (59 €/mes) cuando quieras.
+                  Al guardar se aplican los límites de ese plan. El restaurante no puede cambiar esto.
+                </p>
                 <label>
                   Plan
                   <select
@@ -460,11 +464,11 @@ function AdminCompaniesWorkspace({
                   >
                     {COMPANY_PLANS.map((plan) => (
                       <option key={plan.id} value={plan.id}>
-                        {plan.name}
+                        {formatCompanyPlanChoiceLabel(plan)}
                       </option>
                     ))}
                     {form.planId === 'premium_plus' ? (
-                      <option value="premium_plus">Casa (retirado)</option>
+                      <option value="premium_plus">Casa · 79 €/mes (retirado)</option>
                     ) : null}
                   </select>
                 </label>

@@ -13,6 +13,8 @@ import {
   parseCompanyPlanId,
   parseCompanyPlanStartedAt,
   parseDateInput,
+  previewCompanyPlanChange,
+  companyPlanChangeBillingCopy,
 } from '../companyPlans'
 
 describe('companyPlans', () => {
@@ -50,6 +52,7 @@ describe('companyPlans', () => {
     expect(comparison.lost).toHaveLength(0)
     expect(comparison.gained.some((item) => item.id === 'floor_plan')).toBe(true)
     expect(comparison.gained.some((item) => item.id === 'menu_photos')).toBe(true)
+    expect(comparison.gained.some((item) => item.id === 'excel')).toBe(true)
   })
 
   it('shows losses when downgrading Local to Mesa', () => {
@@ -187,6 +190,32 @@ describe('companyPlans', () => {
     const from = parseDateInput('2026-08-21') as Date
     expect(dateToInputValue(nextMonthlyChargeDate(startedAt, from))).toBe('2026-09-01')
     expect(monthlyChargeState({ startedAt, lastPaidAt: null, from })).toBe('future')
+  })
+
+  it('charges the 20 € difference when upgrading Sala to Local', () => {
+    const preview = previewCompanyPlanChange('basic', 'premium')
+    expect(preview.kind).toBe('upgrade_now')
+    expect(preview.monthlyDelta).toBe(20)
+    expect(preview.chargeNowMonthly).toBe(20)
+  })
+
+  it('keeps Local until period end when downgrading to Sala', () => {
+    const preview = previewCompanyPlanChange('premium', 'basic')
+    expect(preview.kind).toBe('downgrade_later')
+    expect(preview.chargeNowMonthly).toBe(0)
+    expect(companyPlanChangeBillingCopy(preview, parseDateInput('2026-09-12')).next).toContain('39')
+  })
+
+  it('starts charging immediately when leaving Mesa', () => {
+    const preview = previewCompanyPlanChange('free', 'basic')
+    expect(preview.kind).toBe('start_paid')
+    expect(preview.chargeNowMonthly).toBe(39)
+  })
+
+  it('stops charging when moving to Mesa', () => {
+    const preview = previewCompanyPlanChange('premium', 'free')
+    expect(preview.kind).toBe('cancel_later')
+    expect(preview.chargeNowMonthly).toBe(0)
   })
 
   it('marks a monthly plan overdue after the billing day if it was not paid', () => {

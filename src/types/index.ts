@@ -97,6 +97,8 @@ export interface Company {
   planBilling: import('../data/companyPlans').CompanyPlanBilling | null
   planStartedAt: Date | null
   planLastPaidAt: Date | null
+  pendingPlanId: import('../data/companyPlans').CompanyPlanId | null
+  pendingPlanAt: Date | null
   discoveryFeatured: boolean
   createdAt: Date
 }

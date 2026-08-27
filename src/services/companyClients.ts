@@ -14,6 +14,10 @@ import { db } from '../config/firebase'
 import type { CompanyClient } from '../types'
 import { clientDocIdFromEmail, isValidClientEmail, normalizeClientEmail } from '../utils/clientIdentity'
 import type { Reservation } from '../types'
+import {
+  getDemoClients,
+  isDemoCompanyId,
+} from '../data/companyPanelDemo'
 
 function mapCompanyClient(id: string, data: Record<string, unknown>): CompanyClient {
   return {
@@ -32,6 +36,10 @@ function mapCompanyClient(id: string, data: Record<string, unknown>): CompanyCli
 }
 
 export async function getCompanyClients(companyId: string): Promise<CompanyClient[]> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoClients()
+  }
+
   const clientsRef = collection(db, 'companies', companyId, 'clients')
   const snapshot = await getDocs(query(clientsRef, orderBy('lastReservationDate', 'desc'), limit(200)))
 

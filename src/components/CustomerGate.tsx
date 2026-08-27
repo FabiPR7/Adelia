@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getPostLoginPath } from '../utils/authProfile'
 import { needsEmailVerification } from '../utils/customerRouting'
 
 interface CustomerGateProps {
@@ -26,8 +27,12 @@ function CustomerGate({ children, allowIncomplete = false }: CustomerGateProps) 
     )
   }
 
-  if (!user || !profile || profile.role !== 'customer') {
+  if (!user || !profile) {
     return <Navigate to="/cuenta/entrar" replace />
+  }
+
+  if (profile.role !== 'customer') {
+    return <Navigate to={getPostLoginPath(profile, user)} replace />
   }
 
   if (needsEmailVerification(user, profile)) {

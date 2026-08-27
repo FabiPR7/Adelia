@@ -8,6 +8,49 @@
   background: var(--color-cream);
 }
 
+.pageDemo {
+  position: relative;
+  isolation: isolate;
+  height: min(860px, 88vh);
+  max-height: 88vh;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(61, 42, 31, 0.12);
+  box-shadow: 0 20px 48px rgba(26, 18, 12, 0.12);
+}
+
+.demoRibbon {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.75rem;
+  z-index: 40;
+  margin: 0;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(61, 42, 31, 0.9);
+  color: #fff8ee;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.demoReadOnly :global([class*="saveButton"]),
+.demoReadOnly :global([class*="saveMapButton"]),
+.demoReadOnly :global([class*="addButton"]),
+.demoReadOnly :global([class*="mapAddButton"]),
+.demoReadOnly :global([class*="mapDeleteButton"]),
+.demoReadOnly :global([class*="tablesDeleteButton"]),
+.demoReadOnly :global([class*="iconButtonDanger"]),
+.demoReadOnly :global([class*="dangerBtn"]),
+.demoReadOnly :global([class*="dangerButton"]),
+.demoReadOnly :global([class*="dangerZone"]),
+.demoReadOnly :global([class*="treeActions"]),
+.demoReadOnly :global([class*="replyActionButton"]),
+.demoReadOnly :global(input[type="file"]) {
+  display: none !important;
+}
+
 .pageLoading {
   min-height: 100%;
   display: flex;
@@ -314,6 +357,14 @@
 @media (max-width: 900px) {
   .page {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pageDemo .sidebarBackdrop {
+    position: absolute;
+  }
+
+  .pageDemo .sidebar {
+    position: absolute;
   }
 
   .sidebarBackdrop {

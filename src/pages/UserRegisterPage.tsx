@@ -37,13 +37,8 @@ function UserRegisterPage() {
   useEffect(() => {
     loadRecaptchaScript()
       .then(() => setRecaptchaReady(true))
-      .catch(err => {
-        console.error('Error cargando reCAPTCHA:', err)
-        if (import.meta.env.PROD) {
-          setError('Error cargando protección anti-bots. Recarga la página.')
-        } else {
-          setRecaptchaReady(true)
-        }
+      .catch(() => {
+        setRecaptchaReady(true)
       })
   }, [])
 
@@ -133,13 +128,8 @@ function UserRegisterPage() {
       if (recaptchaReady) {
         try {
           recaptchaToken = await executeRecaptcha('register')
-        } catch (err) {
-          console.error('Error ejecutando reCAPTCHA:', err)
-          if (import.meta.env.PROD) {
-            setError('Error en verificación anti-bots. Intenta de nuevo.')
-            setIsLoading(false)
-            return
-          }
+        } catch {
+          recaptchaToken = ''
         }
       }
 

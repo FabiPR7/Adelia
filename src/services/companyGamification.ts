@@ -4,6 +4,13 @@ import { getIdToken } from './auth'
 import type { CompanyNotification } from '../types/companyNotifications'
 import type { CompanyGamificationState, CompanyRankingEntry } from '../types/companyGamification'
 import type { GamificationLevel } from '../types/gamification'
+import {
+  getDemoGamificationSync,
+  getDemoNotifications,
+  getDemoRanking,
+  isCompanyDemoSession,
+  isDemoCompanyId,
+} from '../data/companyPanelDemo'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -58,6 +65,11 @@ export function subscribeCompanyNotifications(
   onChange: (notifications: CompanyNotification[]) => void,
   onError?: (error: Error) => void,
 ): () => void {
+  if (isDemoCompanyId(companyId) || isCompanyDemoSession()) {
+    onChange(getDemoNotifications())
+    return () => undefined
+  }
+
   const notificationsQuery = query(
     collection(db, 'companies', companyId, 'notifications'),
     orderBy('createdAt', 'desc'),
@@ -79,14 +91,27 @@ export async function fetchCompanyNotifications(): Promise<{
   notifications: CompanyNotification[]
   unreadCount: number
 }> {
+  if (isCompanyDemoSession()) {
+    const notifications = getDemoNotifications()
+    return {
+      notifications,
+      unreadCount: notifications.filter((item) => !item.read).length,
+    }
+  }
   return companyApi('/notifications')
 }
 
 export async function markCompanyNotificationRead(notificationId: string): Promise<void> {
+  if (isCompanyDemoSession()) {
+    return
+  }
   await companyApi(`/notifications/${encodeURIComponent(notificationId)}/read`, 'POST')
 }
 
 export async function markAllCompanyNotificationsRead(): Promise<void> {
+  if (isCompanyDemoSession()) {
+    return
+  }
   await companyApi('/notifications/read-all', 'POST')
 }
 
@@ -95,6 +120,9 @@ export async function syncCompanyGamification(): Promise<{
   level: GamificationLevel
   xpToNext: number | null
 }> {
+  if (isCompanyDemoSession()) {
+    return getDemoGamificationSync()
+  }
   return companyApi('/gamification/sync', 'POST')
 }
 
@@ -111,5 +139,8 @@ export async function fetchCompanyRanking(): Promise<{
   country: string
   needsIndex?: boolean
 }> {
+  if (isCompanyDemoSession()) {
+    return getDemoRanking()
+  }
   return companyApi('/gamification/ranking')
 }

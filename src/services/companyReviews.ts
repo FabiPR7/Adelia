@@ -32,6 +32,11 @@ import {
 } from '../types/review'
 import { getReviewCommentPlainText } from '../utils/reviewCommentTags'
 import { COMPANY_REVIEW_PAGE_SIZE } from './firestoreQuery'
+import {
+  getDemoReviews,
+  isDemoCompanyId,
+  rejectIfDemoCompanyWrite,
+} from '../data/companyPanelDemo'
 
 export interface SubmitCustomerReviewInput {
   reservationId: string
@@ -260,6 +265,10 @@ function reviewDocumentRef(companyId: string, reviewId: string) {
 }
 
 export async function getCompanyReviews(companyId: string): Promise<CompanyReview[]> {
+  if (isDemoCompanyId(companyId)) {
+    return getDemoReviews()
+  }
+
   const snapshot = await getDocs(
     query(
       collection(db, 'companies', companyId, 'reviews'),
@@ -366,6 +375,7 @@ export async function submitCompanyReviewReply(
   text: string,
   existingReply?: CompanyReviewOwnerReply | null,
 ): Promise<CompanyReviewOwnerReply> {
+  rejectIfDemoCompanyWrite(companyId)
   const trimmed = validateCompanyReplyInput(text)
   const reviewSnap = await getDoc(reviewDocumentRef(companyId, reviewId))
 

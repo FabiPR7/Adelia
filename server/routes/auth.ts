@@ -451,7 +451,7 @@ router.post('/resolve-login', async (req: Request, res: Response) => {
 
     if (await isLoginLocked(loginName)) {
       await settleMinDuration(started, 450)
-      res.status(401).json({ error: GENERIC_LOGIN_ERROR })
+      res.status(429).json({ error: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.' })
       return
     }
 
@@ -522,7 +522,14 @@ router.post('/customer/pre-login', async (req: Request, res: Response) => {
       const authUser = await adminAuth.getUserByEmail(email)
       const profileSnap = await adminDb.collection('users').doc(authUser.uid).get()
       const data = profileSnap.data()
-      if (!profileSnap.exists || data?.role !== 'customer' || data.blocked === true || authUser.disabled) {
+      if (!profileSnap.exists || data.blocked === true || authUser.disabled) {
+        await settleMinDuration(started, 450)
+        res.status(401).json({ error: GENERIC_CUSTOMER_LOGIN_ERROR })
+        return
+      }
+
+      const role = data?.role
+      if (role !== 'customer' && role !== 'admin' && role !== 'company') {
         await settleMinDuration(started, 450)
         res.status(401).json({ error: GENERIC_CUSTOMER_LOGIN_ERROR })
         return

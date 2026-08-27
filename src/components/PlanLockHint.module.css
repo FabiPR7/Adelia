@@ -1,0 +1,143 @@
+.hint,
+.control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.control {
+  max-width: 100%;
+}
+
+.controlNav {
+  display: block;
+  width: 100%;
+}
+
+.controlNav .lockBtn {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.5rem;
+}
+
+.lockBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: 1px solid rgba(139, 74, 50, 0.28);
+  border-radius: 999px;
+  background: #fff8f2;
+  color: #8b4a32;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.lockBtn svg {
+  width: 0.82rem;
+  height: 0.82rem;
+}
+
+.lockBtn:hover,
+.hint:hover .lockBtn,
+.control:hover .lockBtn,
+.hintOpen .lockBtn {
+  background: #ffe8dc;
+  border-color: #c2410c;
+  color: #c2410c;
+}
+
+.popover {
+  position: fixed;
+  z-index: 80;
+  width: min(17.5rem, calc(100vw - 1.5rem));
+  padding: 0.75rem 0.85rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.85rem;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(61, 42, 32, 0.14);
+}
+
+.popoverTitle,
+.popoverDetail {
+  margin: 0;
+  color: var(--color-brown);
+  line-height: 1.4;
+}
+
+.popoverTitle {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.popoverDetail {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.popoverCta {
+  margin-top: 0.65rem;
+  padding: 0.42rem 0.8rem;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lockedTarget {
+  opacity: 0.72;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+  max-width: 28rem;
+  margin: 1.5rem auto;
+  padding: 1.5rem 1.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.panelLock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  background: #fff4ec;
+  color: #8b4a32;
+}
+
+.panelLock svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.panel h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--color-brown);
+}
+
+.panel p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    transition: none;
+  }
+}

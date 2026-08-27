@@ -53,8 +53,7 @@ export async function fetchSaasCheckoutSession(sessionId: string): Promise<SaasC
   return readJson<SaasCheckoutSession>(response)
 }
 
-export async function completePaidCompanySignup(input: {
-  sessionId: string
+type CompanySignupInput = {
   email: string
   phone: string
   password: string
@@ -71,8 +70,21 @@ export async function completePaidCompanySignup(input: {
   characteristics: string[]
   venueTypes: string[]
   amenities: string[]
+}
+
+export async function completePaidCompanySignup(input: CompanySignupInput & {
+  sessionId: string
 }): Promise<CompanySignupResult> {
   const response = await fetch(`${API_BASE}/api/public/billing/complete-signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  return readJson<CompanySignupResult>(response)
+}
+
+export async function completeFreeCompanySignup(input: CompanySignupInput): Promise<CompanySignupResult> {
+  const response = await fetch(`${API_BASE}/api/public/billing/complete-free-signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),

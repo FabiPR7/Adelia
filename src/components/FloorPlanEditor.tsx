@@ -34,6 +34,7 @@ interface FloorPlanEditorProps {
   floorPlan: FloorPlan
   onChange: (floorPlan: FloorPlan) => void
   embedded?: boolean
+  readOnly?: boolean
 }
 
 type Selection =
@@ -223,7 +224,7 @@ function pointerDistance(
   return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
-function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: FloorPlanEditorProps) {
+function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false, readOnly = false }: FloorPlanEditorProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const activePointersRef = useRef(new Map<number, { x: number; y: number }>())
@@ -392,6 +393,9 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
   }
 
   const handleCanvasPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (readOnly) {
+      return
+    }
     setSelection(null)
 
     if (event.target !== event.currentTarget || activePointersRef.current.size > 1) {
@@ -502,6 +506,9 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
   }
 
   const handleTablePointerDown = (tableKey: string, event: PointerEvent<HTMLDivElement>) => {
+    if (readOnly) {
+      return
+    }
     event.stopPropagation()
     setSelection({ kind: 'table', tableKey })
 
@@ -525,6 +532,9 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
     element: FloorPlanElement,
     event: PointerEvent<HTMLDivElement>,
   ) => {
+    if (readOnly) {
+      return
+    }
     event.stopPropagation()
     setSelection({ kind: 'element', id: element.id })
 
@@ -718,6 +728,7 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
     <div className={`${styles.wrapper} ${embedded ? styles.wrapperEmbedded : ''}`}>
       <div className={styles.editorLayout}>
         <div className={styles.mainColumn}>
+          {!readOnly ? (
           <div className={styles.objectPalette}>
             {showTableVariantPicker && selectedTableKey ? (
               <>
@@ -736,6 +747,7 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
               renderDecorPalette(false)
             )}
           </div>
+          ) : null}
 
           <div
             ref={scrollContainerRef}
@@ -890,6 +902,7 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
           </div>
         </div>
 
+        {!readOnly ? (
         <aside className={styles.sidebar} aria-label="Herramientas del mapa">
           <div className={styles.sidebarSection}>
             <span className={styles.toolbarLabel}>Tamaño</span>
@@ -973,6 +986,7 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false }: Floo
             )}
           </div>
         </aside>
+        ) : null}
       </div>
     </div>
   )

@@ -5,6 +5,7 @@ import { createRateLimit } from '../middleware/rateLimit.ts'
 import { resolveCompanyPromotionPin } from '../utils/companyPromotionPin.ts'
 import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
 import { parseCompanyReservationMode } from '../utils.ts'
+import { parseStoredPlanId, planAllowsPromotions } from '../company/planLimits.ts'
 
 const router = Router()
 const validatePinRateLimit = createRateLimit(10, 60_000)
@@ -234,8 +235,11 @@ function mapPromotionPayload(
 }
 
 async function loadPromotionsForCompany(
-  companyDoc: FirebaseFirestore.QueryDocumentSnapshot,
+  companyDoc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot,
 ): Promise<PublicPromotionPayload[]> {
+  if (!planAllowsPromotions(parseStoredPlanId(companyDoc.data()?.planId))) {
+    return []
+  }
   const promotionsSnapshot = await companyDoc.ref
     .collection('promotions')
     .where('active', '==', true)
@@ -301,7 +305,10 @@ router.get('/', async (_req: Request, res: Response) => {
     const promotions = activeSnap.docs.flatMap((promotionDoc) => {
       const companyId = promotionDoc.ref.parent.parent?.id
       const companySnap = companyId ? companiesById.get(companyId) : undefined
-      return companySnap ? [mapPromotionPayload(promotionDoc, companySnap)] : []
+      if (!companySnap || !planAllowsPromotions(parseStoredPlanId(companySnap.data()?.planId))) {
+        return []
+      }
+      return [mapPromotionPayload(promotionDoc, companySnap)]
     })
 
     promotions.sort((left, right) => left.companyName.localeCompare(right.companyName, 'es'))

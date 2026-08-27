@@ -5,6 +5,7 @@ import ConfirmDialog from '../../components/ConfirmDialog'
 import ReservationFormModal from '../../components/ReservationFormModal'
 import ReservationList from '../../components/ReservationList'
 import { useAuth } from '../../context/AuthContext'
+import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import {
   computeReservationCountsByMonth,
   createReservation,
@@ -47,6 +48,7 @@ function sortReservations(items: Reservation[]) {
 
 function CompanyReservations({ companyId }: CompanyReservationsProps) {
   const { company } = useAuth()
+  const demo = useCompanyDemo()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [allReservations, setAllReservations] = useState<Reservation[]>([])
   const [calendarReservations, setCalendarReservations] = useState<Reservation[]>([])
@@ -449,7 +451,7 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
   const today = new Date()
   const isToday = selectedDate.toDateString() === today.toDateString()
   const isPastDay = isPastCalendarDate(selectedDate)
-  const canCreateReservations = acceptsReservations && !isPastDay
+  const canCreateReservations = acceptsReservations && !isPastDay && !demo
   const heroLabel = isToday ? 'Hoy' : isPastDay ? 'Día anterior' : 'Día seleccionado'
 
   return (
@@ -554,10 +556,11 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
               tableMeta={tableMeta}
               selectedDate={selectedDate}
               canCreate={canCreateReservations}
+              readOnly={demo}
               onAdd={handleOpenCreate}
               onEdit={handleOpenEdit}
               onDelete={handleDelete}
-              onOpenAttendance={handleOpenAttendance}
+              onOpenAttendance={demo ? undefined : handleOpenAttendance}
             />
           )}
         </div>
