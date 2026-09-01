@@ -33,6 +33,7 @@ import { isPromoLockedForBooking,
   PROMO_LOCK_BOOKING_MESSAGE,
 } from '../gamification/cancellationPenalty.ts'
 import { InputError, asDateYmd, asId, asInt, asOptionalTrimmed, asPlainText, asSlug } from '../security/validate.ts'
+import { allowPublicCache } from '../security/httpCache.ts'
 
 const router = Router()
 
@@ -452,6 +453,7 @@ router.get('/:slug/reviews', async (req: Request, res: Response) => {
       : reviewRatingSum
     const averageRating = count > 0 ? Math.round((ratingSum / count) * 10) / 10 : 0
 
+    allowPublicCache(res, 60)
     res.json({
       stats: {
         reviewCount: count,
@@ -491,6 +493,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
       }))
       .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'))
 
+    allowPublicCache(res, 60)
     res.json({ company, tables })
   } catch (error) {
     console.error('Public booking load error:', error)
@@ -557,6 +560,10 @@ router.get('/:slug/availability', async (req: Request, res: Response) => {
       .filter((item): item is NonNullable<typeof item> => item !== null)
       .filter((item) => isSameDay(new Date(item.startTime), date))
 
+    // Cache corta: la disponibilidad cambia según entran reservas, pero la
+    // reserva final está protegida por transacción (devuelve 409 si el hueco
+    // se ocupó mientras tanto), así que unos segundos de desfase son seguros.
+    allowPublicCache(res, 15)
     res.json({ date: dateParam, reservations })
   } catch (error) {
     console.error('Public availability error:', error)
@@ -728,6 +735,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
       endTime: Timestamp.fromDate(endTime),
       status: 'completed',
       cancelToken: randomUUID(),
+      schemaVersion: 1,
       createdAt: Timestamp.now(),
     }
 
@@ -798,6 +806,17 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
             ? depositError.message
             : 'No se pudo verificar la fianza.',
         })
+        return
+      }
+
+      // Una fianza (PaymentIntent) no puede respaldar más de una reserva.
+      const reusedDeposit = await adminDb
+        .collection('reservations')
+        .where('depositPaymentIntentId', '==', depositPaymentIntentId)
+        .limit(1)
+        .get()
+      if (!reusedDeposit.empty) {
+        res.status(409).json({ error: 'Esa fianza ya está asociada a otra reserva.' })
         return
       }
 

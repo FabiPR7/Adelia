@@ -111,19 +111,27 @@ router.get('/profile', async (req: Request, res: Response) => {
     const gamification = readGamificationFromDocs(statsSnap.data(), user.data)
     const data = user.data
     let favoriteSlugs = Array.isArray(data.favoriteSlugs)
-      ? data.favoriteSlugs.filter((item): item is string => typeof item === 'string')
+      ? [...new Set(
+        data.favoriteSlugs
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim().toLowerCase())
+          .filter((item) => item.length > 0),
+      )]
       : []
-    try {
-      const favSnap = await adminDb.collection('userFavorites').where('userId', '==', user.uid).limit(50).get()
-      if (!favSnap.empty) {
-        favoriteSlugs = [...new Set(
-          favSnap.docs
-            .map((item) => item.data().slug)
-            .filter((item): item is string => typeof item === 'string' && item.length > 0),
-        )]
+    if (favoriteSlugs.length === 0) {
+      try {
+        const favSnap = await adminDb.collection('userFavorites').where('userId', '==', user.uid).limit(50).get()
+        if (!favSnap.empty) {
+          favoriteSlugs = [...new Set(
+            favSnap.docs
+              .map((item) => item.data().slug)
+              .filter((item): item is string => typeof item === 'string' && item.length > 0)
+              .map((item) => item.trim().toLowerCase()),
+          )]
+        }
+      } catch {
+        // Índice de favoritos aún no rellenado.
       }
-    } catch {
-      // Índice de favoritos aún no rellenado.
     }
 
     res.json({
@@ -457,6 +465,10 @@ router.post('/resolve-login', async (req: Request, res: Response) => {
 
     const authEmail = await resolveCompanyAuthEmail(loginName)
     if (!authEmail) {
+      // Cuenta inexistente: registramos el fallo igualmente para que se bloquee
+      // como una real. Si no, se podría enumerar nombres de empresa observando
+      // cuándo salta el 429.
+      await recordLoginFailure(loginName)
       await settleMinDuration(started, 450)
       res.status(401).json({ error: GENERIC_LOGIN_ERROR })
       return

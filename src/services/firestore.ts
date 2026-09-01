@@ -226,13 +226,20 @@ async function withFavoriteSlugs(uid: string, profile: AppUser | null): Promise<
   if (!profile || profile.role !== 'customer') {
     return profile
   }
-  if (Array.isArray(profile.favoriteSlugs) && profile.favoriteSlugs.length > 0) {
-    return profile
+
+  // Si el perfil ya trae el campo (aunque esté vacío), es la fuente de verdad.
+  // No rellenar desde el índice: eso reponía favoritos recién quitados.
+  if (Array.isArray(profile.favoriteSlugs)) {
+    const fromProfile = [...new Set(
+      profile.favoriteSlugs
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean),
+    )]
+    return { ...profile, favoriteSlugs: fromProfile }
   }
+
   const slugs = await listUserFavoriteSlugs(uid)
-  if (slugs.length === 0) {
-    return profile
-  }
   return { ...profile, favoriteSlugs: slugs }
 }
 
@@ -274,7 +281,14 @@ function mapUserProfileRecord(
     role: data.role as AppUser['role'],
     companyId: (data.companyId as string | null) ?? null,
     displayName: (data.displayName as string) ?? '',
-    favoriteSlugs: Array.isArray(data.favoriteSlugs) ? (data.favoriteSlugs as string[]) : [],
+    favoriteSlugs: Array.isArray(data.favoriteSlugs)
+      ? [...new Set(
+        (data.favoriteSlugs as unknown[])
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean),
+      )]
+      : [],
     gamification: parseGamificationData(gamificationSource),
     mustChangePassword: data.mustChangePassword === true,
     mustChangePasswordCleared: data.mustChangePassword === false,

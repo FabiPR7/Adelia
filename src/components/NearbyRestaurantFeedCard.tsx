@@ -32,6 +32,7 @@ function NearbyRestaurantFeedCard({
     ...restaurant.amenities.slice(0, 1).map(getAmenityLabel),
     ...restaurant.characteristics.slice(0, 1),
   ].filter(Boolean).slice(0, 2)
+  const hasDistance = typeof distanceKm === 'number'
 
   return (
     <article className={styles.card}>
@@ -41,39 +42,41 @@ function NearbyRestaurantFeedCard({
         onClick={() => onOpen(restaurant)}
         aria-label={`Ver ${restaurant.name}`}
       >
-        <span className={styles.photo} aria-hidden="true">
+        <span className={styles.media} aria-hidden="true">
           {photoUrl ? (
-            <img src={photoUrl} alt="" loading="lazy" decoding="async" />
+            <img className={styles.image} src={photoUrl} alt="" loading="lazy" decoding="async" />
           ) : (
             <span className={styles.fallback}>{restaurant.name.charAt(0).toUpperCase()}</span>
           )}
+          <span className={styles.scrim} />
         </span>
 
-        <span className={styles.body}>
-          <span className={styles.kicker}>
-            {typeof distanceKm === 'number' ? (
+        <span className={styles.content}>
+          <span className={styles.meta}>
+            {hasDistance ? (
               <span className={styles.distance}>{formatDistanceKm(distanceKm)}</span>
-            ) : (
-              <span className={styles.placeHint}>{place || 'Cerca de ti'}</span>
-            )}
+            ) : null}
+            {place ? <span className={styles.place}>{place}</span> : null}
             {price ? <span className={styles.price}>{price}</span> : null}
           </span>
 
           <strong className={styles.name}>{restaurant.name}</strong>
 
-          {place && typeof distanceKm === 'number' ? (
-            <span className={styles.place}>{place}</span>
-          ) : null}
-
-          {tags.length > 0 ? (
-            <span className={styles.tags}>
-              {tags.map((tag) => (
-                <span key={tag} className={styles.tag}>{tag}</span>
-              ))}
+          <span className={styles.footer}>
+            {tags.length > 0 ? (
+              <span className={styles.tags}>
+                {tags.map((tag) => (
+                  <span key={tag} className={styles.tag}>{tag}</span>
+                ))}
+              </span>
+            ) : (
+              <span />
+            )}
+            <span className={styles.cta}>
+              {restaurantReserveCtaShortLabel(restaurant.reservationMode)}
+              <span className={styles.ctaArrow} aria-hidden="true">→</span>
             </span>
-          ) : null}
-
-          <span className={styles.cta}>{restaurantReserveCtaShortLabel(restaurant.reservationMode)}</span>
+          </span>
         </span>
       </button>
 

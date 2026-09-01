@@ -18,7 +18,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-weight: 800;
+  font-weight: 600;
   color: #ff6b4a;
 }
 
@@ -45,7 +45,7 @@
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
 }
@@ -206,7 +206,7 @@
   color: #fff;
   font-family: var(--font-display);
   font-size: 0.58rem;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.12;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
   display: -webkit-box;
@@ -229,7 +229,7 @@
   background: rgba(18, 12, 8, 0.62);
   color: #fff;
   font-size: 0.52rem;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
@@ -256,7 +256,7 @@
   background: rgba(255, 255, 255, 0.94);
   color: var(--color-brown);
   font-size: 0.5rem;
-  font-weight: 800;
+  font-weight: 600;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.16);
 }
 

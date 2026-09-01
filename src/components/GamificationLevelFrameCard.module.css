@@ -39,7 +39,7 @@
   border: 1px solid rgba(255, 255, 255, 0.24);
   color: #fde68a;
   font-size: clamp(0.62rem, 2.1vw, 0.78rem);
-  font-weight: 800;
+  font-weight: 600;
   backdrop-filter: blur(6px);
 }
 
@@ -66,7 +66,7 @@
   display: grid;
   place-items: center;
   font-size: clamp(0.95rem, 3.8vw, 1.45rem);
-  font-weight: 800;
+  font-weight: 600;
   color: #fff;
   background: linear-gradient(160deg, #64748b, #334155);
 }
@@ -92,7 +92,7 @@
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(0.88rem, 3.2vw, 1.32rem);
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.12;
   color: var(--name-color);
   white-space: nowrap;
@@ -133,7 +133,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 0.35rem;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.05;
   text-align: center;
   white-space: nowrap;
@@ -175,7 +175,7 @@
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(0.66rem, 2.3vw, 0.98rem);
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
   color: var(--xp-color);
   text-align: center;

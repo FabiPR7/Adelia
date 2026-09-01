@@ -61,7 +61,7 @@
   background: linear-gradient(90deg, #9f7a96, #8b5cf6);
   color: #fff9f2;
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   box-shadow: 0 8px 22px rgba(111, 79, 98, 0.28);
@@ -108,7 +108,7 @@
   background: linear-gradient(90deg, #e8a84c, #f5c4a8);
   color: #4a3348;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
   box-shadow:
     0 10px 24px rgba(74, 51, 72, 0.18),
@@ -213,7 +213,7 @@
 
 .panelHeader span {
   font-size: 0.6875rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fde68a;

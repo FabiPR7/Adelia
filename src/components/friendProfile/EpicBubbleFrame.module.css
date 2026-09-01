@@ -155,7 +155,7 @@
 /* ─── Shared typography (used by panels + badge) ─── */
 :global(.epicEyebrow) {
   font-size: 0.48rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--strip-title);
@@ -165,7 +165,7 @@
 
 :global(.epicHeadline) {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 600;
   color: var(--strip-name);
   text-shadow: var(--strip-name-shadow);
 }

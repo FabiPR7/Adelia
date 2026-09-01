@@ -49,6 +49,7 @@ async function takeDistributed(
   key: string,
   max: number,
   windowMs: number,
+  failClosed = false,
 ): Promise<boolean> {
   if (!canUseAdminSdk) {
     return true
@@ -82,7 +83,10 @@ async function takeDistributed(
     })
   } catch (error) {
     console.error('Distributed rate limit error:', error)
-    return true
+    // Para buckets sensibles (auth) fallamos cerrado: si Firestore no responde,
+    // preferimos rechazar el intento a quedarnos sin protección anti fuerza
+    // bruta. El resto de buckets fallan abiertos para no tumbar la API.
+    return !failClosed
   }
 }
 
@@ -104,6 +108,7 @@ function bucketFor(req: Request): {
   windowMs: number
   key: string
   distributed?: boolean
+  failClosed?: boolean
 } {
   const url = req.originalUrl || req.path
 
@@ -121,11 +126,11 @@ function bucketFor(req: Request): {
     || url.startsWith('/api/auth/change-initial-password')
     || url.startsWith('/api/auth/complete-initial-password-change')
   ) {
-    return { name: 'auth', max: 20, windowMs: 15 * 60_000, key: clientKey(req), distributed: true }
+    return { name: 'auth', max: 20, windowMs: 15 * 60_000, key: clientKey(req), distributed: true, failClosed: true }
   }
 
   if (url.startsWith('/api/auth/customer/bootstrap')) {
-    return { name: 'authBootstrap', max: 12, windowMs: 15 * 60_000, key: clientKey(req), distributed: true }
+    return { name: 'authBootstrap', max: 12, windowMs: 15 * 60_000, key: clientKey(req), distributed: true, failClosed: true }
   }
 
   if (
@@ -156,6 +161,32 @@ function bucketFor(req: Request): {
     return { name: 'search', max: 20, windowMs: 60_000, key: authKey(req) }
   }
 
+  // Envío de solicitudes de amistad: cada una genera notificación al destinatario.
+  // Límite para que una cuenta no pueda spamear a muchos usuarios distintos.
+  if (req.method === 'POST' && /^\/api\/customer\/friends\/requests\/[^/]+$/.test(url.split('?')[0])) {
+    return { name: 'friendRequests', max: 20, windowMs: 10 * 60_000, key: authKey(req), distributed: true }
+  }
+
+  // Sincronización de progreso del cliente: el cuerpo lleva XP propuesta por el
+  // navegador. Límite estricto y distribuido para que no se pueda inflar XP a
+  // base de repetir la llamada. El tope diario real está en la ruta.
+  if (req.method === 'POST' && url.startsWith('/api/customer/gamification/sync')) {
+    return { name: 'gamificationSync', max: 30, windowMs: 5 * 60_000, key: authKey(req), distributed: true }
+  }
+
+  // Endpoints que validan el PIN de 4 dígitos del restaurante. Sin límite
+  // distribuido, el PIN se puede fuerza-bruta a 10/min × nº de instancias.
+  if (
+    req.method === 'POST'
+    && (
+      url.includes('/verify-minimum-spend')
+      || url.includes('/promotions/validate-pin')
+      || url.includes('/promotions/register-consumption')
+    )
+  ) {
+    return { name: 'pinCheck', max: 12, windowMs: 5 * 60_000, key: authKey(req), distributed: true }
+  }
+
   if (req.method === 'POST' && url.includes('/game/maze-move')) {
     return { name: 'mazeMove', max: 180, windowMs: 60_000, key: authKey(req) }
   }
@@ -183,7 +214,13 @@ export async function apiRateLimit(req: Request, res: Response, next: NextFuncti
   }
 
   if (bucket.distributed) {
-    const allowed = await takeDistributed(bucket.name, bucket.key, bucket.max, bucket.windowMs)
+    const allowed = await takeDistributed(
+      bucket.name,
+      bucket.key,
+      bucket.max,
+      bucket.windowMs,
+      bucket.failClosed,
+    )
     if (!allowed) {
       res.setHeader('Retry-After', retryAfter)
       res.status(429).json({ error: 'Demasiadas peticiones. Espera un momento.' })

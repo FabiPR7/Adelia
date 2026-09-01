@@ -139,7 +139,11 @@ export async function readPublicSaasCheckoutSession(sessionId: string): Promise<
   const paid = session.payment_status === 'paid' || session.status === 'complete'
 
   if (paid) {
-    await upsertSaasSubscriptionFromCheckout(session)
+    // Esto es un GET (página de "pago correcto"). Aprovisionamos plan/empresa de
+    // forma idempotente para que el panel funcione aunque el webhook llegue con
+    // retraso, pero NO enviamos el correo de factura: ese efecto secundario vive
+    // solo en el webhook (`checkout.session.completed`).
+    await upsertSaasSubscriptionFromCheckout(session, { sendReceipt: false })
   }
 
   const amount = session.amount_total
@@ -322,7 +326,11 @@ async function sendPaidPlanReceiptFromInvoice(invoice: Stripe.Invoice): Promise<
   }
 }
 
-async function upsertSaasSubscriptionFromCheckout(session: Stripe.Checkout.Session): Promise<void> {
+async function upsertSaasSubscriptionFromCheckout(
+  session: Stripe.Checkout.Session,
+  options: { sendReceipt?: boolean } = {},
+): Promise<void> {
+  const { sendReceipt = true } = options
   if (session.metadata?.type !== SAAS_CHECKOUT_META) {
     return
   }
@@ -363,9 +371,11 @@ async function upsertSaasSubscriptionFromCheckout(session: Stripe.Checkout.Sessi
     { merge: true },
   )
 
-  await sendPaidPlanReceiptFromCheckout(session).catch((error) => {
-    console.error('Plan payment receipt error:', error)
-  })
+  if (sendReceipt) {
+    await sendPaidPlanReceiptFromCheckout(session).catch((error) => {
+      console.error('Plan payment receipt error:', error)
+    })
+  }
 
   if (!companyId) {
     return

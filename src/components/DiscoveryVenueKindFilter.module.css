@@ -5,6 +5,11 @@
   margin-bottom: 0.45rem;
 }
 
+.rowCompact {
+  margin-bottom: 0;
+  justify-content: center;
+}
+
 .button,
 .buttonActive {
   flex: 0 0 auto;
@@ -12,23 +17,31 @@
   padding: 0 0.85rem;
   border-radius: 999px;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+
+.rowCompact .button,
+.rowCompact .buttonActive {
+  min-height: 30px;
+  padding: 0 0.7rem;
+  font-size: 0.72rem;
 }
 
 .button {
-  border: 1px solid rgba(107, 83, 68, 0.14);
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
   color: var(--color-brown);
-  box-shadow: 0 8px 24px rgba(35, 28, 22, 0.05);
+  box-shadow: var(--elev-1);
 }
 
 .buttonActive {
   border: 1px solid var(--color-brown);
   background: var(--color-brown);
   color: #fff;
-  box-shadow: 0 8px 24px rgba(35, 28, 22, 0.12);
+  box-shadow: var(--elev-1);
 }
 
 .button:hover {

@@ -59,7 +59,7 @@
 .prizeEyebrow {
   margin: 0;
   font-size: 0.62rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-text-muted);
@@ -121,7 +121,7 @@
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;

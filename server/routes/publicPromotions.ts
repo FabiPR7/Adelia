@@ -6,6 +6,7 @@ import { resolveCompanyPromotionPin } from '../utils/companyPromotionPin.ts'
 import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
 import { parseCompanyReservationMode } from '../utils.ts'
 import { parseStoredPlanId, planAllowsPromotions } from '../company/planLimits.ts'
+import { allowPublicCache } from '../security/httpCache.ts'
 
 const router = Router()
 const validatePinRateLimit = createRateLimit(10, 60_000)
@@ -312,6 +313,7 @@ router.get('/', async (_req: Request, res: Response) => {
     })
 
     promotions.sort((left, right) => left.companyName.localeCompare(right.companyName, 'es'))
+    allowPublicCache(res, 60)
     res.json({ promotions })
   } catch (error) {
     console.error('Public promotions error:', error)
@@ -333,11 +335,13 @@ router.get('/:slug', async (req: Request, res: Response) => {
       .get()
 
     if (companiesSnapshot.empty) {
+      allowPublicCache(res, 60)
       res.json({ promotions: [] })
       return
     }
 
     const promotions = await loadPromotionsForCompany(companiesSnapshot.docs[0])
+    allowPublicCache(res, 60)
     res.json({ promotions })
   } catch (error) {
     console.error('Public promotions by slug error:', error)

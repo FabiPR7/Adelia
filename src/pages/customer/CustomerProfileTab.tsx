@@ -49,7 +49,9 @@ function CustomerProfileTab() {
   }, [user?.uid])
 
   const favoriteRestaurants = useMemo(
-    () => restaurants.filter((restaurant) => favoriteSlugs.includes(restaurant.slug)),
+    () => restaurants.filter((restaurant) =>
+      favoriteSlugs.includes(restaurant.slug.trim().toLowerCase()),
+    ),
     [restaurants, favoriteSlugs],
   )
 

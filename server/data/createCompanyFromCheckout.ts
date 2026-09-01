@@ -168,6 +168,7 @@ async function provisionCompanyAccount(
       companyId: companyRef.id,
       loginName: name,
       mustChangePassword: false,
+      schemaVersion: 1,
       createdAt: now,
     })
 
@@ -203,6 +204,7 @@ async function provisionCompanyAccount(
       stripeBillingCustomerId: plan.stripeBillingCustomerId,
       stripeSubscriptionId: plan.stripeSubscriptionId,
       discoveryFeatured: false,
+      schemaVersion: 1,
       createdAt: now,
     })
 

@@ -105,7 +105,7 @@
   background: linear-gradient(135deg, #ffd700, #ffb347);
   color: #5c3d2e;
   font-size: 0.52rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -127,7 +127,7 @@
   background: rgba(255, 255, 255, 0.92);
   color: #7c3a2e;
   font-size: 0.58rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -140,7 +140,7 @@
   background: linear-gradient(135deg, #ff6b4a, #ff4f8f);
   color: #fff;
   font-size: 0.54rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -181,7 +181,7 @@
 .ladderRestaurant {
   margin: 0;
   font-size: 0.58rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #ff6b4a;
@@ -260,7 +260,7 @@
 
 .ladderDistance {
   font-size: 0.56rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--color-text-muted);
 }
 
@@ -272,7 +272,7 @@
   background: #1f1420;
   color: #fff;
   font-size: 0.7rem;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 

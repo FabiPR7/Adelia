@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DiscoverySearchBar from '../../components/DiscoverySearchBar'
+import DiscoveryVenueKindFilter from '../../components/DiscoveryVenueKindFilter'
 import DiscoverySkeleton from '../../components/DiscoverySkeleton'
 import NearbyRestaurantsMap from '../../components/NearbyRestaurantsMap'
 import FeaturedReviewHighlight from '../../components/FeaturedReviewHighlight'
@@ -107,7 +108,9 @@ function CustomerExploreTab() {
       .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind))
 
     if (favoritesActive) {
-      results = results.filter((restaurant) => favoriteSlugs.includes(restaurant.slug))
+      results = results.filter((restaurant) =>
+        favoriteSlugs.includes(restaurant.slug.trim().toLowerCase()),
+      )
     }
 
     if (nearbyActive && userCoords) {
@@ -249,8 +252,6 @@ function CustomerExploreTab() {
         activeTrait={activeTrait}
         onTraitChange={handleTraitChange}
         traitOptions={traitOptions}
-        venueKind={venueKind}
-        onVenueKindChange={setVenueKind}
         onSearch={handleSearch}
         nearbyActive={nearbyActive}
         nearbyState={nearbyState}
@@ -284,6 +285,7 @@ function CustomerExploreTab() {
             <section className={styles.carouselSection}>
               <div className={styles.carouselHeader}>
                 <h2>{nearbyActive ? 'Cerca de ti' : 'Para ti hoy'}</h2>
+                <DiscoveryVenueKindFilter value={venueKind} onChange={setVenueKind} compact />
                 <span>{filteredRestaurants.length} locales</span>
               </div>
               <RestaurantInfiniteCarousel

@@ -237,12 +237,12 @@ function PublicBookingPage() {
   }, [slug])
 
   useEffect(() => {
-    if (!company || pageView !== 'booking') {
+    if (!company?.id || pageView !== 'booking') {
       return
     }
 
     void loadAvailability()
-  }, [company, loadAvailability, pageView])
+  }, [company?.id, loadAvailability, pageView])
 
   useEffect(() => {
     if (!company || !companyAcceptsReservations(company.reservationMode)) {

@@ -9,17 +9,17 @@ export async function replaceUserFavorites(userId: string, slugs: string[]): Pro
   const snapshot = await getDocs(
     query(collection(db, 'userFavorites'), where('userId', '==', userId), limit(50)),
   )
-  const next = new Set(slugs)
+  const next = new Set(slugs.map((slug) => slug.trim().toLowerCase()).filter(Boolean))
   const writes: Promise<unknown>[] = []
 
   snapshot.docs.forEach((item) => {
-    const slug = String(item.data().slug ?? '')
+    const slug = String(item.data().slug ?? '').trim().toLowerCase()
     if (!next.has(slug)) {
       writes.push(deleteDoc(item.ref))
     }
   })
 
-  slugs.forEach((slug) => {
+  next.forEach((slug) => {
     writes.push(setDoc(doc(db, 'userFavorites', favoriteDocId(userId, slug)), {
       userId,
       slug,
@@ -35,7 +35,11 @@ export async function listUserFavoriteSlugs(userId: string): Promise<string[]> {
     const snapshot = await getDocs(
       query(collection(db, 'userFavorites'), where('userId', '==', userId), limit(50)),
     )
-    return snapshot.docs.map((item) => String(item.data().slug ?? '')).filter(Boolean)
+    return [...new Set(
+      snapshot.docs
+        .map((item) => String(item.data().slug ?? '').trim().toLowerCase())
+        .filter(Boolean),
+    )]
   } catch {
     return []
   }

@@ -107,7 +107,7 @@
   background: linear-gradient(90deg, rgba(251, 191, 36, 0.2), rgba(196, 181, 253, 0.18));
   border: 1px solid rgba(253, 230, 138, 0.28);
   font-size: 0.625rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fde68a;
@@ -158,7 +158,7 @@
   padding: 0.18rem 0.48rem;
   border-radius: 999px;
   font-size: 0.5625rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -180,7 +180,7 @@
   align-items: center;
   gap: 0.3rem;
   font-size: 0.5625rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #86efac;
@@ -234,7 +234,7 @@
   background: rgba(251, 191, 36, 0.12);
   border: 1px solid rgba(253, 230, 138, 0.22);
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #fde68a;
 }
 
@@ -261,7 +261,7 @@
   background: linear-gradient(90deg, #fde68a, #f5c4a8);
   color: #4a3348;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
   box-shadow:
     0 12px 28px rgba(251, 191, 36, 0.28),
@@ -416,7 +416,7 @@
 
 .floatLabel {
   font-size: 0.5rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 249, 242, 0.55);

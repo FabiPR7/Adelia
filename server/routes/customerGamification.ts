@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express'
 import { verifyCustomerUid } from '../auth/verifyRequest.ts'
 import { adminDb } from '../firebase-admin.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
+import { computeCustomerXpCeiling } from '../gamification/customerXpCeiling.ts'
 import {
   appendClaimToState,
   ladderClaimDocId,
@@ -44,7 +45,18 @@ import {
 
 const router = Router()
 const MAX_REWARD_DELTA = 8000
+// Tope de XP que se puede ganar a través de /sync en un mismo día (UTC).
+// El navegador propone la XP de misiones; sin este tope, repetir la llamada
+// permite inflar XP sin límite. Ajustable por si el catálogo de misiones crece.
+const SYNC_XP_DAILY_CEILING = Math.max(
+  500,
+  Number(process.env.SYNC_XP_DAILY_CEILING ?? 5000) || 5000,
+)
 const registerConsumptionRateLimit = createRateLimit(10, 60_000, 'register-consumption')
+
+function utcDayKey(now = new Date()): string {
+  return now.toISOString().slice(0, 10)
+}
 
 function numberValue(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
@@ -87,6 +99,7 @@ function containsAll(next: string[], current: string[]): boolean {
 function validateMonotonicGamification(
   current: Record<string, unknown>,
   proposed: Record<string, unknown>,
+  xpCeiling: number | null = null,
 ) {
   const currentXp = numberValue(current.xp)
   const currentAdelinas = numberValue(current.adelinas)
@@ -94,12 +107,28 @@ function validateMonotonicGamification(
   const proposedPenaltyTotal = numberValue(proposed.xpPenaltyTotal)
   const penaltyGap = Math.max(0, currentPenaltyTotal - proposedPenaltyTotal)
   const proposedXp = numberValue(proposed.xp, currentXp)
-  const xp = Math.max(currentXp, proposedXp - penaltyGap)
+  const uncappedXp = Math.max(currentXp, proposedXp - penaltyGap)
   const adelinas = currentAdelinas
 
-  if (xp - currentXp > MAX_REWARD_DELTA) {
+  if (uncappedXp - currentXp > MAX_REWARD_DELTA) {
     throw new Error('La actualización de recompensas no es válida.')
   }
+
+  // Tope diario de XP ganada vía /sync. Los contadores viven en el propio
+  // estado (persisten con writeGamification) y NO son sobreescribibles por el
+  // cliente porque se fijan después del `...proposed` en el objeto devuelto.
+  const today = utcDayKey()
+  const priorDayKey = typeof current.syncXpDayKey === 'string' ? current.syncXpDayKey : ''
+  const syncXpUsedToday = priorDayKey === today ? numberValue(current.syncXpToday) : 0
+  const requestedGain = Math.max(0, uncappedXp - currentXp)
+  const allowedGain = Math.max(0, Math.min(requestedGain, SYNC_XP_DAILY_CEILING - syncXpUsedToday))
+  // Techo absoluto calculado con datos de confianza del servidor: nunca por
+  // encima de lo que lograría un jugador perfecto. Nunca por debajo del XP
+  // actual (monotonía).
+  const dailyCappedXp = currentXp + allowedGain
+  const xp = xpCeiling != null
+    ? Math.min(dailyCappedXp, Math.max(currentXp, xpCeiling))
+    : dailyCappedXp
 
   const appendOnlyKeys = [
     'completedMissions',
@@ -129,6 +158,8 @@ function validateMonotonicGamification(
     ...proposed,
     xp,
     adelinas,
+    syncXpDayKey: today,
+    syncXpToday: syncXpUsedToday + allowedGain,
     claimedPromotions: currentClaims,
     redemptionsCount: numberValue(current.redemptionsCount),
     lastCelebratedLevel: mergeCelebratedLevel(current.lastCelebratedLevel, proposed.lastCelebratedLevel),
@@ -229,6 +260,14 @@ router.post('/sync', async (req: Request, res: Response) => {
     const userRef = adminDb.collection('users').doc(customer.uid)
     const statsRef = userGamificationRef(customer.uid)
     await getLevelForXpFromCatalog(0).catch(() => 1)
+
+    // Techo de XP calculado fuera de la transacción (solo lecturas agregadas).
+    const xpCeiling = await computeCustomerXpCeiling({
+      uid: customer.uid,
+      email: customer.email,
+      createdAt: customer.data.createdAt,
+    }).catch(() => null)
+
     const next = await adminDb.runTransaction(async (transaction) => {
       const [userSnap, statsSnap] = await Promise.all([
         transaction.get(userRef),
@@ -238,6 +277,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       const validated = validateMonotonicGamification(
         currentState,
         proposed as Record<string, unknown>,
+        xpCeiling,
       )
       const withItems = await applyInventoryGrants(validated)
       writeGamification(transaction, customer.uid, withItems)

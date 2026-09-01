@@ -38,7 +38,7 @@
   background: rgba(232, 168, 76, 0.18);
   border: 1px solid rgba(253, 230, 138, 0.28);
   font-size: 0.625rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #fde68a;
@@ -56,7 +56,7 @@
 .slotLabel {
   margin: 0 0 0.28rem;
   font-size: 0.5rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 249, 242, 0.55);
@@ -82,7 +82,7 @@
 .pathLabel {
   margin: 0.2rem 0 0;
   font-size: 0.5rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fde68a;
@@ -115,7 +115,7 @@
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.08);
   font-size: 0.5rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #475569;
@@ -237,7 +237,7 @@
 .levelMarkers span {
   text-align: center;
   font-size: 0.5rem;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0.2rem 0;
   border-radius: 0.4rem;
 }
@@ -384,7 +384,7 @@
   background: rgba(251, 191, 36, 0.14);
   border: 1px solid rgba(253, 224, 71, 0.35);
   font-size: 0.45rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fcd34d;
@@ -404,7 +404,7 @@
 .legendXp {
   margin: 0.12rem 0 0;
   font-size: 0.5625rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #fbbf24;
 }
 

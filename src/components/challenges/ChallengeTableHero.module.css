@@ -140,7 +140,7 @@
 .kicker {
   margin: 0;
   font-size: 0.62rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--coral);
@@ -175,7 +175,7 @@
   background: linear-gradient(135deg, rgba(255, 107, 74, 0.12), rgba(255, 79, 143, 0.14));
   color: var(--pink);
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;

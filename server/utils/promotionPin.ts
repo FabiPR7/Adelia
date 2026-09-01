@@ -1,3 +1,5 @@
+import { randomInt } from 'node:crypto'
+
 export type PromotionPinRotation = 'daily' | 'weekly' | 'monthly' | 'manual'
 
 export interface PromotionPinSettings {
@@ -11,9 +13,11 @@ export interface PromotionPinSettings {
 const PIN_LENGTH = 4
 
 export function generatePromotionPinCode(): string {
+  // CSPRNG: Math.random() es predecible y el espacio de PIN (10 000) ya es
+  // pequeño; al menos que no se pueda anticipar la siguiente rotación.
   const min = 10 ** (PIN_LENGTH - 1)
-  const max = 10 ** PIN_LENGTH - 1
-  return String(Math.floor(min + Math.random() * (max - min + 1)))
+  const max = 10 ** PIN_LENGTH
+  return String(randomInt(min, max))
 }
 
 export function normalizePromotionPinCode(value: string): string {

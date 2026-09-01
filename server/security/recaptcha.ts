@@ -20,12 +20,23 @@ export async function verifyRecaptchaToken(
 ): Promise<{ valid: boolean; reason?: string }> {
   const secretKey = process.env.RECAPTCHA_SECRET_KEY?.trim() ?? ''
   const production = isCloudOrProduction()
+  const recaptchaRequired = process.env.RECAPTCHA_REQUIRED === 'true'
 
   if (token === 'dev_mode_no_captcha' && !production) {
     return { valid: true }
   }
 
   if (!secretKey) {
+    if (recaptchaRequired) {
+      return { valid: false, reason: 'captcha_required_but_not_configured' }
+    }
+    if (production) {
+      console.warn(
+        '[recaptcha] RECAPTCHA_SECRET_KEY no configurada en producción: '
+        + 'la protección anti-bot está DESACTIVADA. Define RECAPTCHA_SECRET_KEY '
+        + 'o RECAPTCHA_REQUIRED=true para forzar el fallo cerrado.',
+      )
+    }
     return { valid: true, reason: 'captcha_not_configured' }
   }
 

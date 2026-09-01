@@ -1,7 +1,5 @@
 import CityAutocomplete from './CityAutocomplete'
 import DiscoveryTraitsFilter from './DiscoveryTraitsFilter'
-import DiscoveryVenueKindFilter from './DiscoveryVenueKindFilter'
-import type { DiscoveryVenueKind } from '../data/companyProfileFacilities'
 import type { CitySuggestion } from '../services/citySearch'
 import styles from './DiscoverySearchBar.module.css'
 
@@ -13,8 +11,6 @@ interface DiscoverySearchBarProps {
   activeTrait: string
   onTraitChange: (trait: string) => void
   traitOptions: string[]
-  venueKind: DiscoveryVenueKind | ''
-  onVenueKindChange: (value: DiscoveryVenueKind | '') => void
   onSearch: () => void
   nearbyActive: boolean
   nearbyState: 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
@@ -32,8 +28,6 @@ function DiscoverySearchBar({
   activeTrait,
   onTraitChange,
   traitOptions,
-  venueKind,
-  onVenueKindChange,
   onSearch,
   nearbyActive,
   nearbyState,
@@ -48,8 +42,6 @@ function DiscoverySearchBar({
 
   return (
     <section className={styles.searchSection}>
-      <DiscoveryVenueKindFilter value={venueKind} onChange={onVenueKindChange} />
-
       <div className={styles.searchRow}>
         <label className={styles.searchField}>
           <span className={styles.srOnly}>Nombre del restaurante</span>

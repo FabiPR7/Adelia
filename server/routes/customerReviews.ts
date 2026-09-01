@@ -33,6 +33,21 @@ function ratingValue(value: unknown): number {
   return rating
 }
 
+const CLOUDINARY_CLOUD_NAME = (process.env.VITE_CLOUDINARY_CLOUD_NAME ?? '').trim().toLowerCase()
+
+function isAllowedCloudinaryUrl(parsed: URL): boolean {
+  if (parsed.protocol !== 'https:') return false
+  const host = parsed.hostname.toLowerCase()
+  if (host !== 'res.cloudinary.com' && !host.endsWith('.cloudinary.com')) return false
+  // Si conocemos nuestro cloud, exigimos que la ruta empiece por él: así no se
+  // pueden incrustar archivos alojados en otra cuenta de Cloudinary.
+  if (CLOUDINARY_CLOUD_NAME) {
+    const firstSegment = parsed.pathname.split('/').filter(Boolean)[0]?.toLowerCase() ?? ''
+    return firstSegment === CLOUDINARY_CLOUD_NAME
+  }
+  return true
+}
+
 function mediaItems(value: unknown): Array<{ url: string; type: 'image' | 'video' }> {
   if (!Array.isArray(value)) return []
   return value.slice(0, 5).flatMap((item) => {
@@ -43,21 +58,32 @@ function mediaItems(value: unknown): Array<{ url: string; type: 'image' | 'video
     if (!url || !type) return []
     try {
       const parsed = new URL(url)
-      const host = parsed.hostname.toLowerCase()
-      const allowed = parsed.protocol === 'https:'
-        && (host === 'res.cloudinary.com' || host.endsWith('.cloudinary.com'))
-      return allowed ? [{ url: parsed.toString(), type }] : []
+      return isAllowedCloudinaryUrl(parsed) ? [{ url: parsed.toString(), type }] : []
     } catch {
       return []
     }
   })
 }
 
+/**
+ * Defensa en profundidad: el frontend actual pinta la reseña como texto (React
+ * escapa), pero el comentario también acaba en notificaciones y podría acabar en
+ * un correo HTML. Quitamos etiquetas y neutralizamos `<`/`>` sueltos antes de
+ * guardar. La sintaxis de menciones `[[p|...]]` / `[[r|...]]` usa corchetes, no
+ * ángulos, así que no se ve afectada.
+ */
+function stripHtmlFromComment(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, '')
+    .replace(/[<>]/g, '')
+    .trim()
+}
+
 function reviewInput(body: unknown) {
   const data = body && typeof body === 'object' ? body as Record<string, unknown> : {}
   const companyId = String(data.companyId ?? '').trim()
   const reservationId = String(data.reservationId ?? '').trim()
-  const comment = String(data.comment ?? '').trim().slice(0, 2000)
+  const comment = stripHtmlFromComment(String(data.comment ?? '').trim()).slice(0, 2000)
   const rating = ratingValue(data.rating)
   const media = mediaItems(data.mediaItems)
   if (!companyId || !reservationId || comment.length < 10) {

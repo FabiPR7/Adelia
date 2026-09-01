@@ -207,7 +207,7 @@
   place-items: center;
   font-family: var(--font-display);
   font-size: 1.85rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #fff;
   background: linear-gradient(160deg, rgba(100, 116, 139, 0.92), rgba(51, 65, 85, 0.96));
 }
@@ -232,7 +232,7 @@
   margin: 0.15rem 0 0;
   font-family: var(--font-display);
   font-size: clamp(1.4rem, 4.2vw, 1.85rem);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.1;
   color: var(--strip-name);

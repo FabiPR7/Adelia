@@ -94,6 +94,13 @@ export async function verifySignedInUser(req: Request): Promise<VerifiedRequestU
   return verifyRequestUser(req)
 }
 
+/**
+ * Solo para desarrollo local sin serviceAccountKey.json. En producción la
+ * función corre en Cloud (`isCloudRuntime`) y siempre usa el Admin SDK, así que
+ * esta ruta REST queda desactivada salvo que se pida explícitamente.
+ */
+const allowRestAdminFallback = process.env.ALLOW_REST_ADMIN_FALLBACK === 'true'
+
 export async function verifyAdmin(
   req: Request,
   res: Response,
@@ -101,6 +108,14 @@ export async function verifyAdmin(
 ) {
   try {
     if (!canUseAdminSdk) {
+      if (!allowRestAdminFallback) {
+        res.status(503).json({
+          error:
+            'Verificación de administrador no disponible en este entorno. '
+            + 'Configura serviceAccountKey.json o ALLOW_REST_ADMIN_FALLBACK=true.',
+        })
+        return
+      }
       const token = bearerToken(req)
       if (!token) {
         res.status(401).json({ error: 'No autorizado.' })

@@ -1,5 +1,11 @@
 import { FieldValue } from 'firebase-admin/firestore'
 
+/**
+ * Versión del esquema del documento. Súbela cuando cambie la forma de `users`
+ * para poder escribir migraciones dirigidas (`where('schemaVersion', '<', N)`).
+ */
+export const CUSTOMER_PROFILE_SCHEMA_VERSION = 1
+
 export function defaultCustomerGamification() {
   return {
     xp: 0,
@@ -71,6 +77,7 @@ export function buildCustomerProfileDoc(input: {
     adelinas: 0,
     mustChangePassword: false,
     blocked: false,
+    schemaVersion: CUSTOMER_PROFILE_SCHEMA_VERSION,
     createdAt: FieldValue.serverTimestamp(),
   }
 }

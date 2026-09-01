@@ -12,6 +12,24 @@ import { getIdToken } from './auth'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
+const publicGetCache = new Map<string, { expiresAt: number; value: Promise<unknown> }>()
+const PUBLIC_GET_TTL_MS = 30_000
+
+function cachedPublicGet<T>(key: string, loader: () => Promise<T>): Promise<T> {
+  const now = Date.now()
+  const hit = publicGetCache.get(key)
+  if (hit && hit.expiresAt > now) {
+    return hit.value as Promise<T>
+  }
+
+  const value = loader().catch((error) => {
+    publicGetCache.delete(key)
+    throw error
+  })
+  publicGetCache.set(key, { expiresAt: now + PUBLIC_GET_TTL_MS, value })
+  return value
+}
+
 export interface PublicBookingTable {
   id: string
   name: string
@@ -117,31 +135,33 @@ export async function fetchPublicBookingPage(slug: string): Promise<{
   company: PublicBookingCompany
   tables: PublicBookingTable[]
 }> {
-  const response = await fetch(`${API_BASE}/api/public/booking/${encodeURIComponent(slug)}`)
+  return cachedPublicGet(`booking:${slug}`, async () => {
+    const response = await fetch(`${API_BASE}/api/public/booking/${encodeURIComponent(slug)}`)
 
-  if (!response.ok) {
-    throw new Error(await readPublicError(response, 'No se pudo cargar el restaurante.'))
-  }
+    if (!response.ok) {
+      throw new Error(await readPublicError(response, 'No se pudo cargar el restaurante.'))
+    }
 
-  const payload = (await response.json()) as {
-    company?: PublicBookingCompany
-    tables?: PublicBookingTable[]
-  }
+    const payload = (await response.json()) as {
+      company?: PublicBookingCompany
+      tables?: PublicBookingTable[]
+    }
 
-  if (!payload.company) {
-    throw new Error('Restaurante no encontrado.')
-  }
+    if (!payload.company) {
+      throw new Error('Restaurante no encontrado.')
+    }
 
-  return {
-    company: payload.company,
-    tables: (payload.tables ?? []).map((table) => ({
-      id: table.id,
-      name: table.name,
-      capacity: table.capacity,
-      sortOrder: table.sortOrder,
-      floorPlanId: table.floorPlanId || '',
-    })),
-  }
+    return {
+      company: payload.company,
+      tables: (payload.tables ?? []).map((table) => ({
+        id: table.id,
+        name: table.name,
+        capacity: table.capacity,
+        sortOrder: table.sortOrder,
+        floorPlanId: table.floorPlanId || '',
+      })),
+    }
+  })
 }
 
 export async function fetchPublicAvailability(
@@ -202,16 +222,18 @@ export async function createPublicReservation(
 }
 
 export async function fetchPublicReviews(slug: string): Promise<PublicReviewsResponse> {
-  const response = await fetch(
-    `${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/reviews`,
-  )
+  return cachedPublicGet(`reviews:${slug}`, async () => {
+    const response = await fetch(
+      `${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/reviews`,
+    )
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { error?: string }
-    throw new Error(payload.error ?? 'No se pudieron cargar las reseñas.')
-  }
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { error?: string }
+      throw new Error(payload.error ?? 'No se pudieron cargar las reseñas.')
+    }
 
-  return response.json() as Promise<PublicReviewsResponse>
+    return response.json() as Promise<PublicReviewsResponse>
+  })
 }
 
 export async function fetchPublicMenu(slug: string): Promise<{

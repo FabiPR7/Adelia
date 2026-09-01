@@ -43,16 +43,20 @@ export const cleanupRateLimitsScheduled = onSchedule(
   async () => {
     console.log('Starting Firestore junk cleanup...')
 
-    const [rateLimits, resetTokens] = await Promise.all([
+    const [rateLimits, resetTokens, stripeEvents] = await Promise.all([
       cleanupRateLimits(),
       deleteExpiredQuery('passwordResetTokens', 'expiresAt', Timestamp.now()),
+      deleteExpiredQuery('stripeEvents', 'expireAt', Timestamp.now()),
     ])
 
-    console.log(`Cleanup completed: rateLimits=${rateLimits.deleted} resetTokens=${resetTokens}`)
+    console.log(
+      `Cleanup completed: rateLimits=${rateLimits.deleted} resetTokens=${resetTokens} ` +
+        `stripeEvents=${stripeEvents}`,
+    )
 
     return {
       success: true,
-      deleted: rateLimits.deleted + resetTokens,
+      deleted: rateLimits.deleted + resetTokens + stripeEvents,
       timestamp: new Date().toISOString(),
     }
   },

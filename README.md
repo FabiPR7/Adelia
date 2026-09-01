@@ -1,9 +1,6 @@
 # 🍽️ Adelia - Restaurant Management Platform
 
 ![Tests](https://github.com/FabiPR7/Adelia/workflows/Tests/badge.svg)
-![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
-![Security](https://img.shields.io/badge/security-10%2F10-success)
-![OWASP](https://img.shields.io/badge/OWASP-Top%2010%20Compliant-blue)
 
 Plataforma completa de gestión de restaurantes con sistema de reservas, gamificación de clientes, y analytics avanzados.
 
@@ -29,9 +26,9 @@ Plataforma completa de gestión de restaurantes con sistema de reservas, gamific
 
 ---
 
-## 🛡️ Security (Nivel 10/10)
+## 🛡️ Security
 
-### OWASP Top 10 - 100% Compliant
+Prácticas de seguridad aplicadas (revisadas internamente, sin auditoría externa):
 
 - ✅ **XSS Protection** con DOMPurify
 - ✅ **Mass Assignment Prevention** con whitelists
@@ -46,10 +43,8 @@ Plataforma completa de gestión de restaurantes con sistema de reservas, gamific
 
 ### Testing
 
-- **200+ unit tests** con Vitest
-- **98%+ code coverage** en código crítico
+- Suite de tests con Vitest (unitarios de seguridad, slots de reserva y utilidades)
 - **CI/CD** con GitHub Actions
-- **Automated security scans** con Snyk
 
 ---
 
@@ -118,15 +113,7 @@ npm run test:watch
 npm run test:ui
 ```
 
-### Test Coverage
-
-| Module | Coverage | Tests |
-|--------|----------|-------|
-| securityHelpers | 98%+ | 80+ |
-| passwordValidation | 100% | 40+ |
-| fileUpload | 100% | 40+ |
-| recaptcha | 95%+ | 30+ |
-| **Total** | **98%+** | **200+** |
+Ejecuta `npm run test:coverage` para ver el informe de cobertura actualizado.
 
 ---
 
@@ -232,13 +219,13 @@ npm run deploy:rules
 
 ---
 
-## 🏆 Certifications Ready
+## 🏆 Cumplimiento
 
-- ✅ **OWASP Top 10** (100% compliance)
-- ✅ **SOC 2 Type II** (audit trail completo)
-- ✅ **GDPR** (data handling + logging)
-- ✅ **ISO 27001** (security policies)
-- ✅ **PCI DSS Level 1** (Stripe integration)
+El diseño busca alinearse con OWASP Top 10 y con los principios de GDPR
+(minimización de datos, trazabilidad de accesos). **No hay ninguna certificación
+externa (SOC 2, ISO 27001, PCI DSS) obtenida**; los pagos con tarjeta se delegan
+en Stripe (elegibilidad SAQ-A), por lo que la aplicación no almacena datos de
+tarjeta.
 
 ---
 

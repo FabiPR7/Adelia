@@ -72,7 +72,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userProfile,
       credentialsMustChange,
     )
-    setProfile(resolvedProfile)
+    // Los favoritos los posee FavoriteRestaurantsProvider; un refresh no debe
+    // pisar un toggle optimista con datos viejos del servidor.
+    setProfile((previous) => {
+      if (
+        previous?.role === 'customer'
+        && resolvedProfile.role === 'customer'
+        && Array.isArray(previous.favoriteSlugs)
+      ) {
+        return {
+          ...resolvedProfile,
+          favoriteSlugs: previous.favoriteSlugs,
+        }
+      }
+      return resolvedProfile
+    })
     setCompany(companyData)
   }, [])
 

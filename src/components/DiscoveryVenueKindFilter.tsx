@@ -4,6 +4,8 @@ import styles from './DiscoveryVenueKindFilter.module.css'
 interface DiscoveryVenueKindFilterProps {
   value: DiscoveryVenueKind | ''
   onChange: (value: DiscoveryVenueKind | '') => void
+  /** Sin margen inferior, para incrustarlo en una cabecera de sección. */
+  compact?: boolean
 }
 
 const OPTIONS: Array<{ id: DiscoveryVenueKind; label: string }> = [
@@ -11,9 +13,13 @@ const OPTIONS: Array<{ id: DiscoveryVenueKind; label: string }> = [
   { id: 'restaurant', label: 'Restaurantes' },
 ]
 
-function DiscoveryVenueKindFilter({ value, onChange }: DiscoveryVenueKindFilterProps) {
+function DiscoveryVenueKindFilter({ value, onChange, compact = false }: DiscoveryVenueKindFilterProps) {
   return (
-    <div className={styles.row} role="group" aria-label="Filtrar por tipo de local">
+    <div
+      className={compact ? `${styles.row} ${styles.rowCompact}` : styles.row}
+      role="group"
+      aria-label="Filtrar por tipo de local"
+    >
       {OPTIONS.map((option) => {
         const selected = value === option.id
 

@@ -137,7 +137,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   const favoriteRestaurants = useMemo(
     () =>
       restaurants
-        .filter((restaurant) => favoriteSlugs.includes(restaurant.slug))
+        .filter((restaurant) => favoriteSlugs.includes(restaurant.slug.trim().toLowerCase()))
         .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind)),
     [restaurants, favoriteSlugs, venueKind],
   )

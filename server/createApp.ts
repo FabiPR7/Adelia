@@ -16,6 +16,7 @@ import reservationDepositRouter from './routes/reservationDeposit.ts'
 import reservationEmailRouter from './routes/reservationEmail.ts'
 import customerNotificationsRouter from './routes/customerNotifications.ts'
 import customerFriendsRouter from './routes/customerFriends.ts'
+import customerFavoritesRouter from './routes/customerFavorites.ts'
 import customerReservationInvitesRouter from './routes/customerReservationInvites.ts'
 import customerReservationChallengesRouter from './routes/customerReservationChallenges.ts'
 import customerGamificationRouter from './routes/customerGamification.ts'
@@ -82,6 +83,7 @@ export function createApp() {
   app.use('/api/public/geocode', geocodeRouter)
   app.use('/api/customer/notifications', customerNotificationsRouter)
   app.use('/api/customer/friends', customerFriendsRouter)
+  app.use('/api/customer/favorites', customerFavoritesRouter)
   app.use('/api/customer/reservation-invites', customerReservationInvitesRouter)
   app.use('/api/customer/reservation-challenges', customerReservationChallengesRouter)
   app.use('/api/customer/gamification', customerGamificationRouter)

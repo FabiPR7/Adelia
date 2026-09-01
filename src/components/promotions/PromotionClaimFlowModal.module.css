@@ -34,7 +34,7 @@
 }
 
 .restaurantName {
-  font-weight: 800;
+  font-weight: 600;
   color: var(--color-brown);
 }
 
@@ -94,7 +94,7 @@
   min-height: 2.45rem;
   border-radius: 12px;
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   cursor: pointer;

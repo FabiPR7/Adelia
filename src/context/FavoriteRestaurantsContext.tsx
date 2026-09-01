@@ -9,8 +9,23 @@ import {
   type ReactNode,
 } from 'react'
 import { useAuth } from './AuthContext'
-import { setCustomerFavorite, updateCustomerFavorites } from '../services/customerAuth'
-import { readLocalFavoriteSlugs, toggleFavoriteSlug, writeLocalFavoriteSlugs } from '../utils/favorites'
+import {
+  fetchCustomerFavoriteSlugs,
+  replaceCustomerFavoritesViaApi,
+  setCustomerFavoriteViaApi,
+} from '../services/customerFavoritesApi'
+import {
+  clearLocalFavoriteSlugs,
+  hasMigratedGuestFavorites,
+  markGuestFavoritesMigrated,
+  mergeFavoriteSlugs,
+  normalizeFavoriteSlug,
+  normalizeFavoriteSlugs,
+  readLocalFavoriteSlugs,
+  sameFavoriteSlugs,
+  toggleFavoriteSlug,
+  writeLocalFavoriteSlugs,
+} from '../utils/favorites'
 
 interface FavoriteRestaurantsValue {
   favoriteSlugs: string[]
@@ -21,84 +36,125 @@ interface FavoriteRestaurantsValue {
 
 const FavoriteRestaurantsContext = createContext<FavoriteRestaurantsValue | null>(null)
 
-function sameSlugs(left: string[], right: string[]): boolean {
-  if (left.length !== right.length) {
-    return false
-  }
-
-  const rightSet = new Set(right)
-  return left.every((slug) => rightSet.has(slug))
-}
-
 export function FavoriteRestaurantsProvider({ children }: { children: ReactNode }) {
   const { user, profile, patchProfileFavorites } = useAuth()
   const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>(() => readLocalFavoriteSlugs())
   const favoriteSlugsRef = useRef(favoriteSlugs)
   const pendingSlugsRef = useRef(new Set<string>())
   const [pendingSlugs, setPendingSlugs] = useState<Set<string>>(() => new Set())
+  const hydratedUidRef = useRef<string | null>(null)
+  const hydrateGenerationRef = useRef(0)
 
-  const applyFavoritesLocally = useCallback((next: string[]) => {
-    favoriteSlugsRef.current = next
-    setFavoriteSlugs((current) => sameSlugs(current, next) ? current : next)
-    writeLocalFavoriteSlugs(next)
+  const applyFavorites = useCallback((next: string[], persistLocal: boolean) => {
+    const normalized = normalizeFavoriteSlugs(next)
+    favoriteSlugsRef.current = normalized
+    setFavoriteSlugs((current) => (sameFavoriteSlugs(current, normalized) ? current : normalized))
+    if (persistLocal) {
+      writeLocalFavoriteSlugs(normalized)
+    }
   }, [])
 
   useEffect(() => {
     if (profile?.role !== 'customer' || !user) {
-      const local = readLocalFavoriteSlugs()
-      favoriteSlugsRef.current = local
-      setFavoriteSlugs((current) => sameSlugs(current, local) ? current : local)
+      if (hydratedUidRef.current !== null) {
+        hydratedUidRef.current = null
+        applyFavorites(readLocalFavoriteSlugs(), false)
+      }
       return
     }
 
-    const local = readLocalFavoriteSlugs()
-    const remote = profile.favoriteSlugs ?? []
-    const merged = [...new Set([...remote, ...local])]
-    applyFavoritesLocally(merged)
-
-    if (!sameSlugs(merged, remote)) {
-      patchProfileFavorites(merged)
-      void updateCustomerFavorites(user.uid, merged)
-        .catch(() => undefined)
+    if (hydratedUidRef.current === user.uid) {
+      return
     }
-  }, [applyFavoritesLocally, patchProfileFavorites, profile?.favoriteSlugs, profile?.role, user])
+
+    const uid = user.uid
+    hydratedUidRef.current = uid
+    const generation = ++hydrateGenerationRef.current
+
+    const boot = async () => {
+      let remote = normalizeFavoriteSlugs(profile.favoriteSlugs ?? [])
+      try {
+        remote = normalizeFavoriteSlugs(await fetchCustomerFavoriteSlugs())
+      } catch {
+        // Seguimos con lo del perfil si la API falla.
+      }
+
+      if (hydrateGenerationRef.current !== generation || hydratedUidRef.current !== uid) {
+        return
+      }
+
+      const local = readLocalFavoriteSlugs()
+      const shouldMigrate = !hasMigratedGuestFavorites(uid) && local.length > 0
+      const next = shouldMigrate ? mergeFavoriteSlugs(remote, local) : remote
+
+      applyFavorites(next, false)
+      clearLocalFavoriteSlugs()
+      markGuestFavoritesMigrated(uid)
+      patchProfileFavorites(next)
+
+      if (shouldMigrate && !sameFavoriteSlugs(next, remote)) {
+        try {
+          const saved = await replaceCustomerFavoritesViaApi(next)
+          if (hydrateGenerationRef.current === generation && hydratedUidRef.current === uid) {
+            applyFavorites(saved, false)
+            patchProfileFavorites(saved)
+          }
+        } catch {
+          // La UI ya tiene el merge; se reintentará en el próximo toggle.
+        }
+      }
+    }
+
+    void boot()
+  }, [applyFavorites, patchProfileFavorites, profile?.favoriteSlugs, profile?.role, user])
 
   const toggleFavorite = useCallback(
     async (slug: string) => {
-      const normalizedSlug = slug.trim()
+      const normalizedSlug = normalizeFavoriteSlug(slug)
       if (!normalizedSlug || pendingSlugsRef.current.has(normalizedSlug)) {
         return
       }
 
+      const loggedInCustomer = Boolean(user && profile?.role === 'customer')
       pendingSlugsRef.current.add(normalizedSlug)
       setPendingSlugs(new Set(pendingSlugsRef.current))
 
-      const next = toggleFavoriteSlug(favoriteSlugsRef.current, normalizedSlug)
+      const previous = favoriteSlugsRef.current
+      const next = toggleFavoriteSlug(previous, normalizedSlug)
       const saved = next.includes(normalizedSlug)
-      applyFavoritesLocally(next)
-      patchProfileFavorites(next)
+
+      applyFavorites(next, !loggedInCustomer)
+      if (loggedInCustomer) {
+        patchProfileFavorites(next)
+      }
 
       try {
-        if (user && profile?.role === 'customer') {
-          await setCustomerFavorite(user.uid, normalizedSlug, saved)
+        if (loggedInCustomer) {
+          const confirmed = await setCustomerFavoriteViaApi(normalizedSlug, saved)
+          applyFavorites(confirmed, false)
+          patchProfileFavorites(confirmed)
         }
-      } catch {
-        // Los favoritos locales siguen valiendo sin red.
+      } catch (error) {
+        console.error('No se pudo guardar el favorito:', error)
+        applyFavorites(previous, !loggedInCustomer)
+        if (loggedInCustomer) {
+          patchProfileFavorites(previous)
+        }
       } finally {
         pendingSlugsRef.current.delete(normalizedSlug)
         setPendingSlugs(new Set(pendingSlugsRef.current))
       }
     },
-    [applyFavoritesLocally, patchProfileFavorites, profile?.role, user],
+    [applyFavorites, patchProfileFavorites, profile?.role, user],
   )
 
   const isFavorite = useCallback(
-    (slug: string) => favoriteSlugs.includes(slug),
+    (slug: string) => favoriteSlugs.includes(normalizeFavoriteSlug(slug)),
     [favoriteSlugs],
   )
 
   const isUpdatingFavorite = useCallback(
-    (slug: string) => pendingSlugs.has(slug),
+    (slug: string) => pendingSlugs.has(normalizeFavoriteSlug(slug)),
     [pendingSlugs],
   )
 

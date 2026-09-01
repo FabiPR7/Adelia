@@ -85,7 +85,7 @@
   padding: 0.22rem 0.55rem;
   border-radius: 999px;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #ff6b4a;
@@ -172,7 +172,7 @@
 .tileLabel {
   text-align: center;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.2;

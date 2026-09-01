@@ -16,7 +16,7 @@
 .cartTitle {
   margin: 0 0 0.5rem;
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #9a3412;
@@ -128,7 +128,7 @@
 .group h4 {
   margin: 0 0 0.35rem;
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-brown-light);

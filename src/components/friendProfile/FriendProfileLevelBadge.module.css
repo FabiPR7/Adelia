@@ -75,7 +75,7 @@
 
 .levelMedLabel {
   font-size: 0.46rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--pill-number-color) 85%, transparent);
@@ -85,7 +85,7 @@
 .levelMedNumber {
   font-family: var(--font-display);
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
   color: var(--pill-number-color);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);

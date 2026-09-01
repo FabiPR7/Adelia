@@ -10,9 +10,8 @@ import {
   type User,
 } from 'firebase/auth'
 import {
-  arrayRemove,
-  arrayUnion,
   doc,
+  getDoc,
   serverTimestamp,
   updateDoc,
   writeBatch,
@@ -20,6 +19,10 @@ import {
 import { auth, db } from '../config/firebase'
 import { getUserProfile } from './firestore'
 import { favoriteDocId, replaceUserFavorites } from './userFavorites'
+import {
+  normalizeFavoriteSlug,
+  normalizeFavoriteSlugs,
+} from '../utils/favorites'
 import {
   requestCustomerVerificationEmailSend,
   syncCustomerPhoneVerification,
@@ -207,10 +210,11 @@ export async function requestCustomerPasswordReset(email: string): Promise<strin
 }
 
 export async function updateCustomerFavorites(uid: string, favoriteSlugs: string[]): Promise<void> {
+  const normalized = normalizeFavoriteSlugs(favoriteSlugs)
   await updateDoc(doc(db, 'users', uid), {
-    favoriteSlugs,
+    favoriteSlugs: normalized,
   })
-  await replaceUserFavorites(uid, favoriteSlugs).catch(() => undefined)
+  await replaceUserFavorites(uid, normalized).catch(() => undefined)
 }
 
 export async function setCustomerFavorite(
@@ -218,15 +222,20 @@ export async function setCustomerFavorite(
   slug: string,
   saved: boolean,
 ): Promise<void> {
-  const normalizedSlug = slug.trim()
+  const normalizedSlug = normalizeFavoriteSlug(slug)
   if (!uid || !normalizedSlug) {
     return
   }
 
+  const userRef = doc(db, 'users', uid)
+  const userSnap = await getDoc(userRef)
+  const current = normalizeFavoriteSlugs(userSnap.data()?.favoriteSlugs)
+  const next = saved
+    ? (current.includes(normalizedSlug) ? current : [...current, normalizedSlug])
+    : current.filter((item) => item !== normalizedSlug)
+
   const batch = writeBatch(db)
-  batch.update(doc(db, 'users', uid), {
-    favoriteSlugs: saved ? arrayUnion(normalizedSlug) : arrayRemove(normalizedSlug),
-  })
+  batch.update(userRef, { favoriteSlugs: next })
 
   const favoriteRef = doc(db, 'userFavorites', favoriteDocId(uid, normalizedSlug))
   if (saved) {

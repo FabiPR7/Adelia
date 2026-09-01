@@ -2,7 +2,7 @@
   min-height: 100%;
   padding: 0 0 1.5rem;
   background:
-    radial-gradient(circle at 100% 0%, rgba(255, 79, 143, 0.1), transparent 40%),
+    radial-gradient(circle at 100% 0%, var(--color-accent-wash), transparent 40%),
     linear-gradient(180deg, #fff8f4 0%, var(--color-cream) 100%);
 }
 
@@ -19,8 +19,8 @@
   overflow: hidden;
   margin: 0 -0.85rem;
   padding: 1.35rem 1.1rem 1.15rem;
-  color: #fff;
-  background: linear-gradient(135deg, #1f1418 0%, #4a1835 42%, #ff4f8f 100%);
+  color: var(--night-text);
+  background: linear-gradient(135deg, var(--night-bg) 0%, var(--night-bg-2) 100%);
 }
 
 .heroGlow {
@@ -30,7 +30,7 @@
   top: -70px;
   right: -40px;
   border-radius: 50%;
-  background: rgba(255, 107, 74, 0.35);
+  background: rgba(196, 168, 130, 0.22);
   pointer-events: none;
 }
 
@@ -40,8 +40,8 @@
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-weight: 800;
-  color: rgba(255, 200, 180, 0.95);
+  font-weight: 600;
+  color: var(--color-sand);
 }
 
 .hero h1 {
@@ -58,7 +58,7 @@
   max-width: 22rem;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.86);
+  color: var(--night-text-soft);
 }
 
 .heroStats {
@@ -73,8 +73,8 @@
 .heroStats div {
   padding: 0.7rem 0.85rem;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--night-surface);
+  border: 1px solid var(--night-border);
 }
 
 .heroStats strong {
@@ -89,7 +89,7 @@
   font-size: 0.68rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  opacity: 0.82;
+  color: var(--night-text-soft);
 }
 
 .tabs {
@@ -99,9 +99,9 @@
   margin: 1rem 0.85rem 0.85rem;
   padding: 0.35rem;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(107, 83, 68, 0.08);
-  box-shadow: 0 10px 28px rgba(35, 28, 22, 0.06);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--elev-1);
 }
 
 .tab,
@@ -114,8 +114,9 @@
   border: none;
   border-radius: 14px;
   font-size: 0.9rem;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
 }
 
 .tab {
@@ -124,9 +125,9 @@
 }
 
 .tabActive {
-  background: #fff;
-  color: #ff6b4a;
-  box-shadow: 0 10px 24px rgba(255, 79, 143, 0.16);
+  background: var(--color-white);
+  color: var(--color-brown);
+  box-shadow: var(--elev-1);
 }
 
 .tab span,
@@ -139,7 +140,7 @@
 }
 
 .tabActive span {
-  background: rgba(255, 107, 74, 0.12);
+  background: var(--color-accent-wash);
 }
 
 .list {
@@ -155,10 +156,10 @@
   border-radius: 22px;
   text-align: center;
   background:
-    radial-gradient(circle at top, rgba(255, 107, 74, 0.1), transparent 55%),
-    rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(107, 83, 68, 0.08);
-  box-shadow: 0 12px 32px rgba(35, 28, 22, 0.06);
+    radial-gradient(circle at top, var(--color-accent-wash), transparent 55%),
+    var(--color-white);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--elev-2);
 }
 
 .emptyIcon {
@@ -185,28 +186,33 @@
   margin-top: 1rem;
   padding: 0.72rem 1.15rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
-  color: #fff;
+  background: var(--color-brown);
+  color: var(--color-white);
   font-size: 0.875rem;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
-  box-shadow: 0 12px 28px rgba(255, 79, 143, 0.26);
+  box-shadow: var(--elev-2);
+  transition: transform var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
+}
+
+.emptyCta:hover {
+  transform: translateY(-1px);
 }
 
 .pendingInvites {
   margin: 0 0.85rem 1rem;
   padding: 0.9rem 1rem;
   border-radius: 18px;
-  background: #fff;
-  border: 1px solid rgba(22, 163, 74, 0.18);
-  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.08);
+  background: var(--color-white);
+  border: 1px solid var(--color-ok);
+  box-shadow: var(--elev-1);
 }
 
 .pendingInvites h2 {
   margin: 0 0 0.7rem;
   font-family: var(--font-display);
   font-size: 1.05rem;
-  color: #166534;
+  color: var(--color-ok);
 }
 
 .pendingInvites ul {
@@ -247,26 +253,26 @@
   border-radius: 999px;
   padding: 0.4rem 0.75rem;
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .acceptInvite {
   border: none;
-  background: #16a34a;
-  color: #fff;
+  background: var(--color-ok);
+  color: var(--color-white);
 }
 
 .rejectInvite {
-  border: 1px solid rgba(185, 28, 28, 0.2);
-  background: #fff;
-  color: #b91c1c;
+  border: 1px solid var(--color-danger-bg);
+  background: var(--color-white);
+  color: var(--color-danger);
 }
 
 .inviteError {
   margin: 0 0 0.55rem;
   font-size: 0.8rem;
-  color: #b91c1c;
+  color: var(--color-danger);
 }
 
 .subTabs {
@@ -277,7 +283,7 @@
   padding: 0.3rem;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(107, 83, 68, 0.08);
+  border: 1px solid var(--color-border);
 }
 
 .consumptionSection {
@@ -295,9 +301,9 @@
   gap: 0.85rem;
   padding: 1rem 1.05rem;
   border-radius: 20px;
-  background: #fff;
-  border: 1px solid rgba(107, 83, 68, 0.08);
-  box-shadow: 0 10px 24px rgba(35, 28, 22, 0.06);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--elev-1);
 }
 
 .registerBar h2 {
@@ -319,19 +325,24 @@
   border: none;
   border-radius: 999px;
   padding: 0.7rem 1.1rem;
-  background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
-  color: #fff;
+  background: var(--color-brown);
+  color: var(--color-white);
   font-size: 0.85rem;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 12px 24px rgba(255, 79, 143, 0.24);
+  box-shadow: var(--elev-2);
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.registerCta:hover {
+  transform: translateY(-1px);
 }
 
 .picker {
   padding: 1rem;
   border-radius: 20px;
-  background: #fff;
-  border: 1px solid rgba(107, 83, 68, 0.1);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
 }
 
 .pickerSearch {
@@ -339,12 +350,12 @@
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-brown);
 }
 
 .pickerSearch input {
-  border: 1px solid rgba(107, 83, 68, 0.16);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 0.7rem 0.85rem;
   font-size: 0.95rem;
@@ -364,7 +375,7 @@
 .pickerRow {
   width: 100%;
   text-align: left;
-  border: 1px solid rgba(107, 83, 68, 0.1);
+  border: 1px solid var(--color-border);
   border-radius: 14px;
   padding: 0.7rem 0.8rem;
   background: #fff8f4;
@@ -390,12 +401,12 @@
 
 .pickerCancel {
   margin-top: 0.75rem;
-  border: 1px solid rgba(107, 83, 68, 0.14);
-  background: #fff;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
   border-radius: 999px;
   padding: 0.45rem 0.9rem;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { allowPublicCache } from '../security/httpCache.ts'
 
 const router = Router()
 
@@ -91,6 +92,8 @@ router.get('/search', async (req, res) => {
     }
 
     const payload = (await response.json()) as { features?: PhotonFeature[] }
+    // Resultados de geocodificación de ciudades: prácticamente estáticos.
+    allowPublicCache(res, 3600)
     res.json({ suggestions: parsePhotonFeatures(payload.features) })
   } catch (error) {
     console.error('City search error:', error)

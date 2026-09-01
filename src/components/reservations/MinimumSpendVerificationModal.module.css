@@ -139,7 +139,7 @@
 .reviewResult {
   margin: 0.65rem 0 0;
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .reviewOk {
@@ -206,7 +206,7 @@
   min-height: 2.45rem;
   border-radius: 12px;
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   cursor: pointer;
@@ -260,7 +260,7 @@
   margin-bottom: 0.65rem;
   border-radius: 999px;
   font-size: 1.55rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #fff;
   box-shadow: 0 8px 22px rgba(22, 163, 74, 0.28);
 }
@@ -327,7 +327,7 @@
   background: linear-gradient(135deg, #ff6b4a, #ff4f8f);
   color: #fff;
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   box-shadow: 0 4px 12px rgba(255, 79, 143, 0.35);
@@ -343,7 +343,7 @@
   background: rgba(22, 163, 74, 0.92);
   color: #fff;
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }

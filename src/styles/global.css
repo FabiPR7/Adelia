@@ -19,9 +19,56 @@
   --font-epic: 'Bebas Neue', 'Arial Narrow', sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
 
+  --radius-xs: 6px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* Acento de marca. Usar SIEMPRE esto para el color primario / CTA,
+     nunca gradientes rosa/púrpura sueltos. */
+  --color-accent: var(--color-sand);
+  --color-accent-strong: #a8814d;
+  --color-accent-ink: #7a5a2f;      /* arena legible como texto sobre claro */
+  --color-accent-wash: rgba(196, 168, 130, 0.16);
+
+  /* Roles semánticos (estado, no decoración) */
+  --color-ok: #4a7350;
+  --color-ok-bg: rgba(74, 115, 80, 0.12);
+  --color-warn: #9a6d16;
+  --color-warn-bg: rgba(154, 109, 22, 0.12);
+  --color-danger: var(--color-error);
+  --color-danger-bg: rgba(181, 74, 74, 0.12);
+
+  /* Superficie "night" para la zona de gamificación: marrón cálido,
+     no negro ni magenta. El acento sigue siendo el de marca. */
+  --night-bg: #241c15;
+  --night-bg-2: #2f2419;
+  --night-surface: rgba(255, 255, 255, 0.06);
+  --night-border: rgba(255, 255, 255, 0.14);
+  --night-text: #f5efe3;
+  --night-text-soft: rgba(245, 239, 227, 0.72);
+
+  /* Escala de espaciado (4-48). Preferir esto a literales sueltos. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+
+  /* Elevación: dos escalones, sombra cálida */
+  --elev-1: 0 2px 8px rgba(60, 45, 35, 0.08), 0 1px 2px rgba(60, 45, 35, 0.06);
+  --elev-2: 0 8px 24px rgba(60, 45, 35, 0.12), 0 2px 6px rgba(60, 45, 35, 0.08);
+  --elev-3: 0 18px 40px rgba(60, 45, 35, 0.18), 0 3px 8px rgba(60, 45, 35, 0.1);
+
+  /* Motion */
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
 
 *,
@@ -59,4 +106,26 @@ a {
 
 a:hover {
   color: var(--color-brown);
+}
+
+/* --- Base de accesibilidad (aplica a toda la app) --- */
+
+/* Anillo de foco de teclado por defecto. Los componentes pueden
+   redefinirlo, pero nunca deben quedarse sin señal de foco. */
+:where(a, button, input, select, textarea, [tabindex], [role='button']):focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Movimiento reducido: respeta la preferencia del sistema en toda la app. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

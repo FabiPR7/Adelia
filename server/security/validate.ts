@@ -88,6 +88,22 @@ const ALLOWED_MEDIA_HOSTS = new Set([
   'res.cloudinary.com',
 ])
 
+const CLOUDINARY_CLOUD_NAME = (process.env.VITE_CLOUDINARY_CLOUD_NAME ?? '').trim().toLowerCase()
+
+/**
+ * Cuando conocemos nuestro cloud de Cloudinary, exigimos que la URL lo lleve en
+ * el primer segmento de ruta (`res.cloudinary.com/<cloud>/...`). Así no se
+ * pueden colar archivos de otra cuenta de Cloudinary. Si la variable no está
+ * definida, no restringe (comportamiento anterior).
+ */
+function cloudinaryPathMatchesOurCloud(parsed: URL): boolean {
+  if (!CLOUDINARY_CLOUD_NAME) {
+    return true
+  }
+  const firstSegment = parsed.pathname.split('/').filter(Boolean)[0]?.toLowerCase() ?? ''
+  return firstSegment === CLOUDINARY_CLOUD_NAME
+}
+
 function parseHttpsUrl(value: string): URL {
   let parsed: URL
   try {
@@ -108,7 +124,8 @@ export function asHttpsMediaUrl(value: unknown): string {
   const url = asTrimmed(value, 500, 'La URL')
   const parsed = parseHttpsUrl(url)
   const host = parsed.hostname.toLowerCase()
-  const allowed = ALLOWED_MEDIA_HOSTS.has(host) || host.endsWith('.cloudinary.com')
+  const allowed = (ALLOWED_MEDIA_HOSTS.has(host) || host.endsWith('.cloudinary.com'))
+    && cloudinaryPathMatchesOurCloud(parsed)
   if (!allowed) {
     throw new InputError('Ese origen de archivo no está permitido.')
   }

@@ -79,7 +79,7 @@
   background: rgba(75, 85, 99, 0.92);
   color: #fff;
   font-size: 0.58rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -226,7 +226,7 @@
   padding: 0.2rem 0.42rem;
   border-radius: 999px;
   font-size: 0.56rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   backdrop-filter: blur(8px);
@@ -275,7 +275,7 @@
 .restaurant {
   margin: 0;
   font-size: 0.58rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--promo-accent);
@@ -337,7 +337,7 @@
   background: linear-gradient(135deg, var(--promo-accent), var(--promo-accent-2));
   color: #fff;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 600;
   flex-shrink: 0;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--promo-accent) 45%, transparent);
 }
@@ -399,7 +399,7 @@
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
@@ -418,7 +418,7 @@
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;

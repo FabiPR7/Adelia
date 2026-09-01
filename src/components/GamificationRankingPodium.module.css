@@ -63,7 +63,7 @@
   background: linear-gradient(160deg, #1e1030 0%, #2d1b45 100%);
   color: #fde68a;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
@@ -76,7 +76,7 @@
 .podiumName {
   margin: 0.45rem 0 0;
   font-size: clamp(0.625rem, 2.8vw, 0.75rem);
-  font-weight: 800;
+  font-weight: 600;
   color: #fff;
   max-width: 100%;
   overflow: hidden;
@@ -134,7 +134,7 @@
   text-align: center;
   font-family: var(--font-display);
   font-size: 1.35rem;
-  font-weight: 800;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.88);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
@@ -174,7 +174,7 @@
 .rowRank {
   min-width: 1.75rem;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.55);
 }
 
@@ -187,7 +187,7 @@
   background: rgba(255, 255, 255, 0.1);
   color: #fde68a;
   font-size: 0.6875rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .rowBody {

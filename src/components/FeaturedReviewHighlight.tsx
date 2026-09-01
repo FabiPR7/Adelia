@@ -46,7 +46,9 @@ function FeaturedReviewHighlight({
 
   useEffect(() => {
     let cancelled = false
-    const candidates = pickFeaturedReviewCandidates(restaurants)
+    // restaurantKey fija la identidad de la lista; usamos restaurants del mismo render.
+    const source = restaurants
+    const candidates = pickFeaturedReviewCandidates(source)
 
     if (candidates.length === 0) {
       setItems([])
@@ -84,7 +86,8 @@ function FeaturedReviewHighlight({
     return () => {
       cancelled = true
     }
-  }, [restaurantKey, restaurants])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo re-fetch si cambian los slugs
+  }, [restaurantKey])
 
   useEffect(() => {
     if (items.length <= 1) {

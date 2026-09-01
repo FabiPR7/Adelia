@@ -49,9 +49,9 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
       return
     }
 
-    const guestCount = Number(pax)
+    const guestCount = Math.trunc(Number(pax))
 
-    if (!Number.isFinite(guestCount) || guestCount < 1) {
+    if (!Number.isFinite(guestCount) || guestCount < 1 || guestCount > 500) {
       res.status(400).json({ error: 'Indica el número de invitados.' })
       return
     }
@@ -116,18 +116,21 @@ router.post('/:companyId/reservations', async (req: Request, res: Response) => {
     const email = typeof clientEmail === 'string' ? clientEmail.trim().toLowerCase() : ''
     const phone = typeof clientPhone === 'string' ? clientPhone.trim() : ''
 
+    const stripTags = (input: string) => input.replace(/<[^>]*>/g, '').replace(/[<>]/g, '').trim()
+
     const reservationData = {
       companyId,
       tableId,
-      clientName: clientName.trim(),
+      clientName: stripTags(clientName).slice(0, 120),
       clientEmail: email,
       clientPhone: phone,
       pax: guestCount,
-      notes: typeof notes === 'string' ? notes.trim() : '',
+      notes: stripTags(typeof notes === 'string' ? notes : '').slice(0, 500),
       startTime: Timestamp.fromDate(startTime),
       endTime: Timestamp.fromDate(endTime),
       status: reservationStatus,
       cancelToken: randomUUID(),
+      schemaVersion: 1,
       createdAt: Timestamp.now(),
     }
 

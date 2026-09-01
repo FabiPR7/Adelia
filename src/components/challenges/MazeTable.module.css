@@ -112,7 +112,7 @@
 
 .role {
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--coral);
@@ -130,7 +130,7 @@
 .stat {
   margin-top: 2px;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
@@ -205,7 +205,7 @@
 .countHint {
   margin: 0;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: rgba(255, 200, 180, 0.92);
@@ -311,7 +311,7 @@
   margin-top: -5.75%;
   border-radius: 50%;
   font-size: 0.5rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #fff;
   overflow: hidden;
 }
@@ -418,7 +418,7 @@
   padding: 0.22rem 0.6rem;
   border-radius: 999px;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #ff6b4a;
@@ -483,7 +483,7 @@
   margin-top: 0.35rem;
   border: 0;
   border-radius: 999px;
-  font-weight: 800;
+  font-weight: 600;
   color: #fff;
   background: linear-gradient(135deg, #ff6b4a, #ff4f8f);
   box-shadow: 0 12px 28px rgba(255, 79, 143, 0.28);
@@ -508,7 +508,7 @@
   background: #fff;
   color: var(--muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   box-shadow: 0 8px 18px rgba(35, 28, 22, 0.05);
@@ -519,7 +519,7 @@
   min-height: 3.15rem;
   border: 0;
   border-radius: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: white;
   background: linear-gradient(90deg, #b54a4a, #9b3a3a);
 }

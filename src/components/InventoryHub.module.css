@@ -13,7 +13,7 @@
 .eyebrow {
   margin: 0;
   font-size: 0.7rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #a16207;
@@ -96,7 +96,7 @@
   background: rgba(255, 255, 255, 0.8);
   color: var(--color-text-muted);
   font-size: 0.62rem;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -171,7 +171,7 @@
 }
 
 .ownedLine {
-  font-weight: 800;
+  font-weight: 600;
   color: #7c3aed;
 }
 
@@ -189,7 +189,7 @@
   min-height: 2.55rem;
   border: none;
   border-radius: 999px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   display: grid;
   place-items: center;

@@ -1,14 +1,14 @@
 .page {
-  --profile-accent: #5eead4;
-  --profile-accent-soft: rgba(94, 234, 212, 0.22);
-  --profile-glow: radial-gradient(ellipse 90% 45% at 50% 0%, rgba(94, 234, 212, 0.35), transparent 70%);
-  --profile-pill-number-bg: #0f766e;
+  --profile-accent: var(--color-sand);
+  --profile-accent-soft: var(--color-accent-wash);
+  --profile-glow: radial-gradient(ellipse 90% 45% at 50% 0%, rgba(196, 168, 130, 0.3), transparent 70%);
+  --profile-pill-number-bg: var(--color-brown);
   --profile-pill-number-color: #ffffff;
-  --profile-pill-title-bg: #5eead4;
-  --profile-pill-title-color: #134e4a;
-  --profile-chip-bg: rgba(94, 234, 212, 0.14);
-  --profile-chip-text: #134e4a;
-  --profile-chip-border: rgba(94, 234, 212, 0.45);
+  --profile-pill-title-bg: var(--color-sand);
+  --profile-pill-title-color: var(--color-text);
+  --profile-chip-bg: var(--color-accent-wash);
+  --profile-chip-text: var(--color-accent-ink);
+  --profile-chip-border: var(--color-border);
 
   position: relative;
   min-height: 100%;
@@ -36,7 +36,7 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(8, 12, 18, 0.55) 0%, rgba(8, 12, 18, 0.38) 28%, rgba(255, 248, 244, 0.96) 52%, var(--color-cream) 100%);
+    linear-gradient(180deg, rgba(36, 28, 21, 0.58) 0%, rgba(36, 28, 21, 0.4) 28%, rgba(255, 248, 244, 0.96) 52%, var(--color-cream) 100%);
 }
 
 .pageBgGlow {
@@ -73,7 +73,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-weight: 800;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.88);
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
 }
@@ -85,7 +85,7 @@
   border: 1px solid rgba(255, 255, 255, 0.28);
   color: #fff;
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
   backdrop-filter: blur(8px);
 }
@@ -121,7 +121,7 @@
   justify-content: center;
   padding: 0.35rem 0.72rem;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -197,7 +197,7 @@
 .metricCard strong {
   font-size: 1.15rem;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--color-brown);
 }
@@ -206,7 +206,7 @@
   font-size: 0.58rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--color-text-muted);
 }
 
@@ -227,32 +227,27 @@
   color: var(--color-brown);
   background: #fff;
   border: 1px solid rgba(107, 83, 68, 0.08);
-  box-shadow: 0 8px 20px rgba(35, 28, 22, 0.06);
-  transition: transform 0.15s ease;
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .quickCard:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--elev-2);
+  }
 }
 
 .quickCard:active {
   transform: scale(0.98);
 }
 
-.quick_coral {
-  border-top: 3px solid #ff6b4a;
-  background: linear-gradient(180deg, #fff5f0 0%, #fff 100%);
-}
-
-.quick_gold {
-  border-top: 3px solid #f59e0b;
-  background: linear-gradient(180deg, #fff8e8 0%, #fff 100%);
-}
-
-.quick_magenta {
-  border-top: 3px solid #d946ef;
-  background: linear-gradient(180deg, #fdf0ff 0%, #fff 100%);
-}
-
+.quick_coral,
+.quick_gold,
+.quick_magenta,
 .quick_sunset {
-  border-top: 3px solid #f97316;
-  background: linear-gradient(180deg, #fff1ea 0%, #fff 100%);
+  border-top: 3px solid var(--color-sand);
+  background: linear-gradient(180deg, #fff8f3 0%, #fff 100%);
 }
 
 .quickIcon {
@@ -301,7 +296,7 @@
   background: var(--profile-accent-soft);
   color: var(--profile-pill-number-bg);
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .activityList {
@@ -366,7 +361,7 @@
   display: inline-flex;
   margin-top: 0.65rem;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--profile-pill-number-bg);
   text-decoration: none;
 }
@@ -383,20 +378,11 @@
   overflow: hidden;
 }
 
-.favorite_coral {
-  box-shadow: 0 10px 22px rgba(255, 107, 74, 0.18);
-}
-
-.favorite_gold {
-  box-shadow: 0 10px 22px rgba(245, 158, 11, 0.18);
-}
-
-.favorite_magenta {
-  box-shadow: 0 10px 22px rgba(217, 70, 239, 0.18);
-}
-
+.favorite_coral,
+.favorite_gold,
+.favorite_magenta,
 .favorite_sunset {
-  box-shadow: 0 10px 22px rgba(249, 115, 22, 0.18);
+  box-shadow: var(--elev-2);
 }
 
 .favoriteMediaLink {
@@ -475,7 +461,7 @@
   padding: 0.72rem 1rem;
   border-radius: 999px;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -487,10 +473,10 @@
 
 .logoutBtn {
   border: none;
-  background: linear-gradient(90deg, var(--profile-pill-number-bg), var(--profile-pill-title-bg));
+  background: var(--color-brown);
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--profile-accent) 35%, transparent);
+  box-shadow: var(--elev-2);
 }
 
 @media (min-width: 540px) {

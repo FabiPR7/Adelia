@@ -50,13 +50,14 @@ export function useCustomerGamification({
   consumptions,
   enabled,
 }: UseCustomerGamificationOptions) {
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, patchProfileGamification } = useAuth()
   const [state, setState] = useState<CustomerGamificationState>(() =>
     profile?.gamification ?? defaultGamificationState(),
   )
   const [syncing, setSyncing] = useState(false)
   const [evaluatedTick, setEvaluatedTick] = useState(0)
   const persistedRef = useRef<string>('')
+  const syncingRef = useRef(false)
 
   useEffect(() => {
     if (!profile?.gamification) {
@@ -164,7 +165,7 @@ export function useCustomerGamification({
   )
 
   useEffect(() => {
-    if (!enabled || !user || profile?.role !== 'customer') {
+    if (!enabled || !user || profile?.role !== 'customer' || syncingRef.current) {
       return
     }
 
@@ -217,23 +218,25 @@ export function useCustomerGamification({
     const merged = mergeMonotonicCelebrations(evaluationState, nextState)
     setState(merged)
     setSyncing(true)
+    syncingRef.current = true
 
     const beforeGamification = { ...evaluationState }
 
     void updateCustomerGamification(user.uid, merged)
       .then(async () => {
+        patchProfileGamification(merged)
         const beforeIds = new Set(completedMissionIdsFromState(beforeGamification))
         const newIds = completedMissionIdsFromState(merged).filter((id) => !beforeIds.has(id))
         const looksLikeHistoryReplay = beforeIds.size === 0 && newIds.length > 1
         if (newIds.length > 0 && !looksLikeHistoryReplay) {
           await syncGamificationNotifications(beforeGamification)
         }
-        return refreshProfile()
       })
       .catch(() => {
         persistedRef.current = ''
       })
       .finally(() => {
+        syncingRef.current = false
         setSyncing(false)
       })
   }, [
@@ -242,7 +245,7 @@ export function useCustomerGamification({
     profile?.role,
     evaluationState,
     favoriteSlugs,
-    refreshProfile,
+    patchProfileGamification,
     weeklyProgress,
     monthlyProgress,
     historicalProgress,
