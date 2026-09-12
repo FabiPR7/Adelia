@@ -35,8 +35,10 @@ describe('companyPlans', () => {
       'basic',
       'premium',
     ])
-    expect(COMPANY_PLANS.find((plan) => plan.id === 'basic')?.priceMonthly).toBe(39)
-    expect(COMPANY_PLANS.find((plan) => plan.id === 'premium')?.priceMonthly).toBe(59)
+    expect(COMPANY_PLANS.find((plan) => plan.id === 'basic')?.priceMonthly).toBe(39.99)
+    expect(COMPANY_PLANS.find((plan) => plan.id === 'premium')?.priceMonthly).toBe(59.99)
+    expect(COMPANY_PLANS.find((plan) => plan.id === 'basic')?.priceAnnual).toBe(375)
+    expect(COMPANY_PLANS.find((plan) => plan.id === 'premium')?.priceAnnual).toBe(565)
   })
 
   it('lists Mesa without floor plans or photos in the menu', () => {
@@ -209,7 +211,7 @@ describe('companyPlans', () => {
   it('starts charging immediately when leaving Mesa', () => {
     const preview = previewCompanyPlanChange('free', 'basic')
     expect(preview.kind).toBe('start_paid')
-    expect(preview.chargeNowMonthly).toBe(39)
+    expect(preview.chargeNowMonthly).toBe(39.99)
   })
 
   it('stops charging when moving to Mesa', () => {

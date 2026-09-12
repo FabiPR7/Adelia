@@ -25,12 +25,18 @@
   --radius-lg: 20px;
   --radius-pill: 999px;
 
-  /* Acento de marca. Usar SIEMPRE esto para el color primario / CTA,
-     nunca gradientes rosa/púrpura sueltos. */
-  --color-accent: var(--color-sand);
-  --color-accent-strong: #a8814d;
-  --color-accent-ink: #7a5a2f;      /* arena legible como texto sobre claro */
-  --color-accent-wash: rgba(196, 168, 130, 0.16);
+  /* Acento vivo de marca: terracota cálida. UN solo acento en toda la app
+     (nada de rosa/púrpura/teal sueltos). Para energía puntual (barras de XP,
+     celebraciones) usar --gradient-energy, y solo ahí. */
+  --color-accent: #db5a34;
+  --color-accent-strong: #c2461f;   /* fondo de botón / estado activo (texto blanco AA) */
+  --color-accent-ink: #a63c18;      /* terracota legible como TEXTO sobre claro */
+  --color-accent-wash: rgba(219, 90, 52, 0.12);
+  --color-accent-2: #e9a133;        /* ámbar: segundo tono de energía */
+  --gradient-energy: linear-gradient(135deg, #db5a34 0%, #eaa233 100%);
+
+  /* Arena: tono neutro-cálido de apoyo (bordes suaves, chips apagados). */
+  --color-sand-wash: rgba(196, 168, 130, 0.18);
 
   /* Roles semánticos (estado, no decoración) */
   --color-ok: #4a7350;

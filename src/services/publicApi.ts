@@ -42,6 +42,7 @@ export interface PublicBookingCompany {
   id: string
   name: string
   slug: string
+  planId: import('../data/companyPlans').CompanyPlanId
   phone: string
   contactEmail: string
   location: string
@@ -244,7 +245,7 @@ export async function fetchPublicMenu(slug: string): Promise<{
   try {
     const { company } = await fetchPublicBookingPage(slug)
     const [boards, nodes] = await Promise.all([
-      getPublicCompanyMenuBoards(company.id),
+      getPublicCompanyMenuBoards(company.id, company.planId),
       getPublicCompanyMenuNodes(company.id),
     ])
 

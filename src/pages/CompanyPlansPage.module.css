@@ -7,8 +7,10 @@
     #faf6f1;
   color: var(--color-brown);
   --shell: min(1180px, calc(100% - 2rem));
-  --font-plan: 'Playfair Display', Georgia, serif;
-  --font-ui: 'Inter', system-ui, sans-serif;
+  /* Serif de marca (igual que el resto de la app) para titulares. */
+  --font-plan: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+  /* Sans para UI, precios y cifras. */
+  --font-ui: var(--font-body, 'Inter', system-ui, sans-serif);
 }
 
 .header {
@@ -104,10 +106,11 @@
 .intro h1 {
   margin: 0;
   font-family: var(--font-plan);
-  font-size: clamp(1.7rem, 3.2vw, 2.35rem);
+  font-size: clamp(1.75rem, 3.2vw, 2.4rem);
   font-weight: 700;
-  line-height: 1.18;
-  letter-spacing: -0.03em;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 
 .intro p {
@@ -163,6 +166,86 @@
   background: #fff1f0;
   border: 1px solid rgba(176, 62, 48, 0.18);
   color: #8a2f24;
+}
+
+.periodToggle {
+  display: flex;
+  width: fit-content;
+  gap: 0.25rem;
+  margin: 0 auto 0.75rem;
+  padding: 0.28rem;
+  border-radius: 999px;
+  background: #f1ece4;
+  border: 1px solid rgba(107, 83, 68, 0.12);
+}
+
+.periodOn,
+.periodOff {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0 1.05rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.periodOn {
+  background: #fff;
+  color: #3d2a1f;
+  box-shadow: 0 4px 12px rgba(45, 34, 28, 0.1);
+}
+
+.periodSave {
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--color-accent-wash, rgba(219, 90, 52, 0.12));
+  color: var(--color-accent-ink, #a63c18);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.periodOn .periodSave {
+  background: var(--color-accent-ink, #a63c18);
+  color: #fff;
+}
+
+.periodHint {
+  margin: -0.35rem auto 1rem;
+  max-width: 46rem;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-accent-ink, #a63c18);
+}
+
+.annualNote {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #6b5344;
+}
+
+.saveBadge {
+  padding: 0.14rem 0.44rem;
+  border-radius: 999px;
+  background: var(--color-accent-ink, #a63c18);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
 .grid {
@@ -247,10 +330,10 @@
 .planName {
   margin: 0;
   font-family: var(--font-plan);
-  font-size: 1.85rem;
+  font-size: 1.7rem;
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.03em;
+  line-height: 1.05;
+  letter-spacing: -0.005em;
 }
 
 .audience {
@@ -279,11 +362,12 @@
 
 .gratis,
 .amount {
-  font-family: var(--font-plan);
-  font-size: 2.45rem;
+  font-family: var(--font-ui);
+  font-size: 2.4rem;
   font-weight: 700;
-  line-height: 0.9;
-  letter-spacing: -0.04em;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   color: #2d221c;
 }
 
@@ -293,9 +377,10 @@
 }
 
 .currency {
-  font-family: var(--font-plan);
-  font-size: 1.15rem;
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
   color: #6b5344;
 }
 
@@ -312,6 +397,25 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #8a6a58;
+}
+
+.trialPill {
+  display: inline-flex;
+  align-items: center;
+  margin: 0.55rem 0 0;
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  background: var(--color-accent-wash);
+  color: var(--color-accent-ink);
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.cardHighlight .trialPill {
+  background: rgba(247, 240, 230, 0.16);
+  color: rgba(247, 240, 230, 0.95);
 }
 
 .specs {
@@ -337,10 +441,11 @@
 }
 
 .specs strong {
-  font-family: var(--font-plan);
-  font-size: 1.05rem;
+  font-family: var(--font-ui);
+  font-size: 1.02rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
   color: #2d221c;
 }
 
@@ -635,7 +740,7 @@
   font-family: var(--font-plan);
   font-size: clamp(1.45rem, 2.6vw, 1.9rem);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
 }
 
 .demoIntro p {

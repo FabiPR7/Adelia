@@ -10,6 +10,7 @@ import {
   DEFAULT_RECEIVED_EMAIL_TEMPLATE,
 } from '../../types'
 import { EMAIL_TEMPLATE_BOOLEAN_FIELDS, normalizeReservationEmailTemplate } from '../../utils/emailTemplates'
+import InfoHint from '../../components/company/InfoHint'
 import styles from './CompanyEmailTemplate.module.css'
 
 interface CompanyEmailTemplateProps {
@@ -163,8 +164,10 @@ function CompanyEmailTemplate({ kind }: CompanyEmailTemplateProps) {
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
-        <h2>{meta.title}</h2>
-        <p>{meta.description}</p>
+        <h2>
+          {meta.title}
+          <InfoHint label={`Sobre ${meta.title}`}>{meta.description}</InfoHint>
+        </h2>
       </header>
 
       <div className={styles.layout}>

@@ -5,6 +5,7 @@ import CityAutocomplete from '../../components/CityAutocomplete'
 import LocationMapPicker from '../../components/LocationMapPicker'
 import MediaGalleryUploader from '../../components/MediaGalleryUploader'
 import ProfileToggleGrid from '../../components/ProfileToggleGrid'
+import InfoHint from '../../components/company/InfoHint'
 import { useAuth } from '../../context/AuthContext'
 import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import { parseCompanyPlanId, getCompanyPlan } from '../../data/companyPlans'
@@ -37,6 +38,7 @@ import {
   getFirestoreErrorMessage,
   getTablesByCompany,
   replaceCompanyTables,
+  setCompanyPublicVisibility,
   updateCompanyFloorPlans,
   updateCompanySettings,
 } from '../../services/firestore'
@@ -81,6 +83,7 @@ import {
 } from '../../utils/reservationDeposit'
 import { resolveBrandedQrOptions } from '../../utils/qrBranding'
 import QrCustomizerModal from '../../components/QrCustomizerModal'
+import ConfirmDialog from '../../components/ConfirmDialog'
 import CompanyStripeConnectPanel from './CompanyStripeConnectPanel'
 import type { CompanyStripeStatus } from '../../services/companyStripe'
 import { normalizeMainPhotoIndex } from '../../utils/companyPhotos'
@@ -224,6 +227,8 @@ const CompanySettings = forwardRef(function CompanySettings(
   const [isDownloadingQr, setIsDownloadingQr] = useState(false)
   const [qrCustomizerOpen, setQrCustomizerOpen] = useState(false)
   const [timeSlotMinutesInput, setTimeSlotMinutesInput] = useState('')
+  const [visibilitySaving, setVisibilitySaving] = useState(false)
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false)
   const [stripeStatus, setStripeStatus] = useState<CompanyStripeStatus | null>(null)
   const [stripeStatusLoading, setStripeStatusLoading] = useState(true)
   const [selectedMunicipality, setSelectedMunicipality] = useState<CitySuggestion | null>(null)
@@ -469,6 +474,31 @@ const CompanySettings = forwardRef(function CompanySettings(
       return false
     } finally {
       setSavingSection(null)
+    }
+  }
+
+  const applyVisibility = async (deactivated: boolean) => {
+    if (!company) {
+      return
+    }
+
+    setVisibilitySaving(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      await setCompanyPublicVisibility(company.id, deactivated)
+      await refreshCompany()
+      setSuccess(
+        deactivated
+          ? 'Restaurante desactivado. Los clientes ya no pueden verlo ni reservar.'
+          : 'Restaurante reactivado. Ya vuelve a estar visible para los clientes.',
+      )
+    } catch (err) {
+      setError(getFirestoreErrorMessage(err, 'save'))
+    } finally {
+      setVisibilitySaving(false)
+      setDeactivateDialogOpen(false)
     }
   }
 
@@ -859,8 +889,10 @@ const CompanySettings = forwardRef(function CompanySettings(
 
       <section className={sectionCardClass('contact', activeSection)}>
         <header className={styles.cardHeader}>
-          <h2>Contacto y ubicación</h2>
-          <p>Datos visibles para clientes y reservas.</p>
+          <h2>
+            Contacto y ubicación
+            <InfoHint label="Sobre contacto y ubicación">Datos visibles para clientes y reservas.</InfoHint>
+          </h2>
         </header>
         <div className={`${styles.grid} ${styles.contactGrid}`}>
           <label className={styles.fullWidth}>
@@ -962,8 +994,12 @@ const CompanySettings = forwardRef(function CompanySettings(
 
       <section className={sectionCardClass('profile', activeSection)}>
         <header className={styles.cardHeader}>
-          <h2>Perfil del local</h2>
-          <p>Ubicación compacta, tipo de local, servicios y hasta 10 características.</p>
+          <h2>
+            Perfil del local
+            <InfoHint label="Sobre el perfil del local">
+              Ubicación compacta, tipo de local, servicios y hasta 10 características.
+            </InfoHint>
+          </h2>
         </header>
 
         <div className={styles.profileLayout}>
@@ -1127,12 +1163,65 @@ const CompanySettings = forwardRef(function CompanySettings(
           </div>
         </div>
         {renderSectionSave('profile', 'Guardar perfil', handleSaveProfile)}
+
+        {demo ? null : (
+          <div
+            className={`${styles.visibilityBlock} ${
+              company.deactivated ? styles.visibilityBlockOff : ''
+            }`}
+          >
+            <div className={styles.visibilityText}>
+              <h3>
+                Visibilidad del restaurante
+                <InfoHint label="Sobre la visibilidad">
+                  Si lo desactivas, tu restaurante desaparece de «Descubrir», y tu página de
+                  reservas y tus promociones dejan de estar disponibles para los clientes. Tú
+                  conservas el acceso al panel y puedes reactivarlo cuando quieras.
+                </InfoHint>
+              </h3>
+              <p>
+                {company.deactivated
+                  ? 'Desactivado: los clientes no pueden encontrarte, ver tu carta ni reservar.'
+                  : 'Activo: los clientes pueden encontrarte, ver tu carta y reservar.'}
+              </p>
+            </div>
+            <label
+              className={`${styles.visibilitySwitchInline} ${
+                visibilitySaving ? styles.visibilitySwitchInlineDisabled : ''
+              }`}
+            >
+              <span className={styles.visibilitySwitchText}>
+                {company.deactivated ? 'Activar' : 'Activo'}
+              </span>
+              <span className={styles.visibilitySwitch}>
+                <input
+                  type="checkbox"
+                  className={styles.visibilitySwitchInput}
+                  checked={!company.deactivated}
+                  disabled={visibilitySaving}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      void applyVisibility(false)
+                    } else {
+                      setDeactivateDialogOpen(true)
+                    }
+                  }}
+                />
+                <span className={styles.visibilitySwitchSlider} aria-hidden="true" />
+              </span>
+            </label>
+          </div>
+        )}
       </section>
 
       <section className={sectionCardClass('reservation-settings', activeSection)}>
         <header className={styles.cardHeader}>
-          <h2>Reservas y horario</h2>
-          <p>Cómo aceptas reservas, duración, fianza por comensales y días de apertura.</p>
+          <h2>
+            Reservas y horario
+            <InfoHint label="Sobre reservas y horario">
+              Cómo aceptas reservas, duración, fianza por comensales y días de apertura.
+            </InfoHint>
+          </h2>
         </header>
         <fieldset className={styles.reservationMode}>
           <legend className={styles.reservationModeLegend}>Reserva</legend>
@@ -1789,6 +1878,18 @@ const CompanySettings = forwardRef(function CompanySettings(
           </div>
         </div>
       </section>
+
+      <ConfirmDialog
+        isOpen={deactivateDialogOpen}
+        variant="danger"
+        title="Desactivar restaurante"
+        message="Tu restaurante dejará de aparecer en «Descubrir» y los clientes no podrán ver tu carta ni reservar. Podrás reactivarlo cuando quieras desde esta misma pantalla."
+        confirmLabel={visibilitySaving ? 'Desactivando…' : 'Desactivar'}
+        cancelLabel="Seguir activo"
+        isLoading={visibilitySaving}
+        onConfirm={() => void applyVisibility(true)}
+        onCancel={() => setDeactivateDialogOpen(false)}
+      />
 
       <QrCustomizerModal
         isOpen={qrCustomizerOpen}

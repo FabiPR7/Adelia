@@ -9,17 +9,19 @@ import type { PromotionVisitPresentation } from '../../utils/reservationPromotio
 import { canCustomerVerifyMinimumSpend } from '../../utils/minimumSpendVerification'
 import type { Reservation } from '../../types'
 import PromotionPhotoCollage from './PromotionPhotoCollage'
+import { IconBookmark } from './PromoIcons'
+import { trackAppEvent } from '../../utils/appEvents'
 import styles from './PromotionOfferCard.module.css'
-
-const ACCENTS = ['coral', 'gold', 'magenta', 'sunset'] as const
-type PromoAccent = (typeof ACCENTS)[number]
-
-function accentForIndex(index: number): PromoAccent {
-  return ACCENTS[index % ACCENTS.length]
-}
 
 function promoTypeLabel(type: PublicPromotion['type']): string {
   return PROMOTION_TYPE_LABELS[type as keyof typeof PROMOTION_TYPE_LABELS] ?? type
+}
+
+function promoTypeIcon(type: PublicPromotion['type']): string {
+  if (type === 'time_limited') return '⏱'
+  if (type === 'attendance') return '📍'
+  if (type === 'reservation_ladder') return '🎯'
+  return '🍽'
 }
 
 function detailLabel(promotion: PublicPromotion): string {
@@ -51,6 +53,8 @@ export interface PromotionOfferCardProps {
   claimed?: boolean
   claimedAt?: string
   className?: string
+  /** Tarjeta vertical estrecha para la tira "en curso". */
+  compact?: boolean
   /** En el mapa no navega; muestra botón reclamar si aplica. */
   mapMode?: boolean
   hero?: boolean
@@ -60,6 +64,9 @@ export interface PromotionOfferCardProps {
   reservationStatusLine?: PromotionVisitPresentation | null
   linkedReservation?: Reservation | null
   onVerify?: () => void
+  /** Si se pasa, muestra un botón de marcador para guardar/quitar la promo. */
+  saved?: boolean
+  onToggleSave?: () => void
 }
 
 function cardStateClass(ladderStatus?: LadderNodeStatus, claimed?: boolean): string {
@@ -78,6 +85,13 @@ function cardStateClass(ladderStatus?: LadderNodeStatus, claimed?: boolean): str
   return ''
 }
 
+function statusToneClass(tone: PromotionVisitPresentation['tone']): string {
+  if (tone === 'verified') return styles.reservationStatusVerified
+  if (tone === 'failed') return styles.reservationStatusFailed
+  if (tone === 'pending') return styles.reservationStatusPending
+  return styles.reservationStatusNeutral
+}
+
 export default function PromotionOfferCard({
   promotion,
   index,
@@ -85,6 +99,7 @@ export default function PromotionOfferCard({
   claimed = false,
   claimedAt,
   className = '',
+  compact = false,
   mapMode = false,
   hero = false,
   ladderStatus,
@@ -93,8 +108,9 @@ export default function PromotionOfferCard({
   reservationStatusLine = null,
   linkedReservation = null,
   onVerify,
+  saved = false,
+  onToggleSave,
 }: PromotionOfferCardProps) {
-  const accent = accentForIndex(index)
   const isClaimed = claimed || ladderStatus === 'claimed'
   const canVerify = Boolean(
     linkedReservation
@@ -133,6 +149,8 @@ export default function PromotionOfferCard({
     ? Math.min(100, Math.round((progress.current / progress.required) * 100))
     : 0
 
+  const highlightLabel = resolvePromotionHighlight(promotion, index)
+
   const content = (
     <>
       <div className={styles.visual}>
@@ -147,23 +165,12 @@ export default function PromotionOfferCard({
         ) : (
           <div className={styles.imageFallback} aria-hidden="true">🎁</div>
         )}
-        {!isClaimed ? <div className={styles.shine} aria-hidden="true" /> : null}
-        <div className={styles.overlay} aria-hidden="true" />
-        <span className={styles.highlight}>{resolvePromotionHighlight(promotion, index)}</span>
-        <div className={styles.visualTags}>
-          {showProgress && progress ? (
-            <span className={styles.tagProgress}>
-              {progress.current}/{progress.required}
-            </span>
-          ) : null}
-          {!mapMode && isClaimed && claimedAt ? (
-            <span className={styles.tagDistance}>{formatClaimDate(claimedAt)}</span>
-          ) : null}
-          {!mapMode && !isClaimed && distanceKm != null ? (
-            <span className={styles.tagDistance}>{formatDistanceKm(distanceKm)}</span>
-          ) : null}
-        </div>
-        <h3 className={styles.visualTitle}>{promotion.title}</h3>
+        {highlightLabel ? (
+          <span className={styles.highlight}>
+            <span className={styles.highlightSpark} aria-hidden="true">✦</span>
+            {highlightLabel}
+          </span>
+        ) : null}
         {mapMode && ladderStatus === 'claimable' ? (
           <button
             type="button"
@@ -180,26 +187,20 @@ export default function PromotionOfferCard({
 
       <div className={styles.body}>
         <p className={styles.restaurant}>{promotion.companyName}</p>
+        <h3 className={styles.title}>{promotion.title}</h3>
+
         {reservationStatusLine ? (
-          <p
-            className={
-              reservationStatusLine.tone === 'verified'
-                ? styles.reservationStatusVerified
-                : reservationStatusLine.tone === 'failed'
-                  ? styles.reservationStatusFailed
-                  : reservationStatusLine.tone === 'pending'
-                    ? styles.reservationStatusPending
-                    : styles.reservationStatusNeutral
-            }
-          >
+          <p className={statusToneClass(reservationStatusLine.tone)}>
             {reservationStatusLine.label}
           </p>
         ) : null}
+
         {isClaimed && promotion.description.trim() ? (
           <p className={styles.description}>{promotion.description}</p>
         ) : null}
+
         {showProgress && progress ? (
-          <>
+          <div className={styles.progressWrap}>
             <div className={styles.progressBar} aria-hidden="true">
               <span style={{ width: `${Math.max(progressPercent, 8)}%` }} />
             </div>
@@ -207,11 +208,21 @@ export default function PromotionOfferCard({
               {progress.current}/{progress.required}{' '}
               {progress.required === 1 ? 'reserva o consumo' : 'reservas o consumos'}
             </p>
-          </>
+          </div>
         ) : null}
+
         <div className={styles.meta}>
           <div className={styles.metaChips}>
-            <span className={styles.detail}>{detailLabel(promotion)}</span>
+            {!mapMode && isClaimed && claimedAt ? (
+              <span className={styles.claimDate}>{formatClaimDate(claimedAt)}</span>
+            ) : null}
+            {!mapMode && !isClaimed && distanceKm != null ? (
+              <span className={styles.distance}>{formatDistanceKm(distanceKm)}</span>
+            ) : null}
+            <span className={styles.detail}>
+              <span className={styles.detailIcon} aria-hidden="true">{promoTypeIcon(promotion.type)}</span>
+              {detailLabel(promotion)}
+            </span>
             {minSpendLabel ? (
               <span className={styles.minSpend}>{minSpendLabel}</span>
             ) : null}
@@ -220,6 +231,7 @@ export default function PromotionOfferCard({
             <span className={styles.arrow} aria-hidden="true">→</span>
           ) : null}
         </div>
+
         {canVerify ? (
           <button
             type="button"
@@ -229,7 +241,7 @@ export default function PromotionOfferCard({
               onVerify?.()
             }}
           >
-            Verificar
+            Verificar consumo
           </button>
         ) : null}
       </div>
@@ -238,9 +250,25 @@ export default function PromotionOfferCard({
 
   return (
     <article
-      className={`${styles.card} ${styles[`accent_${accent}`]} ${hero ? styles.cardHero : ''} ${cardStateClass(ladderStatus, claimed)} ${canVerify ? styles.cardClaimable : ''} ${mapMode ? styles.cardMapMode : ''} ${className}`.trim()}
+      className={`${styles.card} ${hero ? styles.cardHero : ''} ${compact ? styles.cardCompact : ''} ${cardStateClass(ladderStatus, claimed)} ${canVerify ? styles.cardClaimable : ''} ${mapMode ? styles.cardMapMode : ''} ${className}`.trim()}
     >
-      {isClaimed ? <span className={styles.claimedStamp}>Reclamada</span> : null}
+      {isClaimed ? <span className={styles.claimedStamp}>✓ Reclamada</span> : null}
+      {onToggleSave && !isClaimed && !mapMode ? (
+        <button
+          type="button"
+          className={`${styles.saveToggle} ${saved ? styles.saveToggleOn : ''}`}
+          aria-label={saved ? 'Quitar de guardadas' : 'Guardar promoción'}
+          aria-pressed={saved}
+          title={saved ? 'Quitar de guardadas' : 'Guardar'}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onToggleSave()
+          }}
+        >
+          <IconBookmark className={styles.saveToggleIcon} filled={saved} />
+        </button>
+      ) : null}
       {useStaticCard ? (
         <div className={styles.staticWrap}>{content}</div>
       ) : (
@@ -248,6 +276,16 @@ export default function PromotionOfferCard({
           to={linkTo}
           state={isClaimed ? { from: 'promociones' } : undefined}
           className={styles.link}
+          onClick={() => {
+            if (promotion.companyId && !isClaimed) {
+              trackAppEvent('promo_reserve_click', {
+                companyId: promotion.companyId,
+                entityId: promotion.id,
+                entityKind: 'promotion',
+                source: 'feed',
+              })
+            }
+          }}
         >
           {content}
         </Link>

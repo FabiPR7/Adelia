@@ -27,6 +27,7 @@ export function restaurantIndexPayload(company: {
   reviewRatingSum?: number
   reviewAdelinas?: number
   discoveryFeatured?: boolean
+  deactivated?: boolean
   reservationMode?: import('../data/companyReservationMode').CompanyReservationMode
 }, options?: { persistFeatured?: boolean }) {
   const photos = company.photos ?? []
@@ -68,6 +69,7 @@ export function restaurantIndexPayload(company: {
     reviewRatingSum: company.reviewRatingSum ?? 0,
     reviewAdelinas: company.reviewAdelinas ?? 0,
     reservationMode: parseCompanyReservationMode(company.reservationMode),
+    deactivated: company.deactivated === true,
     hasProfile: Boolean(
       description
       || company.municipality
@@ -88,6 +90,11 @@ export function restaurantIndexPayload(company: {
 
 function mapIndexDoc(id: string, data: Record<string, unknown>): PublicDiscoveryRestaurant | null {
   if (data.hasProfile === false) {
+    return null
+  }
+
+  // El dueño ha desactivado la ficha: fuera de descubrir y de cualquier listado.
+  if (data.deactivated === true) {
     return null
   }
 

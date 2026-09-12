@@ -6,6 +6,7 @@ import MenuPromotionsFab from '../components/MenuPromotionsFab'
 import { fetchPublicMenu, type PublicBookingCompany } from '../services/publicApi'
 import { companyAcceptsReservations, restaurantReserveCtaShortLabel } from '../data/companyReservationMode'
 import { hasMenuPdf, type MenuBoard, type MenuNode } from '../types/company'
+import { trackAppEvent } from '../utils/appEvents'
 import styles from './PublicMenuViewPage.module.css'
 
 function PublicMenuViewPage() {
@@ -58,6 +59,16 @@ function PublicMenuViewPage() {
     () => boards.find((item) => item.id === boardId) ?? null,
     [boards, boardId],
   )
+
+  useEffect(() => {
+    if (company?.id && board?.id) {
+      trackAppEvent('menu_board_view', {
+        companyId: company.id,
+        entityId: board.id,
+        entityKind: 'menuBoard',
+      })
+    }
+  }, [company?.id, board?.id])
 
   const boardNodes = useMemo(
     () => (board ? nodes.filter((node) => node.boardId === board.id) : []),

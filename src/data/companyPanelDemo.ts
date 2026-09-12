@@ -281,6 +281,8 @@ export function getDemoCompany(): Company {
     pendingPlanId: null,
     pendingPlanAt: null,
     discoveryFeatured: true,
+    deactivated: false,
+    deactivatedAt: null,
     createdAt: new Date('2024-03-12T10:00:00'),
   }
 }

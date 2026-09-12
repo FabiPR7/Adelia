@@ -30,16 +30,23 @@ function extraConfiguredOrigins(): string[] {
   return [...fromEnv, ...fromAppUrl]
 }
 
+// Dominios de túnel (cloudflared/ngrok/localtunnel) para probar webhooks en
+// local. Solo cuentan fuera de Cloud Functions (ver guardas abajo).
+const DEV_TUNNEL_SUFFIXES = ['.trycloudflare.com', '.ngrok-free.app', '.loca.lt']
+
 function isLocalDevOrigin(origin: string): boolean {
   if (process.env.K_SERVICE || process.env.FUNCTION_TARGET) {
     return false
   }
   try {
     const { hostname, protocol } = new URL(origin)
-    return (
-      (hostname === 'localhost' || hostname === '127.0.0.1')
-      && (protocol === 'http:' || protocol === 'https:')
-    )
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      return false
+    }
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return true
+    }
+    return DEV_TUNNEL_SUFFIXES.some((suffix) => hostname.endsWith(suffix))
   } catch {
     return false
   }

@@ -934,7 +934,12 @@ export type SettingsSection =
 
 export type CompanySettingsSection = Exclude<SettingsSection, 'menu' | 'plan'>
 
-export type ReportsSection = 'reports-reservations' | 'reports-clients' | 'reports-products' | 'reports-reviews'
+export type ReportsSection =
+  | 'reports-reservations'
+  | 'reports-clients'
+  | 'reports-products'
+  | 'reports-reviews'
+  | 'reports-app'
 
 export type CompiteSection = 'compite-notifications' | 'compite-missions' | 'compite-ranking'
 
@@ -953,6 +958,7 @@ export const REPORTS_SECTIONS: { id: ReportsSection; label: string; hint: string
   { id: 'reports-clients', label: 'Clientes', hint: 'Informes de clientes' },
   { id: 'reports-products', label: 'Productos', hint: 'Consumo verificado en promos' },
   { id: 'reports-reviews', label: 'Reseñas', hint: 'Puntuación, estrellas y Adelinas' },
+  { id: 'reports-app', label: 'App', hint: 'Visitas, cartas y promos' },
 ]
 
 export const COMPITE_SECTIONS: { id: CompiteSection; label: string; hint: string }[] = [
@@ -983,6 +989,7 @@ export function isReportsTab(tab: CompanyTab): tab is ReportsSection {
     || tab === 'reports-clients'
     || tab === 'reports-products'
     || tab === 'reports-reviews'
+    || tab === 'reports-app'
 }
 
 export function isCompiteTab(tab: CompanyTab): tab is CompiteSection {

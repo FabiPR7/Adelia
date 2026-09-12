@@ -126,7 +126,7 @@
 
 .tabActive {
   background: var(--color-white);
-  color: var(--color-brown);
+  color: var(--color-accent-ink);
   box-shadow: var(--elev-1);
 }
 
@@ -186,7 +186,7 @@
   margin-top: 1rem;
   padding: 0.72rem 1.15rem;
   border-radius: 999px;
-  background: var(--color-brown);
+  background: var(--color-accent-strong);
   color: var(--color-white);
   font-size: 0.875rem;
   font-weight: 600;
@@ -325,7 +325,7 @@
   border: none;
   border-radius: 999px;
   padding: 0.7rem 1.1rem;
-  background: var(--color-brown);
+  background: var(--color-accent-strong);
   color: var(--color-white);
   font-size: 0.85rem;
   font-weight: 600;

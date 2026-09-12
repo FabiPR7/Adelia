@@ -1548,6 +1548,30 @@ export async function updateCompanySettings(
   }
 }
 
+/**
+ * Activa o desactiva la ficha pública del restaurante. Desactivado = fuera de
+ * descubrir, sin página de reservas y sin promociones para los clientes. El
+ * dueño sigue con acceso completo al panel y puede reactivar cuando quiera.
+ */
+export async function setCompanyPublicVisibility(
+  companyId: string,
+  deactivated: boolean,
+): Promise<void> {
+  rejectIfDemoCompanyWrite(companyId)
+
+  await updateDoc(doc(db, 'companies', companyId), {
+    deactivated,
+    deactivatedAt: deactivated ? serverTimestamp() : null,
+    updatedAt: serverTimestamp(),
+  })
+
+  const indexed = await getCompanyById(companyId)
+  if (indexed) {
+    const { syncRestaurantIndexFromCompany } = await import('./restaurantIndex')
+    await syncRestaurantIndexFromCompany(indexed).catch(() => undefined)
+  }
+}
+
 export async function updateCompanyEmailTemplates(
   companyId: string,
   templates: CompanyEmailTemplates,
@@ -1702,6 +1726,8 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
         discoveryFeatured: data.discoveryFeatured === true,
       }
     })(),
+    deactivated: data.deactivated === true,
+    deactivatedAt: (data.deactivatedAt as { toDate?: () => Date })?.toDate?.() ?? null,
     createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
   }
 }

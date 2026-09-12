@@ -38,6 +38,7 @@ import {
 } from '../utils/helpers'
 import { mergeDemoPromotions } from '../data/demoNearbyPromotions'
 import { isCustomerPromoLocked } from '../data/cancellationPenalties'
+import { trackAppEvent } from '../utils/appEvents'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
 import {
   canRedeemPromotionAsCustomer,
@@ -243,6 +244,16 @@ function PublicBookingPage() {
 
     void loadAvailability()
   }, [company?.id, loadAvailability, pageView])
+
+  useEffect(() => {
+    if (!company?.id) {
+      return
+    }
+    trackAppEvent('restaurant_view', {
+      companyId: company.id,
+      source: promoId ? 'promo' : 'direct',
+    })
+  }, [company?.id, promoId])
 
   useEffect(() => {
     if (!company || !companyAcceptsReservations(company.reservationMode)) {
@@ -711,6 +722,12 @@ function PublicBookingPage() {
       )
 
       setStep('done')
+      if (company?.id) {
+        trackAppEvent(promoId ? 'reservation_from_promo' : 'reservation_from_profile', {
+          companyId: company.id,
+          entityId: promoId ?? undefined,
+        })
+      }
       setClientName('')
       setClientEmail('')
       setClientPhone('')

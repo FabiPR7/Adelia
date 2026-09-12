@@ -83,7 +83,9 @@ export async function completePaidCompanySignup(input: CompanySignupInput & {
   return readJson<CompanySignupResult>(response)
 }
 
-export async function completeFreeCompanySignup(input: CompanySignupInput): Promise<CompanySignupResult> {
+export async function completeFreeCompanySignup(
+  input: CompanySignupInput & { plan?: 'free' | 'basic' | 'premium' },
+): Promise<CompanySignupResult> {
   const response = await fetch(`${API_BASE}/api/public/billing/complete-free-signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -12,7 +12,7 @@ import {
 import { getOrCreateSaasPrice } from './saasPrices.ts'
 import { syncCompanyFromStripeSubscription } from './saasPlanChanges.ts'
 import { applyPlanFeatureLimits } from '../company/enforcePlanLimits.ts'
-import { sendPlanPaymentReceiptEmail } from '../email/planPaymentConfirmation.ts'
+import { sendPlanPaymentFailedEmail, sendPlanPaymentReceiptEmail } from '../email/planPaymentConfirmation.ts'
 import { isValidClientEmail } from '../email/config.ts'
 
 export function isStripeTestMode(): boolean {
@@ -463,6 +463,9 @@ async function markCompanyPaidFromInvoice(invoice: Stripe.Invoice): Promise<void
   await adminDb.collection(COLLECTIONS.companies).doc(resolvedCompanyId).set(
     {
       planLastPaidAt: FieldValue.serverTimestamp(),
+      // Un cobro correcto sale del estado de impago.
+      planPaymentState: FieldValue.delete(),
+      planPaymentFailedAt: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
@@ -470,6 +473,103 @@ async function markCompanyPaidFromInvoice(invoice: Stripe.Invoice): Promise<void
   await sendPaidPlanReceiptFromInvoice(invoice).catch((error) => {
     console.error('Plan invoice receipt error:', error)
   })
+}
+
+function invoicePlanId(invoice: Stripe.Invoice): SaasCheckoutPlanId | null {
+  const raw = invoice as unknown as Record<string, unknown>
+  const subDetails = raw.subscription_details as { metadata?: Record<string, string> } | undefined
+  return parseSaasCheckoutPlanId(subDetails?.metadata?.planId)
+    ?? parseSaasCheckoutPlanId(invoice.lines?.data?.[0]?.metadata?.planId)
+    ?? parseSaasCheckoutPlanId(invoice.metadata?.planId)
+}
+
+/**
+ * Marca a la empresa como "en impago" cuando falla un cobro mensual y avisa por
+ * correo (una sola vez por factura). No baja el plan todavía: Stripe reintenta
+ * varios días; si acaba en `unpaid`/`canceled`, `syncCompanyFromStripeSubscription`
+ * lo baja a `free`.
+ */
+async function flagCompanyPaymentFailed(invoice: Stripe.Invoice): Promise<void> {
+  const subscriptionId = invoiceSubscriptionId(invoice)
+  if (!subscriptionId) {
+    return
+  }
+
+  let companyId = invoiceCompanyId(invoice)
+  if (!companyId) {
+    const matches = await adminDb
+      .collection(COLLECTIONS.companies)
+      .where('stripeSubscriptionId', '==', subscriptionId)
+      .limit(1)
+      .get()
+    companyId = matches.empty ? '' : matches.docs[0].id
+  }
+  if (!companyId) {
+    return
+  }
+
+  const companyRef = adminDb.collection(COLLECTIONS.companies).doc(companyId)
+  const companySnap = await companyRef.get()
+  const data = companySnap.data() ?? {}
+
+  await companyRef.set(
+    {
+      planPaymentState: 'past_due',
+      planPaymentFailedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
+
+  // Un aviso por factura, no en cada reintento.
+  if (!(await claimPlanReceipt(`failed:${invoice.id}`))) {
+    return
+  }
+
+  const planId = invoicePlanId(invoice)
+    ?? parseSaasCheckoutPlanId(data.planId)
+  if (!planId) {
+    return
+  }
+
+  const to = (
+    invoice.customer_email
+    || (typeof data.contactEmail === 'string' ? data.contactEmail : '')
+    || ''
+  ).trim()
+  if (!isValidClientEmail(to)) {
+    await releasePlanReceipt(`failed:${invoice.id}`)
+    return
+  }
+
+  let updateUrl: string | undefined
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
+  if (customerId) {
+    try {
+      const portal = await createStripeClient().billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${getAppBaseUrl().replace(/\/$/, '')}/panel?tab=plan`,
+      })
+      updateUrl = portal.url
+    } catch {
+      // El portal de facturación puede no estar configurado; usamos la factura.
+    }
+  }
+
+  try {
+    await sendPlanPaymentFailedEmail({
+      to,
+      restaurantName: typeof data.name === 'string' ? data.name : '',
+      planId,
+      amountCents: invoice.amount_due || SAAS_CHECKOUT_PLANS[planId].amountCents,
+      currency: invoice.currency ?? 'eur',
+      updateUrl,
+      invoiceUrl: invoice.hosted_invoice_url ?? undefined,
+    })
+  } catch (error) {
+    await releasePlanReceipt(`failed:${invoice.id}`)
+    console.error('Plan payment failed email error:', error)
+  }
 }
 
 export async function handleSaasStripeEvent(event: Stripe.Event): Promise<void> {
@@ -480,6 +580,11 @@ export async function handleSaasStripeEvent(event: Stripe.Event): Promise<void> 
 
   if (event.type === 'invoice.paid') {
     await markCompanyPaidFromInvoice(event.data.object as Stripe.Invoice)
+    return
+  }
+
+  if (event.type === 'invoice.payment_failed') {
+    await flagCompanyPaymentFailed(event.data.object as Stripe.Invoice)
     return
   }
 

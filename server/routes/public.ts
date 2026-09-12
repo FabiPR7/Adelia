@@ -141,6 +141,7 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
     id,
     name: data.name as string,
     slug: data.slug as string,
+    planId,
     phone: (data.phone as string) ?? '',
     contactEmail: (data.contactEmail as string) ?? '',
     location: (data.location as string) ?? '',
@@ -199,6 +200,10 @@ async function getCompanyBySlug(slug: string) {
   }
 
   const docSnap = snapshot.docs[0]
+  if (docSnap.data()?.deactivated === true) {
+    // El dueño ha desactivado la ficha: para el público no existe.
+    return null
+  }
   const data = (await readCompanyOps(docSnap.id)) ?? docSnap.data()
   return mapPublicCompany(docSnap.id, data)
 }
@@ -221,6 +226,9 @@ async function getCompanyRecordBySlug(slug: string) {
   }
 
   const docSnap = snapshot.docs[0]
+  if (docSnap.data()?.deactivated === true) {
+    return null
+  }
   const data = (await readCompanyOps(docSnap.id)) ?? docSnap.data()
   return {
     id: docSnap.id,

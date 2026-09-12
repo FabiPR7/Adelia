@@ -1,13 +1,17 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import LegalLinks from '../components/LegalLinks'
 import {
   COMPANY_PLANS,
+  annualDiscountPercent,
+  annualMonthlyEquivalent,
+  formatPlanAmount,
+  getCompanyPlan,
   isPaidCompanyPlan,
 } from '../data/companyPlans'
 import { DemoCompanyAuthProvider } from '../context/CompanyDemoContext'
-import { fetchSaasBillingStatus, startSaasPlanCheckout } from '../services/saasBilling'
+import { lemonSqueezyCheckoutUrl, type BillingPeriod } from '../data/lemonSqueezyCheckout'
 import styles from './CompanyPlansPage.module.css'
 
 const CompanyDashboard = lazy(() => import('./CompanyDashboard'))
@@ -30,42 +34,22 @@ function CheckIcon() {
 function CompanyPlansPage() {
   const [searchParams] = useSearchParams()
   const cancelled = searchParams.get('cancelado') === '1'
-  const [billingConfigured, setBillingConfigured] = useState<boolean | null>(null)
-  const [testMode, setTestMode] = useState(true)
   const [busyPlanId, setBusyPlanId] = useState<string | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const [period, setPeriod] = useState<BillingPeriod>('monthly')
+  const annualSave = annualDiscountPercent(getCompanyPlan('premium'))
 
-  useEffect(() => {
-    let cancelledFetch = false
-    void fetchSaasBillingStatus()
-      .then((status) => {
-        if (cancelledFetch) {
-          return
-        }
-        setBillingConfigured(status.configured)
-        setTestMode(status.testMode)
-      })
-      .catch(() => {
-        if (!cancelledFetch) {
-          setBillingConfigured(false)
-        }
-      })
-
-    return () => {
-      cancelledFetch = true
+  const startCheckout = (planId: string) => {
+    const url = planId === 'basic' || planId === 'premium'
+      ? lemonSqueezyCheckoutUrl(planId, period)
+      : null
+    if (!url) {
+      setCheckoutError('Ese plan todavía no se puede contratar online. Escríbenos y lo activamos.')
+      return
     }
-  }, [])
-
-  const startCheckout = async (planId: string) => {
     setCheckoutError(null)
     setBusyPlanId(planId)
-    try {
-      const session = await startSaasPlanCheckout(planId)
-      window.location.assign(session.url)
-    } catch (error) {
-      setCheckoutError(error instanceof Error ? error.message : 'No se pudo abrir el pago.')
-      setBusyPlanId(null)
-    }
+    window.location.assign(url)
   }
 
   return (
@@ -92,29 +76,10 @@ function CompanyPlansPage() {
         <header className={styles.intro}>
           <p className={styles.eyebrow}>Planes para restaurantes</p>
           <h1>Tres planes. Sin comisión por reserva.</h1>
-          <p>
-            Mesa es gratis. Sala (39 €/mes) digitaliza la sala. Local (59 €/mes) desbloquea informes,
-            todas las promociones, Compite y más visibilidad.
-          </p>
           <p className={styles.demoJump}>
             <a href="#demo-panel">Prueba el panel con datos de ejemplo</a>
           </p>
         </header>
-
-        {testMode && billingConfigured ? (
-          <p className={styles.testBanner} role="status">
-            Modo prueba de Stripe. No se cobra dinero real. Tarjeta de test:
-            {' '}
-            <strong>4242 4242 4242 4242</strong>
-            , fecha futura y CVC 123. Apple Pay sale en Safari si lo tienes activo en el Dashboard de Stripe (modo test).
-          </p>
-        ) : null}
-
-        {billingConfigured === false ? (
-          <p className={styles.notice} role="status">
-            El pago online aún no está disponible en este entorno. Sala y Local no se pueden contratar ahora. Mesa sigue gratis.
-          </p>
-        ) : null}
 
         {cancelled ? (
           <p className={styles.notice} role="status">
@@ -126,6 +91,29 @@ function CompanyPlansPage() {
           <p className={styles.error} role="alert">
             {checkoutError}
           </p>
+        ) : null}
+
+        <div className={styles.periodToggle} role="group" aria-label="Periodo de facturación">
+          <button
+            type="button"
+            className={period === 'monthly' ? styles.periodOn : styles.periodOff}
+            aria-pressed={period === 'monthly'}
+            onClick={() => setPeriod('monthly')}
+          >
+            Mensual
+          </button>
+          <button
+            type="button"
+            className={period === 'annual' ? styles.periodOn : styles.periodOff}
+            aria-pressed={period === 'annual'}
+            onClick={() => setPeriod('annual')}
+          >
+            Anual
+            <span className={styles.periodSave}>−{annualSave} %</span>
+          </button>
+        </div>
+        {period === 'annual' ? (
+          <p className={styles.periodHint}>Pago anual: ahorras un {annualSave} % frente a pagar mes a mes.</p>
         ) : null}
 
         <section className={styles.grid} aria-label="Planes Adelia">
@@ -149,14 +137,29 @@ function CompanyPlansPage() {
                   <p className={styles.price}>
                     <span className={styles.gratis}>Gratis</span>
                   </p>
+                ) : period === 'annual' && plan.priceAnnual ? (
+                  <>
+                    <p className={styles.price}>
+                      <span className={styles.amount}>{formatPlanAmount(plan.priceAnnual)}</span>
+                      <span className={styles.currency}>€</span>
+                      <span className={styles.period}>/año</span>
+                    </p>
+                    <p className={styles.annualNote}>
+                      <span className={styles.saveBadge}>−{annualDiscountPercent(plan)} %</span>
+                      equivale a {formatPlanAmount(annualMonthlyEquivalent(plan) ?? 0)} €/mes
+                    </p>
+                  </>
                 ) : (
                   <p className={styles.price}>
-                    <span className={styles.amount}>{plan.priceMonthly}</span>
+                    <span className={styles.amount}>{formatPlanAmount(plan.priceMonthly)}</span>
                     <span className={styles.currency}>€</span>
                     <span className={styles.period}>{plan.period}</span>
                   </p>
                 )}
                 <p className={styles.vat}>{plan.vatNote}</p>
+                {plan.trialLabel ? (
+                  <p className={styles.trialPill}>{plan.trialLabel}</p>
+                ) : null}
 
                 <ul className={styles.specs} aria-label={`Límites de ${plan.name}`}>
                   {plan.specs.map((spec) => (
@@ -192,10 +195,10 @@ function CompanyPlansPage() {
                   <button
                     type="button"
                     className={styles.cta}
-                    disabled={busy || billingConfigured === false}
-                    onClick={() => void startCheckout(plan.id)}
+                    disabled={busy}
+                    onClick={() => startCheckout(plan.id)}
                   >
-                    {busy ? 'Abriendo Stripe…' : plan.ctaLabel}
+                    {busy ? 'Abriendo el pago…' : plan.ctaLabel}
                   </button>
                 ) : (
                   <Link to="/empresa/alta?plan=mesa" className={`${styles.cta} ${styles.ctaGhost}`}>
@@ -205,7 +208,8 @@ function CompanyPlansPage() {
 
                 {paid ? (
                   <p className={styles.ctaHint}>
-                    Tarjeta, Apple Pay o Google Pay. Cancela cuando quieras.
+                    {plan.trialLabel ? `${plan.trialLabel}. ` : ''}
+                    En el pago eliges Sala o Local y mensual o anual. Tarjeta, Apple Pay o Google Pay.
                   </p>
                 ) : (
                   <p className={styles.ctaHint}>
@@ -227,7 +231,13 @@ function CompanyPlansPage() {
                   {COMPANY_PLANS.map((plan) => (
                     <th key={plan.id} scope="col">
                       {plan.name}
-                      <span>{plan.priceMonthly === 0 ? 'Gratis' : `${plan.priceMonthly} €/mes`}</span>
+                      <span>
+                        {plan.priceMonthly === 0
+                          ? 'Gratis'
+                          : period === 'annual' && plan.priceAnnual
+                            ? `${formatPlanAmount(plan.priceAnnual)} €/año`
+                            : `${formatPlanAmount(plan.priceMonthly)} €/mes`}
+                      </span>
                     </th>
                   ))}
                 </tr>
@@ -260,11 +270,11 @@ function CompanyPlansPage() {
         <ul className={styles.trust}>
           <li>
             <strong>Cobro a Adelia</strong>
-            El plan entra en la cuenta Stripe de la plataforma, no en la del restaurante.
+            El plan mensual se gestiona en Lemon Squeezy, no en la cuenta del restaurante.
           </li>
           <li>
-            <strong>Apple Pay y Google Pay</strong>
-            En Safari puedes pagar con Apple Pay; en Chrome, con Google Pay.
+            <strong>Tarjeta, Apple Pay y Google Pay</strong>
+            Lemon Squeezy admite tarjeta y los monederos del móvil.
           </li>
           <li>
             <strong>Fianzas aparte</strong>

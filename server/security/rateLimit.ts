@@ -147,6 +147,12 @@ function bucketFor(req: Request): {
     return { name: 'publicWrite', max: 8, windowMs: 60_000, key: clientKey(req), distributed: true }
   }
 
+  // Analítica de app: lotes de eventos de navegación. Generoso pero acotado; no
+  // es crítico, así que falla abierto (no distribuido).
+  if (req.method === 'POST' && url.startsWith('/api/public/events')) {
+    return { name: 'appEvents', max: 120, windowMs: 5 * 60_000, key: clientKey(req) }
+  }
+
   if (
     url.startsWith('/api/public/cities')
     || url.startsWith('/api/public/geocode')

@@ -7,6 +7,11 @@ import { adeliaSecurityHeadersPlugin } from './server/security/viteHeadersPlugin
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), adeliaSecurityHeadersPlugin(), adeliaApiDevPlugin()],
+  server: {
+    // Permite abrir el dev server a través de un túnel (cloudflared / ngrok)
+    // para probar webhooks. Solo afecta a `npm run dev`.
+    allowedHosts: ['.trycloudflare.com', '.ngrok-free.app', '.loca.lt'],
+  },
   optimizeDeps: {
     include: ['qrcode'],
     exclude: ['firebase-admin'],

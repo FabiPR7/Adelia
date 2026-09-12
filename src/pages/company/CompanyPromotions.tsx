@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import InfoHint from '../../components/company/InfoHint'
 import ImageUploader from '../../components/ImageUploader'
 import PromotionPhotoCollage from '../../components/promotions/PromotionPhotoCollage'
 import PromotionProductPicker from '../../components/promotions/PromotionProductPicker'
@@ -476,11 +477,13 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
-        <h2>Zona de promociones</h2>
-        <p>
-          Crea ofertas por reservas o consumos, promociones por tiempo limitado y cupos con
-          asistencia. Los clientes las ven y las canjean desde su zona de usuario.
-        </p>
+        <h2>
+          Zona de promociones
+          <InfoHint label="Sobre la zona de promociones">
+            Crea ofertas por reservas o consumos, promociones por tiempo limitado y cupos con
+            asistencia. Los clientes las ven y las canjean desde su zona de usuario.
+          </InfoHint>
+        </h2>
       </header>
 
       <section className={styles.pinPanel} aria-labelledby="promotion-pin-title">
@@ -677,8 +680,10 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
           <div className={styles.formSections}>
             <section className={styles.formSection}>
               <div className={styles.sectionHead}>
-                <h4>Información</h4>
-                <p>Título y descripción que verá el cliente.</p>
+                <h4>
+                  Información
+                  <InfoHint label="Sobre esta sección">Título y descripción que verá el cliente.</InfoHint>
+                </h4>
               </div>
 
               <div className={styles.sectionGrid}>
@@ -718,8 +723,10 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
 
             <section className={styles.formSection}>
               <div className={styles.sectionHead}>
-                <h4>Tipo de oferta</h4>
-                <p>Define el formato del descuento o regalo.</p>
+                <h4>
+                  Tipo de oferta
+                  <InfoHint label="Sobre el tipo de oferta">Define el formato del descuento o regalo.</InfoHint>
+                </h4>
               </div>
 
               <div className={styles.sectionGrid}>
@@ -843,8 +850,12 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
 
             <section className={styles.formSection}>
               <div className={styles.sectionHead}>
-                <h4>Productos e imagen</h4>
-                <p>Elige productos de la carta; la foto se genera sola si tienen imagen.</p>
+                <h4>
+                  Productos e imagen
+                  <InfoHint label="Sobre productos e imagen">
+                    Elige productos de la carta; la foto se genera sola si tienen imagen.
+                  </InfoHint>
+                </h4>
               </div>
 
               <div className={styles.mediaLayout}>
@@ -921,12 +932,14 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
 
             <section className={styles.formSection}>
               <div className={styles.sectionHead}>
-                <h4>Condiciones</h4>
-                <p>
-                  {selectedType === 'reservation_ladder' && 'Requisitos para canjear la oferta.'}
-                  {selectedType === 'time_limited' && 'Franja horaria en la que aplica.'}
-                  {selectedType === 'attendance' && 'Horario, cupos y plazo de llegada.'}
-                </p>
+                <h4>
+                  Condiciones
+                  <InfoHint label="Sobre las condiciones">
+                    {selectedType === 'reservation_ladder' && 'Requisitos para canjear la oferta.'}
+                    {selectedType === 'time_limited' && 'Franja horaria en la que aplica.'}
+                    {selectedType === 'attendance' && 'Horario, cupos y plazo de llegada.'}
+                  </InfoHint>
+                </h4>
               </div>
 
               {selectedType === 'reservation_ladder' && (

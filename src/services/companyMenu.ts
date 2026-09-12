@@ -143,22 +143,38 @@ export async function getCompanyMenuBoards(companyId: string): Promise<MenuBoard
     .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
 }
 
-export async function getPublicCompanyMenuBoards(companyId: string): Promise<MenuBoard[]> {
+export async function getPublicCompanyMenuBoards(
+  companyId: string,
+  knownPlanId?: string,
+): Promise<MenuBoard[]> {
   const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
   const boardsQuery = query(boardsRef, where('active', '==', true), limit(COMPANY_MENU_BOARD_LIMIT))
-  const [snapshot, companySnap] = await Promise.all([
+  // El doc de empresa no es de lectura pública. La API pública nos pasa el plan;
+  // si no, lo intentamos leer y, si las reglas lo niegan, seguimos sin recortar
+  // por plan (mejor mostrar de más que romper la carta).
+  const [snapshot, planIdFromDoc] = await Promise.all([
     getDocs(boardsQuery),
-    getDoc(doc(db, 'companies', companyId)),
+    knownPlanId
+      ? Promise.resolve<string | undefined>(undefined)
+      : getDoc(doc(db, 'companies', companyId))
+          .then((snap) => (snap.data()?.planId as string | undefined))
+          .catch(() => undefined),
   ])
-  const planId = parsePlanId(companySnap.data()?.planId)
-  const maxMenus = planMaxCount(planId, 'menus')
 
+  const resolvedPlanId = knownPlanId ?? planIdFromDoc
   const boards = snapshot.docs
     .map((boardDoc) => mapBoard(boardDoc.id, companyId, boardDoc.data() as Record<string, unknown>))
     .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
-    .map((board) => clampPublicMenuBoardForPlan(board, planId))
 
-  return maxMenus == null ? boards : boards.slice(0, maxMenus)
+  if (!resolvedPlanId) {
+    return boards
+  }
+
+  const planId = parsePlanId(resolvedPlanId)
+  const maxMenus = planMaxCount(planId, 'menus')
+  const clamped = boards.map((board) => clampPublicMenuBoardForPlan(board, planId))
+
+  return maxMenus == null ? clamped : clamped.slice(0, maxMenus)
 }
 
 export async function getCompanyMenuNodes(companyId: string, boardId?: string): Promise<MenuNode[]> {

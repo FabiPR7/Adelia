@@ -1,116 +1,68 @@
+/* --- Tarjeta de promoción --- */
+/* Base: tarjeta vertical con foto grande. Reclamada: ticket horizontal. */
+
 .card {
-  --promo-accent: #ff6b4a;
-  --promo-accent-2: #ff4f8f;
-  --promo-body-bg: #fff5f0;
   position: relative;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  background: var(--promo-body-bg);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.65) inset,
-    0 8px 22px rgba(74, 51, 72, 0.14);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+  animation: promoCardIn var(--dur-slow) var(--ease-out) both;
 }
 
-.accent_coral {
-  --promo-accent: #ff6b4a;
-  --promo-accent-2: #ff4f8f;
-  --promo-body-bg: linear-gradient(180deg, #fff0eb 0%, #fffaf7 100%);
+@keyframes promoCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-.accent_gold {
-  --promo-accent: #f59e0b;
-  --promo-accent-2: #fbbf24;
-  --promo-body-bg: linear-gradient(180deg, #fff8e8 0%, #fffdf7 100%);
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
 }
 
-.accent_magenta {
-  --promo-accent: #d946ef;
-  --promo-accent-2: #a855f7;
-  --promo-body-bg: linear-gradient(180deg, #fdf0ff 0%, #fffafe 100%);
+@media (hover: hover) {
+  .card:not(.cardClaimed):not(.cardLocked):hover {
+    transform: translateY(-2px);
+    box-shadow: var(--elev-2);
+  }
+
+  .card:not(.cardClaimed):hover .visualCollage,
+  .card:not(.cardClaimed):hover .visual img {
+    transform: scale(1.04);
+  }
 }
 
-.accent_sunset {
-  --promo-accent: #f97316;
-  --promo-accent-2: #fb7185;
-  --promo-body-bg: linear-gradient(180deg, #fff1ea 0%, #fffaf8 100%);
-}
-
-.cardClaimed {
-  position: relative;
-  filter: grayscale(1);
-  opacity: 0.92;
-}
-
-.cardClaimed .body {
-  --promo-body-bg: linear-gradient(180deg, #f3f4f6 0%, #fafafa 100%);
-  border-top-color: #9ca3af;
-}
-
-.cardClaimed .restaurant,
-.cardClaimed .detail,
-.cardClaimed .minSpend {
-  color: #6b7280;
-}
-
-.cardClaimed .highlight {
-  background: linear-gradient(135deg, #e5e7eb, #d1d5db);
-  color: #4b5563;
-}
-
-.cardLocked {
-  opacity: 0.72;
-  filter: saturate(0.55);
-}
-
-.cardClaimable {
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.65) inset,
-    0 8px 22px rgba(74, 51, 72, 0.14),
-    0 0 0 3px rgba(34, 197, 94, 0.22);
-}
-
-.claimedStamp {
-  position: absolute;
-  top: 0.55rem;
-  right: 0.55rem;
-  z-index: 4;
-  padding: 0.22rem 0.5rem;
-  border-radius: 999px;
-  background: rgba(75, 85, 99, 0.92);
-  color: #fff;
-  font-size: 0.58rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transform: rotate(6deg);
-}
-
-.link {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  text-decoration: none;
-  color: inherit;
-}
-
+.link,
 .staticWrap {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
   height: 100%;
-  min-height: 0;
+  text-decoration: none;
+  color: inherit;
 }
 
 .card:not(.cardMapMode) .staticWrap {
   cursor: default;
 }
 
+/* --- Foto --- */
 .visual {
   position: relative;
-  aspect-ratio: 1 / 1;
+  width: 100%;
+  aspect-ratio: 3 / 2;
   overflow: hidden;
-  background: #2a1a24;
+  background: var(--color-brown);
 }
 
 .visual img,
@@ -119,234 +71,104 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform var(--dur-slow) var(--ease-out);
 }
 
 .imageFallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--promo-accent), var(--promo-accent-2));
-  font-size: 2rem;
-}
-
-.shine {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 40%,
-    rgba(255, 255, 255, 0.2) 48%,
-    transparent 56%
-  );
-  transform: translateX(-120%);
-  animation: promoShine 5s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(22, 12, 28, 0.82) 0%,
-    rgba(22, 12, 28, 0.2) 45%,
-    transparent 100%
-  );
-}
-
-.accent_coral .overlay {
-  background: linear-gradient(
-    to top,
-    rgba(72, 28, 36, 0.88) 0%,
-    rgba(255, 107, 74, 0.18) 55%,
-    transparent 100%
-  );
-}
-
-.accent_gold .overlay {
-  background: linear-gradient(
-    to top,
-    rgba(68, 44, 18, 0.88) 0%,
-    rgba(245, 158, 11, 0.2) 55%,
-    transparent 100%
-  );
-}
-
-.accent_magenta .overlay {
-  background: linear-gradient(
-    to top,
-    rgba(58, 22, 62, 0.88) 0%,
-    rgba(217, 70, 239, 0.2) 55%,
-    transparent 100%
-  );
-}
-
-.accent_sunset .overlay {
-  background: linear-gradient(
-    to top,
-    rgba(62, 28, 22, 0.88) 0%,
-    rgba(249, 115, 22, 0.2) 55%,
-    transparent 100%
-  );
+  background: var(--color-brown);
+  font-size: 2.2rem;
 }
 
 .highlight {
   position: absolute;
-  top: 0.35rem;
-  left: 0.35rem;
+  left: 0.6rem;
+  bottom: 0.6rem;
   z-index: 2;
   display: inline-flex;
-  padding: 0.2rem 0.38rem;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #fff9f2, #fde68a);
-  color: #7c3a2e;
-  font-family: var(--font-epic, var(--font-display));
-  font-size: 0.62rem;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: calc(100% - 1.2rem);
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--gradient-energy);
+  color: var(--color-white);
+  font-family: var(--font-epic);
+  font-size: 1.35rem;
   font-weight: 400;
   letter-spacing: 0.03em;
-  text-transform: uppercase;
   line-height: 1;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
-  transform: rotate(-3deg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--color-accent-strong) 45%, transparent);
 }
 
-.visualTags {
-  position: absolute;
-  top: 0.45rem;
-  right: 0.45rem;
-  z-index: 2;
+.highlightSpark {
+  font-size: 0.7em;
+  opacity: 0.9;
+}
+
+/* --- Cuerpo --- */
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem 0.95rem;
 }
 
-.tagProgress,
-.tagDistance {
-  padding: 0.2rem 0.42rem;
-  border-radius: 999px;
-  font-size: 0.56rem;
+.restaurant {
+  margin: 0;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  backdrop-filter: blur(8px);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.tagProgress {
-  background: linear-gradient(90deg, var(--promo-accent), var(--promo-accent-2));
-  color: #fff;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
-}
-
-.tagDistance {
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: #fff9f2;
-}
-
-.visualTitle {
-  position: absolute;
-  left: 0.38rem;
-  right: 0.38rem;
-  bottom: 0.38rem;
-  z-index: 2;
+.title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 0.68rem;
-  line-height: 1.12;
-  color: #fff9f2;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.14;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.38rem 0.42rem 0.45rem;
-  background: var(--promo-body-bg);
-  border-top: 2px solid var(--promo-accent);
-  min-height: 3.4rem;
-}
-
-.restaurant {
-  margin: 0;
-  font-size: 0.58rem;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--promo-accent);
-}
-
 .description {
   margin: 0;
-  font-size: 0.62rem;
-  line-height: 1.35;
-  color: #6b7280;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.meta {
+.progressWrap {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.35rem;
-  margin-top: auto;
-}
-
-.metaChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.22rem;
-  min-width: 0;
-}
-
-.minSpend {
-  padding: 0.14rem 0.34rem;
-  border-radius: 8px;
-  background: rgba(255, 107, 74, 0.1);
-  border: 1px solid rgba(255, 107, 74, 0.14);
-  font-size: 0.52rem;
-  font-weight: 700;
-  color: #9a3412;
-}
-
-.detail {
-  padding: 0.18rem 0.42rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(107, 83, 68, 0.1);
-  font-size: 0.62rem;
-  font-weight: 700;
-  color: #8b6914;
-}
-
-.arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.55rem;
-  height: 1.55rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--promo-accent), var(--promo-accent-2));
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 600;
-  flex-shrink: 0;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--promo-accent) 45%, transparent);
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
 }
 
 .progressBar {
-  height: 5px;
-  margin-top: 0.15rem;
-  border-radius: 999px;
-  background: rgba(107, 83, 68, 0.12);
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(107, 83, 68, 0.14);
   overflow: hidden;
 }
 
@@ -354,23 +176,79 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--promo-accent), var(--promo-accent-2));
+  background: var(--color-accent-strong);
 }
 
 .progressCopy {
   margin: 0;
-  font-size: 0.6rem;
-  font-weight: 700;
+  font-size: 0.76rem;
+  font-weight: 600;
   color: var(--color-text-muted);
 }
 
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.15rem;
+}
+
+.metaChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.distance,
+.claimDate,
+.detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-accent-wash);
+  color: var(--color-accent-ink);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.detailIcon {
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+.minSpend {
+  padding: 0.14rem 0.46rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-warn-bg);
+  color: var(--color-warn);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.arrow {
+  flex: 0 0 auto;
+  align-self: center;
+  color: var(--color-text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+/* --- Líneas de estado de reserva --- */
 .reservationStatusNeutral,
 .reservationStatusPending,
 .reservationStatusVerified,
 .reservationStatusFailed {
   margin: 0;
-  font-size: 0.62rem;
-  line-height: 1.35;
+  font-size: 0.82rem;
+  line-height: 1.4;
   font-weight: 600;
 }
 
@@ -379,175 +257,328 @@
 }
 
 .reservationStatusPending {
-  color: #92400e;
+  color: var(--color-warn);
 }
 
 .reservationStatusVerified {
-  color: #166534;
+  color: var(--color-ok);
 }
 
 .reservationStatusFailed {
-  color: #991b1b;
+  color: var(--color-danger);
 }
 
+/* --- Botones --- */
 .claimButton {
   width: 100%;
-  min-height: 2.2rem;
-  margin-top: 0.15rem;
+  min-height: 2.65rem;
+  margin-top: 0.4rem;
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: #fff;
-  font-size: 0.78rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-ok);
+  color: var(--color-white);
+  font-size: 0.85rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  box-shadow: 0 6px 14px rgba(22, 163, 74, 0.24);
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.claimButton:hover {
+  transform: translateY(-1px);
 }
 
 .claimButtonOverlay {
   position: absolute;
-  left: 0.38rem;
-  right: 0.38rem;
-  bottom: 0.38rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
   z-index: 3;
-  min-height: 1.85rem;
+  min-height: 2.2rem;
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: #fff;
-  font-size: 0.72rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-ok);
+  color: var(--color-white);
+  font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  box-shadow: 0 6px 14px rgba(22, 163, 74, 0.35);
+  box-shadow: var(--elev-2);
 }
 
-.cardHero {
+/* --- Estados --- */
+.claimedStamp {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-ok);
+  color: var(--color-white);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: var(--elev-2);
+  transform: rotate(4deg);
+}
+
+.cardClaimable {
+  box-shadow: var(--elev-1), 0 0 0 2px var(--color-ok);
+}
+
+/* --- Botón guardar (marcador) --- */
+.saveToggle {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-white);
+  color: var(--color-accent-strong);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(15, 12, 10, 0.22);
+  transition: transform 0.12s var(--ease-out), background 0.16s var(--ease-out);
+}
+
+.saveToggleOn {
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+}
+
+.saveToggleIcon {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.saveToggle:active {
+  transform: scale(0.88);
+}
+
+@media (hover: hover) {
+  .saveToggle:hover {
+    background: var(--color-cream);
+  }
+
+  .saveToggleOn:hover {
+    background: var(--color-accent-strong);
+    filter: brightness(1.06);
+  }
+}
+
+.saveToggle:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.cardCompact .saveToggle {
+  top: 0.4rem;
+  right: 0.4rem;
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saveToggle {
+    transition: none;
+  }
+
+  .saveToggle:active {
+    transform: none;
+  }
+}
+
+.cardLocked {
+  opacity: 0.72;
+  filter: saturate(0.55);
+}
+
+/* --- Reclamada: ticket horizontal --- */
+.cardClaimed {
+  border-style: dashed;
+  border-color: var(--color-accent-strong);
+  background: var(--color-cream);
+}
+
+.cardClaimed .link,
+.cardClaimed .staticWrap {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.cardClaimed .visual {
+  flex: 0 0 38%;
+  width: auto;
+  aspect-ratio: auto;
+  align-self: stretch;
+  filter: saturate(0.7);
+}
+
+.cardClaimed .highlight {
+  position: static;
+  margin: 0.6rem 0 0 0.6rem;
+  box-shadow: none;
+}
+
+.cardClaimed .body {
+  border-left: 2px dashed var(--color-accent-strong);
+  padding: 0.8rem 0.9rem 0.85rem;
+  gap: 0.3rem;
+}
+
+.cardClaimed .title {
+  color: var(--color-text);
+  font-size: 1.1rem;
+}
+
+/* --- Variante compacta: rejilla de 2-3 columnas y tira "en curso" --- */
+.cardCompact .visual {
+  aspect-ratio: 16 / 10;
+}
+
+.cardCompact .body {
+  padding: 0.4rem 0.5rem 0.5rem;
+  gap: 0.18rem;
+}
+
+.cardCompact .title {
+  font-size: 0.85rem;
+  line-height: 1.12;
+}
+
+.cardCompact .restaurant {
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+}
+
+.cardCompact .highlight {
+  left: 0.35rem;
+  bottom: 0.35rem;
+  padding: 0.18rem 0.42rem;
+  font-size: 0.82rem;
+}
+
+.cardCompact .description {
+  display: none;
+}
+
+.cardCompact .progressWrap {
+  gap: 0.18rem;
+  margin-top: 0.1rem;
+}
+
+.cardCompact .progressBar {
+  height: 5px;
+}
+
+.cardCompact .progressCopy {
+  font-size: 0.68rem;
+}
+
+.cardCompact .meta {
+  padding-top: 0.05rem;
+}
+
+.cardCompact .arrow,
+.cardCompact .minSpend {
+  display: none;
+}
+
+.cardCompact .metaChips {
+  gap: 0.26rem;
+}
+
+.cardCompact .distance,
+.cardCompact .claimDate,
+.cardCompact .detail {
+  padding: 0;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.64rem;
+  font-weight: 600;
+}
+
+.cardCompact .detail::before {
+  content: "· ";
+}
+
+.cardCompact .metaChips > :first-child.detail::before {
+  content: "";
+}
+
+.cardCompact .claimButton {
+  min-height: 2.05rem;
+  font-size: 0.74rem;
+  margin-top: 0.24rem;
+}
+
+/* Reclamada en rejilla: vertical con borde de ticket, no horizontal */
+.cardClaimed.cardCompact .link,
+.cardClaimed.cardCompact .staticWrap {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.cardClaimed.cardCompact .visual {
+  flex: 0 0 auto;
   width: 100%;
-  border-radius: 22px;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.72) inset,
-    0 28px 70px rgba(42, 18, 32, 0.34);
+  aspect-ratio: 16 / 10;
+}
+
+.cardClaimed.cardCompact .highlight {
+  position: absolute;
+  margin: 0;
+}
+
+.cardClaimed.cardCompact .body {
+  border-left: 0;
+  border-top: 1px dashed var(--color-accent-strong);
+}
+
+/* --- Variante héroe (modal) --- */
+.cardHero {
+  border-radius: var(--radius-lg);
 }
 
 .cardHero .visual {
   aspect-ratio: 4 / 5;
 }
 
-.cardHero .visualTitle {
-  font-size: 1.08rem;
-  letter-spacing: -0.02em;
+.cardHero .body {
+  padding: 1rem 1.15rem 1.15rem;
+  gap: 0.45rem;
+}
+
+.cardHero .title {
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
 }
 
 .cardHero .restaurant {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
-.cardHero .detail,
-.cardHero .minSpend {
-  font-size: 0.72rem;
-}
-
-.cardMapMode {
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.72) inset,
-    0 10px 24px rgba(74, 51, 72, 0.2);
-  background-image: linear-gradient(180deg, rgba(255, 248, 230, 0.35), transparent 28%);
-}
-
-.cardMapMode .staticWrap {
-  border-radius: inherit;
-  overflow: hidden;
-}
-
+/* --- Variante mapa de escalones (modal) --- */
 .cardMapMode .visual {
-  border-radius: 16px 16px 0 0;
+  aspect-ratio: 1 / 1;
 }
 
 .cardMapMode .body {
-  border-radius: 0 0 16px 16px;
+  padding: 0.7rem 0.8rem 0.8rem;
+  gap: 0.3rem;
 }
 
-.cardMapMode .highlight {
-  font-size: 0.68rem;
-}
-
-.cardMapMode .visualTitle {
-  font-size: 0.74rem;
-}
-
-.cardMapMode .tagProgress,
-.cardMapMode .tagDistance {
-  font-size: 0.62rem;
-}
-
-.cardMapMode .restaurant {
-  font-size: 0.64rem;
-}
-
-.cardMapMode .detail {
-  font-size: 0.68rem;
-}
-
-.cardMapMode .minSpend {
-  font-size: 0.58rem;
-}
-
-.cardMapMode .progressCopy {
-  font-size: 0.66rem;
-}
-
-.cardMapMode .claimButton {
-  font-size: 0.84rem;
-}
-
-.cardMapMode.cardClaimable .visualTitle {
-  bottom: 2.45rem;
-}
-
-.cardMapMode .claimButtonOverlay {
-  font-size: 0.78rem;
-  min-height: 2rem;
-}
-
-.cardMapMode .claimedStamp {
-  font-size: 0.64rem;
-}
-
-@keyframes promoShine {
-  0%,
-  100% {
-    transform: translateX(-120%);
-    opacity: 0;
-  }
-
-  45% {
-    opacity: 1;
-  }
-
-  55% {
-    transform: translateX(120%);
-    opacity: 0;
-  }
-}
-
-@media (min-width: 540px) {
-  .highlight {
-    font-size: 0.88rem;
-  }
-
-  .visualTitle {
-    font-size: 0.82rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .shine {
-    animation: none;
-  }
+.cardMapMode .title {
+  font-size: 1rem;
 }

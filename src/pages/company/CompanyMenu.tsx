@@ -5,6 +5,7 @@ import MenuExcelExportModal from '../../components/menu/MenuExcelExportModal'
 import MenuExcelImportModal, { type MenuExcelImportMode } from '../../components/menu/MenuExcelImportModal'
 import MenuPdfViewer from '../../components/menu/MenuPdfViewer'
 import MenuPreview from '../../components/menu/MenuPreview'
+import InfoHint from '../../components/company/InfoHint'
 import { useAuth } from '../../context/AuthContext'
 import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import { parseCompanyPlanId } from '../../data/companyPlans'
@@ -986,8 +987,13 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <h1>Carta digital</h1>
-          <p>Crea cartas por categoría (desayuno, cena…), organiza familias y productos, personaliza el diseño o sube un PDF.</p>
+          <h1>
+            Carta digital
+            <InfoHint label="Sobre la carta digital">
+              Crea cartas por categoría (desayuno, cena…), organiza familias y productos, personaliza
+              el diseño o sube un PDF.
+            </InfoHint>
+          </h1>
         </div>
         <div className={styles.headerActions}>
           {demo ? null : (

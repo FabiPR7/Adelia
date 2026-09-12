@@ -7,46 +7,130 @@
     linear-gradient(180deg, #fff8f4 0%, var(--color-cream) 100%);
 }
 
-.viewTabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.45rem;
+/* Una sola fila: selector segmentado + iconos de vista. */
+.controlsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   margin-bottom: 0.75rem;
+  padding-right: 2.75rem; /* deja sitio a la campana de notificaciones */
 }
 
-.viewTab,
-.viewTabActive {
-  min-height: 2.35rem;
-  border-radius: 12px;
+/* Modo Descubrir: la baraja ocupa todo el alto disponible bajo los selectores. */
+.pageSwipe {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+  padding-bottom: 0.4rem;
+}
+
+.pageSwipe .controlsRow {
+  margin-bottom: 0.5rem;
+}
+
+.swipeWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.segmented {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0.1rem;
+  padding: 0.2rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.62);
   border: 1px solid rgba(107, 83, 68, 0.12);
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--color-text-muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
+}
+
+.seg,
+.segOn {
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
+  min-height: 2rem;
+  padding: 0 0.3rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
 }
 
-.viewTabActive {
-  background: linear-gradient(135deg, var(--color-accent-strong), var(--color-accent-strong));
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 8px 18px rgba(168, 129, 77, 0.24);
+.segOn {
+  background: var(--color-white);
+  color: var(--color-text);
+  box-shadow: var(--elev-1);
 }
 
-.viewTabCount {
-  min-width: 1.15rem;
-  height: 1.15rem;
-  padding: 0 0.25rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
-  font-size: 0.62rem;
-  line-height: 1.15rem;
+.seg:focus-visible,
+.segOn:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+
+.modeToggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.15rem;
+  padding: 0.18rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(107, 83, 68, 0.12);
+}
+
+.modeOption,
+.modeOptionOn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+
+.modeOption svg,
+.modeOptionOn svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.modeOptionOn {
+  background: var(--color-white);
+  color: var(--color-text);
+  box-shadow: var(--elev-1);
+}
+
+.modeOption:focus-visible,
+.modeOptionOn:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modeOption,
+  .modeOptionOn {
+    transition: none;
+  }
 }
 
 .lockBanner {
@@ -265,8 +349,220 @@
 
 .promoFeed {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  align-items: start;
   gap: 0.45rem;
+}
+
+.loadMore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 2.5rem;
+  margin-top: 0.6rem;
+}
+
+.loadMoreDot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--color-accent-strong, #d98c3f);
+  opacity: 0.4;
+  animation: loadMorePulse 1s var(--ease-out, ease) infinite;
+}
+
+.loadMoreDot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.loadMoreDot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes loadMorePulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadMoreDot {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+.promoFeed > *:nth-child(1) { animation-delay: 0ms; }
+.promoFeed > *:nth-child(2) { animation-delay: 40ms; }
+.promoFeed > *:nth-child(3) { animation-delay: 80ms; }
+.promoFeed > *:nth-child(4) { animation-delay: 120ms; }
+.promoFeed > *:nth-child(5) { animation-delay: 160ms; }
+.promoFeed > *:nth-child(6) { animation-delay: 200ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .promoFeed > * {
+    animation-delay: 0ms !important;
+  }
+}
+
+/* Tarjeta de fidelidad dentro de la rejilla: se muestra como un cupón más
+   (foto + restaurante + una línea). Se oculta el progreso y el estado
+   "En curso" (eso vive en la sección "En curso" y en el mapa de premios),
+   pero se mantiene "Usar carta" cuando el usuario tiene una carta aplicable. */
+.feedItem {
+  flex: none;
+  width: 100%;
+}
+
+.feedItem :global([class*="ladderProgressBar"]),
+.feedItem :global([class*="ladderProgressCopy"]),
+.feedItem :global([class*="ladderMeta"]),
+.feedItem :global([class*="ladderDistance"]),
+.feedItem :global([class*="ladderTag"]),
+.feedItem :global([class*="ladderCompletions"]),
+.feedItem :global([class*="ladderBadge"]) {
+  display: none !important;
+}
+
+.feedItem :global([class*="ladderVisual"]:not([class*="Collage"])) {
+  aspect-ratio: 16 / 10;
+}
+
+.feedItem :global([class*="ladderBody"]) {
+  padding-bottom: 0.7rem;
+  gap: 0.2rem;
+}
+
+.feedItem :global([class*="ladderCopy"]) {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+@media (min-width: 560px) {
+  .promoFeed {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+}
+
+/* Filtros por tipo de promo */
+.filterRow {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -0.65rem 0.85rem;
+  padding: 0 0.65rem 0.1rem;
+}
+
+.filterRow::-webkit-scrollbar {
+  display: none;
+}
+
+.filterChip,
+.filterChipActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  min-height: 2.3rem;
+  padding: 0 1rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+
+.filterChip:active,
+.filterChipActive:active {
+  transform: scale(0.96);
+}
+
+.filterChipActive {
+  background: var(--gradient-energy);
+  border-color: transparent;
+  color: var(--color-white);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--color-accent-strong) 32%, transparent);
+}
+
+.filterChipIcon {
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+/* Encabezado de sección */
+.feedHeading {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0.4rem 0 0.7rem;
+}
+
+.feedHeading h2 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-epic);
+  font-size: 1.6rem;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-accent-ink);
+}
+
+.feedHeading h2::before {
+  content: "";
+  width: 0.28rem;
+  height: 1.2rem;
+  border-radius: var(--radius-pill);
+  background: var(--gradient-energy);
+}
+
+.feedHeading span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.feedGroup {
+  margin-bottom: 1.1rem;
+}
+
+.feedEmpty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .activeStrip {
@@ -286,7 +582,7 @@
 }
 
 .compactPromoCard {
-  flex: 0 0 168px;
+  flex: 0 0 158px;
   scroll-snap-align: start;
 }
 
@@ -859,8 +1155,9 @@
     padding: 1.25rem 1.75rem 2.5rem;
   }
 
-  .viewTabs {
-    max-width: 28rem;
+  .controlsRow {
+    max-width: 30rem;
+    padding-right: 0;
   }
 
   .activeStrip {
@@ -874,7 +1171,7 @@
 
   .promoFeed {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.85rem;
+    gap: 0.6rem;
   }
 
   .promoVisualTitle {

@@ -111,6 +111,8 @@ function companyFromApi(
     pendingPlanId: fallback?.pendingPlanId ?? null,
     pendingPlanAt: fallback?.pendingPlanAt ?? null,
     discoveryFeatured: payload.discoveryFeatured ?? fallback?.discoveryFeatured ?? false,
+    deactivated: fallback?.deactivated ?? false,
+    deactivatedAt: fallback?.deactivatedAt ?? null,
     createdAt: fallback?.createdAt ?? new Date(),
     turns: fallback?.turns ?? defaultTurns(),
     ...floors,

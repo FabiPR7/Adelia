@@ -306,7 +306,11 @@ router.get('/', async (_req: Request, res: Response) => {
     const promotions = activeSnap.docs.flatMap((promotionDoc) => {
       const companyId = promotionDoc.ref.parent.parent?.id
       const companySnap = companyId ? companiesById.get(companyId) : undefined
-      if (!companySnap || !planAllowsPromotions(parseStoredPlanId(companySnap.data()?.planId))) {
+      if (
+        !companySnap
+        || companySnap.data()?.deactivated === true
+        || !planAllowsPromotions(parseStoredPlanId(companySnap.data()?.planId))
+      ) {
         return []
       }
       return [mapPromotionPayload(promotionDoc, companySnap)]
@@ -334,7 +338,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
       .limit(1)
       .get()
 
-    if (companiesSnapshot.empty) {
+    if (companiesSnapshot.empty || companiesSnapshot.docs[0].data()?.deactivated === true) {
       allowPublicCache(res, 60)
       res.json({ promotions: [] })
       return

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import CharacteristicPicker from '../components/CharacteristicPicker'
 import CityAutocomplete from '../components/CityAutocomplete'
 import ImageUploader from '../components/ImageUploader'
@@ -17,6 +17,8 @@ import {
 import { COMPANY_AMENITIES, COMPANY_VENUE_TYPES, MAX_COMPANY_VENUE_TYPES } from '../data/companyProfileFacilities'
 import { loginWithUsername } from '../services/auth'
 import { completeFreeCompanySignup, completePaidCompanySignup, fetchSaasCheckoutSession } from '../services/saasBilling'
+import { getCompanyPlan } from '../data/companyPlans'
+import { planIdFromSignupSlug } from '../data/lemonSqueezyCheckout'
 import type { CitySuggestion } from '../services/citySearch'
 import type { GeoCoordinates } from '../utils/geo'
 import {
@@ -86,8 +88,15 @@ function CompanySignupPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const sessionId = searchParams.get('session_id') ?? ''
-  const isFreeMesa = !sessionId && (searchParams.get('plan') === 'mesa' || searchParams.get('plan') === 'free')
-  const { refreshProfile } = useAuth()
+  const signupPlanId = planIdFromSignupSlug(searchParams.get('plan'))
+  const isStripeSignup = Boolean(sessionId)
+  // Sin `session_id` de Stripe, siempre se puede dar de alta. El plan de la URL
+  // es solo para los textos: el plan de pago real lo concede el webhook de
+  // Lemon Squeezy (por correo), tanto si el pago llegó antes como después.
+  const isSelfServeSignup = !isStripeSignup
+  const isFreePlan = signupPlanId === 'free'
+  const isFreeMesa = isFreePlan
+  const { refreshProfile, profile } = useAuth()
 
   const [step, setStep] = useState<StepId>('account')
   const [loadingSession, setLoadingSession] = useState(true)
@@ -124,17 +133,23 @@ function CompanySignupPage() {
   )
   const passwordReady = isPasswordValid(passwordChecks)
   const stepIndex = STEPS.findIndex((item) => item.id === step)
-  const tutorial = isFreeMesa ? MESA_TUTORIAL : PAID_TUTORIAL
+  const tutorial = isFreePlan ? MESA_TUTORIAL : PAID_TUTORIAL
 
   useEffect(() => {
-    if (isFreeMesa) {
-      setPlanName('Mesa')
+    if (isSelfServeSignup) {
+      setPlanName(
+        signupPlanId && signupPlanId !== 'free'
+          ? getCompanyPlan(signupPlanId).name
+          : signupPlanId === 'free'
+            ? 'Mesa'
+            : '',
+      )
       setLoadingSession(false)
       return
     }
 
     if (!sessionId) {
-      setSessionError('Falta el pago. Vuelve a planes y contrata Sala o Local, o empieza gratis con Mesa.')
+      setSessionError('Entra desde la página de planes y elige Mesa, Sala o Local.')
       setLoadingSession(false)
       return
     }
@@ -180,7 +195,7 @@ function CompanySignupPage() {
     return () => {
       cancelled = true
     }
-  }, [isFreeMesa, sessionId])
+  }, [isSelfServeSignup, signupPlanId, sessionId])
 
   const geocodeQuery = [location, city?.name, city?.country].filter(Boolean).join(', ')
 
@@ -234,9 +249,9 @@ function CompanySignupPage() {
         venueTypes: skipStyle ? [] : venueTypes,
         amenities: skipStyle ? [] : amenities,
       }
-      const result = isFreeMesa
-        ? await completeFreeCompanySignup(payload)
-        : await completePaidCompanySignup({ sessionId, ...payload })
+      const result = isStripeSignup
+        ? await completePaidCompanySignup({ sessionId, ...payload })
+        : await completeFreeCompanySignup({ ...payload, plan: signupPlanId ?? 'free' })
       setSlug(result.slug)
       setLoginName(result.loginName)
       try {
@@ -255,6 +270,11 @@ function CompanySignupPage() {
 
   const enterPanel = () => {
     navigate('/panel', { replace: true })
+  }
+
+  // Si ya tiene restaurante y sesión, el redirect de pago solo debe "continuar".
+  if (profile?.role === 'company' && step === 'account') {
+    return <Navigate to="/panel" replace />
   }
 
   if (loadingSession) {
@@ -300,7 +320,13 @@ function CompanySignupPage() {
           <img src={ADELIA_LOGO_URL} alt="" />
           <span>Adelia</span>
         </Link>
-        <p className={styles.planChip}>{isFreeMesa ? 'Plan Mesa · gratis' : planName ? `Plan ${planName}` : 'Alta empresa'}</p>
+        <p className={styles.planChip}>
+          {isFreeMesa
+            ? 'Plan Mesa · gratis'
+            : planName
+              ? `Plan ${planName}${signupPlanId === 'premium' ? ' · 3 meses de prueba' : ''}`
+              : 'Alta empresa'}
+        </p>
       </header>
 
       {isFreeMesa ? (

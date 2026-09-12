@@ -11,6 +11,8 @@ interface PromotionPhotoCollageProps {
   productRefs: PromotionProductRef[]
   fallbackPhotoUrl?: string
   size?: 'thumb' | 'card' | 'preview'
+  /** Ancho objetivo de la imagen en Cloudinary. Por defecto miniatura (320). */
+  imageWidth?: number
   alt?: string
   className?: string
 }
@@ -19,16 +21,23 @@ function CollageImage({
   photoUrl,
   alt,
   className,
+  width,
 }: {
   photoUrl: string
   alt: string
   className?: string
+  width?: number
 }) {
   return (
     <img
-      src={optimizeCloudinaryUrl(photoUrl, CLOUDINARY_DISPLAY.photoThumb)}
+      src={optimizeCloudinaryUrl(
+        photoUrl,
+        width ? { width } : CLOUDINARY_DISPLAY.photoThumb,
+      )}
       alt={alt}
       className={className}
+      loading="lazy"
+      decoding="async"
     />
   )
 }
@@ -37,12 +46,19 @@ export default function PromotionPhotoCollage({
   productRefs,
   fallbackPhotoUrl = '',
   size = 'thumb',
+  imageWidth,
   alt = '',
   className = '',
 }: PromotionPhotoCollageProps) {
   const photos = getPromotionProductPhotos(productRefs)
   const visiblePhotos = photos.slice(0, PROMOTION_COLLAGE_MAX_VISIBLE)
   const countLabel = getPromotionCollageCountLabel(productRefs.length)
+  // Un mosaico reparte el ancho entre 2 columnas: baja la resolución por foto.
+  const tileWidth = imageWidth
+    ? visiblePhotos.length > 1
+      ? Math.round(imageWidth / 2)
+      : imageWidth
+    : undefined
   const rootClass = `${styles.collage} ${
     size === 'card'
       ? styles.collageCard
@@ -55,7 +71,12 @@ export default function PromotionPhotoCollage({
     if (fallbackPhotoUrl.trim()) {
       return (
         <div className={rootClass}>
-          <CollageImage photoUrl={fallbackPhotoUrl} alt={alt} className={styles.singleImage} />
+          <CollageImage
+            photoUrl={fallbackPhotoUrl}
+            alt={alt}
+            className={styles.singleImage}
+            width={imageWidth}
+          />
         </div>
       )
     }
@@ -74,6 +95,7 @@ export default function PromotionPhotoCollage({
           photoUrl={visiblePhotos[0].photoUrl}
           alt={visiblePhotos[0].name || alt}
           className={styles.singleImage}
+          width={imageWidth}
         />
       </div>
     )
@@ -93,6 +115,7 @@ export default function PromotionPhotoCollage({
           photoUrl={ref.photoUrl}
           alt={ref.name || alt}
           className={styles.tileImage}
+          width={tileWidth}
         />
       ))}
       {countLabel ? (

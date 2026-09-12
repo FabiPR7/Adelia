@@ -6,6 +6,7 @@ import {
   type CompanyStripeStatus,
 } from '../../services/companyStripe'
 import { useCompanyDemo } from '../../context/CompanyDemoContext'
+import InfoHint from '../../components/company/InfoHint'
 import styles from './CompanyStripeConnectPanel.module.css'
 
 interface CompanyStripeConnectPanelProps {
@@ -98,11 +99,13 @@ export default function CompanyStripeConnectPanel({
     <div className={styles.panel}>
       <div className={styles.header}>
         <div>
-          <h4>Conexión con Stripe</h4>
-          <p>
-            Conecta y completa la cuenta del restaurante. Las fianzas se autorizan al reservar y
-            solo se cobran si la reserva se cancela o no se confirma la asistencia.
-          </p>
+          <h4>
+            Conexión con Stripe
+            <InfoHint label="Sobre la conexión con Stripe">
+              Conecta y completa la cuenta del restaurante. Las fianzas se autorizan al reservar y
+              solo se cobran si la reserva se cancela o no se confirma la asistencia.
+            </InfoHint>
+          </h4>
         </div>
         <span
           className={`${styles.badge} ${

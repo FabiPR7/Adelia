@@ -4,6 +4,7 @@ import ReservationStatusDonut from '../../components/reports/ReservationStatusDo
 import ReservationTrendChart from '../../components/reports/ReservationTrendChart'
 import ReservationWeekdayChart from '../../components/reports/ReservationWeekdayChart'
 import SortableTh from '../../components/reports/SortableTh'
+import InfoHint from '../../components/company/InfoHint'
 import { getFirestoreErrorMessage, getReservationsByCompany } from '../../services/firestore'
 import { reportYearOptions, yearBounds } from '../../services/firestoreQuery'
 import type { Reservation } from '../../types'
@@ -186,8 +187,12 @@ function CompanyReportsReservations({ companyId }: CompanyReportsReservationsPro
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
-        <h2>Informes de reservas</h2>
-        <p>Evolución, estados, días fuertes y horas punta del periodo seleccionado.</p>
+        <h2>
+          Informes de reservas
+          <InfoHint label="Sobre los informes de reservas">
+            Evolución, estados, días fuertes y horas punta del periodo seleccionado.
+          </InfoHint>
+        </h2>
       </header>
 
       <div className={styles.scrollArea}>

@@ -206,6 +206,7 @@ export default function BookingRestaurantLanding({
         <FavoriteButton
           slug={company.slug}
           name={company.name}
+          companyId={company.id}
           variant="overlayEnd"
         />
 

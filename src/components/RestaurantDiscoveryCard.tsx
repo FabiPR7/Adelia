@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import DiscoveryRatingBadge from './DiscoveryRatingBadge'
 import { formatDistanceKm } from '../utils/geo'
@@ -9,6 +10,7 @@ import {
 import FavoriteButton from './FavoriteButton'
 import { getAmenityLabel, getVenueTypeLabel } from '../data/companyProfileFacilities'
 import { restaurantReserveCtaLabel } from '../data/companyReservationMode'
+import { trackAppEvent } from '../utils/appEvents'
 import styles from './RestaurantDiscoveryCard.module.css'
 
 interface RestaurantDiscoveryCardProps {
@@ -32,6 +34,12 @@ function RestaurantDiscoveryCard({
   ].slice(0, 3)
   const ratingBadge = formatDiscoveryRatingBadge(restaurant)
 
+  useEffect(() => {
+    if (restaurant.id) {
+      trackAppEvent('search_impression', { companyId: restaurant.id, source: 'discovery' })
+    }
+  }, [restaurant.id])
+
   return (
     <article className={styles.card}>
       <div
@@ -41,11 +49,21 @@ function RestaurantDiscoveryCard({
         <button
           type="button"
           className={styles.openButton}
-          onClick={() => onOpen(restaurant)}
+          onClick={() => {
+            if (restaurant.id) {
+              trackAppEvent('search_click', { companyId: restaurant.id, source: 'discovery' })
+            }
+            onOpen(restaurant)
+          }}
           aria-label={`Ver ${restaurant.name}`}
         />
 
-        <FavoriteButton slug={restaurant.slug} name={restaurant.name} variant="overlay" />
+        <FavoriteButton
+          slug={restaurant.slug}
+          name={restaurant.name}
+          companyId={restaurant.id}
+          variant="overlay"
+        />
 
         {!imageUrl && <span className={styles.imageFallback}>{restaurant.name.charAt(0)}</span>}
 

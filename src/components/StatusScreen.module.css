@@ -1,0 +1,135 @@
+.wrap {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+  background: var(--color-cream);
+}
+
+.card {
+  width: 100%;
+  max-width: 26rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  animation: statusRise var(--dur-slow) var(--ease-out) both;
+}
+
+.code {
+  display: block;
+  font-family: var(--font-epic);
+  font-size: clamp(3.5rem, 17vw, 7rem);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  color: var(--color-sand);
+  max-width: 100%;
+  overflow-wrap: break-word;
+  user-select: none;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-text);
+  text-wrap: balance;
+}
+
+.message {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+  margin-top: var(--space-2);
+}
+
+.primary,
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
+}
+
+.primary {
+  border: 1px solid var(--color-accent-strong);
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+}
+
+.primary:hover {
+  border-color: var(--color-accent-ink);
+  background: var(--color-accent-ink);
+  transform: translateY(-1px);
+}
+
+.primary:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.ghost {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+}
+
+.ghost:hover {
+  border-color: var(--color-brown-light);
+  transform: translateY(-1px);
+}
+
+.ghost:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+@keyframes statusRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+
+  .primary,
+  .ghost {
+    transition: background-color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+  }
+
+  .primary:hover,
+  .ghost:hover {
+    transform: none;
+  }
+}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchCompanyRanking } from '../../services/companyGamification'
 import type { CompanyRankingEntry } from '../../types/companyGamification'
 import { ADELIA_LOGO_URL } from '../../constants/brand'
+import InfoHint from '../../components/company/InfoHint'
 import styles from './CompanyCompiteRanking.module.css'
 
 type RankingScope = 'local' | 'world'
@@ -69,10 +70,13 @@ export default function CompanyCompiteRanking() {
     <div className={styles.page}>
       <header className={styles.header}>
         <p className={styles.eyebrow}>Compite</p>
-        <h1>Ranking</h1>
-        <p className={styles.lead}>
-          Ordenado por XP de casa. El local usa {municipality || country}; el mundial incluye todos los restaurantes de Adelia.
-        </p>
+        <h1>
+          Ranking
+          <InfoHint label="Sobre el ranking">
+            Ordenado por XP de casa. El local usa {municipality || country}; el mundial incluye todos
+            los restaurantes de Adelia.
+          </InfoHint>
+        </h1>
       </header>
 
       <div className={styles.scopeTabs} role="tablist" aria-label="Alcance del ranking">

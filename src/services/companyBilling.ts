@@ -16,6 +16,10 @@ export interface CompanyBillingStatus {
   currentPeriodEnd: string | null
   hasSubscription: boolean
   planBilling: 'monthly' | 'perpetual' | null
+  paymentState?: 'past_due' | 'unpaid' | null
+  paymentFailedAt?: string | null
+  /** Portal de Lemon Squeezy (cambiar plan, tarjeta, cancelar). */
+  portalUrl?: string | null
 }
 
 export interface CompanyPlanChangeResult {

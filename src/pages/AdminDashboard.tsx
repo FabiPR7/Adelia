@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { getAdminCompanies, getFirestoreErrorMessage, markCompanyMustChangePassword } from '../services/firestore'
@@ -9,12 +9,10 @@ import {
   listAdminMissions,
   listIndexedReviews,
   listLoginLocks,
-  listPlanChangeRequests,
   listSecurityEvents,
   listTopCustomersByAdelinas,
   saveAdminMission,
   setCustomerBlocked,
-  updatePlanChangeRequestStatus,
 } from '../services/adminOps'
 import { logout } from '../services/auth'
 import type { AdminCompany } from '../types'
@@ -24,14 +22,12 @@ import type {
   AdminMissionRow,
   AdminSecurityEvent,
   IndexedReview,
-  PlanChangeRequest,
 } from '../types/adminOps'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import AdminOverviewBoard from '../components/admin/AdminOverviewBoard'
 import AdminCompaniesWorkspace, { type CompanyEditorState } from '../components/admin/AdminCompaniesWorkspace'
 import AdminPlansBoard from '../components/admin/AdminPlansBoard'
 import AdminCustomersBoard from '../components/admin/AdminCustomersBoard'
-import AdminRequestsBoard from '../components/admin/AdminRequestsBoard'
 import AdminModerationBoard from '../components/admin/AdminModerationBoard'
 import AdminDiscoveryBoard from '../components/admin/AdminDiscoveryBoard'
 import AdminPlayBoard from '../components/admin/AdminPlayBoard'
@@ -39,7 +35,6 @@ import AdminIncidentsBoard from '../components/admin/AdminIncidentsBoard'
 import {
   IconAlert,
   IconBuildings,
-  IconInbox,
   IconLogout,
   IconOverview,
   IconPlans,
@@ -53,7 +48,7 @@ import {
 import { getAdminOverview } from '../services/adminAnalytics'
 import type { AdminOverview } from '../utils/adminOverview'
 import type { DateRangeFilter, TimeRange } from '../services/adminAnalytics.types'
-import { isAllowedMonthlyBillingDate, parseCompanyPlanId, parseDateInput } from '../data/companyPlans'
+import { isAllowedMonthlyBillingDate, parseDateInput } from '../data/companyPlans'
 import { loadAnalyticsFilters, saveAnalyticsFilters } from '../utils/analyticsStorage'
 import styles from './AdminDashboard.module.css'
 
@@ -61,7 +56,6 @@ type AdminView =
   | 'analytics'
   | 'companies'
   | 'plans'
-  | 'requests'
   | 'customers'
   | 'moderation'
   | 'discovery'
@@ -72,7 +66,6 @@ const VIEW_TITLE: Record<AdminView, string> = {
   analytics: 'El pulso de Adelia',
   companies: 'Restaurantes',
   plans: 'Planes y cobro',
-  requests: 'Solicitudes de plan',
   customers: 'Clientes',
   moderation: 'Moderación',
   discovery: 'Descubrimiento',
@@ -109,7 +102,6 @@ function AdminDashboard() {
   const [timeRange, setTimeRange] = useState<TimeRange>(() => loadAnalyticsFilters()?.timeRange ?? 'month')
   const [countryFilter, setCountryFilter] = useState<string>(() => loadAnalyticsFilters()?.countryFilter ?? '')
 
-  const [requests, setRequests] = useState<PlanChangeRequest[]>([])
   const [customers, setCustomers] = useState<AdminCustomerRow[]>([])
   const [customersTotal, setCustomersTotal] = useState(0)
   const [reviews, setReviews] = useState<IndexedReview[]>([])
@@ -119,10 +111,6 @@ function AdminDashboard() {
   const [opsLoading, setOpsLoading] = useState(false)
 
   const adminName = profile?.displayName?.trim() || 'Fabian'
-  const pendingRequests = useMemo(
-    () => requests.filter((request) => request.status === 'pending').length,
-    [requests],
-  )
 
   const loadCompanies = async () => {
     setIsLoading(true)
@@ -153,15 +141,6 @@ function AdminDashboard() {
     }
   }
 
-  const loadRequests = async () => {
-    setOpsError(null)
-    try {
-      setRequests(await listPlanChangeRequests())
-    } catch (err) {
-      setOpsError(getFirestoreErrorMessage(err))
-    }
-  }
-
   const loadViewData = async (view: AdminView) => {
     if (view === 'analytics' || view === 'companies' || view === 'plans' || view === 'discovery') {
       return
@@ -170,9 +149,7 @@ function AdminDashboard() {
     setOpsLoading(true)
     setOpsError(null)
     try {
-      if (view === 'requests') {
-        setRequests(await listPlanChangeRequests())
-      } else if (view === 'customers') {
+      if (view === 'customers') {
         const listed = await listAdminCustomers()
         setCustomers(listed.rows)
         setCustomersTotal(listed.totalCount)
@@ -202,7 +179,6 @@ function AdminDashboard() {
       currentView === 'companies'
       || currentView === 'plans'
       || currentView === 'discovery'
-      || currentView === 'requests'
     ) {
       if (companies.length === 0) {
         void loadCompanies()
@@ -336,44 +312,6 @@ function AdminDashboard() {
     }
   }
 
-  const handleApplyRequest = async (input: {
-    request: PlanChangeRequest
-    planBilling: 'monthly' | 'perpetual'
-    planStartedOn: string
-  }) => {
-    const company = companies.find((item) => item.id === input.request.companyId)
-    if (!company) {
-      setOpsError('Ese restaurante ya no está.')
-      return
-    }
-
-    const toPlanId = parseCompanyPlanId(input.request.toPlanId)
-    const monthlyDate = toPlanId !== 'free' && input.planBilling === 'monthly'
-      ? parseDateInput(input.planStartedOn)
-      : null
-
-    if (toPlanId !== 'free' && input.planBilling === 'monthly' && (!monthlyDate || !isAllowedMonthlyBillingDate(monthlyDate))) {
-      setOpsError('Para aplicar un mensual la fecha tiene que ser hoy o más adelante.')
-      return
-    }
-
-    setIsSaving(true)
-    setOpsError(null)
-    try {
-      await updateCompany(company.id, company, {
-        planId: toPlanId,
-        planBilling: toPlanId === 'free' ? null : input.planBilling,
-        planStartedAt: monthlyDate,
-      })
-      await updatePlanChangeRequestStatus(input.request.id, 'applied')
-      setSuccess(`Plan de ${company.name} actualizado.`)
-      await Promise.all([loadCompanies(), loadRequests()])
-    } catch (err) {
-      setOpsError(err instanceof Error ? err.message : 'No se pudo aplicar la solicitud.')
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   const navButton = (view: AdminView, label: string, icon: ReactNode, badge?: number) => (
     <button
@@ -402,7 +340,6 @@ function AdminDashboard() {
           {navButton('analytics', 'Visión general', <IconOverview />)}
           {navButton('companies', 'Restaurantes', <IconBuildings />, companies.length)}
           {navButton('plans', 'Planes', <IconPlans />)}
-          {navButton('requests', 'Solicitudes', <IconInbox />, pendingRequests)}
           {navButton('customers', 'Clientes', <IconUsers />)}
           {navButton('moderation', 'Moderación', <IconShield />)}
           {navButton('discovery', 'Descubrimiento', <IconSpark />)}
@@ -484,26 +421,6 @@ function AdminDashboard() {
               isSaving={isSaving}
               onOpenCompany={openCompany}
               onMarkPaid={handleMarkPaid}
-            />
-          ) : null}
-
-          {currentView === 'requests' ? (
-            <AdminRequestsBoard
-              requests={requests}
-              companies={companies}
-              isLoading={opsLoading}
-              isSaving={isSaving}
-              error={opsError}
-              onReject={async (request) => {
-                setIsSaving(true)
-                try {
-                  await updatePlanChangeRequestStatus(request.id, 'rejected')
-                  await loadRequests()
-                } finally {
-                  setIsSaving(false)
-                }
-              }}
-              onApply={handleApplyRequest}
             />
           ) : null}
 

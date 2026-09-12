@@ -3,20 +3,46 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  background: linear-gradient(180deg, #fffaf0 0%, #fff 72%);
-  border: 1px solid rgba(201, 162, 39, 0.28);
-  box-shadow:
-    0 0 0 1px rgba(255, 248, 230, 0.8) inset,
-    0 10px 24px rgba(74, 51, 72, 0.1);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--elev-1);
   cursor: pointer;
   text-align: left;
   padding: 0;
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+  animation: ladderCardIn var(--dur-slow) var(--ease-out) both;
+}
+
+@keyframes ladderCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (hover: hover) {
+  .ladderCard:hover,
+  .ladderCardCompact:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--elev-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ladderCard,
+  .ladderCardCompact {
+    animation: none;
+  }
 }
 
 .ladderCardCompact {
-  flex: 0 0 168px;
+  flex: 0 0 176px;
 }
 
 .ladderCard {
@@ -35,7 +61,7 @@
   position: relative;
   aspect-ratio: 16 / 10;
   overflow: hidden;
-  background: #2a1a24;
+  background: var(--color-brown);
 }
 
 .ladderCardCompact .ladderVisual {
@@ -55,25 +81,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #ff6b4a, #ff4f8f);
+  background: var(--color-brown);
   font-size: 2rem;
 }
 
 .ladderOverlay {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(
-      to top,
-      rgba(22, 12, 28, 0.9) 0%,
-      rgba(22, 12, 28, 0.28) 55%,
-      transparent 100%
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0 10px,
-      rgba(255, 236, 180, 0.08) 10px 11px
-    );
+  background: linear-gradient(
+    to top,
+    rgba(38, 28, 22, 0.86) 0%,
+    rgba(38, 28, 22, 0.25) 55%,
+    transparent 100%
+  );
 }
 
 .ladderTopBar {
@@ -100,17 +120,18 @@
 .ladderCompletions {
   display: inline-flex;
   max-width: 100%;
-  padding: 0.16rem 0.38rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #ffd700, #ffb347);
-  color: #5c3d2e;
-  font-size: 0.52rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  padding: 0.18rem 0.46rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-2);
+  color: #3d2a12;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent-2) 40%, transparent);
 }
 
 .ladderCardCompact .ladderCompletions {
@@ -120,82 +141,110 @@
   letter-spacing: 0;
 }
 
+.ladderCardCompact .ladderBadge {
+  padding: 0.18rem 0.4rem;
+  font-size: 0.64rem;
+}
+
+.ladderCardCompact .ladderTag {
+  padding: 0.16rem 0.38rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.03em;
+}
+
+.ladderCardCompact .ladderTopLeft {
+  max-width: calc(100% - 3.4rem);
+}
+
 .ladderBadge {
   display: inline-flex;
-  padding: 0.18rem 0.42rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #7c3a2e;
-  font-size: 0.58rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.22rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--color-accent-ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
 
 .ladderTag {
   flex-shrink: 0;
-  padding: 0.16rem 0.38rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #ff6b4a, #ff4f8f);
+  padding: 0.2rem 0.48rem;
+  border-radius: var(--radius-pill);
+  background: rgba(38, 28, 22, 0.72);
+  backdrop-filter: blur(6px);
   color: #fff;
-  font-size: 0.54rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .ladderTagClaimable {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  background: var(--color-ok);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-ok) 45%, transparent);
 }
 
 .ladderTitle {
   position: absolute;
-  left: 0.45rem;
-  right: 0.45rem;
-  bottom: 0.45rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
   z-index: 2;
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  line-height: 1.15;
+  font-family: var(--font-epic);
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: #fff9f2;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .ladderCardCompact .ladderTitle {
-  font-size: 0.66rem;
+  font-size: 1.05rem;
 }
 
 .ladderBody {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.45rem 0.5rem 0.55rem;
-  background: linear-gradient(180deg, #fff8e8 0%, #fff 100%);
-  border-top: 2px solid #c9a227;
+  gap: 0.28rem;
+  padding: 0.55rem 0.6rem 0.65rem;
+  background: var(--color-white);
+  border-top: 3px solid var(--color-accent-2);
   flex: 1;
 }
 
 .ladderRestaurant {
   margin: 0;
-  font-size: 0.58rem;
+  font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #ff6b4a;
+  color: var(--color-text-muted);
 }
 
 .ladderCopy {
   margin: 0;
-  font-size: 0.62rem;
-  line-height: 1.35;
+  font-size: 0.8rem;
+  line-height: 1.4;
   color: var(--color-text-muted);
 }
 
 .ladderCopy strong {
-  color: var(--color-brown);
+  color: var(--color-accent-ink);
+  font-weight: 800;
 }
 
 .ladderMeta {
@@ -208,39 +257,39 @@
 
 .ladderMilestones {
   display: inline-flex;
-  gap: 0.2rem;
+  gap: 0.25rem;
 }
 
 .ladderDot {
-  width: 0.45rem;
-  height: 0.45rem;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 999px;
-  background: rgba(107, 83, 68, 0.18);
+  background: rgba(107, 83, 68, 0.2);
 }
 
 .ladderDotDone {
-  background: linear-gradient(135deg, #9ca3af, #6b7280);
+  background: var(--color-border);
 }
 
 .ladderDotActive {
-  background: linear-gradient(135deg, #ff6b4a, #ff4f8f);
-  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.25);
+  background: var(--color-accent-strong);
+  box-shadow: 0 0 0 2px var(--color-accent-wash);
 }
 
 .ladderDotClaimable {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+  background: var(--color-ok);
+  box-shadow: 0 0 0 2px var(--color-ok-bg);
 }
 
 .ladderArrow {
-  font-size: 0.85rem;
-  color: #ff6b4a;
+  font-size: 1rem;
+  color: var(--color-text-muted);
 }
 
 .ladderProgressBar {
-  height: 0.28rem;
-  border-radius: 999px;
-  background: rgba(107, 83, 68, 0.12);
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: rgba(107, 83, 68, 0.14);
   overflow: hidden;
 }
 
@@ -248,36 +297,50 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
+  background: var(--gradient-energy);
 }
 
 .ladderProgressCopy {
   margin: 0;
-  font-size: 0.56rem;
-  font-weight: 700;
-  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent-ink);
 }
 
 .ladderDistance {
-  font-size: 0.56rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--color-text-muted);
 }
 
 .useTokenButton {
-  margin: 0 0.55rem 0.55rem;
-  min-height: 1.85rem;
-  border: none;
-  border-radius: 999px;
-  background: #1f1420;
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 600;
+  margin: 0 0.6rem 0.6rem;
+  min-height: 2.1rem;
+  border: 1.5px solid var(--color-accent-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-accent-ink);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out), background var(--dur) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .useTokenButton:hover {
+    transform: translateY(-1px);
+    background: var(--color-accent-wash);
+  }
+}
+
+.useTokenButton:active {
+  transform: translateY(1px) scale(0.98);
 }
 
 .ladderCardCompact .useTokenButton {
-  margin: 0 0.4rem 0.4rem;
-  min-height: 1.55rem;
-  font-size: 0.62rem;
+  margin: 0 0.45rem 0.45rem;
+  min-height: 1.85rem;
+  font-size: 0.68rem;
 }

@@ -1,9 +1,12 @@
 import { useFavoriteRestaurants } from '../context/FavoriteRestaurantsContext'
+import { trackAppEvent } from '../utils/appEvents'
 import styles from './FavoriteButton.module.css'
 
 interface FavoriteButtonProps {
   slug: string
   name: string
+  /** Id del restaurante; si se pasa, registra el favorito en analítica. */
+  companyId?: string
   variant?: 'overlay' | 'overlayEnd' | 'round' | 'chip'
   className?: string
 }
@@ -11,6 +14,7 @@ interface FavoriteButtonProps {
 function FavoriteButton({
   slug,
   name,
+  companyId,
   variant = 'round',
   className = '',
 }: FavoriteButtonProps) {
@@ -25,6 +29,9 @@ function FavoriteButton({
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
+        if (companyId) {
+          trackAppEvent(saved ? 'favorite_remove' : 'favorite_add', { companyId })
+        }
         void toggleFavorite(slug)
       }}
       aria-pressed={saved}

@@ -101,8 +101,8 @@
 }
 
 .distance {
-  background: var(--color-sand);
-  color: var(--color-text);
+  background: var(--color-accent-strong);
+  color: var(--color-white);
 }
 
 .place,
@@ -162,8 +162,8 @@
   flex-shrink: 0;
   padding: 0.4rem 0.7rem 0.4rem 0.8rem;
   border-radius: 999px;
-  background: var(--color-sand);
-  color: var(--color-text);
+  background: var(--color-accent-strong);
+  color: var(--color-white);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.01em;

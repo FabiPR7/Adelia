@@ -119,7 +119,11 @@ router.post('/complete-signup', async (req: Request, res: Response) => {
 
 router.post('/complete-free-signup', async (req: Request, res: Response) => {
   try {
-    const result = await completeFreeCompanySignup(signupProfileFromBody(req.body as Record<string, unknown>))
+    const body = req.body as Record<string, unknown>
+    const result = await completeFreeCompanySignup({
+      ...signupProfileFromBody(body),
+      plan: typeof body.plan === 'string' ? body.plan : undefined,
+    })
     res.json(result)
   } catch (error) {
     if (error instanceof InputError) {

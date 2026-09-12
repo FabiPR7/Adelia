@@ -1,14 +1,14 @@
 .page {
-  --profile-accent: var(--color-sand);
+  --profile-accent: var(--color-accent);
   --profile-accent-soft: var(--color-accent-wash);
-  --profile-glow: radial-gradient(ellipse 90% 45% at 50% 0%, rgba(196, 168, 130, 0.3), transparent 70%);
+  --profile-glow: radial-gradient(ellipse 90% 45% at 50% 0%, rgba(219, 90, 52, 0.32), transparent 70%);
   --profile-pill-number-bg: var(--color-brown);
   --profile-pill-number-color: #ffffff;
-  --profile-pill-title-bg: var(--color-sand);
-  --profile-pill-title-color: var(--color-text);
+  --profile-pill-title-bg: var(--color-accent-strong);
+  --profile-pill-title-color: #ffffff;
   --profile-chip-bg: var(--color-accent-wash);
   --profile-chip-text: var(--color-accent-ink);
-  --profile-chip-border: var(--color-border);
+  --profile-chip-border: var(--color-accent-wash);
 
   position: relative;
   min-height: 100%;
@@ -246,7 +246,7 @@
 .quick_gold,
 .quick_magenta,
 .quick_sunset {
-  border-top: 3px solid var(--color-sand);
+  border-top: 3px solid var(--color-accent);
   background: linear-gradient(180deg, #fff8f3 0%, #fff 100%);
 }
 

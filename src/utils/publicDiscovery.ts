@@ -73,6 +73,7 @@ export function mapCompanyToPublicBooking(company: Company): PublicBookingCompan
     id: company.id,
     name: company.name,
     slug: company.slug,
+    planId: company.planId,
     phone: company.phone,
     contactEmail: company.contactEmail,
     location: company.location,

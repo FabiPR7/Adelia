@@ -1,20 +1,3 @@
-import type { CompanyPlanBilling, CompanyPlanId } from '../data/companyPlans'
-
-export type PlanChangeRequestStatus = 'pending' | 'applied' | 'rejected'
-
-export interface PlanChangeRequest {
-  id: string
-  companyId: string
-  companyName: string
-  fromPlanId: CompanyPlanId
-  toPlanId: CompanyPlanId
-  fromBilling: CompanyPlanBilling | null
-  status: PlanChangeRequestStatus
-  createdAt: Date
-  updatedAt: Date | null
-  requestedByUid: string
-}
-
 export interface AdminCustomerRow {
   id: string
   displayName: string

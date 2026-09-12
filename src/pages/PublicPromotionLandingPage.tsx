@@ -4,6 +4,7 @@ import PromotionScanLanding from '../components/promotions/PromotionScanLanding'
 import landingStyles from '../components/promotions/PromotionScanLanding.module.css'
 import { mergeDemoPromotions } from '../data/demoNearbyPromotions'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
+import { trackAppEvent } from '../utils/appEvents'
 import styles from './PublicRestaurantPromotionsPage.module.css'
 
 function PublicPromotionLandingPage() {
@@ -28,6 +29,14 @@ function PublicPromotionLandingPage() {
 
         if (!cancelled) {
           setPromotion(found)
+          if (found?.companyId && found.id) {
+            trackAppEvent('promo_view', {
+              companyId: found.companyId,
+              entityId: found.id,
+              entityKind: 'promotion',
+              source: 'landing',
+            })
+          }
         }
       } catch (err) {
         if (!cancelled) {

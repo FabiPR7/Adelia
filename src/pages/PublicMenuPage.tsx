@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import MenuPromotionsFab from '../components/MenuPromotionsFab'
 import { fetchPublicMenu, type PublicBookingCompany } from '../services/publicApi'
 import type { MenuBoard } from '../types/company'
+import { trackAppEvent } from '../utils/appEvents'
 import styles from './PublicMenuPage.module.css'
 
 function PublicMenuPage() {
@@ -46,6 +47,12 @@ function PublicMenuPage() {
       cancelled = true
     }
   }, [slug])
+
+  useEffect(() => {
+    if (company?.id) {
+      trackAppEvent('menu_zone_view', { companyId: company.id })
+    }
+  }, [company?.id])
 
   if (isLoading) {
     return (

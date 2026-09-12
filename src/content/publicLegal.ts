@@ -96,6 +96,7 @@ export const PUBLIC_LEGAL_DOCUMENTS: Record<PublicLegalDocId, PublicLegalDocumen
           'Reseñas: nota, texto, fotos o vídeos que subas, productos o promociones etiquetados y Adelinas asociadas.',
           'Restaurante: datos de contacto y ficha pública, mesas, horarios, carta, promociones, plantillas de correo, historial de clientes del local e informes de actividad.',
           'Técnicos: identificadores de sesión, dirección IP, tipo de dispositivo, registros de seguridad y, solo si aceptas cookies analíticas, métricas de uso de Firebase Analytics.',
+          'Analítica de uso propia (solo si aceptas cookies analíticas): eventos de navegación dentro de Adelia —visitas a la ficha de un restaurante, aperturas de carta, entradas a promociones, promociones reclamadas y clics a reservar— asociados a tu cuenta o a un identificador aleatorio del navegador. Se usan para elaborar informes agregados que ve cada restaurante y estadísticas de la plataforma. Los eventos individuales se borran a los ~120 días y el restaurante nunca ve quién es cada persona, solo totales.',
           'Ubicación: si usas «cerca de mí», el navegador puede enviar coordenadas en tu dispositivo para ordenar restaurantes. No las usamos para perfilado publicitario.',
         ],
       },

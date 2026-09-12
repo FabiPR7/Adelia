@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type RefObject } from 'react'
+import { useNavigate } from 'react-router-dom'
 import PromotionClaimFlowModal from '../../components/promotions/PromotionClaimFlowModal'
 import PromotionLadderMapModal, {
   type LadderRestaurantGroup,
 } from '../../components/promotions/PromotionLadderMapModal'
 import LadderRestaurantPromoCard from '../../components/promotions/LadderRestaurantPromoCard'
 import PromotionOfferCard from '../../components/promotions/PromotionOfferCard'
+import PromotionSwipeDeck from '../../components/promotions/PromotionSwipeDeck'
 import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
@@ -41,13 +43,41 @@ import {
   isActiveStripPromotion,
   comparePromotionPriority,
   buildCompanyLadderPromotionsMap,
+  getClaimedPromotionIds,
   persistClaimedPromotionId,
   sortCompanyLadderPromotions,
   type CompanyLadderRuntime,
 } from '../../utils/promotionReservationProgress'
+import { buildPromotionBookingHref } from '../../utils/promotionBooking'
+import { seededShuffle } from '../../utils/shuffle'
+import { readSavedPromotionIds, toggleSavedPromotionId } from '../../utils/savedPromotions'
+import { useIncrementalReveal } from '../../hooks/useIncrementalReveal'
+import { trackAppEvent } from '../../utils/appEvents'
 import styles from './CustomerPromotionsTab.module.css'
 
-type PromoView = 'activas' | 'reclamadas'
+type PromoView = 'activas' | 'reclamadas' | 'guardadas'
+type PromoFilter = 'todas' | 'puntuales' | 'fidelidad'
+type PromoDisplayMode = 'grid' | 'swipe'
+
+const PROMO_FILTERS: Array<{ id: PromoFilter; label: string; icon: string }> = [
+  { id: 'todas', label: 'Todas', icon: '✨' },
+  { id: 'puntuales', label: 'Puntuales', icon: '⏱' },
+  { id: 'fidelidad', label: 'De fidelidad', icon: '🎯' },
+]
+
+const DISPLAY_MODE_KEY = 'adelia_promos_display_mode'
+
+function readDisplayMode(): PromoDisplayMode {
+  try {
+    return localStorage.getItem(DISPLAY_MODE_KEY) === 'swipe' ? 'swipe' : 'grid'
+  } catch {
+    return 'grid'
+  }
+}
+
+function randomSeed(): number {
+  return Math.floor(Math.random() * 2 ** 31)
+}
 
 function canUsePromoTokenOnGroup(
   group: LadderRestaurantGroup,
@@ -74,6 +104,31 @@ function canUsePromoTokenOnGroup(
 type PromoEntry = {
   promotion: PublicPromotion
   distanceKm: number | null
+}
+
+type CercaItem =
+  | { kind: 'ladder'; group: LadderRestaurantGroup }
+  | { kind: 'regular'; entry: PromoEntry }
+
+/** Centinela invisible al final de la lista: dispara la carga del siguiente lote. */
+function LoadMoreSentinel({
+  sentinelRef,
+  hasMore,
+}: {
+  sentinelRef: RefObject<HTMLDivElement | null>
+  hasMore: boolean
+}) {
+  if (!hasMore) {
+    return null
+  }
+
+  return (
+    <div ref={sentinelRef} className={styles.loadMore} aria-hidden="true">
+      <span className={styles.loadMoreDot} />
+      <span className={styles.loadMoreDot} />
+      <span className={styles.loadMoreDot} />
+    </div>
+  )
 }
 
 function buildNearbyLadderRestaurantGroups(
@@ -203,6 +258,8 @@ function RegularPromoCard({
   reservation = null,
   compact = false,
   onVerify,
+  saved,
+  onToggleSave,
 }: {
   entry: PromoEntry
   index: number
@@ -211,6 +268,8 @@ function RegularPromoCard({
   reservation?: Reservation | null
   compact?: boolean
   onVerify?: (reservation: Reservation) => void
+  saved?: boolean
+  onToggleSave?: () => void
 }) {
   const reservationStatusLine = entry.promotion.type === 'time_limited' && reservation
     ? getTimeLimitedPromotionPresentation(reservation, {
@@ -226,9 +285,12 @@ function RegularPromoCard({
       distanceKm={entry.distanceKm}
       claimed={claimed}
       claimedAt={claimedAt}
+      compact={compact}
       reservationStatusLine={reservationStatusLine}
       linkedReservation={reservation}
       onVerify={reservation && onVerify ? () => onVerify(reservation) : undefined}
+      saved={saved}
+      onToggleSave={onToggleSave}
       className={compact ? styles.compactPromoCard : ''}
     />
   )
@@ -253,6 +315,7 @@ function CustomerPromotionsTab() {
 
   const [promotions, setPromotions] = useState<PublicPromotion[]>([])
   const [view, setView] = useState<PromoView>('activas')
+  const [promoFilter, setPromoFilter] = useState<PromoFilter>('todas')
   const [claimFlowPromotion, setClaimFlowPromotion] = useState<PublicPromotion | null>(null)
   const [ladderMapGroup, setLadderMapGroup] = useState<LadderRestaurantGroup | null>(null)
   const [loadingPromos, setLoadingPromos] = useState(true)
@@ -265,9 +328,25 @@ function CustomerPromotionsTab() {
   const [tokenApplying, setTokenApplying] = useState(false)
   const [tokenError, setTokenError] = useState<string | null>(null)
   const [tokenNotice, setTokenNotice] = useState<string | null>(null)
+  const [displayMode, setDisplayMode] = useState<PromoDisplayMode>(readDisplayMode)
+  const [swipeSeed, setSwipeSeed] = useState(randomSeed)
+  const [savedPromoIds, setSavedPromoIds] = useState<Set<string>>(() => new Set())
 
+  const navigate = useNavigate()
   const userClaimKey = profile?.email ?? user?.uid ?? ''
   const promoLocked = isCustomerPromoLocked(profile)
+
+  useEffect(() => {
+    setSavedPromoIds(readSavedPromotionIds(userClaimKey))
+  }, [userClaimKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DISPLAY_MODE_KEY, displayMode)
+    } catch {
+      // Sin persistencia: el modo vuelve a "cuadrícula" en la próxima visita.
+    }
+  }, [displayMode])
 
   const claimedReservationIds = useMemo(
     () => new Set(
@@ -505,6 +584,88 @@ function CustomerPromotionsTab() {
     [claimedPromotions],
   )
 
+  const savedPromotions = useMemo(
+    () => promotions.filter((promotion) => savedPromoIds.has(promotion.id)),
+    [promotions, savedPromoIds],
+  )
+
+  // "Cerca de ti" (cuadrícula): fidelidad + cupones en una sola lista, respetando
+  // el filtro. Se pinta poco a poco con scroll infinito.
+  const cercaItems = useMemo<CercaItem[]>(() => {
+    const showLadder = promoFilter !== 'puntuales'
+    const showRegular = promoFilter !== 'fidelidad'
+    return [
+      ...(showLadder
+        ? idleLadderRestaurants.map((group) => ({ kind: 'ladder' as const, group }))
+        : []),
+      ...(showRegular
+        ? idleRegularPromotions.map((entry) => ({ kind: 'regular' as const, entry }))
+        : []),
+    ]
+  }, [promoFilter, idleLadderRestaurants, idleRegularPromotions])
+
+  const cercaReveal = useIncrementalReveal(cercaItems.length, promoFilter)
+  const claimsReveal = useIncrementalReveal(sortedClaims.length, 'reclamadas')
+  const savedReveal = useIncrementalReveal(savedPromotions.length, 'guardadas')
+
+  // Modo "Descubrir": todas las promos activas sin reclamar, en orden aleatorio
+  // (no por cercanía). Las de fidelidad se colapsan a una tarjeta por restaurante.
+  const swipeDeck = useMemo(() => {
+    const claimedIds = getClaimedPromotionIds(claimedPromotions, userClaimKey)
+    const seenLadderCompanies = new Set<string>()
+    const deck: PublicPromotion[] = []
+
+    for (const promotion of promotions) {
+      if (claimedIds.has(promotion.id)) {
+        continue
+      }
+
+      if (promotion.type === 'reservation_ladder') {
+        if (seenLadderCompanies.has(promotion.companyId)) {
+          continue
+        }
+        seenLadderCompanies.add(promotion.companyId)
+        const ladder = sortCompanyLadderPromotions(
+          companyLadderMap.get(promotion.companyId) ?? [promotion],
+        )
+        deck.push(ladder[0] ?? promotion)
+        continue
+      }
+
+      deck.push(promotion)
+    }
+
+    return seededShuffle(deck, swipeSeed)
+  }, [promotions, claimedPromotions, userClaimKey, companyLadderMap, swipeSeed])
+
+  const handleToggleSavePromotion = (promotion: PublicPromotion) => {
+    setSavedPromoIds(toggleSavedPromotionId(userClaimKey, promotion.id))
+  }
+
+  const handleReserveFromDeck = (promotion: PublicPromotion) => {
+    if (promoLocked) {
+      return
+    }
+
+    if (promotion.companyId) {
+      trackAppEvent('promo_reserve_click', {
+        companyId: promotion.companyId,
+        entityId: promotion.id,
+        entityKind: 'promotion',
+        source: 'discover',
+      })
+    }
+
+    navigate(
+      buildPromotionBookingHref(promotion.companySlug, promotion.id, { fromPromotions: true }),
+      { state: { from: 'promociones' } },
+    )
+  }
+
+  const handleRestartDeck = () => {
+    setSwipeSeed(randomSeed())
+  }
+
   const handleClaimRequest = (promotion: PublicPromotion) => {
     if (promoLocked) {
       return
@@ -515,6 +676,14 @@ function CustomerPromotionsTab() {
   const handleClaimConfirmed = async (promotion: PublicPromotion) => {
     if (userClaimKey) {
       persistClaimedPromotionId(userClaimKey, promotion.id)
+    }
+
+    if (promotion.companyId) {
+      trackAppEvent('promo_claim', {
+        companyId: promotion.companyId,
+        entityId: promotion.id,
+        entityKind: 'promotion',
+      })
     }
 
     const companyLadder = companyLadderMap.get(promotion.companyId) ?? [promotion]
@@ -573,28 +742,97 @@ function CustomerPromotionsTab() {
     || idleLadderRestaurants.length > 0
     || idleRegularPromotions.length > 0
 
+  const showLadder = promoFilter !== 'puntuales'
+  const showRegular = promoFilter !== 'fidelidad'
+  const inCurso = [
+    ...(showLadder ? activeLadderRestaurants : []),
+    ...(showRegular ? inProgressTimeLimitedPromotions : []),
+  ]
+  const cercaVisible = cercaItems.slice(0, cercaReveal.visibleCount)
+
+  const swipeActive = view === 'activas' && displayMode === 'swipe'
+
   return (
-    <div className={styles.page}>
-      <div className={styles.viewTabs} role="tablist" aria-label="Promociones">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === 'activas'}
-          className={view === 'activas' ? styles.viewTabActive : styles.viewTab}
-          onClick={() => setView('activas')}
-        >
-          Activas
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === 'reclamadas'}
-          className={view === 'reclamadas' ? styles.viewTabActive : styles.viewTab}
-          onClick={() => setView('reclamadas')}
-        >
-          Reclamadas
-          {sortedClaims.length > 0 ? <span className={styles.viewTabCount}>{sortedClaims.length}</span> : null}
-        </button>
+    <div className={`${styles.page} ${swipeActive ? styles.pageSwipe : ''}`}>
+      <div className={styles.controlsRow}>
+        <div className={styles.segmented} role="tablist" aria-label="Promociones">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'activas'}
+            className={view === 'activas' ? styles.segOn : styles.seg}
+            onClick={() => setView('activas')}
+          >
+            Activas
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'guardadas'}
+            className={view === 'guardadas' ? styles.segOn : styles.seg}
+            onClick={() => setView('guardadas')}
+          >
+            Guardadas
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'reclamadas'}
+            className={view === 'reclamadas' ? styles.segOn : styles.seg}
+            onClick={() => setView('reclamadas')}
+          >
+            Reclamadas
+          </button>
+        </div>
+
+        {view === 'activas' ? (
+          <div className={styles.modeToggle} role="tablist" aria-label="Cómo ver las promociones">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={displayMode === 'grid'}
+              aria-label="Ver en cuadrícula"
+              title="Cuadrícula"
+              className={displayMode === 'grid' ? styles.modeOptionOn : styles.modeOption}
+              onClick={() => setDisplayMode('grid')}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <rect x="1" y="1" width="6" height="6" rx="1.4" fill="currentColor" />
+                <rect x="9" y="1" width="6" height="6" rx="1.4" fill="currentColor" />
+                <rect x="1" y="9" width="6" height="6" rx="1.4" fill="currentColor" />
+                <rect x="9" y="9" width="6" height="6" rx="1.4" fill="currentColor" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={displayMode === 'swipe'}
+              aria-label="Ver en modo descubrir"
+              title="Descubrir"
+              className={displayMode === 'swipe' ? styles.modeOptionOn : styles.modeOption}
+              onClick={() => setDisplayMode('swipe')}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <rect
+                  x="3.5"
+                  y="3"
+                  width="9"
+                  height="11"
+                  rx="2"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                />
+                <path
+                  d="M6 1.6h4"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {promoLocked ? (
@@ -614,26 +852,73 @@ function CustomerPromotionsTab() {
             <p className={styles.emptyHint}>Completa las reservas o consumos necesarios y pulsa Reclamar.</p>
           </div>
         ) : (
-          <div className={styles.promoFeed}>
-            {sortedClaims.map((claim, index) => {
-              const livePromotion = promotions.find((promotion) => promotion.id === claim.promotionId)
-              const entry: PromoEntry = {
-                promotion: livePromotion ?? promotionFromClaim(claim),
-                distanceKm: null,
-              }
+          <>
+            <div className={styles.promoFeed}>
+              {sortedClaims.slice(0, claimsReveal.visibleCount).map((claim, index) => {
+                const livePromotion = promotions.find((promotion) => promotion.id === claim.promotionId)
+                const entry: PromoEntry = {
+                  promotion: livePromotion ?? promotionFromClaim(claim),
+                  distanceKm: null,
+                }
 
-              return (
-                <RegularPromoCard
-                  key={`${claim.promotionId}-${claim.claimedAt}`}
-                  entry={entry}
-                  index={index}
-                  claimed
-                  claimedAt={claim.claimedAt}
-                />
-              )
-            })}
-          </div>
+                return (
+                  <RegularPromoCard
+                    key={`${claim.promotionId}-${claim.claimedAt}`}
+                    entry={entry}
+                    index={index}
+                    claimed
+                    claimedAt={claim.claimedAt}
+                    compact
+                  />
+                )
+              })}
+            </div>
+            <LoadMoreSentinel
+              sentinelRef={claimsReveal.sentinelRef}
+              hasMore={claimsReveal.hasMore}
+            />
+          </>
         )
+      ) : view === 'guardadas' ? (
+        savedPromotions.length === 0 ? (
+          <div className={styles.empty}>
+            <p>Aún no has guardado ninguna promoción.</p>
+            <p className={styles.emptyHint}>
+              En el modo Descubrir pulsa la estrella (o desliza a la derecha) para guardarlas aquí.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className={styles.promoFeed}>
+              {savedPromotions.slice(0, savedReveal.visibleCount).map((promotion, index) => (
+                <RegularPromoCard
+                  key={promotion.id}
+                  entry={{ promotion, distanceKm: null }}
+                  index={index}
+                  compact
+                  saved
+                  onToggleSave={() => handleToggleSavePromotion(promotion)}
+                />
+              ))}
+            </div>
+            <LoadMoreSentinel
+              sentinelRef={savedReveal.sentinelRef}
+              hasMore={savedReveal.hasMore}
+            />
+          </>
+        )
+      ) : displayMode === 'swipe' ? (
+        <div className={styles.swipeWrap}>
+          <PromotionSwipeDeck
+            promotions={swipeDeck}
+            coords={coords}
+            savedIds={savedPromoIds}
+            promoLocked={promoLocked}
+            onToggleSave={handleToggleSavePromotion}
+            onReserve={handleReserveFromDeck}
+            onRestart={handleRestartDeck}
+          />
+        </div>
       ) : (
         <>
           {usingDemoLocation ? (
@@ -653,10 +938,29 @@ function CustomerPromotionsTab() {
             </div>
           ) : (
             <>
-              {(activeLadderRestaurants.length > 0 || inProgressTimeLimitedPromotions.length > 0) ? (
-                <section className={styles.activeStrip} aria-label="Promociones en curso">
+              <div className={styles.filterRow} role="group" aria-label="Filtrar promociones">
+                {PROMO_FILTERS.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    className={promoFilter === filter.id ? styles.filterChipActive : styles.filterChip}
+                    aria-pressed={promoFilter === filter.id}
+                    onClick={() => setPromoFilter(filter.id)}
+                  >
+                    <span className={styles.filterChipIcon} aria-hidden="true">{filter.icon}</span>
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+
+              {inCurso.length > 0 ? (
+                <section className={styles.feedGroup} aria-label="Promociones en curso">
+                  <div className={styles.feedHeading}>
+                    <h2>En curso</h2>
+                    <span>{inCurso.length}</span>
+                  </div>
                   <div className={styles.activeScroller}>
-                    {activeLadderRestaurants.map((group) => (
+                    {showLadder ? activeLadderRestaurants.map((group) => (
                       <LadderRestaurantPromoCard
                         key={group.companyId}
                         group={group}
@@ -666,19 +970,19 @@ function CustomerPromotionsTab() {
                         ladderRuntime={ladderRuntime}
                         claimedPromotions={claimedPromotions}
                         onOpenMap={setLadderMapGroup}
-                      onUseToken={
-                        canUsePromoTokenOnGroup(
-                          group,
-                          gamificationState.inventory,
-                          ladderRuntime.activeLadderPromotionByCompany,
-                          promoLocked,
-                        )
-                          ? openTokenModal
-                          : undefined
-                      }
+                        onUseToken={
+                          canUsePromoTokenOnGroup(
+                            group,
+                            gamificationState.inventory,
+                            ladderRuntime.activeLadderPromotionByCompany,
+                            promoLocked,
+                          )
+                            ? openTokenModal
+                            : undefined
+                        }
                       />
-                    ))}
-                    {inProgressTimeLimitedPromotions.map((entry, index) => (
+                    )) : null}
+                    {showRegular ? inProgressTimeLimitedPromotions.map((entry, index) => (
                       <RegularPromoCard
                         key={entry.promotion.id}
                         entry={entry}
@@ -689,57 +993,70 @@ function CustomerPromotionsTab() {
                           entry.promotion.id,
                         )}
                         onVerify={setVerifyReservation}
+                        saved={savedPromoIds.has(entry.promotion.id)}
+                        onToggleSave={() => handleToggleSavePromotion(entry.promotion)}
                       />
-                    ))}
+                    )) : null}
                   </div>
                 </section>
               ) : null}
 
-              {((activeLadderRestaurants.length > 0 || inProgressTimeLimitedPromotions.length > 0)
-                && (idleLadderRestaurants.length > 0 || idleRegularPromotions.length > 0))
-                || (idleLadderRestaurants.length > 0 && idleRegularPromotions.length > 0) ? (
-                  <div className={styles.sectionDivider} aria-hidden="true" />
-                ) : null}
-
-              {idleLadderRestaurants.length > 0 || idleRegularPromotions.length > 0 ? (
-                <div className={styles.promoFeed}>
-                  {idleLadderRestaurants.map((group) => (
-                    <LadderRestaurantPromoCard
-                      key={group.companyId}
-                      group={group}
-                      variant="full"
-                      confirmedCounts={verifiedReservationCounts}
-                      pendingCounts={pendingReservationCounts}
-                      ladderRuntime={ladderRuntime}
-                      claimedPromotions={claimedPromotions}
-                      onOpenMap={setLadderMapGroup}
-                      onUseToken={
-                        canUsePromoTokenOnGroup(
-                          group,
-                          gamificationState.inventory,
-                          ladderRuntime.activeLadderPromotionByCompany,
-                          promoLocked,
-                        )
-                          ? openTokenModal
-                          : undefined
-                      }
-                    />
-                  ))}
-                  {idleRegularPromotions.map((entry, index) => (
-                    <RegularPromoCard
-                      key={entry.promotion.id}
-                      entry={entry}
-                      index={index}
-                      reservation={findReservationForActivasFeed(
-                        customerReservations,
-                        entry.promotion.id,
-                        claimedReservationIds,
-                      )}
-                      onVerify={setVerifyReservation}
-                    />
-                  ))}
-                </div>
-              ) : null}
+              {cercaItems.length > 0 ? (
+                <section className={styles.feedGroup} aria-label="Promociones cerca de ti">
+                  <div className={styles.feedHeading}>
+                    <h2>Cerca de ti</h2>
+                    <span>{cercaItems.length}</span>
+                  </div>
+                  <div className={styles.promoFeed}>
+                    {cercaVisible.map((item, index) =>
+                      item.kind === 'ladder' ? (
+                        <LadderRestaurantPromoCard
+                          key={`ladder-${item.group.companyId}`}
+                          group={item.group}
+                          variant="compact"
+                          className={styles.feedItem}
+                          confirmedCounts={verifiedReservationCounts}
+                          pendingCounts={pendingReservationCounts}
+                          ladderRuntime={ladderRuntime}
+                          claimedPromotions={claimedPromotions}
+                          onOpenMap={setLadderMapGroup}
+                          onUseToken={
+                            canUsePromoTokenOnGroup(
+                              item.group,
+                              gamificationState.inventory,
+                              ladderRuntime.activeLadderPromotionByCompany,
+                              promoLocked,
+                            )
+                              ? openTokenModal
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <RegularPromoCard
+                          key={`promo-${item.entry.promotion.id}`}
+                          entry={item.entry}
+                          index={index}
+                          compact
+                          reservation={findReservationForActivasFeed(
+                            customerReservations,
+                            item.entry.promotion.id,
+                            claimedReservationIds,
+                          )}
+                          onVerify={setVerifyReservation}
+                          saved={savedPromoIds.has(item.entry.promotion.id)}
+                          onToggleSave={() => handleToggleSavePromotion(item.entry.promotion)}
+                        />
+                      ),
+                    )}
+                  </div>
+                  <LoadMoreSentinel
+                    sentinelRef={cercaReveal.sentinelRef}
+                    hasMore={cercaReveal.hasMore}
+                  />
+                </section>
+              ) : (
+                <p className={styles.feedEmpty}>Nada con este filtro. Prueba «Todas».</p>
+              )}
             </>
           )}
         </>

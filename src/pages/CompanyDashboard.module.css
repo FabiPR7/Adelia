@@ -345,6 +345,76 @@
   max-width: none;
 }
 
+.deactivatedBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid rgba(181, 74, 74, 0.4);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+}
+
+.deactivatedBannerText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.deactivatedBannerText strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-error);
+}
+
+.deactivatedBannerText span {
+  font-size: 0.8125rem;
+  color: var(--color-error);
+  opacity: 0.85;
+}
+
+.deactivatedBannerButton {
+  flex-shrink: 0;
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-error);
+  color: var(--color-white);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.deactivatedBannerButton:hover {
+  opacity: 0.92;
+}
+
+.deactivatedBannerButton:active {
+  transform: translateY(1px);
+}
+
+.deactivatedBannerButton:focus-visible {
+  outline: 2px solid var(--color-error);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .deactivatedBanner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deactivatedBannerButton {
+    transition: none;
+  }
+}
+
 .tabPanelHidden {
   display: none;
 }

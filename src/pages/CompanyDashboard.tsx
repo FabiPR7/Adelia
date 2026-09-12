@@ -38,6 +38,7 @@ const CompanyReportsReservations = lazy(() => import('./company/CompanyReportsRe
 const CompanyReportsClients = lazy(() => import('./company/CompanyReportsClients'))
 const CompanyReportsProducts = lazy(() => import('./company/CompanyReportsProducts'))
 const CompanyReportsReviews = lazy(() => import('./company/CompanyReportsReviews'))
+const CompanyReportsApp = lazy(() => import('./company/CompanyReportsApp'))
 const CompanyCompiteNotifications = lazy(() => import('./company/CompanyCompiteNotifications'))
 const CompanyCompiteMissions = lazy(() => import('./company/CompanyCompiteMissions'))
 const CompanyCompiteRanking = lazy(() => import('./company/CompanyCompiteRanking'))
@@ -471,6 +472,21 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
         </header>
 
         <main className={`${styles.main} ${demo ? styles.demoReadOnly : ''}`}>
+          {company.deactivated ? (
+            <div className={styles.deactivatedBanner} role="status">
+              <div className={styles.deactivatedBannerText}>
+                <strong>Tu restaurante está desactivado</strong>
+                <span>Los clientes no pueden encontrarte, ver tu carta ni reservar.</span>
+              </div>
+              <button
+                type="button"
+                className={styles.deactivatedBannerButton}
+                onClick={() => attemptNavigate('profile')}
+              >
+                Reactivar
+              </button>
+            </div>
+          ) : null}
           <Suspense
             fallback={
               <div className={styles.pageLoading}>
@@ -496,6 +512,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
                 {activeTab === 'reports-clients' ? <CompanyReportsClients companyId={company.id} /> : null}
                 {activeTab === 'reports-products' ? <CompanyReportsProducts companyId={company.id} /> : null}
                 {activeTab === 'reports-reviews' ? <CompanyReportsReviews companyId={company.id} /> : null}
+                {activeTab === 'reports-app' ? <CompanyReportsApp companyId={company.id} /> : null}
                 {activeTab === 'compite-notifications' ? (
                   <CompanyCompiteNotifications onOpenTab={attemptNavigate} />
                 ) : null}

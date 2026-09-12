@@ -3,6 +3,7 @@ import ClientRetentionChart from '../../components/reports/ClientRetentionChart'
 import ClientTrendChart from '../../components/reports/ClientTrendChart'
 import ReservationWeekdayChart from '../../components/reports/ReservationWeekdayChart'
 import SortableTh from '../../components/reports/SortableTh'
+import InfoHint from '../../components/company/InfoHint'
 import { getFirestoreErrorMessage, getReservationsByCompany } from '../../services/firestore'
 import { reportYearOptions, yearBounds } from '../../services/firestoreQuery'
 import type { Reservation } from '../../types'
@@ -188,10 +189,13 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
-        <h2>Informes de clientes</h2>
-        <p>
-          Nuevo en su primer mes; recurrente si vuelve en otro mes. Captación, frecuencia, retención y recencia.
-        </p>
+        <h2>
+          Informes de clientes
+          <InfoHint label="Sobre los informes de clientes">
+            Nuevo en su primer mes; recurrente si vuelve en otro mes. Captación, frecuencia,
+            retención y recencia.
+          </InfoHint>
+        </h2>
       </header>
 
       <div className={styles.scrollArea}>

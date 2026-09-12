@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -10,18 +9,13 @@ import {
   limit,
   orderBy,
   query,
-  serverTimestamp,
   setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { isPermissionDenied } from './firestoreErrors'
-import {
-  parseCompanyPlanBilling,
-  parseCompanyPlanId,
-  parseCompanyPlanStartedAt,
-} from '../data/companyPlans'
+import { parseCompanyPlanStartedAt } from '../data/companyPlans'
 import { allMissionDefinitions } from '../data/gamificationMissions'
 import { computeReviewAdelinas } from '../types/review'
 import type {
@@ -30,11 +24,8 @@ import type {
   AdminMissionRow,
   AdminSecurityEvent,
   IndexedReview,
-  PlanChangeRequest,
-  PlanChangeRequestStatus,
   SaasSubscriptionLead,
 } from '../types/adminOps'
-import type { CompanyPlanId } from '../data/companyPlans'
 import {
   ADMIN_EVENTS_PAGE_SIZE,
   ADMIN_LIST_PAGE_SIZE,
@@ -52,139 +43,6 @@ function toDate(value: unknown): Date {
     }
   }
   return new Date(0)
-}
-
-function parseRequestStatus(value: unknown): PlanChangeRequestStatus {
-  return value === 'applied' || value === 'rejected' ? value : 'pending'
-}
-
-export async function listPlanChangeRequests(): Promise<PlanChangeRequest[]> {
-  try {
-    const snapshot = await getDocs(
-      query(collection(db, 'planChangeRequests'), orderBy('createdAt', 'desc'), limit(100)),
-    ).catch(() => getDocs(query(collection(db, 'planChangeRequests'), limit(100))))
-    return snapshot.docs
-      .map((item) => {
-        const data = item.data()
-        const fromPlanId = parseCompanyPlanId(data.fromPlanId)
-        const toPlanId = parseCompanyPlanId(data.toPlanId)
-        return {
-          id: item.id,
-          companyId: typeof data.companyId === 'string' ? data.companyId : '',
-          companyName: typeof data.companyName === 'string' ? data.companyName : 'Restaurante',
-          fromPlanId,
-          toPlanId,
-          fromBilling: parseCompanyPlanBilling(data.fromBilling, fromPlanId),
-          status: parseRequestStatus(data.status),
-          createdAt: toDate(data.createdAt),
-          updatedAt: data.updatedAt ? toDate(data.updatedAt) : null,
-          requestedByUid: typeof data.requestedByUid === 'string' ? data.requestedByUid : '',
-        } satisfies PlanChangeRequest
-      })
-      .filter((item) => item.companyId)
-      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
-  } catch (error) {
-    if (isPermissionDenied(error)) {
-      return []
-    }
-    throw error
-  }
-}
-
-export async function listCompanyPlanChangeRequests(companyId: string): Promise<PlanChangeRequest[]> {
-  try {
-    const snapshot = await getDocs(
-      query(
-        collection(db, 'planChangeRequests'),
-        where('companyId', '==', companyId),
-        orderBy('createdAt', 'desc'),
-        limit(20),
-      ),
-    ).catch(() => getDocs(
-      query(collection(db, 'planChangeRequests'), where('companyId', '==', companyId), limit(20)),
-    ))
-    return snapshot.docs
-      .map((item) => {
-        const data = item.data()
-        const fromPlanId = parseCompanyPlanId(data.fromPlanId)
-        const toPlanId = parseCompanyPlanId(data.toPlanId)
-        return {
-          id: item.id,
-          companyId,
-          companyName: typeof data.companyName === 'string' ? data.companyName : 'Restaurante',
-          fromPlanId,
-          toPlanId,
-          fromBilling: parseCompanyPlanBilling(data.fromBilling, fromPlanId),
-          status: parseRequestStatus(data.status),
-          createdAt: toDate(data.createdAt),
-          updatedAt: data.updatedAt ? toDate(data.updatedAt) : null,
-          requestedByUid: typeof data.requestedByUid === 'string' ? data.requestedByUid : '',
-        } satisfies PlanChangeRequest
-      })
-      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
-  } catch (error) {
-    if (isPermissionDenied(error)) {
-      return []
-    }
-    throw error
-  }
-}
-
-export async function createPlanChangeRequest(input: {
-  companyId: string
-  companyName: string
-  fromPlanId: CompanyPlanId
-  toPlanId: CompanyPlanId
-  fromBilling: ReturnType<typeof parseCompanyPlanBilling>
-  requestedByUid: string
-}): Promise<void> {
-  const existingSnap = await getDocs(
-    query(
-      collection(db, 'planChangeRequests'),
-      where('companyId', '==', input.companyId),
-      where('status', '==', 'pending'),
-      limit(10),
-    ),
-  ).catch(() => getDocs(
-    query(collection(db, 'planChangeRequests'), where('companyId', '==', input.companyId), limit(20)),
-  ))
-  if (existingSnap.docs.some((item) => {
-    const data = item.data()
-    return parseRequestStatus(data.status) === 'pending' && parseCompanyPlanId(data.toPlanId) === input.toPlanId
-  })) {
-    throw new Error('Ya hay una solicitud pendiente a ese plan.')
-  }
-
-  try {
-    await addDoc(collection(db, 'planChangeRequests'), {
-      companyId: input.companyId,
-      companyName: input.companyName,
-      fromPlanId: input.fromPlanId,
-      toPlanId: input.toPlanId,
-      fromBilling: input.fromBilling,
-      status: 'pending',
-      requestedByUid: input.requestedByUid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    })
-  } catch (error) {
-    if (isPermissionDenied(error)) {
-      throw new Error(
-        'Aún no se pueden enviar solicitudes. Hay que publicar las reglas de Firestore (npm run deploy:rules).',
-      )
-    }
-    throw error
-  }
-}
-
-export async function updatePlanChangeRequestStatus(
-  requestId: string,
-  status: Exclude<PlanChangeRequestStatus, 'pending'>,
-): Promise<void> {
-  await updateDoc(doc(db, 'planChangeRequests', requestId), {
-    status,
-    updatedAt: serverTimestamp(),
-  })
 }
 
 export async function listAdminCustomers(): Promise<{ rows: AdminCustomerRow[]; totalCount: number }> {

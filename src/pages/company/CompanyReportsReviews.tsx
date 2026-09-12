@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ReservationWeekdayChart from '../../components/reports/ReservationWeekdayChart'
 import SortableTh from '../../components/reports/SortableTh'
+import InfoHint from '../../components/company/InfoHint'
 import { getCompanyReviews } from '../../services/companyReviews'
 import { getFirestoreErrorMessage } from '../../services/firestore'
 import type { CompanyReview } from '../../types/review'
@@ -158,8 +159,12 @@ function CompanyReportsReviews({ companyId }: CompanyReportsReviewsProps) {
     <div className={styles.wrapper}>
       <div className={styles.scrollArea}>
         <header className={styles.header}>
-          <h2>Informe de reseñas</h2>
-          <p>Puntuación, Adelinas, fotos y respuestas de los comensales.</p>
+          <h2>
+            Informe de reseñas
+            <InfoHint label="Sobre el informe de reseñas">
+              Puntuación, Adelinas, fotos y respuestas de los comensales.
+            </InfoHint>
+          </h2>
         </header>
 
         <div className={styles.controls}>

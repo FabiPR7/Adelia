@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import FavoriteButton from './FavoriteButton'
 import DiscoveryRatingBadge from './DiscoveryRatingBadge'
 import { getAmenityLabel, getPriceRangeSymbol, getVenueTypeLabel } from '../data/companyProfileFacilities'
@@ -8,6 +9,7 @@ import {
   formatDiscoveryRatingBadge,
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
+import { trackAppEvent } from '../utils/appEvents'
 import styles from './NearbyRestaurantFeedCard.module.css'
 
 interface NearbyRestaurantFeedCardProps {
@@ -34,12 +36,23 @@ function NearbyRestaurantFeedCard({
   ].filter(Boolean).slice(0, 2)
   const hasDistance = typeof distanceKm === 'number'
 
+  useEffect(() => {
+    if (restaurant.id) {
+      trackAppEvent('search_impression', { companyId: restaurant.id, source: 'nearby' })
+    }
+  }, [restaurant.id])
+
   return (
     <article className={styles.card}>
       <button
         type="button"
         className={styles.open}
-        onClick={() => onOpen(restaurant)}
+        onClick={() => {
+          if (restaurant.id) {
+            trackAppEvent('search_click', { companyId: restaurant.id, source: 'nearby' })
+          }
+          onOpen(restaurant)
+        }}
         aria-label={`Ver ${restaurant.name}`}
       >
         <span className={styles.media} aria-hidden="true">
@@ -81,7 +94,12 @@ function NearbyRestaurantFeedCard({
       </button>
 
       <span className={styles.heart}>
-        <FavoriteButton slug={restaurant.slug} name={restaurant.name} variant="overlay" />
+        <FavoriteButton
+          slug={restaurant.slug}
+          name={restaurant.name}
+          companyId={restaurant.id}
+          variant="overlay"
+        />
       </span>
 
       {rating ? (

@@ -72,6 +72,7 @@ Stripe → Developers → Webhooks, el endpoint debe estar suscrito **exactament
 - `checkout.session.completed`
 - `checkout.session.async_payment_succeeded`
 - `invoice.paid`
+- `invoice.payment_failed`  *(marca la empresa como impago + correo de aviso)*
 - `customer.subscription.created`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
@@ -79,6 +80,11 @@ Stripe → Developers → Webhooks, el endpoint debe estar suscrito **exactament
 
 `STRIPE_WEBHOOK_SECRET` en `functions/.env.adelia-ccdaf` tiene que ser el
 `whsec_...` de **ese** endpoint concreto.
+
+**Portal de facturación de Stripe** (para que la empresa actualice su tarjeta):
+actívalo en Stripe → Settings → Billing → Customer portal. Sin él, el correo de
+pago fallido cae al enlace `hosted_invoice_url` de la factura pendiente; con él,
+el correo lleva directamente al portal para cambiar el método de pago.
 
 Idempotencia: cada evento se registra en la colección `stripeEvents/{event.id}`
 antes de procesarse; si Stripe reenvía el mismo evento, se responde 200 sin
@@ -88,6 +94,54 @@ limpia `cleanupRateLimitsScheduled`.
 - [ ] Endpoint suscrito solo a esos eventos
 - [ ] `STRIPE_WEBHOOK_SECRET` correcto
 - [ ] Enviado un evento de prueba y visto `{ received: true }`
+
+> El **plan mensual** (Sala / Local) ya no usa Stripe: se cobra en Lemon Squeezy
+> (sección 2b). Stripe sigue solo para las **fianzas** (Connect, `account.updated`).
+
+---
+
+## 2b. Webhook de Lemon Squeezy (plan mensual Sala / Local)
+
+Producto único "Plan Adelia" con 2 variantes:
+
+- Sala 39 € → `variant_id` **2088081**
+- Local 59 € (3 meses de prueba) → `variant_id` **2088306**
+
+El periodo de prueba se configura **en Lemon Squeezy** (variante Local → Free trial
+→ 3 months). El código solo lo anuncia en la web.
+
+Endpoint: `POST /api/lemonsqueezy/webhook` (función `api`). En Lemon Squeezy →
+Settings → Webhooks, crear uno con:
+
+- **Callback URL**: `https://adeliareservas.com/api/lemonsqueezy/webhook`
+- **Signing secret**: una cadena aleatoria larga que eliges tú. La misma va en
+  `LEMONSQUEEZY_WEBHOOK_SECRET` de `functions/.env.adelia-ccdaf`.
+- **Eventos**: `subscription_created`, `subscription_updated`,
+  `subscription_cancelled`, `subscription_expired`,
+  `subscription_payment_success`, `subscription_payment_failed`
+  (también se aceptan `resumed` / `unpaused` / `paused` / `payment_recovered`).
+
+Cómo funciona:
+
+- El pago ocurre **antes** del alta del restaurante. El webhook busca la empresa
+  por correo; si aún no existe, guarda el plan en `lemonSqueezyPending/{email}` y
+  el alta (`/empresa/alta`) lo reclama al registrarse. El `?plan=` de la URL es
+  solo cosmético: **nunca** concede plan (cierra el agujero anterior).
+- `subscription_updated` (cambio de variante en el portal de LS) actualiza
+  `planId` en la empresa. El botón "Cambiar de plan" del panel abre el
+  **portal de cliente de LS** (`urls.customer_portal`, guardado en
+  `companies/*.lemonSqueezyPortalUrl`). No hay que activar nada del portal en LS.
+- `payment_failed` → `planPaymentState: 'past_due'`. `cancelled` → baja a Mesa al
+  fin de periodo (`pendingPlanId`). `expired` / `unpaid` / `paused` → Mesa ya.
+- Idempotencia: `lemonSqueezyEvents/{evento}` (firma X-Signature = HMAC-SHA256 del
+  cuerpo con el secret). Caducan a 45 días.
+
+- [ ] Producto con las 2 variantes y 3 meses de prueba en Local
+- [ ] Webhook creado con esos eventos y su signing secret
+- [ ] `LEMONSQUEEZY_WEBHOOK_SECRET` en `functions/.env.adelia-ccdaf`
+- [ ] Redirect tras compra: Sala → `…/empresa/alta?plan=sala`, Local → `?plan=local`
+- [ ] Pago de prueba: la empresa aparece con su plan tras registrarse
+- [ ] Cambio de plan desde el portal de LS se refleja en el panel
 
 ---
 

@@ -91,6 +91,21 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /lemonSqueezyEvents/{eventId} {
+      // Idempotencia de webhooks de Lemon Squeezy. Solo backend (Admin SDK).
+      allow read, write: if false;
+    }
+
+    match /lemonSqueezyPending/{emailKey} {
+      // Plan pagado en Lemon Squeezy antes de existir la empresa. Solo backend.
+      allow read, write: if false;
+    }
+
+    match /appEvents/{eventId} {
+      // Eventos crudos de analítica de la app. Solo backend (Admin SDK).
+      allow read, write: if false;
+    }
+
     function isSelf(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -246,6 +261,18 @@ service cloud.firestore {
           'planBilling',
           'planStartedAt',
           'planLastPaidAt',
+          'planPaymentState',
+          'planPaymentFailedAt',
+          'pendingPlanId',
+          'pendingPlanAt',
+          'stripeSubscriptionId',
+          'stripeBillingCustomerId',
+          'lemonSqueezySubscriptionId',
+          'lemonSqueezyCustomerId',
+          'lemonSqueezyPortalUrl',
+          'lemonSqueezyEmail',
+          'compiteXp',
+          'compiteLevel',
           'discoveryFeatured',
           'stripeAccountId',
           'stripeChargesEnabled',
@@ -303,6 +330,13 @@ service cloud.firestore {
 
       match /private/{privateDoc} {
         allow read, create, update, delete: if isCompanyOwner(companyId) || isAdmin();
+      }
+
+      match /metrics/{monthId} {
+        // Contadores de analítica de la app (agregados por mes). Solo backend
+        // escribe; el dueño y el admin leen para el informe "App".
+        allow read: if isCompanyOwner(companyId) || isAdmin();
+        allow write: if false;
       }
 
       match /clients/{clientId} {
@@ -499,28 +533,6 @@ service cloud.firestore {
     match /saasSubscriptions/{sessionId} {
       allow read: if isAdmin();
       allow write: if false;
-    }
-
-    match /planChangeRequests/{requestId} {
-      allow create: if isSignedIn()
-        && request.resource.data.companyId is string
-        && request.resource.data.companyId.size() <= 128
-        && isCompanyOwner(request.resource.data.companyId)
-        && request.resource.data.status == 'pending'
-        && request.resource.data.fromPlanId is string
-        && request.resource.data.fromPlanId.size() <= 40
-        && request.resource.data.toPlanId is string
-        && request.resource.data.toPlanId.size() <= 40
-        && request.resource.data.companyName is string
-        && request.resource.data.companyName.size() > 0
-        && request.resource.data.companyName.size() <= 80;
-      allow read: if isAdmin()
-        || (
-          isSignedIn()
-          && resource.data.companyId is string
-          && isCompanyOwner(resource.data.companyId)
-        );
-      allow update, delete: if isAdmin();
     }
 
     match /productClaims/{claimId} {

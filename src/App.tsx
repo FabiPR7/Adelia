@@ -20,6 +20,7 @@ import CustomerAppLayout from './components/CustomerAppLayout'
 import CustomerGate from './components/CustomerGate'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import CustomerOnboardingPage from './pages/CustomerOnboardingPage'
+import NotFoundPage from './pages/NotFoundPage'
 import CookieConsentBanner from './components/CookieConsentBanner'
 import { getPostLoginPath } from './utils/authProfile'
 
@@ -114,15 +115,7 @@ function AuthenticatedRoutes() {
           </RoleRoute>
         }
       />
-      <Route
-        path="*"
-        element={
-          <Navigate
-            to={user && profile ? getPostLoginPath(profile, user) : '/'}
-            replace
-          />
-        }
-      />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }
@@ -179,6 +172,7 @@ function App() {
         <Route path="misiones" element={<Suspense fallback={<RouteFallback />}><CustomerMissionsTab /></Suspense>} />
         <Route path="notificaciones" element={<Suspense fallback={<RouteFallback />}><CustomerNotificationsTab /></Suspense>} />
         <Route path="perfil" element={<Suspense fallback={<RouteFallback />}><CustomerProfileTab /></Suspense>} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="/cuenta/cambiar-contrasena" element={<Suspense fallback={<RouteFallback />}><CustomerChangePasswordPage /></Suspense>} />
       <Route path="/cuenta/entrar" element={<UserLoginPage />} />

@@ -24,6 +24,8 @@ import customerReviewsRouter from './routes/customerReviews.ts'
 import companyGamificationRouter from './routes/companyGamification.ts'
 import companyNotificationsRouter from './routes/companyNotifications.ts'
 import { handleStripeWebhook } from './routes/stripeWebhook.ts'
+import { handleLemonSqueezyWebhook } from './routes/lemonSqueezyWebhook.ts'
+import appEventsRouter from './routes/appEvents.ts'
 import { verifyAdmin } from './auth/verifyRequest.ts'
 import { isAllowedOrigin } from './security/origins.ts'
 import { securityHeaders } from './security/headers.ts'
@@ -58,6 +60,14 @@ export function createApp() {
     },
   )
 
+  app.post(
+    '/api/lemonsqueezy/webhook',
+    express.raw({ type: '*/*', limit: '1mb' }),
+    (req, res) => {
+      void handleLemonSqueezyWebhook(req, res)
+    },
+  )
+
   app.use(express.json({ limit: '256kb' }))
   app.use(express.urlencoded({ extended: false, limit: '32kb' }))
   app.use(sanitizeRequest)
@@ -76,6 +86,7 @@ export function createApp() {
   app.use('/api/company', reservationDepositRouter)
   app.use('/api/reservations', reservationEmailRouter)
   app.use('/api/public/billing', publicBillingRouter)
+  app.use('/api/public/events', appEventsRouter)
   app.use('/api/public/booking', publicBookingRouter)
   app.use('/api/public/promotions', publicPromotionsRouter)
   app.use('/api/public/reservations', reservationMinSpendRouter)

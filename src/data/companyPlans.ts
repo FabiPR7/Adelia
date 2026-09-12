@@ -13,8 +13,14 @@ export interface CompanyPlan {
   audience: string
   priceMonthly: number
   period: string
+  /** Precio total del pago anual (con el descuento ya aplicado). */
+  priceAnnual?: number
+  /** Descuento del pago anual frente a 12 meses, p. ej. 20. */
+  annualDiscountPercent?: number
   vatNote: string
   badge?: string
+  /** Periodo de prueba, p. ej. "3 meses de prueba". Se muestra bajo el precio. */
+  trialLabel?: string
   highlighted?: boolean
   comingSoon?: boolean
   includesPrevious?: string
@@ -55,8 +61,9 @@ export const COMPANY_PLANS: CompanyPlan[] = [
     id: 'basic',
     name: 'Sala',
     audience: 'Para digitalizar una sala pequeña y entender el negocio.',
-    priceMonthly: 39,
+    priceMonthly: 39.99,
     period: '/mes',
+    priceAnnual: 375,
     vatNote: '+ IVA · sin comisión por reserva',
     includesPrevious: 'Incluye todo Mesa',
     chips: ['3 cartas', '15 mesas', '1 mapa', 'Excel', 'Fianzas'],
@@ -83,10 +90,12 @@ export const COMPANY_PLANS: CompanyPlan[] = [
     id: 'premium',
     name: 'Local',
     audience: 'El plan completo para un restaurante en funcionamiento.',
-    priceMonthly: 59,
+    priceMonthly: 59.99,
     period: '/mes',
+    priceAnnual: 565,
     vatNote: '+ IVA · sin comisión por reserva',
     badge: 'Recomendado',
+    trialLabel: '3 meses de prueba',
     highlighted: true,
     includesPrevious: 'Incluye todo Sala',
     chips: ['5 cartas', '50 mesas', '5 mapas', 'PDF y Excel', 'Compite'],
@@ -310,7 +319,7 @@ export function isPaidCompanyPlan(plan: Pick<CompanyPlan, 'id' | 'priceMonthly'>
   return plan.priceMonthly > 0 && (plan.id === 'basic' || plan.id === 'premium')
 }
 
-export const COMPANY_PLAN_BILLING_IDS = ['monthly', 'perpetual'] as const
+export const COMPANY_PLAN_BILLING_IDS = ['monthly', 'annual', 'perpetual'] as const
 export type CompanyPlanBilling = (typeof COMPANY_PLAN_BILLING_IDS)[number]
 export type CompanyPlanStartedAtWrite = 'now' | 'keep' | 'clear' | Date
 export type MonthlyChargeState = 'future' | 'due' | 'overdue' | 'upcoming' | 'paid'
@@ -325,7 +334,9 @@ export function parseCompanyPlanBilling(
     return null
   }
 
-  return value === 'perpetual' ? 'perpetual' : 'monthly'
+  if (value === 'perpetual') return 'perpetual'
+  if (value === 'annual') return 'annual'
+  return 'monthly'
 }
 
 export function parseDateInput(value: string): Date | null {
@@ -485,11 +496,42 @@ export function formatCompanyPlanBilling(billing: CompanyPlanBilling | null): st
     return 'Perpetua'
   }
 
+  if (billing === 'annual') {
+    return 'Anual'
+  }
+
   if (billing === 'monthly') {
     return 'Mensual'
   }
 
   return ''
+}
+
+/** Importe en euros con formato español ("39,99", "0", "385,99"). */
+export function formatPlanAmount(amount: number): string {
+  return new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
+
+/** Precio mensual "equivalente" del pago anual (para el "≈ X €/mes"). */
+export function annualMonthlyEquivalent(plan: CompanyPlan): number | null {
+  return plan.priceAnnual ? plan.priceAnnual / 12 : null
+}
+
+/**
+ * Descuento del pago anual frente a 12 mensualidades, en % redondeado.
+ * Usa `annualDiscountPercent` si está fijado; si no, lo calcula del precio.
+ */
+export function annualDiscountPercent(plan: CompanyPlan): number {
+  if (typeof plan.annualDiscountPercent === 'number') {
+    return plan.annualDiscountPercent
+  }
+  if (!plan.priceAnnual || plan.priceMonthly <= 0) {
+    return 0
+  }
+  return Math.round((1 - plan.priceAnnual / (plan.priceMonthly * 12)) * 100)
 }
 
 export function formatCompanyPlanStartedAt(date: Date | null): string {
@@ -561,12 +603,19 @@ export function companyPlanIndex(id: CompanyPlanId): number {
   return 0
 }
 
-export function formatCompanyPlanPrice(plan: CompanyPlan): string {
+export function formatCompanyPlanPrice(
+  plan: CompanyPlan,
+  billing?: CompanyPlanBilling | null,
+): string {
   if (plan.priceMonthly === 0) {
     return 'Gratis'
   }
 
-  return `${plan.priceMonthly} €${plan.period}`
+  if (billing === 'annual' && plan.priceAnnual) {
+    return `${formatPlanAmount(plan.priceAnnual)} €/año`
+  }
+
+  return `${formatPlanAmount(plan.priceMonthly)} €${plan.period}`
 }
 
 export function formatCompanyPlanChoiceLabel(plan: Pick<CompanyPlan, 'name' | 'priceMonthly'>): string {
@@ -574,7 +623,7 @@ export function formatCompanyPlanChoiceLabel(plan: Pick<CompanyPlan, 'name' | 'p
     return `${plan.name} · Gratis`
   }
 
-  return `${plan.name} · ${plan.priceMonthly} €/mes`
+  return `${plan.name} · ${formatPlanAmount(plan.priceMonthly)} €/mes`
 }
 
 function capRank(value: CompanyPlanCapValue): number {

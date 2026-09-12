@@ -1,0 +1,98 @@
+.trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  flex: 0 0 auto;
+  margin-left: 0.45rem;
+  padding: 0;
+  border: 1.5px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-white);
+  color: var(--color-text-muted);
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 0.85rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  transition:
+    color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out);
+}
+
+/* Amplía el área pulsable sin descolocar el título. */
+.trigger::before {
+  content: "";
+  position: absolute;
+  inset: -0.6rem;
+}
+
+.trigger:hover,
+.trigger[aria-expanded="true"] {
+  color: var(--color-accent-ink);
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-wash);
+}
+
+.popover {
+  position: fixed;
+  z-index: 1200;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--elev-3);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: normal;
+  animation: infoHintIn var(--dur) var(--ease-out) both;
+}
+
+.popover::before {
+  content: "";
+  position: absolute;
+  top: -0.45rem;
+  left: clamp(0.8rem, var(--info-caret, 50%), calc(100% - 0.8rem));
+  width: 0.8rem;
+  height: 0.8rem;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--color-white);
+  border-left: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
+}
+
+.popover :where(p) {
+  margin: 0;
+}
+
+.popover :where(p + p),
+.popover :where(ul) {
+  margin-top: 0.5rem;
+}
+
+@keyframes infoHintIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    animation: none;
+  }
+}

@@ -100,6 +100,9 @@ export interface Company {
   pendingPlanId: import('../data/companyPlans').CompanyPlanId | null
   pendingPlanAt: Date | null
   discoveryFeatured: boolean
+  /** El dueño ha ocultado el restaurante: no aparece en descubrir ni acepta reservas. */
+  deactivated: boolean
+  deactivatedAt: Date | null
   createdAt: Date
 }
 

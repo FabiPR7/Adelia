@@ -12,6 +12,7 @@ import { auth } from '../config/firebase'
 import { getCompanyById, getCompanyCredentialsMustChange, getUserProfile } from '../services/firestore'
 import { loadGameCatalog } from '../services/gameCatalog'
 import { resolveMustChangePassword } from '../utils/authProfile'
+import { setAppEventsDisabled } from '../utils/appEvents'
 import type { AppUser, Company } from '../types'
 
 export interface AuthContextValue {
@@ -140,6 +141,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     void loadGameCatalog()
+  }, [profile?.role])
+
+  useEffect(() => {
+    // La analítica de app solo cuenta a clientes y visitantes anónimos.
+    setAppEventsDisabled(profile?.role === 'company' || profile?.role === 'admin')
   }, [profile?.role])
 
   useEffect(() => {

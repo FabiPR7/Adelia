@@ -6,6 +6,7 @@ import { fetchPublicBookingPage } from '../services/publicApi'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
 import { buildPromotionBookingHref } from '../utils/promotionBooking'
 import { resolvePromotionDetail, resolvePromotionHighlight, resolvePromotionMinimumSpend } from '../utils/promotionOffer'
+import { trackAppEvent } from '../utils/appEvents'
 import styles from './PublicRestaurantPromotionsPage.module.css'
 
 function PublicRestaurantPromotionsPage() {
@@ -37,6 +38,9 @@ function PublicRestaurantPromotionsPage() {
             (import.meta.env.DEV ? mergeDemoPromotions(promoData) : promoData)
               .filter((promotion) => promotion.companySlug === slug),
           )
+          if (booking.company.id) {
+            trackAppEvent('promo_zone_view', { companyId: booking.company.id })
+          }
         }
       } catch (err) {
         if (!cancelled) {

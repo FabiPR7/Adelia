@@ -1,5 +1,6 @@
 import { LEGAL_CONTACT_EMAIL } from '../../content/publicLegal'
 import LegalLinks from '../../components/LegalLinks'
+import InfoHint from '../../components/company/InfoHint'
 import styles from './CompanyHelp.module.css'
 
 const HELP_EMAIL = LEGAL_CONTACT_EMAIL
@@ -102,8 +103,12 @@ function CompanyHelp() {
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
-        <h2>Centro de ayuda</h2>
-        <p>Guías rápidas para configurar tu restaurante y gestionar reservas.</p>
+        <h2>
+          Centro de ayuda
+          <InfoHint label="Sobre el centro de ayuda">
+            Guías rápidas para configurar tu restaurante y gestionar reservas.
+          </InfoHint>
+        </h2>
       </header>
 
       <div className={styles.faqList}>

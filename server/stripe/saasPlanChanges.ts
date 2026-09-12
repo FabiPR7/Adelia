@@ -244,7 +244,11 @@ export async function readCompanyBillingStatus(companyId: string) {
   const pendingPlanId = data.pendingPlanId ? parseStoredPlanId(data.pendingPlanId) : null
   const pendingPlanAt = readTimestamp(data.pendingPlanAt)
   const planStartedAt = readTimestamp(data.planStartedAt)
-  const hasSubscription = typeof data.stripeSubscriptionId === 'string' && data.stripeSubscriptionId.length > 0
+  const lemonSubscriptionId = typeof data.lemonSqueezySubscriptionId === 'string' ? data.lemonSqueezySubscriptionId : ''
+  const lemonPortalUrl = typeof data.lemonSqueezyPortalUrl === 'string' ? data.lemonSqueezyPortalUrl : ''
+  const hasSubscription =
+    (typeof data.stripeSubscriptionId === 'string' && data.stripeSubscriptionId.length > 0)
+    || lemonSubscriptionId.length > 0
   let currentPeriodEnd = pendingPlanAt
 
   if (hasSubscription && isStripeConfigured()) {
@@ -263,6 +267,10 @@ export async function readCompanyBillingStatus(companyId: string) {
     currentPeriodEnd = nextCycleDate(planStartedAt)
   }
 
+  const paymentState = data.planPaymentState === 'past_due' || data.planPaymentState === 'unpaid'
+    ? data.planPaymentState
+    : null
+
   return {
     configured: isStripeConfigured(),
     planId,
@@ -273,6 +281,10 @@ export async function readCompanyBillingStatus(companyId: string) {
     currentPeriodEnd: currentPeriodEnd ? currentPeriodEnd.toISOString() : null,
     hasSubscription,
     planBilling: planId === 'free' ? null : data.planBilling === 'perpetual' ? 'perpetual' : 'monthly',
+    paymentState,
+    paymentFailedAt: readTimestamp(data.planPaymentFailedAt)?.toISOString() ?? null,
+    // Portal de Lemon Squeezy para cambiar de plan / tarjeta / cancelar.
+    portalUrl: lemonPortalUrl || null,
   }
 }
 
@@ -543,6 +555,28 @@ export async function syncCompanyFromStripeSubscription(subscription: Stripe.Sub
         planStartedAt: FieldValue.delete(),
         planLastPaidAt: FieldValue.delete(),
         stripeSubscriptionId: FieldValue.delete(),
+        planPaymentState: FieldValue.delete(),
+        planPaymentFailedAt: FieldValue.delete(),
+        ...pendingWrites(null, null),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+    await applyPlanFeatureLimits(companyId, 'free')
+    return
+  }
+
+  // Stripe dejó de reintentar el cobro: se baja a `free` pero se conserva la
+  // suscripción para que puedan recuperarse pagando la factura pendiente.
+  if (subscription.status === 'unpaid') {
+    await adminDb.collection(COLLECTIONS.companies).doc(companyId).set(
+      {
+        planId: 'free',
+        planBilling: null,
+        planPaymentState: 'unpaid',
+        planPaymentFailedAt: FieldValue.serverTimestamp(),
+        stripeSubscriptionId: subscription.id,
+        stripeBillingCustomerId: stripeObjectId(subscription.customer) || undefined,
         ...pendingWrites(null, null),
         updatedAt: FieldValue.serverTimestamp(),
       },
@@ -592,12 +626,17 @@ export async function syncCompanyFromStripeSubscription(subscription: Stripe.Sub
   }
 
   if (livePlan) {
+    const pastDue = subscription.status === 'past_due'
     await adminDb.collection(COLLECTIONS.companies).doc(companyId).set(
       {
         planId: livePlan,
         planBilling: 'monthly',
         stripeSubscriptionId: subscription.id,
         stripeBillingCustomerId: stripeObjectId(subscription.customer) || undefined,
+        // En `past_due` mantenemos el plan (periodo de gracia) pero dejamos la
+        // marca para que el panel muestre el aviso. En `active` la limpiamos.
+        planPaymentState: pastDue ? 'past_due' : FieldValue.delete(),
+        ...(pastDue ? {} : { planPaymentFailedAt: FieldValue.delete() }),
         ...pendingWrites(null, null),
         updatedAt: FieldValue.serverTimestamp(),
       },

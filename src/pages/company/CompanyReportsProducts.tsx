@@ -4,6 +4,7 @@ import ProductRevenueTrendChart from '../../components/reports/ProductRevenueTre
 import ProductTopBarChart from '../../components/reports/ProductTopBarChart'
 import ReservationHourSlotsChart from '../../components/reports/ReservationHourSlotsChart'
 import SortableTh from '../../components/reports/SortableTh'
+import InfoHint from '../../components/company/InfoHint'
 import {
   getFirestoreErrorMessage,
   getReservationsByCompany,
@@ -206,11 +207,13 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
-        <h2>Informes de productos</h2>
-        <p>
-          Consumo verificado en promociones con gasto mínimo: qué pidieron los clientes y cuánto
-          generó cada producto.
-        </p>
+        <h2>
+          Informes de productos
+          <InfoHint label="Sobre los informes de productos">
+            Consumo verificado en promociones con gasto mínimo: qué pidieron los clientes y cuánto
+            generó cada producto.
+          </InfoHint>
+        </h2>
       </header>
 
       <div className={styles.scrollArea}>

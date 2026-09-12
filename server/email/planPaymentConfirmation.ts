@@ -179,6 +179,122 @@ export function buildPlanPaymentReceiptHtml(
 </html>`
 }
 
+export interface PlanPaymentFailedData {
+  to: string
+  restaurantName: string
+  planId: SaasCheckoutPlanId
+  amountCents: number
+  currency?: string
+  /** Enlace del portal de facturación de Stripe para actualizar la tarjeta. */
+  updateUrl?: string
+  /** Enlace `hosted_invoice_url` para pagar la factura pendiente. */
+  invoiceUrl?: string
+}
+
+function buildPlanPaymentFailedText(data: PlanPaymentFailedData): string {
+  const plan = SAAS_CHECKOUT_PLANS[data.planId]
+  const pay = data.updateUrl || data.invoiceUrl || `${APP_URL}/panel?tab=plan`
+  return [
+    `Hola${data.restaurantName ? `, equipo de ${data.restaurantName}` : ''},`,
+    '',
+    `No hemos podido cobrar la cuota mensual de tu plan ${plan.name} (${formatMoney(data.amountCents, data.currency)} / mes + IVA).`,
+    'Suele ser por una tarjeta caducada o sin fondos. Stripe volverá a intentarlo automáticamente los próximos días.',
+    '',
+    `Para arreglarlo cuanto antes, actualiza tu método de pago aquí: ${pay}`,
+    '',
+    'Si el cobro sigue fallando, tu restaurante pasará al plan gratuito y se desactivarán las funciones de pago (mapas, cartas extra y promociones).',
+    '',
+    'Si crees que es un error, responde a este correo.',
+    '',
+    '— Facturación Adelia',
+  ].join('\n')
+}
+
+function buildPlanPaymentFailedHtml(data: PlanPaymentFailedData): string {
+  const plan = SAAS_CHECKOUT_PLANS[data.planId]
+  const restaurantName = escapeHtml(data.restaurantName || 'tu restaurante')
+  const planName = escapeHtml(plan.name)
+  const amount = escapeHtml(formatMoney(data.amountCents, data.currency))
+  const payUrl = escapeHtml(data.updateUrl || data.invoiceUrl || `${APP_URL}/panel?tab=plan`)
+  const logoUrl = getAdeliaEmailLogoImgSrc('cid', `${APP_URL}/adelia-logo-email.png`)
+  const logoBlock = logoUrl
+    ? `<img src="${logoUrl}" alt="Adelia" width="120" style="display:block;margin:0 auto 10px;height:auto;" />`
+    : `<div style="font-size:18px;font-weight:700;color:#8b7355;margin-bottom:10px;">Adelia</div>`
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>No se pudo cobrar tu plan Adelia</title>
+</head>
+<body style="margin:0;padding:0;background:#f3efe8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3efe8;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 12px 40px rgba(92,74,55,0.12);">
+        <tr>
+          <td style="padding:32px 32px 22px;background:linear-gradient(135deg,#a8461f 0%,#db5a34 100%);color:#fff;">
+            <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;opacity:0.86;margin-bottom:8px;">Facturación Adelia</div>
+            <div style="font-size:28px;line-height:1.2;font-weight:700;">No pudimos cobrar tu plan</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 32px 8px;">
+            <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">Hola, equipo de <strong>${restaurantName}</strong>:</p>
+            <p style="margin:0 0 22px;font-size:16px;line-height:1.65;color:#374151;">
+              No hemos podido cobrar la cuota mensual del plan <strong>${planName}</strong>
+              (<strong>${amount}</strong> / mes + IVA). Suele ser una tarjeta caducada o sin fondos.
+              Stripe volverá a intentarlo estos días.
+            </p>
+            <p style="margin:0 0 28px;text-align:center;">
+              <a href="${payUrl}" style="display:inline-block;padding:14px 26px;background:#db5a34;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:700;font-size:15px;">
+                Actualizar método de pago
+              </a>
+            </p>
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#6b7280;">
+              Si el cobro sigue fallando, tu restaurante pasará al plan gratuito y se desactivarán las
+              funciones de pago. Si crees que es un error, responde a este correo.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:22px 32px 28px;border-top:1px solid #f0f0f0;text-align:center;background:#fafafa;">
+            ${logoBlock}
+            <div style="font-size:12px;color:#9ca3af;">Facturación Adelia · adeliareservas.com</div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
+export async function sendPlanPaymentFailedEmail(
+  data: PlanPaymentFailedData,
+  apiKey = getResendApiKey(),
+): Promise<void> {
+  const to = data.to.trim()
+  if (!apiKey || !isValidClientEmail(to)) {
+    return
+  }
+
+  const resend = new Resend(apiKey)
+  const result = await resend.emails.send({
+    from: EMAIL_FROM,
+    to,
+    replyTo: EMAIL_REPLY_TO,
+    subject: `Acción necesaria · no se pudo cobrar tu plan Adelia ${SAAS_CHECKOUT_PLANS[data.planId].name}`,
+    html: buildPlanPaymentFailedHtml(data),
+    text: buildPlanPaymentFailedText(data),
+    attachments: getAdeliaEmailLogoAttachmentsForSend() ?? [],
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+}
+
 async function fetchInvoicePdfAttachment(
   url: string,
   invoiceNumber?: string,

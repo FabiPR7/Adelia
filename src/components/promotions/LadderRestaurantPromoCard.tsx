@@ -9,11 +9,13 @@ import {
 import { sortCompanyLadderPromotions, type CompanyLadderRuntime } from '../../utils/promotionReservationProgress'
 import type { ClaimedPromotionRecord } from '../../types/gamification'
 import { formatDistanceKm } from '../../utils/geo'
+import { trackAppEvent } from '../../utils/appEvents'
 import styles from './LadderRestaurantPromoCard.module.css'
 
 interface LadderRestaurantPromoCardProps {
   group: LadderRestaurantGroup
   variant?: 'compact' | 'full'
+  className?: string
   confirmedCounts: Record<string, number>
   pendingCounts: Record<string, number>
   ladderRuntime: CompanyLadderRuntime
@@ -43,6 +45,7 @@ function milestoneDotClass(
 export default function LadderRestaurantPromoCard({
   group,
   variant = 'full',
+  className = '',
   confirmedCounts,
   pendingCounts,
   ladderRuntime,
@@ -83,12 +86,28 @@ export default function LadderRestaurantPromoCard({
         ? 'En curso'
         : null
 
+  const coverTitle = summary?.status === 'claimable'
+    ? '¡Premio listo!'
+    : summary?.promotion.title?.trim()
+      ? summary.promotion.title
+      : `${rewardCount} premio${rewardCount === 1 ? '' : 's'} por visitar`
+
   return (
-    <article className={variant === 'compact' ? styles.ladderCardCompact : styles.ladderCard}>
+    <article className={`${variant === 'compact' ? styles.ladderCardCompact : styles.ladderCard} ${className}`.trim()}>
       <button
         type="button"
         className={styles.ladderButton}
-        onClick={() => onOpenMap(group)}
+        onClick={() => {
+          if (group.companyId) {
+            trackAppEvent('promo_view', {
+              companyId: group.companyId,
+              entityId: summary?.promotion.id ?? sortedLadder[0]?.id,
+              entityKind: 'promotion',
+              source: 'feed_ladder',
+            })
+          }
+          onOpenMap(group)
+        }}
         aria-label={`Abrir mapa de premios de ${group.companyName}`}
       >
         <div className={styles.ladderVisual}>
@@ -116,7 +135,10 @@ export default function LadderRestaurantPromoCard({
                 </span>
               ) : (
                 <span className={styles.ladderBadge}>
-                  {rewardCount} recompensa{rewardCount === 1 ? '' : 's'}
+                  <span aria-hidden="true">🎁</span>
+                  {variant === 'compact'
+                    ? rewardCount
+                    : `${rewardCount} recompensa${rewardCount === 1 ? '' : 's'}`}
                 </span>
               )}
             </div>
@@ -126,7 +148,7 @@ export default function LadderRestaurantPromoCard({
               </span>
             ) : null}
           </div>
-          <h3 className={styles.ladderTitle}>Cada reserva o consumo gana premios</h3>
+          <h3 className={styles.ladderTitle}>{coverTitle}</h3>
         </div>
 
         <div className={styles.ladderBody}>
