@@ -3,7 +3,6 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { createStripeClient, getStripeWebhookSecret } from '../stripe/config.ts'
 import { syncCompanyStripeStatus } from '../stripe/connect.ts'
-import { handleSaasStripeEvent } from '../stripe/saasBilling.ts'
 
 const STRIPE_EVENTS_COLLECTION = 'stripeEvents'
 const STRIPE_EVENT_RETENTION_MS = 45 * 24 * 60 * 60 * 1000
@@ -78,6 +77,11 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
   }
 
   try {
+    // Stripe solo gestiona Connect (fianzas de reserva). El plan mensual/anual
+    // (Sala/Local) se paga y se gestiona en Lemon Squeezy — ver
+    // server/routes/lemonSqueezyWebhook.ts. No proceses aquí eventos de
+    // checkout/invoice/subscription de SaaS: no deben crear, cambiar ni dar de
+    // baja ningún plan.
     if (event.type === 'account.updated') {
       const account = event.data.object
       const companyId = account.metadata?.companyId
@@ -86,8 +90,6 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
         await syncCompanyStripeStatus(companyId, account.id)
       }
     }
-
-    await handleSaasStripeEvent(event)
   } catch (error) {
     console.error('Stripe webhook handler error:', error)
     // Liberamos la reclamación para que el reintento de Stripe vuelva a entrar.

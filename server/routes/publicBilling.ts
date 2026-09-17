@@ -1,22 +1,7 @@
 import { Router, type Request, type Response } from 'express'
-import { InputError, asOptionalTrimmed, asTrimmed } from '../security/validate.ts'
-import { isAllowedOrigin } from '../security/origins.ts'
-import { getAppBaseUrl } from '../stripe/config.ts'
-import {
-  createSaasCheckoutSession,
-  readPublicSaasCheckoutSession,
-  saasBillingStatus,
-} from '../stripe/saasBilling.ts'
-import { parseSaasCheckoutPlanId } from '../stripe/saasCatalog.ts'
-import { completeFreeCompanySignup, completePaidCompanySignup } from '../data/createCompanyFromCheckout.ts'
-
-function checkoutReturnUrl(req: Request): string {
-  const origin = typeof req.headers.origin === 'string' ? req.headers.origin : ''
-  if (origin && isAllowedOrigin(origin)) {
-    return origin.replace(/\/$/, '')
-  }
-  return getAppBaseUrl()
-}
+import { InputError, asTrimmed } from '../security/validate.ts'
+import { readPublicSaasCheckoutSession, saasBillingStatus } from '../stripe/saasBilling.ts'
+import { completeFreeCompanySignup } from '../data/createCompanyFromCheckout.ts'
 
 function asCheckoutSessionId(value: unknown): string {
   const id = asTrimmed(value, 200, 'La sesión de pago')
@@ -74,47 +59,15 @@ router.get('/session', async (req: Request, res: Response) => {
   }
 })
 
-router.post('/checkout', async (req: Request, res: Response) => {
-  try {
-    const planId = parseSaasCheckoutPlanId(req.body?.planId)
-    if (!planId) {
-      res.status(400).json({ error: 'Ese plan no se paga por Stripe.' })
-      return
-    }
-
-    const companyId = asOptionalTrimmed(req.body?.companyId, 128)
-    const session = await createSaasCheckoutSession({
-      planId,
-      companyId: companyId && /^[a-zA-Z0-9_-]+$/.test(companyId) ? companyId : undefined,
-      appUrl: checkoutReturnUrl(req),
-    })
-
-    res.json(session)
-  } catch (error) {
-    console.error('Saas checkout error:', error)
-    const message = error instanceof Error ? error.message : 'No se pudo abrir el pago.'
-    res.status(500).json({ error: message })
-  }
+// El plan Sala/Local ya no se paga por Stripe: se cobra en Lemon Squeezy
+// (ver server/routes/lemonSqueezyWebhook.ts). Stripe en esta app solo sirve
+// para Connect/fianzas. Se dejan cerrados por si queda algún enlace antiguo.
+router.post('/checkout', (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'Ese plan ya no se paga por Stripe. Usa el checkout de Lemon Squeezy.' })
 })
 
-router.post('/complete-signup', async (req: Request, res: Response) => {
-  try {
-    const body = req.body as Record<string, unknown>
-    const result = await completePaidCompanySignup({
-      sessionId: asCheckoutSessionId(body.sessionId),
-      ...signupProfileFromBody(body),
-    })
-
-    res.json(result)
-  } catch (error) {
-    if (error instanceof InputError) {
-      res.status(400).json({ error: error.message })
-      return
-    }
-    console.error('Company signup error:', error)
-    const message = error instanceof Error ? error.message : 'No se pudo crear la empresa.'
-    res.status(500).json({ error: message })
-  }
+router.post('/complete-signup', (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'El alta pagada por Stripe ya no está disponible. Regístrate y elige plan desde /empresa/alta.' })
 })
 
 router.post('/complete-free-signup', async (req: Request, res: Response) => {

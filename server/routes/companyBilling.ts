@@ -1,34 +1,13 @@
 import { Router, type Request, type Response } from 'express'
 import { adminDb } from '../firebase-admin.ts'
 import { verifyCompanyAccount } from '../auth/verifyRequest.ts'
-import { isAllowedOrigin } from '../security/origins.ts'
-import { InputError } from '../security/validate.ts'
-import { createSaasCheckoutSession } from '../stripe/saasBilling.ts'
 import {
   applyDuePendingPlan,
-  billingAppUrl,
-  cancelScheduledCompanyPlanChange,
-  changeCompanySubscriptionPlan,
   deleteCompanyAccount,
   readCompanyBillingStatus,
 } from '../stripe/saasPlanChanges.ts'
 
 const router = Router()
-
-function requestAppUrl(req: Request): string {
-  const origin = typeof req.headers.origin === 'string' ? req.headers.origin : ''
-  if (origin && isAllowedOrigin(origin)) {
-    return origin.replace(/\/$/, '')
-  }
-  return billingAppUrl()
-}
-
-function parseTargetPlan(value: unknown): 'free' | 'basic' | 'premium' {
-  if (value === 'free' || value === 'basic' || value === 'premium') {
-    return value
-  }
-  throw new InputError('Elige Mesa, Sala o Local.')
-}
 
 router.get('/billing/status', async (req: Request, res: Response) => {
   try {
@@ -41,57 +20,31 @@ router.get('/billing/status', async (req: Request, res: Response) => {
   }
 })
 
+// El cambio/alta/baja de plan (Sala/Local) ya no se hace por Stripe: se paga y
+// se gestiona en el portal de cliente de Lemon Squeezy. Stripe en este panel
+// solo sirve para Connect (fianzas). Se dejan cerrados por si queda algún
+// enlace o llamada antigua apuntando aquí.
 router.post('/billing/change', async (req: Request, res: Response) => {
   try {
-    const account = await verifyCompanyAccount(req)
-    const toPlanId = parseTargetPlan(req.body?.planId)
-    const result = await changeCompanySubscriptionPlan({
-      companyId: account.companyId,
-      toPlanId,
-      appUrl: requestAppUrl(req),
+    await verifyCompanyAccount(req)
+    res.status(410).json({
+      error: 'El cambio de plan ya no se hace desde aquí. Usa "Cambiar de plan" en tu zona de Plan.',
     })
-
-    if (result.action === 'checkout') {
-      if (!result.checkoutPlanId) {
-        res.status(400).json({ error: 'Ese plan no se puede pagar desde aquí.' })
-        return
-      }
-      const session = await createSaasCheckoutSession({
-        planId: result.checkoutPlanId,
-        companyId: account.companyId,
-        customerId: result.customerId,
-        appUrl: requestAppUrl(req),
-        successNext: 'panel',
-      })
-      res.json({
-        ...result,
-        url: session.url,
-        testMode: session.testMode,
-      })
-      return
-    }
-
-    res.json(result)
   } catch (error) {
-    if (error instanceof InputError) {
-      res.status(400).json({ error: error.message })
-      return
-    }
-    console.error('Company plan change error:', error)
-    const message = error instanceof Error ? error.message : 'No se pudo cambiar el plan.'
-    res.status(500).json({ error: message })
+    const message = error instanceof Error ? error.message : 'No autorizado.'
+    res.status(message.includes('sesión') || message.includes('autorizado') ? 401 : 410).json({ error: message })
   }
 })
 
 router.post('/billing/cancel-pending', async (req: Request, res: Response) => {
   try {
-    const account = await verifyCompanyAccount(req)
-    const result = await cancelScheduledCompanyPlanChange(account.companyId)
-    res.json(result)
+    await verifyCompanyAccount(req)
+    res.status(410).json({
+      error: 'La baja ya no se gestiona desde aquí. Usa el portal de Lemon Squeezy desde tu zona de Plan.',
+    })
   } catch (error) {
-    console.error('Cancel pending plan error:', error)
-    const message = error instanceof Error ? error.message : 'No se pudo cancelar el cambio.'
-    res.status(500).json({ error: message })
+    const message = error instanceof Error ? error.message : 'No autorizado.'
+    res.status(message.includes('sesión') || message.includes('autorizado') ? 401 : 410).json({ error: message })
   }
 })
 
