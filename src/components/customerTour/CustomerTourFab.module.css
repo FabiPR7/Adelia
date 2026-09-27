@@ -1,0 +1,46 @@
+.fab {
+  position: fixed;
+  right: 0.85rem;
+  bottom: calc(5.35rem + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  border-radius: 999px;
+  padding: 0.65rem 0.95rem;
+  min-height: 44px;
+  background: color-mix(in srgb, var(--color-cream) 92%, white);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 24px var(--color-shadow-strong);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.fab:hover {
+  background: var(--color-white);
+  border-color: var(--color-sand);
+  transform: translateY(-1px);
+}
+
+.fab:active {
+  transform: scale(0.97);
+}
+
+.fab:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 3px;
+}
+
+@media (min-width: 1024px) {
+  .fab {
+    bottom: 1.35rem;
+    right: 1.35rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fab {
+    transition: none;
+  }
+}

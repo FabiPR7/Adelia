@@ -7,6 +7,9 @@ export const REVIEW_BOOST_XP = 40
 export const REVIEW_BOOST_ADELINAS = 5
 export const EXTRA_PAX_ITEM_ID = 'invitacion_extra'
 export const DEPOSIT_PASS_ITEM_ID = 'salvoconducto'
+/** Cubierto Blanca — recompensa del tutorial de producto. */
+export const PRODUCT_TOUR_REWARD_ITEM_ID = 'mesa_1_15'
+export const PRODUCT_TOUR_GRANT_KEY = 'product_tour:v1'
 
 export interface InventoryGrant {
   itemId: string

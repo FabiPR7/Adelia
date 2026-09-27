@@ -9,6 +9,8 @@ import companyBillingRouter from './routes/companyBilling.ts'
 import publicBookingRouter from './routes/public.ts'
 import publicBillingRouter from './routes/publicBilling.ts'
 import publicPromotionsRouter from './routes/publicPromotions.ts'
+import publicDiscoveryRouter from './routes/publicDiscovery.ts'
+import publicMenusRouter from './routes/publicMenus.ts'
 import citiesRouter from './routes/cities.ts'
 import geocodeRouter from './routes/geocode.ts'
 import reservationMinSpendRouter from './routes/reservationMinSpend.ts'
@@ -21,6 +23,7 @@ import customerReservationInvitesRouter from './routes/customerReservationInvite
 import customerReservationChallengesRouter from './routes/customerReservationChallenges.ts'
 import customerGamificationRouter from './routes/customerGamification.ts'
 import customerReviewsRouter from './routes/customerReviews.ts'
+import customerAccountRouter from './routes/customerAccount.ts'
 import companyGamificationRouter from './routes/companyGamification.ts'
 import companyNotificationsRouter from './routes/companyNotifications.ts'
 import { handleStripeWebhook } from './routes/stripeWebhook.ts'
@@ -89,6 +92,8 @@ export function createApp() {
   app.use('/api/public/events', appEventsRouter)
   app.use('/api/public/booking', publicBookingRouter)
   app.use('/api/public/promotions', publicPromotionsRouter)
+  app.use('/api/public/discovery', publicDiscoveryRouter)
+  app.use('/api/public/menus', publicMenusRouter)
   app.use('/api/public/reservations', reservationMinSpendRouter)
   app.use('/api/public/cities', citiesRouter)
   app.use('/api/public/geocode', geocodeRouter)
@@ -101,6 +106,7 @@ export function createApp() {
   app.use('/api/company', companyGamificationRouter)
   app.use('/api/company', companyNotificationsRouter)
   app.use('/api/customer/reviews', customerReviewsRouter)
+  app.use('/api/customer/account', customerAccountRouter)
 
   app.use('/api', (req, res) => {
     res.status(404).json({

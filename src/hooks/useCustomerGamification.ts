@@ -32,6 +32,9 @@ interface UseCustomerGamificationOptions {
   promotionCompanyIds: Set<string>
   consumptions: CustomerVerifiedConsumption[]
   enabled: boolean
+  onNewItemGrantBatches?: (
+    batches: Array<{ grantKey: string; grants: Array<{ itemId: string; quantity: number }> }>,
+  ) => void
 }
 
 function completedMissionIdsFromState(state: CustomerGamificationState): string[] {
@@ -49,6 +52,7 @@ export function useCustomerGamification({
   promotionCompanyIds,
   consumptions,
   enabled,
+  onNewItemGrantBatches,
 }: UseCustomerGamificationOptions) {
   const { user, profile, patchProfileGamification } = useAuth()
   const [state, setState] = useState<CustomerGamificationState>(() =>
@@ -58,6 +62,8 @@ export function useCustomerGamification({
   const [evaluatedTick, setEvaluatedTick] = useState(0)
   const persistedRef = useRef<string>('')
   const syncingRef = useRef(false)
+  const onNewItemGrantBatchesRef = useRef(onNewItemGrantBatches)
+  onNewItemGrantBatchesRef.current = onNewItemGrantBatches
 
   useEffect(() => {
     if (!profile?.gamification) {
@@ -223,8 +229,20 @@ export function useCustomerGamification({
     const beforeGamification = { ...evaluationState }
 
     void updateCustomerGamification(user.uid, merged)
-      .then(async () => {
-        patchProfileGamification(merged)
+      .then(async (syncResult) => {
+        const withServerItems = {
+          ...merged,
+          inventory: syncResult.inventory,
+          grantedItemKeys: syncResult.grantedItemKeys,
+        }
+        setState((current) => mergeMonotonicCelebrations(current, withServerItems))
+        patchProfileGamification({
+          inventory: syncResult.inventory,
+          grantedItemKeys: syncResult.grantedItemKeys,
+        })
+        if (syncResult.newItemGrantBatches.length > 0) {
+          onNewItemGrantBatchesRef.current?.(syncResult.newItemGrantBatches)
+        }
         const beforeIds = new Set(completedMissionIdsFromState(beforeGamification))
         const newIds = completedMissionIdsFromState(merged).filter((id) => !beforeIds.has(id))
         const looksLikeHistoryReplay = beforeIds.size === 0 && newIds.length > 1

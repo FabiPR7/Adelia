@@ -35,24 +35,24 @@ function verifySignature(rawBody: Buffer, signatureHeader: string, secret: strin
   return timingSafeEqual(expectedBuf, receivedBuf)
 }
 
-async function claimEvent(eventId: string, eventName: string): Promise<boolean> {
+async function claimEvent(eventId: string, eventName: string): Promise<'claimed' | 'duplicate' | 'unavailable'> {
   const ref = adminDb.collection(EVENTS_COLLECTION).doc(eventId)
   try {
     return await adminDb.runTransaction(async (transaction) => {
       const snap = await transaction.get(ref)
       if (snap.exists) {
-        return false
+        return 'duplicate'
       }
       transaction.set(ref, {
         type: eventName,
         receivedAt: FieldValue.serverTimestamp(),
         expireAt: Timestamp.fromMillis(Date.now() + EVENT_RETENTION_MS),
       })
-      return true
+      return 'claimed'
     })
   } catch (error) {
     console.error('Lemon Squeezy event claim error:', error)
-    return true
+    return 'unavailable'
   }
 }
 
@@ -101,7 +101,12 @@ export async function handleLemonSqueezyWebhook(req: Request, res: Response): Pr
     return
   }
 
-  if (!(await claimEvent(eventId, eventName))) {
+  const claim = await claimEvent(eventId, eventName)
+  if (claim === 'unavailable') {
+    res.status(503).send('No se pudo registrar el evento. Reintenta.')
+    return
+  }
+  if (claim === 'duplicate') {
     res.json({ received: true, duplicate: true })
     return
   }

@@ -120,6 +120,12 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const uid = await softUid(req)
+    const analyticsConsent = body.analyticsConsent === true
+    if (!analyticsConsent) {
+      res.status(403).json({ error: 'Se requiere consentimiento de analítica.' })
+      return
+    }
+
     const now = FieldValue.serverTimestamp()
     const expireAt = Timestamp.fromMillis(Date.now() + RAW_EVENT_TTL_MS)
 

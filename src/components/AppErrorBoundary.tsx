@@ -1,8 +1,14 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import StatusScreen from './StatusScreen'
+import SomethingWentWrongPage from './SomethingWentWrongPage'
 
 type AppErrorBoundaryProps = {
   children: ReactNode
+  /**
+   * Si true, «Intentar de nuevo» hace `window.location.reload()`.
+   * Úsalo en el boundary exterior (providers). En el interior, deja false
+   * para resetear solo el árbol de React.
+   */
+  hardReload?: boolean
 }
 
 type AppErrorBoundaryState = {
@@ -10,9 +16,8 @@ type AppErrorBoundaryState = {
 }
 
 /**
- * Captura errores de render de toda la app y muestra una pantalla de error en
- * lugar de una página en blanco. La recuperación es siempre una recarga dura:
- * si el error viene del router o de un provider, un `<Link>` volvería a fallar.
+ * Captura errores de render y muestra una página amistosa en lugar de
+ * una pantalla en blanco.
  */
 export default class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
   state: AppErrorBoundaryState = { hasError: false }
@@ -25,20 +30,19 @@ export default class AppErrorBoundary extends Component<AppErrorBoundaryProps, A
     console.error('AppErrorBoundary:', error, info.componentStack)
   }
 
+  private handleRetry = (): void => {
+    this.setState({ hasError: false })
+  }
+
   render(): ReactNode {
     if (!this.state.hasError) {
       return this.props.children
     }
 
     return (
-      <StatusScreen
-        code="Error"
-        title="Algo ha ido mal"
-        message="Ha ocurrido un problema inesperado al cargar esta parte de la aplicación. Vuelve a intentarlo; si sigue pasando, escríbenos."
-        actions={[
-          { label: 'Recargar la página', onClick: () => window.location.reload() },
-          { label: 'Volver al inicio', variant: 'ghost', onClick: () => window.location.assign('/') },
-        ]}
+      <SomethingWentWrongPage
+        hardReload={this.props.hardReload === true}
+        onRetry={this.handleRetry}
       />
     )
   }

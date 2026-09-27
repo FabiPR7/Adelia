@@ -11,6 +11,7 @@ import {
 import { useLocation } from 'react-router-dom'
 import LevelUpCelebrationModal from '../components/LevelUpCelebrationModal'
 import GamificationCelebrationToast from '../components/GamificationCelebrationToast'
+import ItemReceiveCelebration from '../components/ItemReceiveCelebration'
 import { useAuth } from './AuthContext'
 import { useFavoriteRestaurants } from './FavoriteRestaurantsContext'
 import { listPromotionClaims } from '../services/promotionClaims'
@@ -31,13 +32,14 @@ import { fetchPublicPromotions, type PublicPromotion } from '../services/publicP
 import { useCustomerGamification } from '../hooks/useCustomerGamification'
 import { useLevelUpCelebration } from '../hooks/useLevelUpCelebration'
 import { useGamificationCelebrations } from '../hooks/useGamificationCelebrations'
+import { useItemReceiveCelebration } from '../hooks/useItemReceiveCelebration'
 import { useCustomerNotifications } from '../hooks/useCustomerNotifications'
 import { getGamificationLevelByNumber } from '../data/gamificationLevels'
 import type { Reservation } from '../types'
 import type { ClaimedPromotionRecord } from '../types/gamification'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import { buildVerifiedReservationCounts, getWeekKey } from '../utils/gamificationProgress'
-import { mergeTokenCredits } from '../data/inventoryItems'
+import { mergeTokenCredits, seasonPackGrantKey, type InventoryGrant } from '../data/inventoryItems'
 import { buildPendingReservationCounts } from '../utils/promotionReservationProgress'
 import { resolvePromotionHighlight } from '../utils/promotionOffer'
 import { isCustomerPromoLocked, PROMO_LOCK_CLAIM_MESSAGE } from '../data/cancellationPenalties'
@@ -92,6 +94,7 @@ interface CustomerGamificationContextValue extends CustomerGamificationView {
   ) => Promise<void>
   useOwnedInventoryItem: (itemId: string) => Promise<string>
   claimSeasonPack: (pack: 'weekly_bonus' | 'weekly_clear' | 'monthly_clear') => Promise<void>
+  enqueueItemGrants: (grants: InventoryGrant[], grantKey: string) => void
   refreshGamificationData: (options?: { silent?: boolean }) => Promise<void>
 }
 
@@ -113,6 +116,9 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
   const lastRewardNotificationRef = useRef('')
   const catchUpKeyRef = useRef('')
   const evaluatedTickAtLoadRef = useRef<number | null>(null)
+  const enqueueItemGrantBatchesRef = useRef<
+    ((batches: Array<{ grantKey: string; grants: InventoryGrant[] }>) => void) | null
+  >(null)
 
   const refreshGamificationData = useCallback(async (options?: { silent?: boolean }) => {
     if (!isCustomer || !inCustomerApp || !profile?.email) {
@@ -163,6 +169,9 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     restaurants,
     promotionCompanyIds,
     enabled: isCustomer && inCustomerApp && !loading,
+    onNewItemGrantBatches: (batches) => {
+      enqueueItemGrantBatchesRef.current?.(batches)
+    },
   })
 
   const hydrated = Boolean(isCustomer && inCustomerApp && user?.uid && profile)
@@ -323,6 +332,16 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
 
   const activeLevelUpStep = previewStep ?? levelUpCelebration.activeStep
 
+  const itemReceiveCelebration = useItemReceiveCelebration({
+    userId: user?.uid,
+    enabled: isCustomer && inCustomerApp,
+    ready: celebrationReady,
+    paused: Boolean(activeLevelUpStep),
+    grantedItemKeys: gamification.state.grantedItemKeys,
+  })
+
+  enqueueItemGrantBatchesRef.current = itemReceiveCelebration.enqueueGrantBatch
+
   const celebrations = useGamificationCelebrations({
     userId: user?.uid,
     weeklyCompleted: gamification.state.weeklyCompleted,
@@ -333,7 +352,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     monthKey,
     enabled: isCustomer && inCustomerApp,
     ready: celebrationReady,
-    paused: Boolean(activeLevelUpStep),
+    paused: Boolean(activeLevelUpStep) || itemReceiveCelebration.hasItemReceiveCelebration,
     onPersistReceipts: persistMissionReceipts,
   })
 
@@ -574,9 +593,24 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       inventory: result.inventory,
       grantedItemKeys: result.grantedItemKeys,
     })
+    const grantKey = seasonPackGrantKey(
+      pack,
+      gamification.state.weekKey || getWeekKey(),
+      gamification.state.monthKey || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
+    )
+    itemReceiveCelebration.enqueueGrants(result.grants, grantKey)
     await refreshProfile()
     void refreshGamificationData({ silent: true })
-  }, [patchProfileGamification, profile, refreshGamificationData, refreshProfile, user])
+  }, [
+    gamification.state.monthKey,
+    gamification.state.weekKey,
+    itemReceiveCelebration.enqueueGrants,
+    patchProfileGamification,
+    profile,
+    refreshGamificationData,
+    refreshProfile,
+    user,
+  ])
 
   const value = useMemo(
     (): CustomerGamificationContextValue => ({
@@ -595,6 +629,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       registerPromotionConsumption: registerPromotionConsumptionVisit,
       useOwnedInventoryItem,
       claimSeasonPack,
+      enqueueItemGrants: itemReceiveCelebration.enqueueGrants,
       refreshGamificationData,
       previewLevelUpCelebration,
       celebrations: {
@@ -620,6 +655,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       registerPromotionConsumptionVisit,
       useOwnedInventoryItem,
       claimSeasonPack,
+      itemReceiveCelebration.enqueueGrants,
       refreshGamificationData,
       previewLevelUpCelebration,
       celebrations.activeEvent,
@@ -649,8 +685,19 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
         onDismiss={() => void handleLevelUpDismiss()}
         dismissing={!previewStep && levelUpCelebration.acknowledging}
       />
+      <ItemReceiveCelebration
+        open={Boolean(itemReceiveCelebration.activePlay)}
+        itemId={itemReceiveCelebration.activePlay?.itemId ?? 'mesa_1'}
+        quantity={1}
+        title="¡Nueva carta!"
+        onDismiss={itemReceiveCelebration.dismissActive}
+      />
       <GamificationCelebrationToast
-        event={activeLevelUpStep ? null : celebrations.activeEvent}
+        event={
+          activeLevelUpStep || itemReceiveCelebration.hasItemReceiveCelebration
+            ? null
+            : celebrations.activeEvent
+        }
         onDismiss={celebrations.dismissActive}
       />
       {children}

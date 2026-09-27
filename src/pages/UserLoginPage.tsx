@@ -81,7 +81,9 @@ function UserLoginPage() {
       } catch {
         recaptchaToken = ''
       }
-      await signInCustomerWithGoogle(recaptchaToken || undefined)
+      await signInCustomerWithGoogle({
+        recaptchaToken: recaptchaToken || undefined,
+      })
       await finishLogin()
     } catch (err) {
       setError(getAuthErrorMessage(err))

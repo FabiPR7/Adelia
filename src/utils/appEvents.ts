@@ -133,8 +133,17 @@ async function flush(useBeacon = false): Promise<void> {
   if (queue.length === 0) {
     return
   }
+  const consent = readCookieConsent()
+  if (!consent?.analytics) {
+    queue = []
+    return
+  }
   const events = queue.splice(0, MAX_PER_FLUSH)
-  const payload = JSON.stringify({ anonId: anonId(), events })
+  const payload = JSON.stringify({
+    anonId: anonId(),
+    analyticsConsent: true,
+    events,
+  })
 
   try {
     if (useBeacon && typeof navigator !== 'undefined' && navigator.sendBeacon) {

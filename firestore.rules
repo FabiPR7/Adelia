@@ -47,7 +47,7 @@ service cloud.firestore {
         && isCompanyOwner(resource.data.companyId)
       );
       allow list: if false;
-      allow create, update: if (isAdmin() || (
+      allow create: if (isAdmin() || (
         isSignedIn()
         && request.resource.data.role == 'company'
         && request.resource.data.loginName is string
@@ -57,6 +57,19 @@ service cloud.firestore {
         && request.resource.data.authEmail.size() <= 120
         && request.resource.data.companyId is string
         && isCompanyOwner(request.resource.data.companyId)
+      )) && hasNoPasswordSecrets(request.resource.data);
+      // Update: el dueño del doc existente (no solo el companyId nuevo).
+      allow update: if (isAdmin() || (
+        isSignedIn()
+        && resource.data.companyId is string
+        && isCompanyOwner(resource.data.companyId)
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.role == 'company'
+        && request.resource.data.loginName is string
+        && request.resource.data.loginName.size() > 0
+        && request.resource.data.loginName.size() <= 80
+        && request.resource.data.authEmail is string
+        && request.resource.data.authEmail.size() <= 120
       )) && hasNoPasswordSecrets(request.resource.data);
       allow delete: if isAdmin();
     }
@@ -150,7 +163,7 @@ service cloud.firestore {
         && data.onboardingCompleted == false
         && data.phone is string
         && data.phone.size() <= 30
-        && data.phoneVerified is bool
+        && data.phoneVerified == false
         && isSafePhotoUrl(data.photoUrl)
         && data.favoriteSlugs is list
         && data.favoriteSlugs.size() <= 200
@@ -182,6 +195,7 @@ service cloud.firestore {
         'homeLongitude',
         'foodPreferences',
         'onboardingCompleted',
+        'productTourCompleted',
       ];
     }
 
@@ -200,6 +214,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favoriteSlugs'])
         && request.resource.data.favoriteSlugs is list
         && request.resource.data.favoriteSlugs.size() <= 200
+      ) || (
+        isSelf(userId)
+        && userDoc().data.role == 'customer'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['productTourCompleted'])
+        && request.resource.data.productTourCompleted == true
       ) || (
         isSelf(userId)
         && userDoc().data.role == 'customer'
@@ -250,39 +269,47 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    function companyOwnerUpdatableKeys() {
+      return [
+        'name',
+        'contactEmail',
+        'phone',
+        'website',
+        'location',
+        'municipality',
+        'country',
+        'postalCode',
+        'latitude',
+        'longitude',
+        'description',
+        'logoUrl',
+        'photos',
+        'mainPhotoIndex',
+        'videos',
+        'characteristics',
+        'venueTypes',
+        'amenities',
+        'priceRange',
+        'timeSlotMinutes',
+        'reservationMode',
+        'depositMinPax',
+        'depositPerGuestCents',
+        'depositEnabled',
+        'depositCancellationHours',
+        'schedule',
+        'turns',
+        'floorPlan',
+        'floorPlans',
+        'qrBranding',
+        'deactivated',
+        'deactivatedAt',
+        'updatedAt',
+      ];
+    }
+
     function isValidCompanyOwnerUpdate() {
       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      // El plan, el cobro y el destaco los asigna solo el admin.
-      return !changedKeys.hasAny([
-          'slug',
-          'ownerUid',
-          'createdAt',
-          'planId',
-          'planBilling',
-          'planStartedAt',
-          'planLastPaidAt',
-          'planPaymentState',
-          'planPaymentFailedAt',
-          'pendingPlanId',
-          'pendingPlanAt',
-          'stripeSubscriptionId',
-          'stripeBillingCustomerId',
-          'lemonSqueezySubscriptionId',
-          'lemonSqueezyCustomerId',
-          'lemonSqueezyPortalUrl',
-          'lemonSqueezyEmail',
-          'compiteXp',
-          'compiteLevel',
-          'discoveryFeatured',
-          'stripeAccountId',
-          'stripeChargesEnabled',
-          'stripePayoutsEnabled',
-          'stripeDetailsSubmitted',
-          'emailTemplates',
-          'reviewCount',
-          'reviewRatingSum',
-          'reviewAdelinas',
-        ])
+      return changedKeys.hasOnly(companyOwnerUpdatableKeys())
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0;
     }
@@ -328,8 +355,26 @@ service cloud.firestore {
         && isValidCompanyOwnerUpdate()
       );
 
+      match /private/ops {
+        // Stripe Connect: solo Admin SDK puede tocar stripe*.
+        // El panel solo puede crear/actualizar plantillas de email.
+        allow read: if isCompanyOwner(companyId) || isAdmin();
+        allow create: if (isCompanyOwner(companyId) || isAdmin())
+          && request.resource.data.keys().hasOnly(['emailTemplates', 'updatedAt']);
+        allow update: if (isCompanyOwner(companyId) || isAdmin())
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['emailTemplates', 'updatedAt']);
+        allow delete: if isAdmin();
+      }
+
+      match /private/promotionPin {
+        allow read: if isCompanyOwner(companyId) || isAdmin();
+        allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
+      }
+
       match /private/{privateDoc} {
-        allow read, create, update, delete: if isCompanyOwner(companyId) || isAdmin();
+        allow read: if isCompanyOwner(companyId) || isAdmin();
+        allow write: if false;
       }
 
       match /metrics/{monthId} {
@@ -347,23 +392,29 @@ service cloud.firestore {
 
       match /promotions/{promotionId} {
         allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
-        // list sin resource.data: el dueño puede leer inactivas. Firestore no filtra.
+        // list público desactivado: scrapeo collection-group. Público vía /api/public/promotions.
         allow list: if isCompanyOwner(companyId) || isAdmin();
-        allow list: if resource.data.active == true;
-        allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
+        allow create: if (isCompanyOwner(companyId) || isAdmin())
+          && (!('currentRedemptions' in request.resource.data)
+            || request.resource.data.currentRedemptions == 0);
+        allow update: if isAdmin() || (
+          isCompanyOwner(companyId)
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['currentRedemptions'])
+        );
+        allow delete: if isCompanyOwner(companyId) || isAdmin();
       }
 
       match /menuBoards/{boardId} {
         allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
+        // list público desactivado: scrapeo collection-group. Público vía /api/public/menus.
         allow list: if isCompanyOwner(companyId) || isAdmin();
-        allow list: if resource.data.active == true;
         allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
       }
 
       match /menuNodes/{nodeId} {
         allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
         allow list: if isCompanyOwner(companyId) || isAdmin();
-        allow list: if resource.data.active == true;
         allow create, update, delete: if isCompanyOwner(companyId) || isAdmin();
       }
 
@@ -408,7 +459,10 @@ service cloud.firestore {
       );
       allow create: if isSignedIn()
         && (isAdmin() || isCompanyOwner(request.resource.data.companyId));
-      allow update, delete: if isSignedIn()
+      allow update: if isSignedIn()
+        && (isAdmin() || isCompanyOwner(resource.data.companyId))
+        && request.resource.data.companyId == resource.data.companyId;
+      allow delete: if isSignedIn()
         && (isAdmin() || isCompanyOwner(resource.data.companyId));
     }
 
@@ -433,15 +487,43 @@ service cloud.firestore {
         );
     }
 
+    function reservationCompanyUpdatableKeys() {
+      return [
+        'tableId',
+        'clientName',
+        'clientEmail',
+        'clientPhone',
+        'pax',
+        'startTime',
+        'endTime',
+        'status',
+        'notes',
+        'cancelledBy',
+        'cancelShieldRequested',
+        'promotionVisitStatus',
+        'clientSyncedAt',
+        'updatedAt',
+      ];
+    }
+
     match /reservations/{reservationId} {
       allow get, list: if canReadReservation();
       allow create: if false;
-      allow update, delete: if isSignedIn()
+      allow update: if isAdmin() || (
+        isSignedIn()
+        && isCompanyOwner(resource.data.companyId)
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(reservationCompanyUpdatableKeys())
+      );
+      allow delete: if isSignedIn()
         && (isAdmin() || isCompanyOwner(resource.data.companyId));
     }
 
     match /restaurantIndex/{companyId} {
-      allow read: if true;
+      // get por id (favoritos, fichas). list solo vía Admin SDK (/api/public/discovery).
+      allow get: if true;
+      allow list: if false;
       allow delete: if isAdmin();
       allow create: if isAdmin() || (
         isCompanyOwner(companyId)
@@ -515,7 +597,14 @@ service cloud.firestore {
 
     match /userFavorites/{favoriteId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create, update: if isSignedIn()
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.slug is string
+        && request.resource.data.slug.size() > 0
+        && request.resource.data.slug.size() <= 80
+        && request.resource.data.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$');
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.slug is string
         && request.resource.data.slug.size() > 0
@@ -533,6 +622,14 @@ service cloud.firestore {
     match /saasSubscriptions/{sessionId} {
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    match /saasReceipts/{receiptId} {
+      allow read, write: if false;
+    }
+
+    match /{path=**}/stats/{statsId} {
+      allow read, write: if false;
     }
 
     match /productClaims/{claimId} {

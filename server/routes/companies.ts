@@ -10,6 +10,7 @@ import { syncRestaurantIndex } from '../data/restaurantIndex.ts'
 import { writeCompanyOps } from '../data/companyOps.ts'
 import { defaultCompanyEmailTemplates } from '../email/emailTemplateDefaults.ts'
 import { applyPlanFeatureLimitsIfChanged } from '../company/enforcePlanLimits.ts'
+import { deleteQueryInBatches } from '../data/deleteQueryInBatches.ts'
 
 const router = Router()
 
@@ -33,28 +34,19 @@ async function removeLoginIndex(loginName: string) {
 }
 
 async function deleteCompanyData(companyId: string, loginName: string) {
+  await deleteQueryInBatches(
+    adminDb.collection('reservations').where('companyId', '==', companyId),
+  )
+  await deleteQueryInBatches(
+    adminDb.collection('tables').where('companyId', '==', companyId),
+  )
+
   const batch = adminDb.batch()
-
-  const reservations = await adminDb
-    .collection('reservations')
-    .where('companyId', '==', companyId)
-    .get()
-
-  reservations.docs.forEach((docSnap) => batch.delete(docSnap.ref))
-
-  const tables = await adminDb
-    .collection('tables')
-    .where('companyId', '==', companyId)
-    .get()
-
-  tables.docs.forEach((docSnap) => batch.delete(docSnap.ref))
-
   batch.delete(adminDb.collection('companies').doc(companyId))
   batch.delete(adminDb.collection('companyCredentials').doc(companyId))
   batch.delete(adminDb.collection('restaurantIndex').doc(companyId))
   batch.delete(adminDb.collection('companies').doc(companyId).collection('private').doc('ops'))
   batch.delete(adminDb.collection('companies').doc(companyId).collection('private').doc('promotionPin'))
-
   await batch.commit()
   await removeLoginIndex(loginName)
 }
@@ -104,6 +96,7 @@ router.post('/', async (req: Request, res: Response) => {
       const slugConflict = await adminDb
         .collection('companies')
         .where('slug', '==', slug)
+        .limit(1)
         .get()
 
       if (!slugConflict.empty) {

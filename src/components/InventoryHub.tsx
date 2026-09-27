@@ -93,7 +93,7 @@ function InventoryHub({
   const showingCatalog = filter === 'owned' && total === 0
 
   return (
-    <section className={styles.hub}>
+    <section className={styles.hub} data-tour="tour-misiones-items">
       <header className={styles.header}>
         <div>
           <p className={styles.eyebrow}>Colección</p>

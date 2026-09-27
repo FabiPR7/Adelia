@@ -30,6 +30,7 @@ import {
   getPasswordChecks,
   isPasswordValid,
 } from '../utils/passwordValidation'
+import { loadRecaptchaScript, executeRecaptcha } from '../services/recaptcha'
 import styles from './CompanySignupPage.module.css'
 
 const STEPS = [
@@ -231,6 +232,13 @@ function CompanySignupPage() {
 
     setBusy(true)
     try {
+      let recaptchaToken = ''
+      try {
+        await loadRecaptchaScript()
+        recaptchaToken = await executeRecaptcha('company_signup')
+      } catch {
+        recaptchaToken = ''
+      }
       const payload = {
         email: email.trim(),
         phone: formatSpanishPhoneForStorage(phone),
@@ -248,6 +256,7 @@ function CompanySignupPage() {
         characteristics: skipStyle ? [] : characteristics,
         venueTypes: skipStyle ? [] : venueTypes,
         amenities: skipStyle ? [] : amenities,
+        recaptchaToken,
       }
       const result = isStripeSignup
         ? await completePaidCompanySignup({ sessionId, ...payload })

@@ -82,6 +82,15 @@ export async function getMissionCatalogEntry(missionId: string): Promise<Mission
   return missionCache.get(missionId) ?? null
 }
 
+export async function listMissionCatalogEntries(): Promise<Map<string, MissionCatalogEntry>> {
+  try {
+    await refreshCatalog()
+  } catch {
+    return new Map()
+  }
+  return new Map(missionCache)
+}
+
 export async function getLevelForXpFromCatalog(xp: number): Promise<number> {
   try {
     await refreshCatalog()

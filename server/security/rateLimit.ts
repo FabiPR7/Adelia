@@ -144,13 +144,13 @@ function bucketFor(req: Request): {
       || url.startsWith('/api/public/billing/complete-free-signup')
     )
   ) {
-    return { name: 'publicWrite', max: 8, windowMs: 60_000, key: clientKey(req), distributed: true }
+    return { name: 'publicWrite', max: 8, windowMs: 60_000, key: clientKey(req), distributed: true, failClosed: true }
   }
 
-  // Analítica de app: lotes de eventos de navegación. Generoso pero acotado; no
-  // es crítico, así que falla abierto (no distribuido).
+  // Analítica de app: lotes de eventos. Distribuido para que N instancias no
+  // multipliquen el cupo; tope bajo para evitar amplificación de escritura.
   if (req.method === 'POST' && url.startsWith('/api/public/events')) {
-    return { name: 'appEvents', max: 120, windowMs: 5 * 60_000, key: clientKey(req) }
+    return { name: 'appEvents', max: 40, windowMs: 5 * 60_000, key: clientKey(req), distributed: true, failClosed: true }
   }
 
   if (
@@ -159,12 +159,19 @@ function bucketFor(req: Request): {
     || url.startsWith('/api/public/promotions')
     || url.startsWith('/api/public/billing')
     || url.startsWith('/api/public/booking')
+    || url.startsWith('/api/public/discovery')
+    || url.startsWith('/api/public/menus')
   ) {
-    return { name: 'publicRead', max: 45, windowMs: 60_000, key: clientKey(req) }
+    return { name: 'publicRead', max: 45, windowMs: 60_000, key: clientKey(req), distributed: true }
+  }
+
+  // Baja de cuenta (RGPD): pocas llamadas, distribuido y fail-closed.
+  if (req.method === 'POST' && url.startsWith('/api/customer/account/delete')) {
+    return { name: 'accountDelete', max: 5, windowMs: 60 * 60_000, key: authKey(req), distributed: true, failClosed: true }
   }
 
   if (url.startsWith('/api/customer/friends/search')) {
-    return { name: 'search', max: 20, windowMs: 60_000, key: authKey(req) }
+    return { name: 'search', max: 20, windowMs: 60_000, key: authKey(req), distributed: true }
   }
 
   // Envío de solicitudes de amistad: cada una genera notificación al destinatario.
@@ -190,7 +197,7 @@ function bucketFor(req: Request): {
       || url.includes('/promotions/register-consumption')
     )
   ) {
-    return { name: 'pinCheck', max: 12, windowMs: 5 * 60_000, key: authKey(req), distributed: true }
+    return { name: 'pinCheck', max: 12, windowMs: 5 * 60_000, key: authKey(req), distributed: true, failClosed: true }
   }
 
   if (req.method === 'POST' && url.includes('/game/maze-move')) {

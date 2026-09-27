@@ -43,15 +43,18 @@ async function mapFriendProfile(
   uid: string,
   since?: FirebaseFirestore.Timestamp | null,
   knownUser?: FirebaseFirestore.DocumentData,
+  knownStats?: FirebaseFirestore.DocumentData | null,
 ) {
   const [userSnap, statsSnap] = await Promise.all([
     knownUser
       ? Promise.resolve(null)
       : adminDb.collection(COLLECTIONS.users).doc(uid).get(),
-    adminDb.collection(COLLECTIONS.userGamification).doc(uid).get(),
+    knownStats !== undefined
+      ? Promise.resolve(null)
+      : adminDb.collection(COLLECTIONS.userGamification).doc(uid).get(),
   ])
   const user = knownUser ?? userSnap?.data() ?? {}
-  const stats = gamificationOf(statsSnap.data() ?? user)
+  const stats = gamificationOf(knownStats ?? statsSnap?.data() ?? user)
   const xp = typeof stats.xp === 'number' ? stats.xp : typeof user.xp === 'number' ? user.xp : 0
   const level = levelForXp(xp)
   const completed = Array.isArray(stats.completedMissions) ? stats.completedMissions.length : 0
@@ -77,6 +80,35 @@ async function mapFriendProfile(
     badgeIds: badges,
     since: since?.toDate().toISOString() ?? null,
   }
+}
+
+async function mapFriendProfiles(
+  entries: Array<{ uid: string; since?: FirebaseFirestore.Timestamp | null }>,
+) {
+  const unique = [...new Set(entries.map((entry) => entry.uid).filter(Boolean))]
+  if (unique.length === 0) {
+    return [] as Awaited<ReturnType<typeof mapFriendProfile>>[]
+  }
+
+  const userRefs = unique.map((uid) => adminDb.collection(COLLECTIONS.users).doc(uid))
+  const statsRefs = unique.map((uid) => adminDb.collection(COLLECTIONS.userGamification).doc(uid))
+  const [userSnaps, statsSnaps] = await Promise.all([
+    adminDb.getAll(...userRefs),
+    adminDb.getAll(...statsRefs),
+  ])
+  const usersById = new Map(userSnaps.map((snap) => [snap.id, snap.data()]))
+  const statsById = new Map(statsSnaps.map((snap) => [snap.id, snap.data() ?? null]))
+
+  return Promise.all(
+    entries
+      .filter((entry) => entry.uid)
+      .map((entry) => mapFriendProfile(
+        entry.uid,
+        entry.since ?? null,
+        usersById.get(entry.uid),
+        statsById.get(entry.uid) ?? null,
+      )),
+  )
 }
 
 router.post('/requests/:targetUid', async (req: Request, res: Response) => {
@@ -341,15 +373,9 @@ async function listCustomerUserDocs(queryText: string, rawLower: string) {
   for (const snap of prefixSnaps) {
     snap?.docs.forEach((docSnap) => byId.set(docSnap.id, docSnap))
   }
-  if (byId.size > 0) {
-    return [...byId.values()]
-  }
-
-  const snapshot = await adminDb.collection(COLLECTIONS.users)
-    .where('role', '==', 'customer')
-    .limit(60)
-    .get()
-  return snapshot.docs
+  // Sin prefijo indexado no listamos clientes al azar: eso filtraba en memoria
+  // sobre 60 docs y permitía enumerar usuarios con consultas cortas.
+  return [...byId.values()]
 }
 
 router.get('/search', async (req: Request, res: Response) => {
@@ -410,9 +436,13 @@ router.get('/state', async (req: Request, res: Response) => {
     }).filter((entry) => entry.uid).slice(0, 40)
 
     const [friends, incoming, outgoing] = await Promise.all([
-      Promise.all(friendEntries.map((entry) => mapFriendProfile(entry.uid, entry.since ?? null))),
-      Promise.all(incomingSnap.docs.slice(0, 20).map((docSnap) => mapFriendProfile(String(docSnap.data().fromUid)))),
-      Promise.all(outgoingSnap.docs.slice(0, 20).map((docSnap) => mapFriendProfile(String(docSnap.data().toUid)))),
+      mapFriendProfiles(friendEntries),
+      mapFriendProfiles(
+        incomingSnap.docs.slice(0, 20).map((docSnap) => ({ uid: String(docSnap.data().fromUid) })),
+      ),
+      mapFriendProfiles(
+        outgoingSnap.docs.slice(0, 20).map((docSnap) => ({ uid: String(docSnap.data().toUid) })),
+      ),
     ])
 
     res.json({

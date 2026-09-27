@@ -143,7 +143,7 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
     slug: data.slug as string,
     planId,
     phone: (data.phone as string) ?? '',
-    contactEmail: (data.contactEmail as string) ?? '',
+    contactEmail: '',
     location: (data.location as string) ?? '',
     municipality: (data.municipality as string) ?? '',
     country: (data.country as string) ?? '',
@@ -365,6 +365,11 @@ router.post('/:slug/deposit-intent', async (req: Request, res: Response) => {
       return
     }
 
+    if (!planAllowsDeposits(parseStoredPlanId(record.data.planId))) {
+      res.status(409).json({ error: 'Este plan no admite fianzas.' })
+      return
+    }
+
     const pax = asInt(req.body?.pax, 1, 50, 'El número de comensales')
 
     const depositMinPax = typeof record.data.depositMinPax === 'number'
@@ -544,7 +549,7 @@ router.get('/:slug/availability', async (req: Request, res: Response) => {
       .where('companyId', '==', company.id)
       .where('startTime', '>=', Timestamp.fromDate(dayStart))
       .where('startTime', '<', Timestamp.fromDate(dayEnd))
-      .limit(400)
+      .limit(200)
       .get()
 
     const reservations = reservationsSnapshot.docs

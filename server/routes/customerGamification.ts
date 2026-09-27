@@ -17,6 +17,7 @@ import {
 } from '../gamification/cancellationPenalty.ts'
 import {
   applyInventoryGrants,
+  claimProductTourReward,
   claimSeasonPack,
   consumeInventoryItem,
   numberRecord,
@@ -30,7 +31,8 @@ import {
   spendCoverForItem,
   type SeasonPackKind,
 } from '../gamification/inventoryItems.ts'
-import { getLevelForXpFromCatalog } from '../data/gameCatalog.ts'
+import { getLevelForXpFromCatalog, listMissionCatalogEntries } from '../data/gameCatalog.ts'
+import { getWeekKey, getMonthKey } from '../gamification/companyProgress.ts'
 import { createRateLimit } from '../middleware/rateLimit.ts'
 import { resolveCompanyPromotionPin } from '../utils/companyPromotionPin.ts'
 import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
@@ -96,7 +98,28 @@ function containsAll(next: string[], current: string[]): boolean {
   return current.every((item) => set.has(item))
 }
 
-function validateMonotonicGamification(
+const MAX_NEW_HISTORICAL_MISSIONS_PER_SYNC = 3
+const MAX_NEW_WEEKLY_MISSIONS_PER_SYNC = 2
+const MAX_NEW_MONTHLY_MISSIONS_PER_SYNC = 2
+
+function mergeAppendOnlyIds(
+  currentIds: string[],
+  proposedIds: string[],
+  allowedNew: Set<string>,
+  maxNew: number,
+): string[] {
+  const current = new Set(currentIds)
+  if (!proposedIds.every((id) => current.has(id) || allowedNew.has(id))) {
+    throw new Error('La actualización de progreso no es válida.')
+  }
+  const additions = proposedIds.filter((id) => !current.has(id))
+  if (additions.length > maxNew) {
+    throw new Error('La actualización de progreso no es válida.')
+  }
+  return [...new Set([...currentIds, ...additions])]
+}
+
+async function validateMonotonicGamification(
   current: Record<string, unknown>,
   proposed: Record<string, unknown>,
   xpCeiling: number | null = null,
@@ -114,31 +137,52 @@ function validateMonotonicGamification(
     throw new Error('La actualización de recompensas no es válida.')
   }
 
-  // Tope diario de XP ganada vía /sync. Los contadores viven en el propio
-  // estado (persisten con writeGamification) y NO son sobreescribibles por el
-  // cliente porque se fijan después del `...proposed` en el objeto devuelto.
   const today = utcDayKey()
   const priorDayKey = typeof current.syncXpDayKey === 'string' ? current.syncXpDayKey : ''
   const syncXpUsedToday = priorDayKey === today ? numberValue(current.syncXpToday) : 0
   const requestedGain = Math.max(0, uncappedXp - currentXp)
   const allowedGain = Math.max(0, Math.min(requestedGain, SYNC_XP_DAILY_CEILING - syncXpUsedToday))
-  // Techo absoluto calculado con datos de confianza del servidor: nunca por
-  // encima de lo que lograría un jugador perfecto. Nunca por debajo del XP
-  // actual (monotonía).
   const dailyCappedXp = currentXp + allowedGain
   const xp = xpCeiling != null
     ? Math.min(dailyCappedXp, Math.max(currentXp, xpCeiling))
     : dailyCappedXp
 
-  const appendOnlyKeys = [
-    'completedMissions',
-    'visitedCompanyIds',
-    'reviewedReservationIds',
-    'reviewedCompanyIds',
-    'awardedReservationXpIds',
-  ]
+  const catalog = await listMissionCatalogEntries()
+  const historicalAllowed = new Set(
+    [...catalog.entries()].filter(([, entry]) => entry.cadence === 'historical' || entry.cadence == null).map(([id]) => id),
+  )
+  const weeklyAllowed = new Set(
+    [...catalog.entries()].filter(([, entry]) => entry.cadence === 'weekly').map(([id]) => id),
+  )
+  const monthlyAllowed = new Set(
+    [...catalog.entries()].filter(([, entry]) => entry.cadence === 'monthly').map(([id]) => id),
+  )
 
-  for (const key of appendOnlyKeys) {
+  const serverWeekKey = getWeekKey()
+  const serverMonthKey = getMonthKey()
+  const sameWeek = (typeof current.weekKey === 'string' ? current.weekKey : '') === serverWeekKey
+  const sameMonth = (typeof current.monthKey === 'string' ? current.monthKey : '') === serverMonthKey
+
+  const completedMissions = mergeAppendOnlyIds(
+    stringArray(current.completedMissions),
+    stringArray(proposed.completedMissions),
+    historicalAllowed,
+    MAX_NEW_HISTORICAL_MISSIONS_PER_SYNC,
+  )
+  const weeklyCompleted = mergeAppendOnlyIds(
+    sameWeek ? stringArray(current.weeklyCompleted) : [],
+    stringArray(proposed.weeklyCompleted),
+    weeklyAllowed,
+    MAX_NEW_WEEKLY_MISSIONS_PER_SYNC,
+  )
+  const monthlyCompleted = mergeAppendOnlyIds(
+    sameMonth ? stringArray(current.monthlyCompleted) : [],
+    stringArray(proposed.monthlyCompleted),
+    monthlyAllowed,
+    MAX_NEW_MONTHLY_MISSIONS_PER_SYNC,
+  )
+
+  for (const key of ['visitedCompanyIds', 'reviewedReservationIds', 'reviewedCompanyIds', 'awardedReservationXpIds'] as const) {
     if (!containsAll(stringArray(proposed[key]), stringArray(current[key]))) {
       throw new Error('La actualización de progreso no es válida.')
     }
@@ -153,11 +197,32 @@ function validateMonotonicGamification(
   const strikeCount = numberValue(current.cancellationStrikeCount)
   const promoLocked = current.promoLocked === true || strikeCount >= 5
 
+  // No se hace spread de `proposed`: solo campos de progreso acotados y
+  // week/month keys del servidor (evita inventar periodos para farmear loot).
   return {
     ...current,
-    ...proposed,
     xp,
     adelinas,
+    weekKey: serverWeekKey,
+    monthKey: serverMonthKey,
+    completedMissions,
+    weeklyCompleted,
+    monthlyCompleted,
+    visitedCompanyIds: stringArray(proposed.visitedCompanyIds).length >= stringArray(current.visitedCompanyIds).length
+      ? stringArray(proposed.visitedCompanyIds).slice(0, 200)
+      : stringArray(current.visitedCompanyIds),
+    reviewedReservationIds: stringArray(proposed.reviewedReservationIds).length >= stringArray(current.reviewedReservationIds).length
+      ? stringArray(proposed.reviewedReservationIds).slice(0, 200)
+      : stringArray(current.reviewedReservationIds),
+    reviewedCompanyIds: stringArray(proposed.reviewedCompanyIds).length >= stringArray(current.reviewedCompanyIds).length
+      ? stringArray(proposed.reviewedCompanyIds).slice(0, 200)
+      : stringArray(current.reviewedCompanyIds),
+    awardedReservationXpIds: stringArray(proposed.awardedReservationXpIds).length >= stringArray(current.awardedReservationXpIds).length
+      ? stringArray(proposed.awardedReservationXpIds).slice(0, 200)
+      : stringArray(current.awardedReservationXpIds),
+    favoriteSlugs: Array.isArray(proposed.favoriteSlugs)
+      ? stringArray(proposed.favoriteSlugs).slice(0, 200)
+      : stringArray(current.favoriteSlugs),
     syncXpDayKey: today,
     syncXpToday: syncXpUsedToday + allowedGain,
     claimedPromotions: currentClaims,
@@ -166,7 +231,7 @@ function validateMonotonicGamification(
     celebratedMissionIds: [...new Set([
       ...stringArray(current.celebratedMissionIds),
       ...stringArray(proposed.celebratedMissionIds),
-    ])],
+    ])].slice(0, 400),
     celebrationsBootstrapped:
       current.celebrationsBootstrapped === true || proposed.celebrationsBootstrapped === true,
     cancellationStrikeCount: strikeCount,
@@ -192,16 +257,17 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       .orderBy('xp', 'desc')
       .limit(80)
       .get()
-    const userSnaps = await Promise.all(
-      statsSnap.docs.map((docSnap) => adminDb.collection('users').doc(docSnap.id).get()),
-    )
+    const userRefs = statsSnap.docs.map((docSnap) => adminDb.collection('users').doc(docSnap.id))
+    const userSnaps = userRefs.length > 0
+      ? await adminDb.getAll(...userRefs)
+      : []
     const selfSnap = await adminDb.collection('users').doc(customer.uid).get()
     const selfCountry = String(selfSnap.data()?.homeCountry ?? selfSnap.data()?.country ?? 'España')
 
     const entries = statsSnap.docs.flatMap((docSnap, index) => {
       const userSnap = userSnaps[index]
-      const userData = userSnap.data()
-      if (!userSnap.exists || userData?.role !== 'customer' || userData?.blocked === true) {
+      const userData = userSnap?.data()
+      if (!userSnap?.exists || userData?.role !== 'customer' || userData?.blocked === true) {
         return []
       }
       const country = String(userData.homeCountry ?? userData.country ?? 'España')
@@ -274,17 +340,20 @@ router.post('/sync', async (req: Request, res: Response) => {
         transaction.get(statsRef),
       ])
       const currentState = readGamificationFromDocs(statsSnap.data(), userSnap.data())
-      const validated = validateMonotonicGamification(
+      const validated = await validateMonotonicGamification(
         currentState,
         proposed as Record<string, unknown>,
         xpCeiling,
       )
-      const withItems = await applyInventoryGrants(validated)
-      writeGamification(transaction, customer.uid, withItems)
-      return withItems
+      const granted = await applyInventoryGrants(validated)
+      writeGamification(transaction, customer.uid, granted.state)
+      return granted
     })
 
-    res.json({ gamification: next })
+    res.json({
+      gamification: next.state,
+      newItemGrantBatches: next.newGrantBatches,
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo sincronizar el progreso.'
     const status = message.includes('cliente') ? 401 : message.includes('válid') ? 400 : 500
@@ -1005,6 +1074,39 @@ router.post('/inventory/claim-pack', async (req: Request, res: Response) => {
         || message.includes('periodo')
         ? 403
         : 500
+    res.status(status).json({ error: message })
+  }
+})
+
+router.post('/inventory/claim-tour-reward', async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    const userRef = adminDb.collection('users').doc(customer.uid)
+    const statsRef = userGamificationRef(customer.uid)
+
+    const claimed = await adminDb.runTransaction(async (transaction) => {
+      const [userSnap, statsSnap] = await Promise.all([
+        transaction.get(userRef),
+        transaction.get(statsRef),
+      ])
+      const current = readGamificationFromDocs(statsSnap.data(), userSnap.data())
+      const result = claimProductTourReward(current)
+      writeGamification(transaction, customer.uid, result.state)
+      transaction.set(userRef, { productTourCompleted: true }, { merge: true })
+      return {
+        grants: result.grants,
+        alreadyClaimed: result.alreadyClaimed,
+        inventory: numberRecord(result.state.inventory),
+        grantedItemKeys: Array.isArray(result.state.grantedItemKeys)
+          ? result.state.grantedItemKeys
+          : [],
+      }
+    })
+
+    res.json(claimed)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo reclamar la recompensa.'
+    const status = message.includes('cliente') ? 401 : 500
     res.status(status).json({ error: message })
   }
 })

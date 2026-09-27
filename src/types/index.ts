@@ -46,6 +46,8 @@ export interface AppUser {
   homeLongitude: number | null
   foodPreferences: string[]
   onboardingCompleted: boolean
+  /** Tutorial interactivo de la app cliente (una vez por usuario). */
+  productTourCompleted: boolean
   authProvider: 'password' | 'google.com'
   blocked: boolean
 }

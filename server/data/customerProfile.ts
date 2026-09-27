@@ -51,6 +51,8 @@ export function buildCustomerProfileDoc(input: {
   phoneVerified: boolean
   authProvider: 'password' | 'google.com'
   photoUrl?: string
+  acceptedLegalVersion?: string
+  acceptedLegalAt?: ReturnType<typeof FieldValue.serverTimestamp> | FirebaseFirestore.FieldValue
 }) {
   const displayName = input.displayName.trim()
   return {
@@ -70,6 +72,7 @@ export function buildCustomerProfileDoc(input: {
     homeLongitude: null,
     foodPreferences: [] as string[],
     onboardingCompleted: false,
+    productTourCompleted: false,
     authProvider: input.authProvider,
     favoriteSlugs: [] as string[],
     gamification: defaultCustomerGamification(),
@@ -78,6 +81,12 @@ export function buildCustomerProfileDoc(input: {
     mustChangePassword: false,
     blocked: false,
     schemaVersion: CUSTOMER_PROFILE_SCHEMA_VERSION,
+    ...(input.acceptedLegalVersion
+      ? {
+          acceptedLegalVersion: input.acceptedLegalVersion,
+          acceptedLegalAt: input.acceptedLegalAt ?? FieldValue.serverTimestamp(),
+        }
+      : {}),
     createdAt: FieldValue.serverTimestamp(),
   }
 }

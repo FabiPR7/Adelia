@@ -198,7 +198,7 @@ export default function BookingRestaurantLanding({
 
       <section className={styles.hero} aria-label="Foto principal del restaurante">
         {backHref ? (
-          <Link to={backHref} className={styles.backButton}>
+          <Link to={backHref} className={styles.backButton} data-tour="tour-restaurant-back">
             {backLabel}
           </Link>
         ) : null}
@@ -270,7 +270,11 @@ export default function BookingRestaurantLanding({
         <section className={`${styles.profileMeta} ${styles.revealCard}`} aria-label="Perfil del local">
           <div className={styles.venueRow}>
             <p className={styles.venueTypes}>{venueLine || 'Restaurante'}</p>
-            <div className={styles.quickActions}>
+            <div
+              className={styles.quickActions}
+              data-tour="tour-restaurant-actions"
+              data-tour-measure="children"
+            >
               <Link to={menuHref} className={styles.quickMenu} aria-label="Carta" title="Carta">
                 <UtensilsIcon />
                 <span className={styles.quickLabel}>Carta</span>

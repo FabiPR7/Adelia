@@ -18,6 +18,7 @@ export async function registerCustomerAccount(input: {
   displayName: string
   phone: string
   recaptchaToken?: string
+  acceptedLegalVersion: string
 }): Promise<void> {
   const response = await fetch(`${API_BASE}/api/auth/customer/register`, {
     method: 'POST',
@@ -42,7 +43,10 @@ export async function preLoginCustomer(email: string, password: string): Promise
   }
 }
 
-export async function bootstrapCustomerProfile(recaptchaToken?: string): Promise<{ existing: boolean }> {
+export async function bootstrapCustomerProfile(input?: {
+  recaptchaToken?: string
+  acceptedLegalVersion?: string
+}): Promise<{ existing: boolean }> {
   const token = await getIdToken()
   if (!token) {
     throw new Error('No hay sesión activa.')
@@ -54,7 +58,10 @@ export async function bootstrapCustomerProfile(recaptchaToken?: string): Promise
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ recaptchaToken: recaptchaToken ?? '' }),
+    body: JSON.stringify({
+      recaptchaToken: input?.recaptchaToken ?? '',
+      acceptedLegalVersion: input?.acceptedLegalVersion ?? '',
+    }),
   })
 
   if (!response.ok) {

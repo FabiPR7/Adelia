@@ -2,6 +2,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import type Stripe from 'stripe'
 import { adminAuth, adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from '../data/collections.ts'
+import { deleteQueryInBatches } from '../data/deleteQueryInBatches.ts'
 import { slugify } from '../utils.ts'
 import { createStripeClient, getAppBaseUrl, isStripeConfigured } from './config.ts'
 import {
@@ -677,11 +678,14 @@ export async function deleteCompanyAccount(companyId: string): Promise<void> {
   const loginName =
     (credentialsSnap.data()?.loginName as string | undefined) ?? (companyData.name as string | undefined) ?? ''
 
+  await deleteQueryInBatches(
+    adminDb.collection(COLLECTIONS.reservations).where('companyId', '==', companyId),
+  )
+  await deleteQueryInBatches(
+    adminDb.collection(COLLECTIONS.tables).where('companyId', '==', companyId),
+  )
+
   const batch = adminDb.batch()
-  const reservations = await adminDb.collection(COLLECTIONS.reservations).where('companyId', '==', companyId).get()
-  reservations.docs.forEach((docSnap) => batch.delete(docSnap.ref))
-  const tables = await adminDb.collection(COLLECTIONS.tables).where('companyId', '==', companyId).get()
-  tables.docs.forEach((docSnap) => batch.delete(docSnap.ref))
   batch.delete(companyRef)
   batch.delete(adminDb.collection(COLLECTIONS.companyCredentials).doc(companyId))
   batch.delete(adminDb.collection(COLLECTIONS.restaurantIndex).doc(companyId))

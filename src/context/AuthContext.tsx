@@ -25,6 +25,7 @@ export interface AuthContextValue {
   refreshCompany: () => Promise<void>
   patchProfileGamification: (patch: Partial<AppUser['gamification']>) => void
   patchProfileFavorites: (favoriteSlugs: string[]) => void
+  patchProfileProductTour: (productTourCompleted: boolean) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -136,6 +137,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const patchProfileProductTour = useCallback((productTourCompleted: boolean) => {
+    setProfile((current) => {
+      if (!current || current.role !== 'customer') {
+        return current
+      }
+
+      return {
+        ...current,
+        productTourCompleted,
+      }
+    })
+  }, [])
+
   useEffect(() => {
     if (profile?.role !== 'customer') {
       return
@@ -174,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshCompany,
       patchProfileGamification,
       patchProfileFavorites,
+      patchProfileProductTour,
     }),
     [
       user,
@@ -184,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshCompany,
       patchProfileGamification,
       patchProfileFavorites,
+      patchProfileProductTour,
     ],
   )
 

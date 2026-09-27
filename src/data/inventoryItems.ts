@@ -69,6 +69,10 @@ export const DEPOSIT_PASS_ITEM_ID = 'salvoconducto'
 
 export const CANCEL_SHIELD_ITEM_ID = 'escudo_mesa'
 
+/** Recompensa al completar el tutorial de producto (Cubierto Blanca). */
+export const PRODUCT_TOUR_REWARD_ITEM_ID = 'mesa_1_15'
+export const PRODUCT_TOUR_GRANT_KEY = 'product_tour:v1'
+
 function mesaCard(
   visits: ReservationVisitValue,
   spendBand: ReservationSpendBand,

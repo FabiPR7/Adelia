@@ -14,6 +14,7 @@ import {
   PASSWORD_REQUIREMENTS,
 } from '../utils/passwordValidation'
 import { loadRecaptchaScript, executeRecaptcha } from '../services/recaptcha'
+import { LEGAL_ACCEPTANCE_VERSION } from '../content/publicLegal'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
 import LegalLinks from '../components/LegalLinks'
@@ -86,7 +87,10 @@ function UserRegisterPage() {
         recaptchaToken = await executeRecaptcha('register_google')
       }
 
-      const googleResult = await signInCustomerWithGoogle(recaptchaToken || undefined)
+      const googleResult = await signInCustomerWithGoogle({
+        recaptchaToken: recaptchaToken || undefined,
+        acceptedLegalVersion: LEGAL_ACCEPTANCE_VERSION,
+      })
       const currentUser = auth.currentUser
       if (currentUser && (googleResult === 'created' || googleResult === 'existing')) {
         const nextProfile = await getUserProfile(currentUser.uid)
@@ -133,7 +137,14 @@ function UserRegisterPage() {
         }
       }
 
-      await registerCustomerAndSignOut({ email, password, displayName, phone, recaptchaToken })
+      await registerCustomerAndSignOut({
+        email,
+        password,
+        displayName,
+        phone,
+        recaptchaToken,
+        acceptedLegalVersion: LEGAL_ACCEPTANCE_VERSION,
+      })
       navigate(`/cuenta/verificar-email?email=${encodeURIComponent(email.trim().toLowerCase())}`, {
         replace: true,
       })

@@ -26,6 +26,7 @@ import { isLoginLocked, recordLoginFailure, recordLoginSuccess } from '../securi
 import { requireRecaptcha } from '../security/recaptcha.ts'
 import { requireSpanishPhone } from '../security/phone.ts'
 import { buildCustomerProfileDoc } from '../data/customerProfile.ts'
+import { requireAcceptedLegalVersion } from '../data/legalAcceptance.ts'
 import { settleMinDuration } from '../security/timing.ts'
 
 const router = Router()
@@ -574,6 +575,7 @@ router.post('/customer/register', async (req: Request, res: Response) => {
     }
 
     await requireRecaptcha(req.body?.recaptchaToken, 'register', 0.7)
+    const acceptedLegalVersion = requireAcceptedLegalVersion(req.body?.acceptedLegalVersion)
 
     const emailRaw = typeof req.body?.email === 'string' ? req.body.email : ''
     if (!emailRaw.trim() || !isValidClientEmail(emailRaw)) {
@@ -601,6 +603,7 @@ router.post('/customer/register', async (req: Request, res: Response) => {
         phone,
         phoneVerified: false,
         authProvider: 'password',
+        acceptedLegalVersion,
       }))
     } catch (writeError) {
       await adminAuth.deleteUser(created.uid).catch(() => undefined)
@@ -630,7 +633,13 @@ router.post('/customer/register', async (req: Request, res: Response) => {
     }
     console.error('customer register error:', error)
     const message = error instanceof Error ? error.message : 'No se pudo crear la cuenta.'
-    res.status(message.includes('robot') || message.includes('teléfono') ? 400 : 500).json({ error: message })
+    res.status(
+      message.includes('robot')
+      || message.includes('teléfono')
+      || message.includes('aceptar')
+        ? 400
+        : 500,
+    ).json({ error: message })
   }
 })
 
@@ -666,6 +675,7 @@ router.post('/customer/bootstrap', async (req: Request, res: Response) => {
     }
 
     await requireRecaptcha(req.body?.recaptchaToken, 'register_google', 0.7)
+    const acceptedLegalVersion = requireAcceptedLegalVersion(req.body?.acceptedLegalVersion)
 
     const email = (userRecord.email ?? '').trim().toLowerCase()
     if (!email || !isValidClientEmail(email)) {
@@ -688,13 +698,14 @@ router.post('/customer/bootstrap', async (req: Request, res: Response) => {
       phoneVerified: Boolean(userRecord.phoneNumber),
       authProvider: 'google.com',
       photoUrl,
+      acceptedLegalVersion,
     }))
 
     res.json({ ok: true, existing: false })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo completar el registro.'
     console.error('customer bootstrap error:', error)
-    res.status(message.includes('robot') ? 400 : 500).json({ error: message })
+    res.status(message.includes('robot') || message.includes('aceptar') ? 400 : 500).json({ error: message })
   }
 })
 

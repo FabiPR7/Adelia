@@ -12,6 +12,8 @@ import {
   spendBandFromMinimumCents,
   REVIEW_BOOST_ADELINAS,
   REVIEW_BOOST_XP,
+  PRODUCT_TOUR_GRANT_KEY,
+  PRODUCT_TOUR_REWARD_ITEM_ID,
   type InventoryGrant,
   type SeasonPackKind,
 } from './inventoryItems.ts'
@@ -94,12 +96,16 @@ export function consumeInventoryItem(
 
 export async function applyInventoryGrants(
   state: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+): Promise<{
+  state: Record<string, unknown>
+  newGrantBatches: Array<{ grantKey: string; grants: InventoryGrant[] }>
+}> {
   const inventory = numberRecord(state.inventory)
   const grantedKeys = stringArray(state.grantedItemKeys)
   const granted = new Set(grantedKeys)
   const weekKey = typeof state.weekKey === 'string' ? state.weekKey : ''
   const monthKey = typeof state.monthKey === 'string' ? state.monthKey : ''
+  const newGrantBatches: Array<{ grantKey: string; grants: InventoryGrant[] }> = []
 
   const grant = (key: string, rewards: InventoryGrant[]) => {
     if (!key || granted.has(key) || rewards.length === 0) {
@@ -108,6 +114,12 @@ export async function applyInventoryGrants(
     granted.add(key)
     grantedKeys.push(key)
     addGrants(inventory, rewards)
+    const clean = rewards
+      .filter((reward) => getInventoryItem(reward.itemId) && reward.quantity > 0)
+      .map((reward) => ({ itemId: reward.itemId, quantity: Math.trunc(reward.quantity) }))
+    if (clean.length > 0) {
+      newGrantBatches.push({ grantKey: key, grants: clean })
+    }
   }
 
   const level = await getLevelForXpFromCatalog(numberValue(state.xp))
@@ -144,9 +156,12 @@ export async function applyInventoryGrants(
   }
 
   return {
-    ...state,
-    inventory,
-    grantedItemKeys: compactGrantKeys(grantedKeys),
+    state: {
+      ...state,
+      inventory,
+      grantedItemKeys: compactGrantKeys(grantedKeys),
+    },
+    newGrantBatches,
   }
 }
 
@@ -200,6 +215,34 @@ export function claimSeasonPack(
       grantedItemKeys: compactGrantKeys(grantedKeys),
     },
     grants,
+  }
+}
+
+export function claimProductTourReward(
+  state: Record<string, unknown>,
+): { state: Record<string, unknown>; grants: InventoryGrant[]; alreadyClaimed: boolean } {
+  const grantedKeys = stringArray(state.grantedItemKeys)
+  if (grantedKeys.includes(PRODUCT_TOUR_GRANT_KEY)) {
+    return { state, grants: [], alreadyClaimed: true }
+  }
+
+  if (!getInventoryItem(PRODUCT_TOUR_REWARD_ITEM_ID)) {
+    throw new Error('Recompensa de tutorial no configurada.')
+  }
+
+  const inventory = numberRecord(state.inventory)
+  const grants: InventoryGrant[] = [{ itemId: PRODUCT_TOUR_REWARD_ITEM_ID, quantity: 1 }]
+  addGrants(inventory, grants)
+  grantedKeys.push(PRODUCT_TOUR_GRANT_KEY)
+
+  return {
+    state: {
+      ...state,
+      inventory,
+      grantedItemKeys: compactGrantKeys(grantedKeys),
+    },
+    grants,
+    alreadyClaimed: false,
   }
 }
 

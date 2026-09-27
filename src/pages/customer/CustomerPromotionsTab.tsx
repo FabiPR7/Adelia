@@ -9,6 +9,7 @@ import PromotionOfferCard from '../../components/promotions/PromotionOfferCard'
 import PromotionSwipeDeck from '../../components/promotions/PromotionSwipeDeck'
 import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
 import { useAuth } from '../../context/AuthContext'
+import { useCustomerProductTourOptional } from '../../context/CustomerProductTourContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import ApplyMesaTokenModal from '../../components/ApplyMesaTokenModal'
 import { isCustomerPromoLocked } from '../../data/cancellationPenalties'
@@ -298,6 +299,7 @@ function RegularPromoCard({
 
 function CustomerPromotionsTab() {
   const { user, profile, refreshProfile } = useAuth()
+  const productTour = useCustomerProductTourOptional()
   const {
     loading: gamificationLoading,
     state: gamificationState,
@@ -335,6 +337,22 @@ function CustomerPromotionsTab() {
   const navigate = useNavigate()
   const userClaimKey = profile?.email ?? user?.uid ?? ''
   const promoLocked = isCustomerPromoLocked(profile)
+
+  useEffect(() => {
+    const step = productTour?.stepId
+    if (step !== 'promos-types' && step !== 'promos-feed') return
+    setView('activas')
+    setDisplayMode('grid')
+    setPromoFilter('todas')
+  }, [productTour?.stepId])
+
+  useEffect(() => {
+    const step = productTour?.stepId
+    if (step !== 'promos-types' && step !== 'promos-feed') return
+    if (coords) return
+    setCoords(DEMO_PREVIEW_COORDS)
+    setUsingDemoLocation(true)
+  }, [coords, productTour?.stepId])
 
   useEffect(() => {
     setSavedPromoIds(readSavedPromotionIds(userClaimKey))
@@ -835,6 +853,25 @@ function CustomerPromotionsTab() {
         ) : null}
       </div>
 
+      {productTour?.stepId === 'promos-types' ? (
+        <aside className={styles.tourTypes} data-tour="tour-promos-types" aria-label="Tipos de promociones">
+          <article className={styles.tourTypeCard}>
+            <span className={styles.tourTypeIcon} aria-hidden="true">⏱</span>
+            <div>
+              <strong>Puntuales</strong>
+              <p>Tiempo limitado o asistencia: hay que ir en un plazo o franja concreta.</p>
+            </div>
+          </article>
+          <article className={styles.tourTypeCard}>
+            <span className={styles.tourTypeIcon} aria-hidden="true">🎯</span>
+            <div>
+              <strong>De fidelidad</strong>
+              <p>Escalera por reservas o consumos: cuantas más visitas, mejor premio.</p>
+            </div>
+          </article>
+        </aside>
+      ) : null}
+
       {promoLocked ? (
         <div className={styles.lockBanner} role="status">
           <strong>Promociones bloqueadas</strong>
@@ -927,18 +964,22 @@ function CustomerPromotionsTab() {
             </p>
           ) : null}
           {!coords ? (
-            <div className={styles.locationPrompt}>
+            <div className={styles.locationPrompt} data-tour="tour-promos-feed">
               <span className={styles.locationIcon} aria-hidden="true">📍</span>
               <h2>Activa tu ubicación</h2>
               <p>Solo te mostramos promos de restaurantes cerca de ti — nada de ofertas en otra ciudad.</p>
             </div>
           ) : !hasActiveContent ? (
-            <div className={styles.empty}>
+            <div className={styles.empty} data-tour="tour-promos-feed">
               <p>No hay ofertas cerca tuyo.</p>
             </div>
           ) : (
             <>
-              <div className={styles.filterRow} role="group" aria-label="Filtrar promociones">
+              <div
+                className={styles.filterRow}
+                role="group"
+                aria-label="Filtrar promociones"
+              >
                 {PROMO_FILTERS.map((filter) => (
                   <button
                     key={filter.id}
@@ -953,6 +994,7 @@ function CustomerPromotionsTab() {
                 ))}
               </div>
 
+              <div data-tour="tour-promos-feed">
               {inCurso.length > 0 ? (
                 <section className={styles.feedGroup} aria-label="Promociones en curso">
                   <div className={styles.feedHeading}>
@@ -1057,6 +1099,7 @@ function CustomerPromotionsTab() {
               ) : (
                 <p className={styles.feedEmpty}>Nada con este filtro. Prueba «Todas».</p>
               )}
+              </div>
             </>
           )}
         </>

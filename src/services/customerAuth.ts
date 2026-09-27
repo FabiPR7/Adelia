@@ -43,6 +43,7 @@ export interface RegisterCustomerInput {
   displayName: string
   phone: string
   recaptchaToken?: string
+  acceptedLegalVersion: string
 }
 
 function requireCustomerPhone(phone: string): string {
@@ -120,6 +121,7 @@ export async function registerCustomer(input: RegisterCustomerInput): Promise<vo
     displayName: input.displayName.trim(),
     phone: input.phone,
     recaptchaToken: input.recaptchaToken,
+    acceptedLegalVersion: input.acceptedLegalVersion,
   })
 }
 
@@ -187,12 +189,18 @@ export async function checkEmailVerified(): Promise<boolean> {
   return user.emailVerified
 }
 
-export async function signInCustomerWithGoogle(recaptchaToken?: string): Promise<'existing' | 'created'> {
+export async function signInCustomerWithGoogle(options?: {
+  recaptchaToken?: string
+  acceptedLegalVersion?: string
+}): Promise<'existing' | 'created'> {
   const result = await signInWithPopup(auth, new GoogleAuthProvider())
   const user = result.user
 
   try {
-    const boot = await bootstrapCustomerProfile(recaptchaToken)
+    const boot = await bootstrapCustomerProfile({
+      recaptchaToken: options?.recaptchaToken,
+      acceptedLegalVersion: options?.acceptedLegalVersion,
+    })
     const profile = await getUserProfile(user.uid).catch(() => null)
     if (profile?.blocked) {
       await signOut(auth)

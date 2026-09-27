@@ -306,6 +306,7 @@ function mapUserProfileRecord(
     onboardingCompleted:
       data.onboardingCompleted === true
       || (data.onboardingCompleted == null && Boolean(data.displayName)),
+    productTourCompleted: data.productTourCompleted === true,
     authProvider: data.authProvider === 'google.com' ? 'google.com' : 'password',
     blocked: data.blocked === true,
   }
@@ -827,13 +828,79 @@ export async function claimSeasonInventoryPack(pack: 'weekly_bonus' | 'weekly_cl
   }
 }
 
+export async function claimProductTourReward(): Promise<{
+  grants: Array<{ itemId: string; quantity: number }>
+  alreadyClaimed: boolean
+  inventory: Record<string, number>
+  grantedItemKeys: string[]
+}> {
+  const data = await callCustomerGamificationApi('/inventory/claim-tour-reward', {})
+  return {
+    grants: Array.isArray(data.grants)
+      ? (data.grants as Array<{ itemId?: unknown; quantity?: unknown }>)
+        .filter((entry) => typeof entry.itemId === 'string' && typeof entry.quantity === 'number')
+        .map((entry) => ({ itemId: entry.itemId as string, quantity: Math.trunc(entry.quantity as number) }))
+      : [],
+    alreadyClaimed: data.alreadyClaimed === true,
+    inventory: data.inventory && typeof data.inventory === 'object'
+      ? data.inventory as Record<string, number>
+      : {},
+    grantedItemKeys: Array.isArray(data.grantedItemKeys)
+      ? (data.grantedItemKeys as unknown[]).filter((key): key is string => typeof key === 'string')
+      : [],
+  }
+}
+
 export async function updateCustomerGamification(
   _uid: string,
   gamification: CustomerGamificationState,
-): Promise<void> {
-  await callCustomerGamificationApi('/sync', {
+): Promise<{
+  inventory: Record<string, number>
+  grantedItemKeys: string[]
+  newItemGrantBatches: Array<{ grantKey: string; grants: Array<{ itemId: string; quantity: number }> }>
+}> {
+  const data = await callCustomerGamificationApi('/sync', {
     gamification,
   })
+
+  const serverGamification = data.gamification && typeof data.gamification === 'object'
+    ? data.gamification as Record<string, unknown>
+    : {}
+
+  const inventory = serverGamification.inventory && typeof serverGamification.inventory === 'object'
+    && !Array.isArray(serverGamification.inventory)
+    ? Object.fromEntries(
+      Object.entries(serverGamification.inventory as Record<string, unknown>)
+        .filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1]))
+        .map(([key, value]) => [key, Math.trunc(value)]),
+    )
+    : {}
+
+  const grantedItemKeys = Array.isArray(serverGamification.grantedItemKeys)
+    ? (serverGamification.grantedItemKeys as unknown[]).filter((key): key is string => typeof key === 'string')
+    : []
+
+  const batches = Array.isArray(data.newItemGrantBatches)
+    ? (data.newItemGrantBatches as Array<{ grantKey?: unknown; grants?: unknown }>)
+      .map((entry) => ({
+        grantKey: typeof entry.grantKey === 'string' ? entry.grantKey : '',
+        grants: Array.isArray(entry.grants)
+          ? (entry.grants as Array<{ itemId?: unknown; quantity?: unknown }>)
+            .filter((grant) => typeof grant.itemId === 'string' && typeof grant.quantity === 'number')
+            .map((grant) => ({
+              itemId: grant.itemId as string,
+              quantity: Math.trunc(grant.quantity as number),
+            }))
+          : [],
+      }))
+      .filter((entry) => entry.grantKey.length > 0 && entry.grants.length > 0)
+    : []
+
+  return {
+    inventory,
+    grantedItemKeys,
+    newItemGrantBatches: batches,
+  }
 }
 
 /** @deprecated Usar syncInitialPasswordChange / API de auth. Escritura solo vía Admin SDK. */
@@ -936,7 +1003,7 @@ async function mergeCompanyPrivateOps(company: Company): Promise<Company> {
 
 export async function getCompanyBySlug(slug: string): Promise<Company | null> {
   const snapshot = await getDocs(
-    query(collection(db, 'companies'), where('slug', '==', slug)),
+    query(collection(db, 'companies'), where('slug', '==', slug), limit(1)),
   )
 
   if (snapshot.empty) {

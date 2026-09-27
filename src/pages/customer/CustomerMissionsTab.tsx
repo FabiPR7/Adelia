@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import AchievementBadgeCard from '../../components/AchievementBadgeCard'
 import MissionIcon from '../../components/MissionIcon'
 import { useAuth } from '../../context/AuthContext'
+import { useCustomerProductTourOptional } from '../../context/CustomerProductTourContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import CompiteHub from '../../components/CompiteHub'
 import InventoryHub from '../../components/InventoryHub'
@@ -86,6 +87,7 @@ function MissionCard({
 
 function CustomerMissionsTab() {
   const { user, profile } = useAuth()
+  const productTour = useCustomerProductTourOptional()
   const gamification = useCustomerGamificationContext()
   const [section, setSection] = useState<MissionSection>('weekly')
   const [arenaView, setArenaView] = useState<ArenaView>('missions')
@@ -95,6 +97,25 @@ function CustomerMissionsTab() {
   const [claimError, setClaimError] = useState<string | null>(null)
   const [liveCountryLeaderboard, setLiveCountryLeaderboard] = useState<ReturnType<typeof leaderboardFromLiveRows> | null>(null)
   const [liveWorldLeaderboard, setLiveWorldLeaderboard] = useState<ReturnType<typeof leaderboardFromLiveRows> | null>(null)
+
+  useEffect(() => {
+    const step = productTour?.stepId
+    if (!step) return
+    if (step === 'misiones-arena' || step === 'misiones-list') {
+      setArenaView('missions')
+      setFriendProfileActive(false)
+      return
+    }
+    if (step === 'misiones-items') {
+      setArenaView('items')
+      setFriendProfileActive(false)
+      return
+    }
+    if (step === 'misiones-compite') {
+      setArenaView('compite')
+      setFriendProfileActive(false)
+    }
+  }, [productTour?.stepId])
 
   const progressPercent = Math.round(gamification.levelProgress * 100)
   const nextLevel = GAMIFICATION_LEVELS.find((level) => level.level === gamification.level.level + 1)
@@ -344,7 +365,7 @@ function CustomerMissionsTab() {
       )}
 
       {!friendProfileActive && (
-      <div className={styles.arenaTabs} role="tablist" aria-label="Arena">
+      <div className={styles.arenaTabs} role="tablist" aria-label="Arena" data-tour="tour-misiones-arena">
         <button
           type="button"
           role="tab"
@@ -408,7 +429,7 @@ function CustomerMissionsTab() {
           onUseItem={gamification.useOwnedInventoryItem}
         />
       ) : (
-        <>
+        <div data-tour="tour-misiones-list">
       <button
         type="button"
         className={styles.bonusCard}
@@ -514,7 +535,7 @@ function CustomerMissionsTab() {
         onClose={() => setSeasonOpen(false)}
         onClaim={(pack) => void handleClaimPack(pack)}
       />
-        </>
+        </div>
       )}
     </div>
   )

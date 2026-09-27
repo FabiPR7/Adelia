@@ -4,6 +4,7 @@ import GamificationRankingStripCard from '../../components/GamificationRankingSt
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import { logout } from '../../services/auth'
+import { deleteCustomerAccount } from '../../services/customerAccount'
 import { useFavoriteRestaurants } from '../../hooks/useFavoriteRestaurants'
 import { listMyReviews, type CustomerReviewSummary } from '../../services/userReviews'
 import { listProductClaims, type ProductClaimRecord } from '../../services/productClaims'
@@ -31,6 +32,10 @@ function CustomerProfileTab() {
   } = useCustomerGamificationContext()
   const [reviews, setReviews] = useState<CustomerReviewSummary[]>([])
   const [productClaims, setProductClaims] = useState<ProductClaimRecord[]>([])
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -59,6 +64,18 @@ function CustomerProfileTab() {
     () => reservations.filter((reservation) => reservation.status !== 'cancelled').length,
     [reservations],
   )
+
+  async function handleDeleteAccount() {
+    setDeleteError('')
+    setDeleting(true)
+    try {
+      await deleteCustomerAccount(deleteConfirm.trim())
+      await logout()
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'No se pudo eliminar la cuenta.')
+      setDeleting(false)
+    }
+  }
 
   if (!profile || loading) {
     return <div className={styles.loading}>Cargando perfil…</div>
@@ -300,6 +317,62 @@ function CustomerProfileTab() {
             Cerrar sesión
           </button>
         </div>
+
+        <section className={styles.deleteSection} aria-labelledby="delete-account-title">
+          <h2 id="delete-account-title">Eliminar cuenta</h2>
+          <p>
+            Borra tu perfil, Compite, amigos y datos de cuenta. Las reservas pasadas se anonimizan
+            para el restaurante. Esta acción no se puede deshacer.
+          </p>
+          {!deleteOpen ? (
+            <button
+              type="button"
+              className={styles.deleteOpenBtn}
+              onClick={() => {
+                setDeleteOpen(true)
+                setDeleteError('')
+              }}
+            >
+              Quiero eliminar mi cuenta
+            </button>
+          ) : (
+            <div className={styles.deletePanel}>
+              <label htmlFor="delete-confirm">
+                Escribe <strong>ELIMINAR</strong> para confirmar
+              </label>
+              <input
+                id="delete-confirm"
+                value={deleteConfirm}
+                onChange={(event) => setDeleteConfirm(event.target.value)}
+                autoComplete="off"
+                disabled={deleting}
+              />
+              {deleteError ? <p className={styles.deleteError} role="alert">{deleteError}</p> : null}
+              <div className={styles.deleteActions}>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  disabled={deleting}
+                  onClick={() => {
+                    setDeleteOpen(false)
+                    setDeleteConfirm('')
+                    setDeleteError('')
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className={styles.deleteConfirmBtn}
+                  disabled={deleting || deleteConfirm.trim().toUpperCase() !== 'ELIMINAR'}
+                  onClick={() => void handleDeleteAccount()}
+                >
+                  {deleting ? 'Eliminando…' : 'Eliminar definitivamente'}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   )

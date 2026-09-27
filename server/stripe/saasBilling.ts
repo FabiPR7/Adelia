@@ -138,13 +138,8 @@ export async function readPublicSaasCheckoutSession(sessionId: string): Promise<
   const spec = planId ? SAAS_CHECKOUT_PLANS[planId] : null
   const paid = session.payment_status === 'paid' || session.status === 'complete'
 
-  if (paid) {
-    // Esto es un GET (página de "pago correcto"). Aprovisionamos plan/empresa de
-    // forma idempotente para que el panel funcione aunque el webhook llegue con
-    // retraso, pero NO enviamos el correo de factura: ese efecto secundario vive
-    // solo en el webhook (`checkout.session.completed`).
-    await upsertSaasSubscriptionFromCheckout(session, { sendReceipt: false })
-  }
+  // Solo lectura: el aprovisionamiento de plan/empresa vive en el webhook.
+  // Un GET no debe escribir en Firestore (auditoría / abuso de refresh).
 
   const amount = session.amount_total
   const amountLabel =

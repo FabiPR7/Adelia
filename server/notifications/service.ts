@@ -182,6 +182,7 @@ export async function cancelNotificationJobsForReservation(
   const snapshot = await adminDb.collection(JOBS_COLLECTION)
     .where('reservationId', '==', reservationId)
     .where('status', '==', 'pending')
+    .limit(40)
     .get()
 
   if (snapshot.empty) {

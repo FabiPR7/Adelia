@@ -16,11 +16,13 @@ import {
   notifyReservationConfirmed,
   notifyReservationReceived,
 } from '../server/notifications/reservationEvents.ts'
+import { resendApiKey } from './secrets.ts'
 
 const triggerOptions = {
   document: 'reservations/{reservationId}',
   database: 'adelia',
   region: 'europe-southwest1',
+  secrets: [resendApiKey],
 } as const
 
 function resolveResendApiKey(): string | undefined {

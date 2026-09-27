@@ -16,6 +16,47 @@
   padding-right: 2.75rem; /* deja sitio a la campana de notificaciones */
 }
 
+.tourTypes {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0 0.85rem;
+}
+
+.tourTypeCard {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: start;
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  background: rgba(255, 252, 247, 0.96);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  box-shadow: 0 8px 20px var(--color-shadow);
+}
+
+.tourTypeIcon {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-accent-wash);
+  font-size: 1rem;
+}
+
+.tourTypeCard strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--color-text);
+}
+
+.tourTypeCard p {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
 /* Modo Descubrir: la baraja ocupa todo el alto disponible bajo los selectores. */
 .pageSwipe {
   display: flex;

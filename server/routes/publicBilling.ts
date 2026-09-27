@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express'
 import { InputError, asTrimmed } from '../security/validate.ts'
 import { readPublicSaasCheckoutSession, saasBillingStatus } from '../stripe/saasBilling.ts'
 import { completeFreeCompanySignup } from '../data/createCompanyFromCheckout.ts'
+import { requireRecaptcha } from '../security/recaptcha.ts'
 
 function asCheckoutSessionId(value: unknown): string {
   const id = asTrimmed(value, 200, 'La sesión de pago')
@@ -72,6 +73,7 @@ router.post('/complete-signup', (_req: Request, res: Response) => {
 
 router.post('/complete-free-signup', async (req: Request, res: Response) => {
   try {
+    await requireRecaptcha(req.body?.recaptchaToken, 'company_signup', 0.6)
     const body = req.body as Record<string, unknown>
     const result = await completeFreeCompanySignup({
       ...signupProfileFromBody(body),
@@ -83,9 +85,9 @@ router.post('/complete-free-signup', async (req: Request, res: Response) => {
       res.status(400).json({ error: error.message })
       return
     }
-    console.error('Free company signup error:', error)
     const message = error instanceof Error ? error.message : 'No se pudo crear la empresa.'
-    res.status(500).json({ error: message })
+    console.error('Free company signup error:', error)
+    res.status(message.includes('robot') ? 400 : 500).json({ error: message })
   }
 })
 

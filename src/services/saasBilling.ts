@@ -70,6 +70,7 @@ type CompanySignupInput = {
   characteristics: string[]
   venueTypes: string[]
   amenities: string[]
+  recaptchaToken?: string
 }
 
 export async function completePaidCompanySignup(input: CompanySignupInput & {

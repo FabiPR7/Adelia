@@ -298,9 +298,10 @@ router.get('/', async (_req: Request, res: Response) => {
     const companyIds = [...new Set(
       activeSnap.docs.map((docSnap) => docSnap.ref.parent.parent?.id).filter(Boolean),
     )] as string[]
-    const companySnaps = await Promise.all(
-      companyIds.map((companyId) => adminDb.collection('companies').doc(companyId).get()),
-    )
+    const companyRefs = companyIds.map((companyId) => adminDb.collection('companies').doc(companyId))
+    const companySnaps = companyRefs.length > 0
+      ? await adminDb.getAll(...companyRefs)
+      : []
     const companiesById = new Map(companySnaps.filter((snap) => snap.exists).map((snap) => [snap.id, snap]))
 
     const promotions = activeSnap.docs.flatMap((promotionDoc) => {

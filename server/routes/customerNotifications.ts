@@ -2,7 +2,6 @@ import { Router, type Request, type Response } from 'express'
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import { getUserRoleWithRest, verifyIdTokenWithRest } from '../rest-firebase.ts'
-import { processDueNotificationJobs } from '../notifications/service.ts'
 import { notifyGamificationChanges } from '../notifications/gamificationEvents.ts'
 
 const router = Router()
@@ -64,8 +63,6 @@ router.get('/', async (req: Request, res: Response) => {
       res.status(401).json({ error: 'Debes iniciar sesión como cliente.' })
       return
     }
-
-    await processDueNotificationJobs()
 
     const limit = Math.min(Number(req.query.limit) || 40, 100)
     const snapshot = await adminDb.collection('users').doc(uid)

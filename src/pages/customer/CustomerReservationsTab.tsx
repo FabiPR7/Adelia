@@ -9,6 +9,7 @@ import PromoVisitCompleteModal from '../../components/promotions/PromoVisitCompl
 import { canCustomerVerifyMinimumSpend } from '../../utils/minimumSpendVerification'
 import { pendingTokenSpendForCompany, REVIEW_BOOST_ITEM_ID, inventoryQuantity } from '../../data/inventoryItems'
 import { useAuth } from '../../context/AuthContext'
+import { useCustomerProductTourOptional } from '../../context/CustomerProductTourContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import { useReservationChallengeContext } from '../../context/ReservationChallengeContext'
 import { getPublicCompanyMenuNodes } from '../../services/companyMenu'
@@ -117,6 +118,7 @@ function splitPlanItems(owned: Reservation[], accepted: ReservationInvite[]) {
 
 function CustomerReservationsTab() {
   const { user, profile, refreshProfile, patchProfileGamification } = useAuth()
+  const productTour = useCustomerProductTourOptional()
   const {
     refreshGamificationData,
     state: gamificationState,
@@ -158,6 +160,18 @@ function CustomerReservationsTab() {
   const [walkInMenuNodes, setWalkInMenuNodes] = useState<MenuNode[]>([])
   const [walkInMenuLoading, setWalkInMenuLoading] = useState(false)
   const resolvedChallengeRef = useRef('')
+
+  useEffect(() => {
+    if (productTour?.stepId === 'reservas-tabs') {
+      setSection('reservations')
+      setPickerOpen(false)
+      return
+    }
+    if (productTour?.stepId === 'reservas-consumo') {
+      setSection('consumption')
+      setPickerOpen(true)
+    }
+  }, [productTour?.stepId])
 
   const loadCustomerReviews = useCallback(async (
     reservationRows: Reservation[],
@@ -546,7 +560,7 @@ function CustomerReservationsTab() {
         </div>
       </header>
 
-      <div className={styles.tabs} role="tablist" aria-label="Reservas o consumo">
+      <div className={styles.tabs} role="tablist" aria-label="Reservas o consumo" data-tour="tour-reservas-tabs">
         <button
           type="button"
           role="tab"
@@ -701,7 +715,11 @@ function CustomerReservationsTab() {
       )}
         </>
       ) : (
-        <section className={styles.consumptionSection} aria-label="Consumo verificado">
+        <section
+          className={styles.consumptionSection}
+          aria-label="Consumo verificado"
+          data-tour="tour-reservas-consumo"
+        >
           <div className={styles.registerBar}>
             <div>
               <h2>Historial verificado</h2>

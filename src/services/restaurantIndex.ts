@@ -1,8 +1,7 @@
-import { doc, getDoc, getDocs, collection, limit, query, setDoc, serverTimestamp, where } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import { companyFacilitySearchTerms, parseCompanyProfileFacilities, sanitizeCompanyPriceRange, sanitizeCompanyVenueTypes, type CompanyPriceRange } from '../data/companyProfileFacilities'
-import { DISCOVERY_INDEX_LIMIT } from './firestoreQuery'
 import { parseCompanyReservationMode } from '../data/companyReservationMode'
 
 export function restaurantIndexPayload(company: {
@@ -135,24 +134,9 @@ export async function syncRestaurantIndexFromCompany(
 }
 
 export async function fetchRestaurantIndex(): Promise<PublicDiscoveryRestaurant[]> {
-  try {
-    const indexed = collection(db, 'restaurantIndex')
-    const snapshot = await getDocs(
-      query(indexed, where('hasProfile', '==', true), limit(DISCOVERY_INDEX_LIMIT)),
-    ).catch(() => getDocs(query(indexed, limit(DISCOVERY_INDEX_LIMIT))))
-
-    return snapshot.docs
-      .map((item) => mapIndexDoc(item.id, item.data() as Record<string, unknown>))
-      .filter((item): item is PublicDiscoveryRestaurant => item !== null)
-      .sort((left, right) => {
-        if (left.discoveryFeatured !== right.discoveryFeatured) {
-          return left.discoveryFeatured ? -1 : 1
-        }
-        return left.name.localeCompare(right.name, 'es')
-      })
-  } catch {
-    return []
-  }
+  // El listado público va por /api/public/discovery (Admin SDK + rate limit).
+  // Aquí no se hace list client-side: las reglas de Firestore ya no lo permiten.
+  return []
 }
 
 export async function fetchRestaurantIndexByIds(ids: string[]): Promise<PublicDiscoveryRestaurant[]> {

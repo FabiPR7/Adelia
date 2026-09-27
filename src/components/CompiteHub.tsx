@@ -71,7 +71,7 @@ function CompiteHub({
   }, [zone, userRankAmongFriends, countryRank, worldRank])
 
   return (
-    <div className={styles.hub}>
+    <div className={styles.hub} data-tour="tour-misiones-compite">
       {!friendProfileActive && (
         <div className={styles.zoneTabs} role="tablist" aria-label="Zonas de Compite">
           <button

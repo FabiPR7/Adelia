@@ -1,4 +1,3 @@
-export const DISCOVERY_INDEX_LIMIT = 250
 export const ADMIN_LIST_PAGE_SIZE = 80
 export const ADMIN_EVENTS_PAGE_SIZE = 80
 export const ADMIN_REVIEWS_PAGE_SIZE = 50

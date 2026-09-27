@@ -1,6 +1,7 @@
 /**
- * Cloud Functions para gestión segura de reservas con transacciones atómicas
- * Previene race conditions y overbooking
+ * LEGACY / NO EXPORTADO en functions/src/index.ts.
+ * Las reservas viven en Express (`server/routes/public.ts`).
+ * Se mantiene endurecido por si se vuelve a cablear por error.
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
@@ -113,6 +114,7 @@ export const createReservation = onCall(
           .where('date', '==', data.dateIso)
           .where('time', '==', data.time)
           .where('status', 'in', ['pending', 'confirmed'])
+          .limit(200)
 
         const existingReservationsSnap = await transaction.get(reservationsQuery)
 
@@ -163,6 +165,7 @@ export const createReservation = onCall(
             .where('date', '==', data.dateIso)
             .where('time', '==', data.time)
             .where('status', 'in', ['pending', 'confirmed'])
+            .limit(50)
 
           const tableReservationsSnap = await transaction.get(tableReservationsQuery)
 
@@ -271,6 +274,10 @@ export const cancelReservation = onCall(
     // 🛡️ RATE LIMITING
     await checkRateLimit(request, 'cancelReservation', RATE_LIMIT_CONFIGS.cancelReservation)
 
+    if (!request.auth?.uid) {
+      throw new HttpsError('unauthenticated', 'Debes iniciar sesión.')
+    }
+
     const db = adminDb
     const { reservationId, reason } = request.data as {
       reservationId: string
@@ -292,18 +299,15 @@ export const cancelReservation = onCall(
 
         const reservation = reservationSnap.data()!
 
-        // Verificar permisos
-        if (request.auth) {
-          const isCustomer = reservation.customerUid === request.auth.uid
-          const userRef = db.collection('users').doc(request.auth.uid)
-          const userSnap = await transaction.get(userRef)
-          const isAdmin = userSnap.exists && userSnap.data()?.role === 'admin'
-          const isCompanyOwner =
-            userSnap.exists && userSnap.data()?.companyId === reservation.companyId
+        const isCustomer = reservation.customerUid === request.auth!.uid
+        const userRef = db.collection('users').doc(request.auth!.uid)
+        const userSnap = await transaction.get(userRef)
+        const isAdmin = userSnap.exists && userSnap.data()?.role === 'admin'
+        const isCompanyOwner =
+          userSnap.exists && userSnap.data()?.companyId === reservation.companyId
 
-          if (!isCustomer && !isAdmin && !isCompanyOwner) {
-            throw new HttpsError('permission-denied', 'No tienes permiso para cancelar esta reserva')
-          }
+        if (!isCustomer && !isAdmin && !isCompanyOwner) {
+          throw new HttpsError('permission-denied', 'No tienes permiso para cancelar esta reserva')
         }
 
         // Actualizar estado
@@ -381,6 +385,7 @@ export const checkReservationAvailability = onCall(
           .where('date', '==', dateIso)
           .where('time', '==', time)
           .where('status', 'in', ['pending', 'confirmed'])
+          .limit(200)
           .get()
 
         const currentReservations = reservationsSnap.size
@@ -407,6 +412,7 @@ export const checkReservationAvailability = onCall(
         .where('companyId', '==', companyId)
         .where('date', '==', dateIso)
         .where('status', 'in', ['pending', 'confirmed'])
+        .limit(200)
         .get()
 
       const slotMap = new Map<string, { count: number; capacity: number }>()

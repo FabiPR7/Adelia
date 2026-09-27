@@ -282,7 +282,7 @@ function CustomerExploreTab() {
 
         {!loading && !error && filteredRestaurants.length > 0 && (
           <>
-            <section className={styles.carouselSection}>
+            <section className={styles.carouselSection} data-tour="tour-carousel">
               <div className={styles.carouselHeader}>
                 <h2>{nearbyActive ? 'Cerca de ti' : 'Para ti hoy'}</h2>
                 <DiscoveryVenueKindFilter value={venueKind} onChange={setVenueKind} compact />

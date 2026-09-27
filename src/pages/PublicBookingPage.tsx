@@ -7,6 +7,7 @@ import ReservationDepositPayment, {
   type ReservationDepositPaymentHandle,
 } from '../components/booking/ReservationDepositPayment'
 import { useAuth } from '../context/AuthContext'
+import { useCustomerProductTourOptional } from '../context/CustomerProductTourContext'
 import { useCustomerGamificationContext } from '../context/CustomerGamificationContext'
 import { useCustomerFriends } from '../hooks/useCustomerFriends'
 import { createPublicDepositIntent, type PublicDepositIntentResponse } from '../services/publicDepositApi'
@@ -84,6 +85,7 @@ function PublicBookingPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, profile, isLoading: authLoading, refreshProfile, patchProfileGamification } = useAuth()
+  const productTour = useCustomerProductTourOptional()
   const { refreshGamificationData } = useCustomerGamificationContext()
   const isLoggedCustomer = profile?.role === 'customer'
   const { friends, loading: friendsLoading } = useCustomerFriends(
@@ -777,10 +779,15 @@ function PublicBookingPage() {
   const fromPromotions =
     (location.state as { from?: string } | null)?.from === 'promociones'
     || searchParams.get('from') === 'promociones'
-  const landingBackHref =
-    profile?.role === 'customer' && fromPromotions ? '/app/promociones' : '/'
+  const landingBackHref = productTour?.active
+    ? '/app/explorar'
+    : profile?.role === 'customer' && fromPromotions
+      ? '/app/promociones'
+      : profile?.role === 'customer'
+        ? '/app/explorar'
+        : '/'
   const landingBackLabel =
-    profile?.role === 'customer' && fromPromotions ? '← Volver' : '← Menú principal'
+    productTour?.active || profile?.role === 'customer' ? '← Volver' : '← Menú principal'
 
   if (pageView === 'landing') {
     return (

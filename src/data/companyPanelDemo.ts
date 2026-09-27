@@ -126,6 +126,7 @@ export function getDemoProfile(): AppUser {
     homeLongitude: -3.7011,
     foodPreferences: [],
     onboardingCompleted: true,
+    productTourCompleted: true,
     authProvider: 'password',
     blocked: false,
   }

@@ -31,6 +31,7 @@ export function DemoCompanyAuthProvider({ children }: { children: ReactNode }) {
       refreshCompany: async () => undefined,
       patchProfileGamification: () => undefined,
       patchProfileFavorites: () => undefined,
+      patchProfileProductTour: () => undefined,
     }),
     [],
   )

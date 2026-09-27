@@ -1,5 +1,6 @@
 import { onRequest } from 'firebase-functions/v2/https'
 import type { Express } from 'express'
+import { resendApiKey } from './secrets.ts'
 
 let cachedApp: Express | undefined
 
@@ -28,6 +29,7 @@ export const api = onRequest(
     minInstances: MIN_INSTANCES,
     maxInstances: 200,
     concurrency: 20,
+    secrets: [resendApiKey],
   },
   async (req, res) => {
     const app = await getApp()

@@ -14,7 +14,6 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { defaultMenuTemplate, normalizeMenuBackgroundImageOpacity } from '../data/menuTemplates'
-import { clampPublicMenuBoardForPlan, planMaxCount, parsePlanId } from '../data/companyPlanLimits'
 import { db } from '../config/firebase'
 import { COMPANY_MENU_BOARD_LIMIT } from './firestoreQuery'
 import { normalizeMenuCategoryAvailability } from '../utils/menuCategoryAvailability'
@@ -145,36 +144,23 @@ export async function getCompanyMenuBoards(companyId: string): Promise<MenuBoard
 
 export async function getPublicCompanyMenuBoards(
   companyId: string,
-  knownPlanId?: string,
+  _knownPlanId?: string,
 ): Promise<MenuBoard[]> {
-  const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
-  const boardsQuery = query(boardsRef, where('active', '==', true), limit(COMPANY_MENU_BOARD_LIMIT))
-  // El doc de empresa no es de lectura pública. La API pública nos pasa el plan;
-  // si no, lo intentamos leer y, si las reglas lo niegan, seguimos sin recortar
-  // por plan (mejor mostrar de más que romper la carta).
-  const [snapshot, planIdFromDoc] = await Promise.all([
-    getDocs(boardsQuery),
-    knownPlanId
-      ? Promise.resolve<string | undefined>(undefined)
-      : getDoc(doc(db, 'companies', companyId))
-          .then((snap) => (snap.data()?.planId as string | undefined))
-          .catch(() => undefined),
-  ])
-
-  const resolvedPlanId = knownPlanId ?? planIdFromDoc
-  const boards = snapshot.docs
-    .map((boardDoc) => mapBoard(boardDoc.id, companyId, boardDoc.data() as Record<string, unknown>))
-    .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
-
-  if (!resolvedPlanId) {
-    return boards
+  if (isDemoCompanyId(companyId)) {
+    return getDemoMenuBoards().filter((board) => board.active)
   }
 
-  const planId = parsePlanId(resolvedPlanId)
-  const maxMenus = planMaxCount(planId, 'menus')
-  const clamped = boards.map((board) => clampPublicMenuBoardForPlan(board, planId))
-
-  return maxMenus == null ? clamped : clamped.slice(0, maxMenus)
+  const API_BASE = import.meta.env.VITE_API_URL ?? ''
+  const response = await fetch(`${API_BASE}/api/public/menus/${encodeURIComponent(companyId)}`)
+  if (!response.ok) {
+    throw new Error('No se pudo cargar la carta.')
+  }
+  const payload = await response.json() as { boards?: unknown }
+  const rawBoards = Array.isArray(payload.boards) ? payload.boards : []
+  return rawBoards
+    .filter((item): item is Record<string, unknown> => item != null && typeof item === 'object')
+    .map((item) => mapBoard(String(item.id ?? ''), companyId, item))
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
 }
 
 export async function getCompanyMenuNodes(companyId: string, boardId?: string): Promise<MenuNode[]> {
@@ -196,18 +182,21 @@ export async function getCompanyMenuNodes(companyId: string, boardId?: string): 
 }
 
 export async function getPublicCompanyMenuNodes(companyId: string, boardId?: string): Promise<MenuNode[]> {
-  const nodesRef = collection(db, 'companies', companyId, 'menuNodes')
-  const nodesQuery = boardId
-    ? query(nodesRef, where('active', '==', true), where('boardId', '==', boardId))
-    : query(nodesRef, where('active', '==', true), limit(200))
-  const snapshot = await getDocs(nodesQuery).catch(() => getDocs(
-    boardId
-      ? query(nodesRef, where('boardId', '==', boardId), limit(200))
-      : query(nodesRef, limit(200)),
-  ))
+  if (isDemoCompanyId(companyId)) {
+    return getDemoMenuNodes(boardId).filter((node) => node.active)
+  }
 
-  return snapshot.docs
-    .map((nodeDoc) => mapNode(nodeDoc.id, companyId, nodeDoc.data() as Record<string, unknown>))
+  const API_BASE = import.meta.env.VITE_API_URL ?? ''
+  const qs = boardId ? `?boardId=${encodeURIComponent(boardId)}` : ''
+  const response = await fetch(`${API_BASE}/api/public/menus/${encodeURIComponent(companyId)}${qs}`)
+  if (!response.ok) {
+    throw new Error('No se pudo cargar la carta.')
+  }
+  const payload = await response.json() as { nodes?: unknown }
+  const rawNodes = Array.isArray(payload.nodes) ? payload.nodes : []
+  return rawNodes
+    .filter((item): item is Record<string, unknown> => item != null && typeof item === 'object')
+    .map((item) => mapNode(String(item.id ?? ''), companyId, item))
     .filter((node) => (boardId ? node.boardId === boardId : true))
     .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
 }

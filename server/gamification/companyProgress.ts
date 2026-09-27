@@ -83,6 +83,8 @@ function getMonthKey(date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 
+export { getMonthKey }
+
 function hashKey(key: string): number {
   return key.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
 }
