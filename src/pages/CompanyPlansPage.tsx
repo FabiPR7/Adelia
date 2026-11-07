@@ -209,7 +209,7 @@ function CompanyPlansPage() {
                 {paid ? (
                   <p className={styles.ctaHint}>
                     {plan.trialLabel ? `${plan.trialLabel}. ` : ''}
-                    En el pago eliges Sala o Local y mensual o anual. Tarjeta, Apple Pay o Google Pay.
+                    En el pago eliges Sala o Local y mensual o anual. Cobra Lemon Squeezy, con los métodos que muestra al pagar.
                   </p>
                 ) : (
                   <p className={styles.ctaHint}>
@@ -273,8 +273,8 @@ function CompanyPlansPage() {
             El plan mensual se gestiona en Lemon Squeezy, no en la cuenta del restaurante.
           </li>
           <li>
-            <strong>Tarjeta, Apple Pay y Google Pay</strong>
-            Lemon Squeezy admite tarjeta y los monederos del móvil.
+            <strong>Métodos de pago</strong>
+            Lemon Squeezy muestra los disponibles al pagar y emite la factura.
           </li>
           <li>
             <strong>Fianzas aparte</strong>

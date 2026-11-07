@@ -75,7 +75,7 @@ function UserRegisterPage() {
     }
 
     if (!acceptedLegal) {
-      setError('Debes aceptar el aviso legal, la privacidad y los términos para continuar.')
+      setError('Debes aceptar el aviso legal y los términos para continuar.')
       return
     }
 
@@ -121,7 +121,7 @@ function UserRegisterPage() {
     }
 
     if (!acceptedLegal) {
-      setError('Debes aceptar el aviso legal, la privacidad y los términos para continuar.')
+      setError('Debes aceptar el aviso legal y los términos para continuar.')
       return
     }
 
@@ -262,11 +262,12 @@ function UserRegisterPage() {
               onChange={(event) => setAcceptedLegal(event.target.checked)}
             />
             <span>
-              He leído y acepto el{' '}
-              <Link to="/legal/aviso-legal?from=/cuenta/registro">aviso legal</Link>, la{' '}
-              <Link to="/legal/privacidad?from=/cuenta/registro">política de privacidad</Link>
-              {' '}y los{' '}
-              <Link to="/legal/terminos?from=/cuenta/registro">términos de uso</Link>.
+              Tengo 14 años o más y acepto el{' '}
+              <Link to="/legal/aviso-legal?from=/cuenta/registro">aviso legal</Link> y los{' '}
+              <Link to="/legal/terminos?from=/cuenta/registro">términos de uso</Link>. He leído la{' '}
+              <Link to="/legal/privacidad?from=/cuenta/registro">política de privacidad</Link>: tus
+              datos se usan para gestionar tu cuenta y tus reservas, tu nombre es visible en reseñas
+              y ranking, y puedes ejercer tus derechos en cualquier momento.
             </span>
           </label>
 

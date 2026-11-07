@@ -1,3 +1,4 @@
+import RankingNotice from '../../components/RankingNotice'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DiscoverySearchBar from '../../components/DiscoverySearchBar'
@@ -279,6 +280,8 @@ function CustomerExploreTab() {
                 : 'No encontramos restaurantes con esa búsqueda. Prueba otra ciudad o quita filtros.'}
           </div>
         )}
+
+        {!loading && !error && filteredRestaurants.length > 0 && <RankingNotice />}
 
         {!loading && !error && filteredRestaurants.length > 0 && (
           <>

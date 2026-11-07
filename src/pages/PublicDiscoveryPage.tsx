@@ -1,3 +1,4 @@
+import RankingNotice from '../components/RankingNotice'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import CityAutocomplete from '../components/CityAutocomplete'
@@ -378,6 +379,8 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
               : 'No encontramos restaurantes con esa búsqueda. Prueba otra ciudad, quita filtros o explora todos.'}
           </div>
         )}
+
+        {!loading && !error && filteredRestaurants.length > 0 && <RankingNotice />}
 
         {!loading && !error && filteredRestaurants.length > 0 && (
           <>

@@ -12,7 +12,7 @@ Plataforma completa de gestión de restaurantes con sistema de reservas, gamific
 - 📊 **Dashboard Administrativo** con KPIs y analytics en tiempo real
 - 📅 **Sistema de Reservas** con prevención de overbooking (transacciones atómicas)
 - 🎮 **Gamificación** para fidelizar clientes
-- 💳 **Integración con Stripe** para pagos
+- 💳 **Planes con Lemon Squeezy** y fianzas de reserva con Stripe Connect
 - 📱 **Gestión de Menús** con importación/exportación Excel
 - 📍 **Geolocalización** con mapas interactivos
 - 📧 **Sistema de Notificaciones** email/push
@@ -36,7 +36,6 @@ Prácticas de seguridad aplicadas (revisadas internamente, sin auditoría extern
 - ✅ **reCAPTCHA v3** anti-bot protection
 - ✅ **Rate Limiting** + Account Lockout (5 intentos = 15 min)
 - ✅ **Transacciones Atómicas** previene race conditions
-- ✅ **Security Logging** audit trail completo
 - ✅ **SSRF Protection** validación de URLs
 - ✅ **Input Sanitization** en todos los inputs
 - ✅ **Error Handling** no verbose (no information disclosure)
@@ -51,7 +50,7 @@ Prácticas de seguridad aplicadas (revisadas internamente, sin auditoría extern
 ## 🚀 Tech Stack
 
 ### Frontend
-- **React 18** + TypeScript
+- **React 19** + TypeScript
 - **Vite** para build ultrarrápido
 - **Firebase Auth** para autenticación
 - **Firestore** como base de datos
@@ -62,7 +61,8 @@ Prácticas de seguridad aplicadas (revisadas internamente, sin auditoría extern
 ### Backend
 - **Firebase Cloud Functions** (Node.js)
 - **Firebase Admin SDK** para operaciones privilegiadas
-- **Stripe API** para pagos
+- **Express** como API, desplegada como Cloud Function
+- **Lemon Squeezy** para los planes y **Stripe Connect** para las fianzas
 - **reCAPTCHA v3** para anti-bot
 - **Transacciones Atómicas** de Firestore
 
@@ -121,25 +121,18 @@ Ejecuta `npm run test:coverage` para ver el informe de cobertura actualizado.
 
 ```
 adelia/
-├── src/
-│   ├── components/         # React components
-│   ├── pages/              # Page components
-│   ├── services/           # API services
-│   │   ├── auth.ts         # Authentication
-│   │   ├── recaptcha.ts    # reCAPTCHA integration
-│   │   └── securityLogging.ts  # Security audit logs
-│   ├── utils/              # Utility functions
-│   │   ├── securityHelpers.ts  # Security utilities
-│   │   └── passwordValidation.ts
-│   ├── constants/          # Constants
-│   │   └── fileUpload.ts   # File upload security
-│   └── test/               # Test setup
-│       └── __tests__/      # Unit tests
-├── functions/              # Cloud Functions
+├── src/                    # Landing, app de clientes, panel de empresa y admin
+│   ├── components/
+│   ├── pages/
+│   ├── services/
+│   └── utils/
+├── server/                 # API Express
+│   ├── routes/
+│   ├── gamification/
+│   ├── lemonsqueezy/       # Planes de restaurante
+│   └── stripe/             # Fianzas (Connect)
+├── functions/              # Cloud Functions: API, triggers y tareas programadas
 │   └── src/
-│       ├── reservationManagement.ts  # Atomic reservations
-│       ├── recaptchaVerification.ts  # reCAPTCHA backend
-│       └── adminCompanyManagement.ts # Admin operations
 ├── .github/
 │   └── workflows/
 │       └── test.yml        # CI/CD pipeline
@@ -173,24 +166,20 @@ adelia/
 - ✅ Score thresholds configurables
 
 ### Operational Security
-- ✅ Security audit logs
 - ✅ Error handling no verbose
 - ✅ Random delays anti-timing attacks
 
 ---
 
-## 📈 Performance
-
-- ⚡ **First Contentful Paint**: < 1.5s
-- ⚡ **Time to Interactive**: < 3s
-- ⚡ **Lighthouse Score**: 95+
-- ⚡ **Bundle Size**: < 500KB gzipped
-
----
-
 ## 🚀 Deployment
 
+Publica hosting, API y reglas a la vez: dependen entre sí. Si cambian las misiones
+o los niveles, ejecuta antes `npm run seed-game-catalog`.
+
 ```bash
+# Comprobar tipos de frontend y servidor
+npm run typecheck
+
 # Build for production
 npm run build
 
@@ -224,14 +213,7 @@ npm run deploy:rules
 El diseño busca alinearse con OWASP Top 10 y con los principios de GDPR
 (minimización de datos, trazabilidad de accesos). **No hay ninguna certificación
 externa (SOC 2, ISO 27001, PCI DSS) obtenida**; los pagos con tarjeta se delegan
-en Stripe (elegibilidad SAQ-A), por lo que la aplicación no almacena datos de
-tarjeta.
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](./LICENSE) for details
+en Lemon Squeezy y Stripe, por lo que la aplicación no almacena datos de tarjeta.
 
 ---
 
@@ -244,9 +226,7 @@ MIT License - see [LICENSE](./LICENSE) for details
 
 ## 🔗 Links
 
-- **Demo**: https://adelia.web.app
-- **Docs**: https://docs.adelia.app
-- **Status**: https://status.adelia.app
+- **Web**: https://adeliareservas.com
 
 ---
 

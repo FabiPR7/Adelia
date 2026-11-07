@@ -478,40 +478,6 @@
   object-fit: cover;
 }
 
-.floatingCard {
-  position: absolute;
-  bottom: 1rem;
-  left: 1rem;
-  padding: 0.85rem 1rem;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 12px 32px rgba(35, 28, 22, 0.15);
-}
-
-.floatingLabel {
-  display: block;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-brown-light);
-}
-
-.floatingCard strong {
-  display: block;
-  margin-top: 0.15rem;
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  color: #2f855a;
-  line-height: 1.1;
-}
-
-.floatingCard small {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-}
-
 /* ── Promo showcase ── */
 
 .promoShowcase {
@@ -804,123 +770,6 @@
   left: 0;
   color: #2f855a;
   font-weight: 800;
-}
-
-/* ── Quotes ── */
-
-.quotesSection {
-  padding: 2.5rem 0 2.75rem;
-  background:
-    radial-gradient(circle at 10% 20%, rgba(255, 107, 74, 0.12), transparent 35%),
-    radial-gradient(circle at 90% 80%, rgba(143, 102, 120, 0.15), transparent 40%),
-    linear-gradient(180deg, #fff9f2 0%, #f3ebe1 100%);
-  overflow: hidden;
-}
-
-.quotesHead {
-  max-width: var(--landing-shell);
-  margin: 0 auto 2rem;
-  padding: 0 var(--landing-shell-pad);
-  text-align: center;
-}
-
-.quotesHead h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.65rem, 4vw, 2.2rem);
-}
-
-.quotesHead p {
-  margin: 0.45rem 0 0;
-  font-size: 0.92rem;
-  color: var(--color-text-muted);
-}
-
-.quotesMarquee {
-  overflow: hidden;
-}
-
-.quoteTrack {
-  display: flex;
-  gap: 0.85rem;
-  width: max-content;
-  animation: marquee 110s linear infinite;
-}
-
-.quoteTrack:hover {
-  animation-play-state: paused;
-}
-
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-.quoteCard {
-  flex: 0 0 min(340px, 88vw);
-  margin: 0;
-  padding: 1.15rem 1.2rem;
-  border-radius: 20px;
-  background: #fff;
-  border: 1px solid rgba(107, 83, 68, 0.08);
-  box-shadow: 0 14px 36px rgba(35, 28, 22, 0.08);
-  color: var(--color-brown);
-}
-
-.quoteStars {
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  color: #e8b44a;
-  margin-bottom: 0.45rem;
-}
-
-.quoteCard p {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.5;
-  color: var(--color-text-muted);
-}
-
-.quoteCard footer {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin-top: 0.85rem;
-}
-
-.quoteAvatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #6f4f62, #8f6678);
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.quoteCard footer div {
-  display: flex;
-  flex-direction: column;
-  gap: 0.08rem;
-  min-width: 0;
-}
-
-.quoteCard strong {
-  font-size: 0.82rem;
-  color: var(--color-brown);
-}
-
-.quoteCard footer div > span {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
 }
 
 /* ── Final CTA ── */
@@ -1234,16 +1083,6 @@
     font-size: 0.95rem;
   }
 
-  .floatingCard {
-    bottom: 1.5rem;
-    left: 1.5rem;
-    padding: 1rem 1.2rem;
-  }
-
-  .floatingCard strong {
-    font-size: 1.75rem;
-  }
-
   .promoShowcase {
     padding: 3rem 0 4rem;
   }
@@ -1346,33 +1185,6 @@
     font-size: 0.98rem;
   }
 
-  .quotesSection {
-    padding: 3.5rem 0 3.75rem;
-  }
-
-  .quotesHead h2 {
-    font-size: clamp(2rem, 3vw, 2.75rem);
-  }
-
-  .quotesHead p {
-    font-size: 1rem;
-  }
-
-  .quoteCard {
-    flex: 0 0 380px;
-    padding: 1.35rem 1.4rem;
-  }
-
-  .quoteCard p {
-    font-size: 0.95rem;
-  }
-
-  .quoteAvatar {
-    width: 44px;
-    height: 44px;
-    font-size: 0.78rem;
-  }
-
   .cta {
     padding: 3rem 3.5rem;
   }
@@ -1396,18 +1208,6 @@
 
   .managedGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .quoteTrack {
-    animation: none;
-    flex-wrap: wrap;
-    width: auto;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1rem;
-    justify-content: center;
   }
 }
 

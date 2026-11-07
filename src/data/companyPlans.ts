@@ -851,7 +851,7 @@ export function companyPlanChangeBillingCopy(
   if (preview.kind === 'upgrade_now') {
     return {
       title: `Pasar a ${preview.toPlan.name}`,
-      charge: `Hoy Stripe cobra la diferencia (${preview.monthlyDelta} €), ajustada a los días que quedan de este mes. Las ventajas de ${preview.toPlan.name} se activan al instante.`,
+      charge: `Hoy se cobra la diferencia (${preview.monthlyDelta} €), ajustada a los días que quedan de este mes. Las ventajas de ${preview.toPlan.name} se activan al instante.`,
       next: `En la siguiente renovación pasarás a pagar ${preview.toPlan.priceMonthly} €/mes.`,
     }
   }

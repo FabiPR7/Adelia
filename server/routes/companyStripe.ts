@@ -5,6 +5,7 @@ import {
   createConnectDashboardLink,
   createConnectOnboardingLink,
   ensureConnectAccount,
+  isStripeAccountUnavailable,
   readCompanyStripeSnapshot,
   syncCompanyStripeStatus,
 } from '../stripe/connect.ts'
@@ -12,7 +13,7 @@ import { ensureCompanyOwner } from '../auth/verifyRequest.ts'
 
 const router = Router()
 
-router.get('/:companyId/stripe/status', async (req: Request, res: Response) => {
+router.get('/:companyId/stripe/status', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const { companyId } = req.params
 
@@ -28,7 +29,25 @@ router.get('/:companyId/stripe/status', async (req: Request, res: Response) => {
     let snapshot = await readCompanyStripeSnapshot(companyId)
 
     if (snapshot.stripeAccountId) {
-      snapshot = await syncCompanyStripeStatus(companyId, snapshot.stripeAccountId)
+      try {
+        snapshot = await syncCompanyStripeStatus(companyId, snapshot.stripeAccountId)
+      } catch (error) {
+        if (!isStripeAccountUnavailable(error)) {
+          throw error
+        }
+        // No se borra la cuenta guardada al consultar: una clave mal configurada
+        // desconectaría a todos los restaurantes. Se sustituye al volver a conectar.
+        res.json({
+          configured: true,
+          ...snapshot,
+          stripeChargesEnabled: false,
+          stripePayoutsEnabled: false,
+          stripeDetailsSubmitted: false,
+          readyForDeposits: false,
+          accountUnavailable: true,
+        })
+        return
+      }
     }
 
     res.json({
@@ -42,7 +61,7 @@ router.get('/:companyId/stripe/status', async (req: Request, res: Response) => {
   }
 })
 
-router.post('/:companyId/stripe/connect', async (req: Request, res: Response) => {
+router.post('/:companyId/stripe/connect', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const { companyId } = req.params
 
@@ -86,7 +105,7 @@ router.post('/:companyId/stripe/connect', async (req: Request, res: Response) =>
   }
 })
 
-router.post('/:companyId/stripe/dashboard', async (req: Request, res: Response) => {
+router.post('/:companyId/stripe/dashboard', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const { companyId } = req.params
 

@@ -2,8 +2,11 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
-import { getLemonSqueezyWebhookSecret } from '../lemonsqueezy/config.ts'
-import { syncCompanyFromLemonSubscription } from '../lemonsqueezy/syncCompany.ts'
+import { allowLemonSqueezyTestEvents, getLemonSqueezyWebhookSecret } from '../lemonsqueezy/config.ts'
+import {
+  syncCompanyFromLemonInvoice,
+  syncCompanyFromLemonSubscription,
+} from '../lemonsqueezy/syncCompany.ts'
 
 const EVENTS_COLLECTION = 'lemonSqueezyEvents'
 const EVENT_RETENTION_MS = 45 * 24 * 60 * 60 * 1000
@@ -16,6 +19,12 @@ const HANDLED_EVENTS = new Set([
   'subscription_paused',
   'subscription_cancelled',
   'subscription_expired',
+  'subscription_payment_success',
+  'subscription_payment_failed',
+  'subscription_payment_recovered',
+])
+
+const INVOICE_EVENTS = new Set([
   'subscription_payment_success',
   'subscription_payment_failed',
   'subscription_payment_recovered',
@@ -76,8 +85,8 @@ export async function handleLemonSqueezyWebhook(req: Request, res: Response): Pr
   }
 
   let payload: {
-    meta?: { event_name?: string }
-    data?: { id?: string; attributes?: { updated_at?: string } }
+    meta?: { event_name?: string; test_mode?: boolean }
+    data?: { id?: string; attributes?: { updated_at?: string; test_mode?: boolean } }
   }
   try {
     payload = JSON.parse(rawBody.toString('utf8'))
@@ -101,6 +110,13 @@ export async function handleLemonSqueezyWebhook(req: Request, res: Response): Pr
     return
   }
 
+  // Una compra de prueba no es un pago real: no puede activar planes.
+  const isTestEvent = payload.meta?.test_mode === true || payload.data?.attributes?.test_mode === true
+  if (isTestEvent && !allowLemonSqueezyTestEvents()) {
+    res.json({ received: true, ignored: true })
+    return
+  }
+
   const claim = await claimEvent(eventId, eventName)
   if (claim === 'unavailable') {
     res.status(503).send('No se pudo registrar el evento. Reintenta.')
@@ -112,7 +128,11 @@ export async function handleLemonSqueezyWebhook(req: Request, res: Response): Pr
   }
 
   try {
-    await syncCompanyFromLemonSubscription(payload.data)
+    if (INVOICE_EVENTS.has(eventName)) {
+      await syncCompanyFromLemonInvoice(payload.data, eventName)
+    } else {
+      await syncCompanyFromLemonSubscription(payload.data)
+    }
   } catch (error) {
     console.error('Lemon Squeezy webhook handler error:', error)
     await releaseEvent(eventId)

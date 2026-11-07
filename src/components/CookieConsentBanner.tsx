@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { enableFirebaseAnalytics } from '../config/firebase'
 import {
+  clearAnalyticsStorage,
   COOKIE_SETTINGS_EVENT,
   readCookieConsent,
   writeCookieConsent,
@@ -13,6 +14,7 @@ function applyAnalyticsConsent(enabled: boolean, previousAnalytics: boolean | nu
     void enableFirebaseAnalytics()
     return
   }
+  clearAnalyticsStorage()
   if (previousAnalytics === true) {
     window.location.reload()
   }
@@ -60,8 +62,9 @@ function CookieConsentBanner() {
         <p className={styles.eyebrow}>Cookies</p>
         <h2 id="cookie-consent-title">Tu privacidad en Adelia</h2>
         <p id="cookie-consent-text" className={styles.lead}>
-          Usamos cookies necesarias para que la web funcione (sesión y seguridad).
-          Las analíticas de Firebase solo se activan si tú lo aceptas.{' '}
+          Usamos cookies necesarias para que la web funcione (sesión y seguridad). Si aceptas, también
+          medimos el uso con Google Analytics y con estadísticas propias para mejorar Adelia y dar
+          informes agregados a los restaurantes. No hay publicidad de terceros.{' '}
           <Link to="/legal/cookies">Política de cookies</Link>
           {' · '}
           <Link to="/legal/privacidad">Privacidad</Link>
@@ -74,7 +77,7 @@ function CookieConsentBanner() {
               checked={analytics}
               onChange={(event) => setAnalytics(event.target.checked)}
             />
-            <span>Cookies analíticas (Firebase Analytics)</span>
+            <span>Analíticas: Google Analytics y estadísticas propias</span>
           </label>
         ) : null}
 

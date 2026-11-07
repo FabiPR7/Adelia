@@ -153,7 +153,9 @@ function CompanyPlan() {
       ? 'Sin renovación'
       : currentBilling === 'perpetual'
         ? 'Plan perpetuo · sin renovación mensual'
-        : 'Renovación mensual'
+        : currentBilling === 'annual'
+          ? 'Renovación anual'
+          : 'Renovación mensual'
 
   return (
     <div className={styles.page}>
@@ -161,7 +163,7 @@ function CompanyPlan() {
         <p className={styles.kicker}>Facturación</p>
         <h2>Plan de {company.name}</h2>
         <p className={styles.heroLead}>
-          Aquí ves el plan contratado y lo que incluye. El pago mensual de Sala y Local se gestiona
+          Aquí ves el plan contratado y lo que incluye. El pago de Sala y Local se gestiona
           en Lemon Squeezy.
         </p>
       </header>
@@ -315,8 +317,8 @@ function CompanyPlan() {
           <section className={styles.dangerZone} aria-label="Eliminar cuenta">
             <h3>Eliminar la cuenta</h3>
             <p>
-              Borra {company.name}, el acceso, las reservas y deja de cobrar. Esta acción no se puede
-              deshacer.
+              Borra {company.name}, el acceso, las reservas, los clientes y las reseñas, y cancela tu
+              suscripción. Esta acción no se puede deshacer.
             </p>
             <button
               type="button"
@@ -342,8 +344,9 @@ function CompanyPlan() {
               >
                 <h2 id="delete-plan-title">Eliminar {company.name}</h2>
                 <p>
-                  Se borrará el restaurante. Si tienes plan de pago, cancélalo antes en Lemon Squeezy.
-                  Escribe <strong>{company.name}</strong> para confirmar.
+                  Se borrará el restaurante. Si tienes plan de pago, lo cancelamos primero; si no
+                  pudiéramos, te avisamos y no se borra nada. Escribe{' '}
+                  <strong>{company.name}</strong> para confirmar.
                 </p>
                 <input
                   className={styles.deleteInput}

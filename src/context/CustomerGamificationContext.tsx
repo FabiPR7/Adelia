@@ -18,7 +18,7 @@ import { listPromotionClaims } from '../services/promotionClaims'
 import { fetchRestaurantIndexByIds } from '../services/restaurantIndex'
 import {
   acknowledgeCelebrations,
-  getCustomerReservations,
+  getCustomerReservationLists,
   recordPromotionClaim,
   recordTimeLimitedPromotionClaim,
   applyInventoryReservationToken,
@@ -60,7 +60,10 @@ import {
 interface CustomerGamificationContextValue extends CustomerGamificationView {
   previewLevelUpCelebration: () => void
   loading: boolean
+  /** Las que cuentan para misiones y XP. */
   reservations: Reservation[]
+  /** Las que se muestran en "Mis reservas". */
+  displayReservations: Reservation[]
   consumptions: CustomerVerifiedConsumption[]
   restaurants: PublicDiscoveryRestaurant[]
   verifiedReservationCounts: Record<string, number>
@@ -107,6 +110,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
   const inCustomerApp = pathname.startsWith('/app')
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [reservations, setReservations] = useState<Reservation[]>([])
+  const [displayReservations, setDisplayReservations] = useState<Reservation[]>([])
   const [consumptions, setConsumptions] = useState<CustomerVerifiedConsumption[]>([])
   const [promotionCompanyIds, setPromotionCompanyIds] = useState<Set<string>>(new Set())
   const [storedClaims, setStoredClaims] = useState<ClaimedPromotionRecord[]>([])
@@ -131,24 +135,27 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     }
 
     try {
-      const [reservationData, consumptionData, claims, publicPromotions] = await Promise.all([
-        getCustomerReservations(profile.email, user?.uid),
+      const [reservationLists, consumptionData, claims, publicPromotions] = await Promise.all([
+        getCustomerReservationLists(profile.email, user?.uid),
         fetchCustomerConsumptions().catch(() => [] as CustomerVerifiedConsumption[]),
         user?.uid ? listPromotionClaims(user.uid) : Promise.resolve([]),
         fetchPublicPromotions().catch(() => [] as PublicPromotion[]),
       ])
       const restaurantData = await fetchRestaurantIndexByIds(
         [
-          ...reservationData.map((reservation) => reservation.companyId),
+          ...reservationLists.all.map((reservation) => reservation.companyId),
           ...consumptionData.map((consumption) => consumption.companyId),
         ],
       )
 
       setRestaurants(restaurantData)
-      setReservations(reservationData)
+      setReservations(reservationLists.forMissions)
+      setDisplayReservations(reservationLists.all)
       setConsumptions(consumptionData)
       setPromotionCompanyIds(new Set(publicPromotions.map((promotion) => promotion.companyId).filter(Boolean)))
       setStoredClaims(claims)
+    } catch (error) {
+      console.error('No se pudieron cargar los datos del cliente:', error)
     } finally {
       if (!options?.silent) {
         setLoading(false)
@@ -617,6 +624,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       ...gamification,
       loading,
       reservations,
+      displayReservations,
       consumptions,
       restaurants,
       verifiedReservationCounts,
@@ -643,6 +651,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       gamification,
       loading,
       reservations,
+      displayReservations,
       consumptions,
       restaurants,
       verifiedReservationCounts,

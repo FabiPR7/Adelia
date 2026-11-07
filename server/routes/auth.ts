@@ -87,7 +87,7 @@ function getBearerToken(req: Request) {
 
 function userMustChangePassword(
   userData: Record<string, unknown>,
-  decoded: { mustChangePassword?: boolean },
+  decoded: Record<string, unknown>,
 ) {
   return userData.mustChangePassword === true || decoded.mustChangePassword === true
 }
@@ -535,7 +535,7 @@ router.post('/customer/pre-login', async (req: Request, res: Response) => {
       const authUser = await adminAuth.getUserByEmail(email)
       const profileSnap = await adminDb.collection('users').doc(authUser.uid).get()
       const data = profileSnap.data()
-      if (!profileSnap.exists || data.blocked === true || authUser.disabled) {
+      if (!profileSnap.exists || data?.blocked === true || authUser.disabled) {
         await settleMinDuration(started, 450)
         res.status(401).json({ error: GENERIC_CUSTOMER_LOGIN_ERROR })
         return

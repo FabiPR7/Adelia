@@ -26,6 +26,19 @@ function loadRootEnv() {
 
 loadRootEnv()
 
+// Nunca embeber localhost en el bundle de Cloud Functions: los correos
+// (reset de contraseña, verificación…) salirían con enlaces rotos en prod.
+if (process.env.APP_URL && /localhost|127\.0\.0\.1/i.test(process.env.APP_URL)) {
+  console.warn(
+    `[functions build] APP_URL era "${process.env.APP_URL}"; se fuerza https://adeliareservas.com`,
+  )
+  process.env.APP_URL = 'https://adeliareservas.com'
+}
+
+if (!process.env.APP_URL) {
+  process.env.APP_URL = 'https://adeliareservas.com'
+}
+
 const publicEnvKeys = [
   'VITE_FIREBASE_API_KEY',
   'VITE_FIREBASE_PROJECT_ID',

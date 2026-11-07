@@ -304,3 +304,19 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.verifiedNote {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.reportLink {
+  display: inline-block;
+  margin-top: 0.6rem;
+  padding: 0.25rem 0;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  text-decoration: underline;
+}

@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /panel
+Disallow: /app
+Disallow: /cuenta
+Disallow: /login
+Disallow: /cambiar-contrasena
+Disallow: /olvide-contrasena
+Disallow: /restablecer-contrasena
+Disallow: /empresa/alta
+Disallow: /empresa/planes/exito
+Disallow: /reservar/*/cancelar
+
+Sitemap: https://adeliareservas.com/sitemap.xml

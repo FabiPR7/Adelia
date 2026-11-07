@@ -323,6 +323,8 @@ function CustomerPromotionsTab() {
   const [loadingPromos, setLoadingPromos] = useState(true)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [usingDemoLocation, setUsingDemoLocation] = useState(false)
+  const [locationRequesting, setLocationRequesting] = useState(false)
+  const [locationDenied, setLocationDenied] = useState(false)
   const [verifyReservation, setVerifyReservation] = useState<Reservation | null>(null)
   const [verifyMenuNodes, setVerifyMenuNodes] = useState<MenuNode[]>([])
   const [verifyMenuLoading, setVerifyMenuLoading] = useState(false)
@@ -477,6 +479,20 @@ function CustomerPromotionsTab() {
       cancelled = true
     }
   }, [])
+
+  const handleRequestLocation = async () => {
+    setLocationRequesting(true)
+    setLocationDenied(false)
+    try {
+      const location = await requestUserLocation()
+      setCoords(location.coords)
+      setUsingDemoLocation(false)
+    } catch {
+      setLocationDenied(true)
+    } finally {
+      setLocationRequesting(false)
+    }
+  }
 
   const nearbyPromotions = useMemo(() => {
     const withDistance = promotions.map((promotion) => {
@@ -960,7 +976,7 @@ function CustomerPromotionsTab() {
         <>
           {usingDemoLocation ? (
             <p className={styles.demoLocationHint}>
-              Sin GPS — mostrando promos de ejemplo en Logroño.
+              Sin GPS — usamos Logroño como ubicación para enseñarte esta pestaña.
             </p>
           ) : null}
           {!coords ? (
@@ -968,6 +984,20 @@ function CustomerPromotionsTab() {
               <span className={styles.locationIcon} aria-hidden="true">📍</span>
               <h2>Activa tu ubicación</h2>
               <p>Solo te mostramos promos de restaurantes cerca de ti — nada de ofertas en otra ciudad.</p>
+              <button
+                type="button"
+                className={styles.locationButton}
+                onClick={() => void handleRequestLocation()}
+                disabled={locationRequesting}
+              >
+                {locationRequesting ? 'Buscando tu ubicación…' : 'Usar mi ubicación'}
+              </button>
+              {locationDenied ? (
+                <p className={styles.locationError} role="status">
+                  No hemos podido acceder a tu ubicación. Permítela para este sitio en los ajustes del
+                  navegador e inténtalo de nuevo.
+                </p>
+              ) : null}
             </div>
           ) : !hasActiveContent ? (
             <div className={styles.empty} data-tour="tour-promos-feed">

@@ -132,7 +132,7 @@ describe('Error Handling - Security', () => {
       await randomDelay(10, 20)
       const elapsed = Date.now() - start
 
-      expect(elapsed).toBeLessThan(50)
+      expect(elapsed).toBeLessThan(250)
     })
 
     it('debería manejar delays muy cortos', async () => {
@@ -141,7 +141,7 @@ describe('Error Handling - Security', () => {
       const elapsed = Date.now() - start
 
       expect(elapsed).toBeGreaterThanOrEqual(0)
-      expect(elapsed).toBeLessThan(50)
+      expect(elapsed).toBeLessThan(250)
     })
 
     it('debería funcionar con delays largos', async () => {

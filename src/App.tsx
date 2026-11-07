@@ -22,6 +22,7 @@ import VerifyEmailPage from './pages/VerifyEmailPage'
 import CustomerOnboardingPage from './pages/CustomerOnboardingPage'
 import NotFoundPage from './pages/NotFoundPage'
 import CookieConsentBanner from './components/CookieConsentBanner'
+import RouteTitle from './components/RouteTitle'
 import { getPostLoginPath } from './utils/authProfile'
 
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
@@ -123,6 +124,7 @@ function AuthenticatedRoutes() {
 function App() {
   return (
     <>
+    <RouteTitle />
     <Routes>
       <Route
         path="/olvide-contrasena"

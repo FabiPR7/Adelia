@@ -3,6 +3,7 @@ import { adminDb } from '../firebase-admin.ts'
 import { verifyCompanyAccount } from '../auth/verifyRequest.ts'
 import {
   applyDuePendingPlan,
+  CompanyDeletionBlockedError,
   deleteCompanyAccount,
   readCompanyBillingStatus,
 } from '../stripe/saasPlanChanges.ts'
@@ -61,6 +62,10 @@ router.post('/account/delete', async (req: Request, res: Response) => {
     await deleteCompanyAccount(account.companyId)
     res.json({ success: true })
   } catch (error) {
+    if (error instanceof CompanyDeletionBlockedError) {
+      res.status(409).json({ error: error.message })
+      return
+    }
     console.error('Delete company account error:', error)
     const message = error instanceof Error ? error.message : 'No se pudo eliminar la cuenta.'
     res.status(500).json({ error: message })

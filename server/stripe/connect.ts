@@ -11,11 +11,23 @@ export interface CompanyStripeSnapshot {
 }
 
 function companyStripeReturnUrl(tab = 'reservation-settings'): string {
-  return `${getAppBaseUrl()}/empresa?tab=${encodeURIComponent(tab)}&stripe=return`
+  return `${getAppBaseUrl()}/panel?tab=${encodeURIComponent(tab)}&stripe=return`
 }
 
 function companyStripeRefreshUrl(tab = 'reservation-settings'): string {
-  return `${getAppBaseUrl()}/empresa?tab=${encodeURIComponent(tab)}&stripe=refresh`
+  return `${getAppBaseUrl()}/panel?tab=${encodeURIComponent(tab)}&stripe=refresh`
+}
+
+/**
+ * La clave actual no puede acceder a esa cuenta: se conectó con otra clave (por
+ * ejemplo en modo de prueba) o el restaurante revocó el acceso.
+ */
+export function isStripeAccountUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+  const { type, code } = error as { type?: unknown; code?: unknown }
+  return type === 'StripePermissionError' || code === 'account_invalid' || code === 'resource_missing'
 }
 
 export async function readCompanyStripeSnapshot(companyId: string): Promise<CompanyStripeSnapshot> {
@@ -68,11 +80,20 @@ export async function ensureConnectAccount(
 ): Promise<string> {
   const current = await readCompanyStripeSnapshot(companyId)
 
+  const stripe = createStripeClient()
+
   if (current.stripeAccountId) {
-    return current.stripeAccountId
+    try {
+      await stripe.accounts.retrieve(current.stripeAccountId)
+      return current.stripeAccountId
+    } catch (error) {
+      // El restaurante ha pedido conectar: una cuenta inaccesible se sustituye.
+      if (!isStripeAccountUnavailable(error)) {
+        throw error
+      }
+    }
   }
 
-  const stripe = createStripeClient()
   const account = await stripe.accounts.create({
     type: 'express',
     country: 'ES',

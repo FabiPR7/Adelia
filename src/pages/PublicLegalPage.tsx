@@ -10,6 +10,7 @@ import {
 import LegalLinks from '../components/LegalLinks'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import { openCookieSettings } from '../utils/cookieConsent'
+import { renderLegalText } from '../utils/renderLegalText'
 import styles from './PublicLegalPage.module.css'
 
 function PublicLegalPage() {
@@ -57,7 +58,7 @@ function PublicLegalPage() {
             <section key={section.heading} className={styles.section}>
               <h2>{section.heading}</h2>
               {section.paragraphs.map((paragraph, index) => (
-                <p key={`${section.heading}-${index}`}>{paragraph}</p>
+                <p key={`${section.heading}-${index}`}>{renderLegalText(paragraph)}</p>
               ))}
             </section>
           ))}

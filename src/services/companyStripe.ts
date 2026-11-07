@@ -14,6 +14,8 @@ export interface CompanyStripeStatus {
   stripePayoutsEnabled: boolean
   stripeDetailsSubmitted: boolean
   readyForDeposits: boolean
+  /** La cuenta guardada ya no es accesible: hay que volver a conectarla. */
+  accountUnavailable?: boolean
 }
 
 async function companyStripeFetch<T>(

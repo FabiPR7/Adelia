@@ -53,6 +53,14 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 420px) {
+  /* En móvil solo queda el logo: los botones tapaban el nombre. */
+  .brand span {
+    display: none;
+  }
 }
 
 .headerGhost,

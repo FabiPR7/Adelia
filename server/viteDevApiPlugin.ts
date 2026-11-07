@@ -39,7 +39,7 @@ export function adeliaApiDevPlugin(): Plugin {
 
         void getApp()
           .then((loaded) => {
-            loaded(req, res, next)
+            loaded(req as Parameters<Express>[0], res as Parameters<Express>[1], next)
           })
           .catch((error: unknown) => {
             if (res.headersSent) {

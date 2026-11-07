@@ -16,8 +16,16 @@ interface CompanyStripeConnectPanelProps {
 }
 
 function statusLabel(status: CompanyStripeStatus | null): string {
-  if (!status?.configured) {
+  if (!status) {
+    return 'Estado no disponible'
+  }
+
+  if (!status.configured) {
     return 'Stripe no configurado en el servidor'
+  }
+
+  if (status.accountUnavailable) {
+    return 'Hay que volver a conectar la cuenta'
   }
 
   if (!status.stripeAccountId) {
@@ -130,9 +138,11 @@ export default function CompanyStripeConnectPanel({
           onClick={() => void handleConnect()}
           disabled={actionLoading || loading || status?.configured === false}
         >
-          {status?.stripeAccountId ? 'Continuar configuración Stripe' : 'Conectar cuenta Stripe'}
+          {status?.stripeAccountId && !status.accountUnavailable
+            ? 'Continuar configuración Stripe'
+            : 'Conectar cuenta Stripe'}
         </button>
-        {status?.stripeAccountId ? (
+        {status?.stripeAccountId && !status.accountUnavailable ? (
           <button
             type="button"
             className={styles.secondaryButton}

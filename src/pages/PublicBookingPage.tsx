@@ -1125,7 +1125,7 @@ function PublicBookingPage() {
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         rows={3}
-                        placeholder="Alergias, celebración, preferencias…"
+                        placeholder="Celebración, preferencias de mesa…"
                       />
                     </label>
                     {isLoggedCustomer ? (
@@ -1171,6 +1171,14 @@ function PublicBookingPage() {
                       />
                     ) : null}
 
+                    <p className={styles.hint}>
+                      Tus datos llegan a {company.name} y a Adelia para gestionar esta reserva. Si tienes
+                      alergias, avisa directamente al local. Puedes ejercer tus derechos como se explica en la{' '}
+                      <a href="/legal/privacidad" target="_blank" rel="noreferrer">política de privacidad</a>.
+                      Al reservar aceptas los{' '}
+                      <a href="/legal/terminos" target="_blank" rel="noreferrer">términos de uso</a>.
+                    </p>
+
                     <button
                       type="submit"
                       className={styles.primaryButton}
@@ -1182,7 +1190,7 @@ function PublicBookingPage() {
                           Enviando…
                         </span>
                       ) : (
-                        'Confirmar reserva'
+                        depositRequired ? 'Confirmar reserva y autorizar fianza' : 'Confirmar reserva'
                       )}
                     </button>
                     </fieldset>

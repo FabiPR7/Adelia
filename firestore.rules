@@ -307,6 +307,15 @@ service cloud.firestore {
       ];
     }
 
+    // Tipos de promoción por plan (server/company/planLimits.ts). Las reglas no
+    // pueden contar documentos: el tope por cantidad lo aplica la API pública.
+    function companyPlanAllowsPromotion(companyId, promotion) {
+      let planId = get(/databases/$(database)/documents/companies/$(companyId)).data.get('planId', 'free');
+      return planId == 'premium'
+        || planId == 'premium_plus'
+        || (planId == 'basic' && promotion.get('type', '') == 'reservation_ladder');
+    }
+
     function isValidCompanyOwnerUpdate() {
       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
       return changedKeys.hasOnly(companyOwnerUpdatableKeys())
@@ -394,13 +403,19 @@ service cloud.firestore {
         allow get: if resource.data.active == true || isCompanyOwner(companyId) || isAdmin();
         // list público desactivado: scrapeo collection-group. Público vía /api/public/promotions.
         allow list: if isCompanyOwner(companyId) || isAdmin();
-        allow create: if (isCompanyOwner(companyId) || isAdmin())
+        allow create: if (isAdmin() || (
+            isCompanyOwner(companyId)
+            && companyPlanAllowsPromotion(companyId, request.resource.data)
+          ))
           && (!('currentRedemptions' in request.resource.data)
             || request.resource.data.currentRedemptions == 0);
+        // Desactivar siempre se puede; activar o editar una activa exige que el plan la incluya.
         allow update: if isAdmin() || (
           isCompanyOwner(companyId)
           && !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny(['currentRedemptions'])
+          && (request.resource.data.get('active', false) != true
+            || companyPlanAllowsPromotion(companyId, request.resource.data))
         );
         allow delete: if isCompanyOwner(companyId) || isAdmin();
       }

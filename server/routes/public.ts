@@ -351,7 +351,7 @@ function mapPublicReview(id: string, data: FirebaseFirestore.DocumentData) {
   }
 }
 
-router.post('/:slug/deposit-intent', async (req: Request, res: Response) => {
+router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const record = await getCompanyRecordBySlug(req.params.slug)
 
@@ -428,7 +428,7 @@ router.post('/:slug/deposit-intent', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:slug/reviews', async (req: Request, res: Response) => {
+router.get('/:slug/reviews', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const companySnap = await adminDb
       .collection('companies')
@@ -481,7 +481,7 @@ router.get('/:slug/reviews', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:slug', async (req: Request, res: Response) => {
+router.get('/:slug', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const company = await getCompanyBySlug(req.params.slug)
 
@@ -514,7 +514,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/:slug/availability', async (req: Request, res: Response) => {
+router.get('/:slug/availability', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const company = await getCompanyBySlug(req.params.slug)
 
@@ -584,7 +584,7 @@ router.get('/:slug/availability', async (req: Request, res: Response) => {
   }
 })
 
-router.post('/:slug/reservations', async (req: Request, res: Response) => {
+router.post('/:slug/reservations', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const record = await getCompanyRecordBySlug(req.params.slug)
 
@@ -938,7 +938,7 @@ router.post('/:slug/reservations', async (req: Request, res: Response) => {
   }
 })
 
-router.get('/cancel/preview', async (req: Request, res: Response) => {
+router.get('/cancel/preview', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const token = typeof req.query.token === 'string' ? req.query.token.trim().slice(0, 80) : ''
 
@@ -1016,7 +1016,7 @@ router.get('/cancel/preview', async (req: Request, res: Response) => {
   }
 })
 
-router.post('/cancel', async (req: Request, res: Response) => {
+router.post('/cancel', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const token = typeof req.body?.token === 'string' ? req.body.token.trim() : ''
 

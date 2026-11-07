@@ -46,6 +46,27 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  min-width: 0;
+}
+
+@media (max-width: 420px) {
+  /* En móvil solo queda el logo: el nombre empujaba la barra fuera de la pantalla. */
+  .header {
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+
+  .authLinks {
+    gap: 0.3rem;
+  }
+
+  .authLink {
+    padding: 0.42rem 0.6rem;
+  }
+
+  .brandName {
+    display: none;
+  }
 }
 
 .authLink {

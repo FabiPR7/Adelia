@@ -16,7 +16,7 @@ import { ensureCompanyOwner } from '../auth/verifyRequest.ts'
 
 const router = Router()
 
-router.post('/:companyId/email-preview', async (req: Request, res: Response) => {
+router.post('/:companyId/email-preview', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const { companyId } = req.params
 

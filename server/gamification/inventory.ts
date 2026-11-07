@@ -39,7 +39,7 @@ function numberValue(value: unknown, fallback = 0): number {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
-    ? [...new Set(value.filter((item): item is string => typeof item === 'string' && item.trim()))]
+    ? [...new Set(value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0))]
     : []
 }
 

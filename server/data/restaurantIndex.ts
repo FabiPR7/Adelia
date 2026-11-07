@@ -111,6 +111,25 @@ export function mapRestaurantIndexDoc(
   }
 }
 
+/**
+ * "Mayor visibilidad" va incluida en estos planes: se lee del plan actual para
+ * que empiece y termine con la suscripción, sin tocar `discoveryFeatured`, que
+ * es la marca manual del administrador.
+ */
+async function loadCompanyIdsWithFeaturedPlan(): Promise<Set<string>> {
+  try {
+    const snapshot = await adminDb
+      .collection(COLLECTIONS.companies)
+      .where('planId', 'in', ['premium', 'premium_plus'])
+      .select()
+      .get()
+    return new Set(snapshot.docs.map((docSnap) => docSnap.id))
+  } catch (error) {
+    console.error('Discovery featured plans error:', error)
+    return new Set()
+  }
+}
+
 export async function listPublicDiscoveryRestaurants(
   limit = PUBLIC_DISCOVERY_LIMIT,
 ): Promise<PublicDiscoveryRestaurantPayload[]> {
@@ -127,9 +146,14 @@ export async function listPublicDiscoveryRestaurants(
     snapshot = await indexed.limit(capped).get()
   }
 
+  const featuredByPlan = await loadCompanyIdsWithFeaturedPlan()
+
   return snapshot.docs
     .map((docSnap) => mapRestaurantIndexDoc(docSnap.id, docSnap.data()))
     .filter((item): item is PublicDiscoveryRestaurantPayload => item !== null)
+    .map((item) => (
+      featuredByPlan.has(item.id) ? { ...item, discoveryFeatured: true } : item
+    ))
     .sort((left, right) => {
       if (left.discoveryFeatured !== right.discoveryFeatured) {
         return left.discoveryFeatured ? -1 : 1

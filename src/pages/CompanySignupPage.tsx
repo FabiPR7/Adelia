@@ -16,6 +16,7 @@ import {
 } from '../data/companyCharacteristics'
 import { COMPANY_AMENITIES, COMPANY_VENUE_TYPES, MAX_COMPANY_VENUE_TYPES } from '../data/companyProfileFacilities'
 import { loginWithUsername } from '../services/auth'
+import { LEGAL_ACCEPTANCE_VERSION } from '../content/publicLegal'
 import { completeFreeCompanySignup, completePaidCompanySignup, fetchSaasCheckoutSession } from '../services/saasBilling'
 import { getCompanyPlan } from '../data/companyPlans'
 import { planIdFromSignupSlug } from '../data/lemonSqueezyCheckout'
@@ -100,6 +101,7 @@ function CompanySignupPage() {
   const { refreshProfile, profile } = useAuth()
 
   const [step, setStep] = useState<StepId>('account')
+  const [acceptedLegal, setAcceptedLegal] = useState(false)
   const [loadingSession, setLoadingSession] = useState(true)
   const [sessionError, setSessionError] = useState<string | null>(null)
   const [planName, setPlanName] = useState('')
@@ -202,6 +204,10 @@ function CompanySignupPage() {
 
   const goAccountNext = () => {
     setError(null)
+    if (!acceptedLegal) {
+      setError('Debes aceptar los términos y el contrato de encargo para continuar.')
+      return
+    }
     if (!isValidEmail(email) || !email.trim()) {
       setError('Indica un correo válido.')
       return
@@ -257,6 +263,7 @@ function CompanySignupPage() {
         venueTypes: skipStyle ? [] : venueTypes,
         amenities: skipStyle ? [] : amenities,
         recaptchaToken,
+        acceptedLegalVersion: LEGAL_ACCEPTANCE_VERSION,
       }
       const result = isStripeSignup
         ? await completePaidCompanySignup({ sessionId, ...payload })
@@ -385,6 +392,20 @@ function CompanySignupPage() {
                   <li key={check.label} className={check.met ? styles.checkOn : ''}>{check.label}</li>
                 ))}
               </ul>
+              <label className={styles.legalCheck}>
+                <input
+                  type="checkbox"
+                  checked={acceptedLegal}
+                  onChange={(event) => setAcceptedLegal(event.target.checked)}
+                />
+                <span>
+                  Soy mayor de edad, actúo en nombre del negocio y acepto los{' '}
+                  <a href="/legal/terminos" target="_blank" rel="noreferrer">términos de uso</a>, el{' '}
+                  <a href="/legal/aviso-legal" target="_blank" rel="noreferrer">aviso legal</a> y el{' '}
+                  <a href="/legal/encargo" target="_blank" rel="noreferrer">contrato de encargo de tratamiento</a>.
+                  He leído la <a href="/legal/privacidad" target="_blank" rel="noreferrer">política de privacidad</a>.
+                </span>
+              </label>
               {error ? <p className={styles.error}>{error}</p> : null}
               <button type="button" className={styles.primary} onClick={goAccountNext}>Continuar</button>
             </motion.section>

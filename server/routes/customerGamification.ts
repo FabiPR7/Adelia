@@ -44,6 +44,7 @@ import {
   mapVerifiedConsumptionDoc,
   resolveCompanyCardFields,
 } from '../utils/verifiedConsumption.ts'
+import { mergeAppendOnlyIds, mergeMonotonicIds } from '../gamification/syncMerge.ts'
 
 const router = Router()
 const MAX_REWARD_DELTA = 8000
@@ -93,59 +94,26 @@ function mergeCelebratedLevel(current: unknown, proposed: unknown): number | nul
   return Math.max(currentLevel, proposedLevel)
 }
 
-function containsAll(next: string[], current: string[]): boolean {
-  const set = new Set(next)
-  return current.every((item) => set.has(item))
-}
-
 const MAX_NEW_HISTORICAL_MISSIONS_PER_SYNC = 3
 const MAX_NEW_WEEKLY_MISSIONS_PER_SYNC = 2
 const MAX_NEW_MONTHLY_MISSIONS_PER_SYNC = 2
 
-function mergeAppendOnlyIds(
-  currentIds: string[],
-  proposedIds: string[],
-  allowedNew: Set<string>,
-  maxNew: number,
-): string[] {
-  const current = new Set(currentIds)
-  if (!proposedIds.every((id) => current.has(id) || allowedNew.has(id))) {
-    throw new Error('La actualización de progreso no es válida.')
-  }
-  const additions = proposedIds.filter((id) => !current.has(id))
-  if (additions.length > maxNew) {
-    throw new Error('La actualización de progreso no es válida.')
-  }
-  return [...new Set([...currentIds, ...additions])]
+/** Qué se ha recortado de una sincronización: no es un error, pero conviene verlo en el registro. */
+interface SyncAdjustments {
+  deferredMissions: string[]
+  unknownMissions: string[]
+  catalogUnavailable: boolean
+  xpClamped: boolean
 }
 
-async function validateMonotonicGamification(
+export async function validateMonotonicGamification(
   current: Record<string, unknown>,
   proposed: Record<string, unknown>,
   xpCeiling: number | null = null,
 ) {
   const currentXp = numberValue(current.xp)
   const currentAdelinas = numberValue(current.adelinas)
-  const currentPenaltyTotal = numberValue(current.xpPenaltyTotal)
-  const proposedPenaltyTotal = numberValue(proposed.xpPenaltyTotal)
-  const penaltyGap = Math.max(0, currentPenaltyTotal - proposedPenaltyTotal)
-  const proposedXp = numberValue(proposed.xp, currentXp)
-  const uncappedXp = Math.max(currentXp, proposedXp - penaltyGap)
   const adelinas = currentAdelinas
-
-  if (uncappedXp - currentXp > MAX_REWARD_DELTA) {
-    throw new Error('La actualización de recompensas no es válida.')
-  }
-
-  const today = utcDayKey()
-  const priorDayKey = typeof current.syncXpDayKey === 'string' ? current.syncXpDayKey : ''
-  const syncXpUsedToday = priorDayKey === today ? numberValue(current.syncXpToday) : 0
-  const requestedGain = Math.max(0, uncappedXp - currentXp)
-  const allowedGain = Math.max(0, Math.min(requestedGain, SYNC_XP_DAILY_CEILING - syncXpUsedToday))
-  const dailyCappedXp = currentXp + allowedGain
-  const xp = xpCeiling != null
-    ? Math.min(dailyCappedXp, Math.max(currentXp, xpCeiling))
-    : dailyCappedXp
 
   const catalog = await listMissionCatalogEntries()
   const historicalAllowed = new Set(
@@ -163,88 +131,120 @@ async function validateMonotonicGamification(
   const sameWeek = (typeof current.weekKey === 'string' ? current.weekKey : '') === serverWeekKey
   const sameMonth = (typeof current.monthKey === 'string' ? current.monthKey : '') === serverMonthKey
 
-  const completedMissions = mergeAppendOnlyIds(
+  const completedMerge = mergeAppendOnlyIds(
     stringArray(current.completedMissions),
     stringArray(proposed.completedMissions),
     historicalAllowed,
     MAX_NEW_HISTORICAL_MISSIONS_PER_SYNC,
   )
-  const weeklyCompleted = mergeAppendOnlyIds(
+  const weeklyMerge = mergeAppendOnlyIds(
     sameWeek ? stringArray(current.weeklyCompleted) : [],
     stringArray(proposed.weeklyCompleted),
     weeklyAllowed,
     MAX_NEW_WEEKLY_MISSIONS_PER_SYNC,
   )
-  const monthlyCompleted = mergeAppendOnlyIds(
+  const monthlyMerge = mergeAppendOnlyIds(
     sameMonth ? stringArray(current.monthlyCompleted) : [],
     stringArray(proposed.monthlyCompleted),
     monthlyAllowed,
     MAX_NEW_MONTHLY_MISSIONS_PER_SYNC,
   )
+  const merges = [completedMerge, weeklyMerge, monthlyMerge]
+  const catalogUnavailable = catalog.size === 0
+  const unknownMissions = merges.flatMap((merge) => merge.unknown)
 
-  for (const key of ['visitedCompanyIds', 'reviewedReservationIds', 'reviewedCompanyIds', 'awardedReservationXpIds'] as const) {
-    if (!containsAll(stringArray(proposed[key]), stringArray(current[key]))) {
-      throw new Error('La actualización de progreso no es válida.')
-    }
-  }
+  // Una misión fuera del catálogo no se puede guardar ni se sabe cuánta XP vale.
+  // Si se aceptara la XP propuesta, el navegador volvería a sumarla en cada carga:
+  // no se aplica nada hasta publicar el catálogo (scripts/seed-game-catalog.ts).
+  const frozen = catalogUnavailable || unknownMissions.length > 0
+  const deferredMissions = frozen ? [] : merges.flatMap((merge) => merge.deferred)
 
+  // El navegador ya ha sumado la XP de las misiones aplazadas: se resta aquí y
+  // entra junto a su misión en la siguiente llamada, para no contarla dos veces.
+  const deferredXp = deferredMissions.reduce((total, id) => total + (catalog.get(id)?.xp ?? 0), 0)
+  const currentPenaltyTotal = numberValue(current.xpPenaltyTotal)
+  const proposedPenaltyTotal = numberValue(proposed.xpPenaltyTotal)
+  const penaltyGap = Math.max(0, currentPenaltyTotal - proposedPenaltyTotal)
+  const proposedXp = numberValue(proposed.xp, currentXp)
+  const uncappedXp = frozen
+    ? currentXp
+    : Math.max(currentXp, proposedXp - penaltyGap - deferredXp)
+  const xpClamped = uncappedXp - currentXp > MAX_REWARD_DELTA
+
+  const today = utcDayKey()
+  const priorDayKey = typeof current.syncXpDayKey === 'string' ? current.syncXpDayKey : ''
+  const syncXpUsedToday = priorDayKey === today ? numberValue(current.syncXpToday) : 0
+  const requestedGain = Math.min(MAX_REWARD_DELTA, Math.max(0, uncappedXp - currentXp))
+  const allowedGain = Math.max(0, Math.min(requestedGain, SYNC_XP_DAILY_CEILING - syncXpUsedToday))
+  const dailyCappedXp = currentXp + allowedGain
+  const xp = xpCeiling != null
+    ? Math.min(dailyCappedXp, Math.max(currentXp, xpCeiling))
+    : dailyCappedXp
+
+  // Los canjes solo se registran en su flujo de validación: los que proponga el
+  // navegador se ignoran y siempre se guardan los del servidor.
   const currentClaims = Array.isArray(current.claimedPromotions) ? current.claimedPromotions : []
-  const proposedClaims = Array.isArray(proposed.claimedPromotions) ? proposed.claimedPromotions : []
-  if (proposedClaims.length !== currentClaims.length) {
-    throw new Error('Los canjes solo pueden registrarse desde el flujo de validación.')
-  }
 
   const strikeCount = numberValue(current.cancellationStrikeCount)
   const promoLocked = current.promoLocked === true || strikeCount >= 5
 
+  const adjustments: SyncAdjustments = {
+    deferredMissions,
+    unknownMissions,
+    catalogUnavailable,
+    xpClamped,
+  }
+
+  const missionIds = (merged: { ids: string[] }, base: unknown) => (frozen ? stringArray(base) : merged.ids)
+  const progressIds = (key: 'visitedCompanyIds' | 'reviewedReservationIds' | 'reviewedCompanyIds' | 'awardedReservationXpIds') => (
+    frozen
+      ? stringArray(current[key])
+      : mergeMonotonicIds(stringArray(current[key]), stringArray(proposed[key]))
+  )
+
   // No se hace spread de `proposed`: solo campos de progreso acotados y
   // week/month keys del servidor (evita inventar periodos para farmear loot).
   return {
-    ...current,
-    xp,
-    adelinas,
-    weekKey: serverWeekKey,
-    monthKey: serverMonthKey,
-    completedMissions,
-    weeklyCompleted,
-    monthlyCompleted,
-    visitedCompanyIds: stringArray(proposed.visitedCompanyIds).length >= stringArray(current.visitedCompanyIds).length
-      ? stringArray(proposed.visitedCompanyIds).slice(0, 200)
-      : stringArray(current.visitedCompanyIds),
-    reviewedReservationIds: stringArray(proposed.reviewedReservationIds).length >= stringArray(current.reviewedReservationIds).length
-      ? stringArray(proposed.reviewedReservationIds).slice(0, 200)
-      : stringArray(current.reviewedReservationIds),
-    reviewedCompanyIds: stringArray(proposed.reviewedCompanyIds).length >= stringArray(current.reviewedCompanyIds).length
-      ? stringArray(proposed.reviewedCompanyIds).slice(0, 200)
-      : stringArray(current.reviewedCompanyIds),
-    awardedReservationXpIds: stringArray(proposed.awardedReservationXpIds).length >= stringArray(current.awardedReservationXpIds).length
-      ? stringArray(proposed.awardedReservationXpIds).slice(0, 200)
-      : stringArray(current.awardedReservationXpIds),
-    favoriteSlugs: Array.isArray(proposed.favoriteSlugs)
-      ? stringArray(proposed.favoriteSlugs).slice(0, 200)
-      : stringArray(current.favoriteSlugs),
-    syncXpDayKey: today,
-    syncXpToday: syncXpUsedToday + allowedGain,
-    claimedPromotions: currentClaims,
-    redemptionsCount: numberValue(current.redemptionsCount),
-    lastCelebratedLevel: mergeCelebratedLevel(current.lastCelebratedLevel, proposed.lastCelebratedLevel),
-    celebratedMissionIds: [...new Set([
-      ...stringArray(current.celebratedMissionIds),
-      ...stringArray(proposed.celebratedMissionIds),
-    ])].slice(0, 400),
-    celebrationsBootstrapped:
-      current.celebrationsBootstrapped === true || proposed.celebrationsBootstrapped === true,
-    cancellationStrikeCount: strikeCount,
-    cancelledReservationIds: stringArray(current.cancelledReservationIds),
-    xpPenaltyTotal: currentPenaltyTotal,
-    promoLocked,
-    inventory: current.inventory && typeof current.inventory === 'object' ? current.inventory : {},
-    grantedItemKeys: stringArray(current.grantedItemKeys),
-    tokenCreditsByCompany:
-      current.tokenCreditsByCompany && typeof current.tokenCreditsByCompany === 'object'
-        ? current.tokenCreditsByCompany
-        : {},
-    pendingTokenSpend: Array.isArray(current.pendingTokenSpend) ? current.pendingTokenSpend : [],
+    adjustments,
+    state: {
+      ...current,
+      xp,
+      adelinas,
+      weekKey: serverWeekKey,
+      monthKey: serverMonthKey,
+      completedMissions: missionIds(completedMerge, current.completedMissions),
+      weeklyCompleted: missionIds(weeklyMerge, sameWeek ? current.weeklyCompleted : []),
+      monthlyCompleted: missionIds(monthlyMerge, sameMonth ? current.monthlyCompleted : []),
+      visitedCompanyIds: progressIds('visitedCompanyIds'),
+      reviewedReservationIds: progressIds('reviewedReservationIds'),
+      reviewedCompanyIds: progressIds('reviewedCompanyIds'),
+      awardedReservationXpIds: progressIds('awardedReservationXpIds'),
+      favoriteSlugs: Array.isArray(proposed.favoriteSlugs)
+        ? stringArray(proposed.favoriteSlugs).slice(0, 200)
+        : stringArray(current.favoriteSlugs),
+      syncXpDayKey: today,
+      syncXpToday: syncXpUsedToday + allowedGain,
+      claimedPromotions: currentClaims,
+      redemptionsCount: numberValue(current.redemptionsCount),
+      lastCelebratedLevel: mergeCelebratedLevel(current.lastCelebratedLevel, proposed.lastCelebratedLevel),
+      celebratedMissionIds: [...new Set([
+        ...stringArray(current.celebratedMissionIds),
+        ...stringArray(proposed.celebratedMissionIds),
+      ])].slice(0, 400),
+      celebrationsBootstrapped:
+        current.celebrationsBootstrapped === true || proposed.celebrationsBootstrapped === true,
+      cancellationStrikeCount: strikeCount,
+      cancelledReservationIds: stringArray(current.cancelledReservationIds),
+      xpPenaltyTotal: currentPenaltyTotal,
+      promoLocked,
+      inventory: current.inventory && typeof current.inventory === 'object' ? current.inventory : {},
+      grantedItemKeys: stringArray(current.grantedItemKeys),
+      tokenCreditsByCompany:
+        current.tokenCreditsByCompany && typeof current.tokenCreditsByCompany === 'object'
+          ? current.tokenCreditsByCompany
+          : {},
+      pendingTokenSpend: Array.isArray(current.pendingTokenSpend) ? current.pendingTokenSpend : [],
+    },
   }
 }
 
@@ -345,18 +345,33 @@ router.post('/sync', async (req: Request, res: Response) => {
         proposed as Record<string, unknown>,
         xpCeiling,
       )
-      const granted = await applyInventoryGrants(validated)
+      const granted = await applyInventoryGrants(validated.state)
       writeGamification(transaction, customer.uid, granted.state)
-      return granted
+      return { ...granted, adjustments: validated.adjustments }
     })
+
+    const { deferredMissions, unknownMissions, catalogUnavailable, xpClamped } = next.adjustments
+    if (deferredMissions.length > 0 || unknownMissions.length > 0 || catalogUnavailable || xpClamped) {
+      console.warn('Gamification sync ajustado:', {
+        uid: customer.uid,
+        deferredMissions,
+        unknownMissions,
+        catalogUnavailable,
+        xpClamped,
+      })
+    }
 
     res.json({
       gamification: next.state,
       newItemGrantBatches: next.newGrantBatches,
+      deferred: deferredMissions.length > 0,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo sincronizar el progreso.'
     const status = message.includes('cliente') ? 401 : message.includes('válid') ? 400 : 500
+    if (status !== 401) {
+      console.error('Gamification sync error:', error)
+    }
     res.status(status).json({ error: message })
   }
 })
@@ -413,6 +428,70 @@ router.post('/acknowledge-level', async (req: Request, res: Response) => {
     res.json(result)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo confirmar la celebración.'
+    res.status(message.includes('cliente') ? 401 : 500).json({ error: message })
+  }
+})
+
+/** Progreso del mapa de premios de un local (visitas, baseline, reclamadas). */
+router.get('/ladder-progress', async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    const companyId = String(req.query?.companyId ?? '').trim()
+    if (!companyId) {
+      res.status(400).json({ error: 'Restaurante no válido.' })
+      return
+    }
+
+    const [userSnap, statsSnap, reservationsSnap] = await Promise.all([
+      adminDb.collection('users').doc(customer.uid).get(),
+      userGamificationRef(customer.uid).get(),
+      adminDb.collection('reservations')
+        .where('companyId', '==', companyId)
+        .where('clientEmail', '==', customer.email)
+        .limit(200)
+        .get(),
+    ])
+
+    const current = readGamificationFromDocs(statsSnap.data(), userSnap.data())
+    const tokenCredits = numberRecord(current.tokenCreditsByCompany)[companyId] ?? 0
+    const reservationCount = reservationsSnap.docs.filter((docSnap) => {
+      const reservation = docSnap.data()
+      return reservation.companyId === companyId && reservation.status === 'confirmed'
+    }).length
+    const confirmedCount = reservationCount + tokenCredits
+
+    const baselines = numberRecord(current.ladderBaselinesByCompany)
+    const completions = numberRecord(current.ladderCompletionsByCompany)
+    const activeMap = current.activeLadderPromotionByCompany
+      && typeof current.activeLadderPromotionByCompany === 'object'
+      && !Array.isArray(current.activeLadderPromotionByCompany)
+      ? current.activeLadderPromotionByCompany as Record<string, string>
+      : {}
+
+    const claimedPromotions = (Array.isArray(current.claimedPromotions) ? current.claimedPromotions : [])
+      .flatMap((item) => {
+        if (!item || typeof item !== 'object') return []
+        const row = item as Record<string, unknown>
+        const promotionId = typeof row.promotionId === 'string' ? row.promotionId : ''
+        const rowCompanyId = typeof row.companyId === 'string' ? row.companyId : ''
+        const claimedAt = typeof row.claimedAt === 'string' ? row.claimedAt : ''
+        if (!promotionId || !rowCompanyId) return []
+        return [{ promotionId, companyId: rowCompanyId, claimedAt }]
+      })
+
+    res.json({
+      companyId,
+      confirmedCount,
+      reservationCount,
+      tokenCredits,
+      baseline: baselines[companyId] ?? 0,
+      completions: completions[companyId] ?? 0,
+      activePromotionId: typeof activeMap[companyId] === 'string' ? activeMap[companyId] : null,
+      claimedPromotions,
+    })
+  } catch (error) {
+    console.error('Ladder progress error:', error)
+    const message = error instanceof Error ? error.message : 'No se pudo cargar el progreso.'
     res.status(message.includes('cliente') ? 401 : 500).json({ error: message })
   }
 })
@@ -754,7 +833,7 @@ router.post('/inventory/apply-token', async (req: Request, res: Response) => {
       const visits = Math.max(1, Math.trunc(item.visitValue ?? 1))
       const credits = numberRecord(consumed.tokenCreditsByCompany)
       credits[companyId] = (credits[companyId] ?? 0) + visits
-      const next = {
+      const next: Record<string, unknown> = {
         ...consumed,
         tokenCreditsByCompany: credits,
       }
@@ -877,11 +956,32 @@ router.post('/promotions/register-consumption', registerConsumptionRateLimit, as
       .sort((left, right) => (
         numberValue(left.data().requiredReservations) - numberValue(right.data().requiredReservations)
       ))
-    const targetPromotion = promotionId
-      ? ladderDocs.find((docSnap) => docSnap.id === promotionId) ?? null
-      : ladderDocs[0] ?? null
-    const requiredCents = targetPromotion
-      ? promoMinimumFromPromotionData(targetPromotion.data() as Record<string, unknown>)
+
+    // Si piden una promo concreta, léela por ID (el limit(40) puede no incluirla).
+    let targetPromotionData: Record<string, unknown> | null = null
+    if (promotionId) {
+      const fromList = promotionsSnap.docs.find((docSnap) => docSnap.id === promotionId)
+      if (fromList) {
+        targetPromotionData = fromList.data() as Record<string, unknown>
+      } else {
+        const directSnap = await companyRef.collection('promotions').doc(promotionId).get()
+        if (directSnap.exists && directSnap.data()?.active === true) {
+          targetPromotionData = directSnap.data() as Record<string, unknown>
+        }
+      }
+    } else if (ladderDocs[0]) {
+      targetPromotionData = ladderDocs[0].data() as Record<string, unknown>
+    }
+
+    const eligiblePromotionIds = [
+      ...new Set([
+        ...promotionsSnap.docs.map((docSnap) => docSnap.id),
+        ...(promotionId && targetPromotionData ? [promotionId] : []),
+      ]),
+    ]
+
+    const requiredCents = targetPromotionData
+      ? promoMinimumFromPromotionData(targetPromotionData)
       : 0
 
     const capture = await resolveConsumptionCapture({
@@ -896,6 +996,8 @@ router.post('/promotions/register-consumption', registerConsumptionRateLimit, as
       pinMatches: currentPin === pin,
       reservationRequired,
       ladderPromotionIds: ladderDocs.map((docSnap) => docSnap.id),
+      // Cualquier promo activa del local se puede verificar con PIN.
+      eligiblePromotionIds,
       requestedPromotionId: promotionId,
       captureError: 'error' in capture ? capture.error : null,
       requiredCents,
@@ -915,8 +1017,8 @@ router.post('/promotions/register-consumption', registerConsumptionRateLimit, as
     const userRef = adminDb.collection('users').doc(customer.uid)
     const statsRef = userGamificationRef(customer.uid)
     const card = resolveCompanyCardFields(companyData)
-    const promotionTitle = typeof targetPromotion?.data().title === 'string'
-      ? String(targetPromotion.data().title).trim()
+    const promotionTitle = typeof targetPromotionData?.title === 'string'
+      ? String(targetPromotionData.title).trim()
       : ''
 
     let registered: { visits: number; tokenCreditsByCompany: Record<string, number> }

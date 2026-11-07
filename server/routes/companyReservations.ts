@@ -14,7 +14,7 @@ import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../rese
 
 const router = Router()
 
-router.post('/:companyId/reservations', async (req: Request, res: Response) => {
+router.post('/:companyId/reservations', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const { companyId } = req.params
 

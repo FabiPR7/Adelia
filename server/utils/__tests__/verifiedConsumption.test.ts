@@ -114,4 +114,65 @@ describe('customer verified consumption', () => {
       expect(decision.promotionId).toBe('ladder-1')
     }
   })
+
+  it('accepts a min-spend offer that is not a ladder, without granting map credit', () => {
+    const decision = evaluateWalkInConsumption({
+      pinMatches: true,
+      reservationRequired: false,
+      ladderPromotionIds: ['ladder-1'],
+      eligiblePromotionIds: ['ladder-1', 'minspend-offer'],
+      requestedPromotionId: 'minspend-offer',
+      captureError: null,
+      requiredCents: 2000,
+      totalCents: 2500,
+    })
+
+    expect(decision).toEqual({
+      ok: true,
+      status: 200,
+      grantCredit: false,
+      writeRecord: true,
+      promotionId: 'minspend-offer',
+    })
+  })
+
+  it('rejects an unknown promotion id even if ladders exist', () => {
+    const decision = evaluateWalkInConsumption({
+      pinMatches: true,
+      reservationRequired: false,
+      ladderPromotionIds: ['ladder-1'],
+      eligiblePromotionIds: ['ladder-1', 'minspend-offer'],
+      requestedPromotionId: 'other-promo',
+      captureError: null,
+      requiredCents: 0,
+      totalCents: 1000,
+    })
+
+    expect(decision.ok).toBe(false)
+    if (!decision.ok) {
+      expect(decision.status).toBe(404)
+      expect(decision.error).toBe('Promoción no encontrada.')
+    }
+  })
+
+  it('rejects a requested promotion when the restaurant has no active promotions', () => {
+    const decision = evaluateWalkInConsumption({
+      pinMatches: true,
+      reservationRequired: false,
+      ladderPromotionIds: [],
+      eligiblePromotionIds: [],
+      requestedPromotionId: 'inactive-promo',
+      captureError: null,
+      requiredCents: 0,
+      totalCents: 1000,
+    })
+
+    expect(decision).toEqual({
+      ok: false,
+      status: 404,
+      error: 'Promoción no encontrada.',
+      grantCredit: false,
+      writeRecord: false,
+    })
+  })
 })

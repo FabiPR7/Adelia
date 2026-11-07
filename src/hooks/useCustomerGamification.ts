@@ -105,14 +105,6 @@ export function useCustomerGamification({
   const weeklyMissions = useMemo(() => rotateWeeklyMissions(), [weekKey])
   const monthlyMissions = useMemo(() => rotateMonthlyMissions(), [monthKey])
 
-  const weeklyCompletedIds = useMemo(
-    () => new Set(state.weeklyCompleted),
-    [state.weeklyCompleted],
-  )
-  const monthlyCompletedIds = useMemo(
-    () => new Set(state.monthlyCompleted),
-    [state.monthlyCompleted],
-  )
   const historicalCompletedIds = useMemo(
     () => new Set(state.completedMissions),
     [state.completedMissions],
@@ -121,6 +113,17 @@ export function useCustomerGamification({
   const evaluationState = useMemo(
     () => syncGamificationPeriods(state, favoriteSlugs),
     [state, favoriteSlugs],
+  )
+
+  // Del estado ya reiniciado: con `state`, al cambiar de semana o de mes las
+  // misiones del periodo anterior contarían como completadas y se cobrarían otra vez.
+  const weeklyCompletedIds = useMemo(
+    () => new Set(evaluationState.weeklyCompleted),
+    [evaluationState.weeklyCompleted],
+  )
+  const monthlyCompletedIds = useMemo(
+    () => new Set(evaluationState.monthlyCompleted),
+    [evaluationState.monthlyCompleted],
   )
 
   const weeklyProgress = useMemo(
@@ -227,9 +230,11 @@ export function useCustomerGamification({
     syncingRef.current = true
 
     const beforeGamification = { ...evaluationState }
+    let syncAgain = false
 
     void updateCustomerGamification(user.uid, merged)
       .then(async (syncResult) => {
+        syncAgain = syncResult.deferred
         const withServerItems = {
           ...merged,
           inventory: syncResult.inventory,
@@ -256,6 +261,11 @@ export function useCustomerGamification({
       .finally(() => {
         syncingRef.current = false
         setSyncing(false)
+        if (syncAgain) {
+          // Quedan misiones por guardar: el nuevo estado vuelve a lanzar este efecto.
+          persistedRef.current = ''
+          setState((current) => ({ ...current }))
+        }
       })
   }, [
     enabled,

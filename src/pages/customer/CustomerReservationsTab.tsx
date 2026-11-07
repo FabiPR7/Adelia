@@ -122,7 +122,7 @@ function CustomerReservationsTab() {
   const {
     refreshGamificationData,
     state: gamificationState,
-    reservations: loadedReservations,
+    displayReservations: loadedReservations,
     consumptions,
     restaurants: loadedRestaurants,
     loading: gamificationLoading,

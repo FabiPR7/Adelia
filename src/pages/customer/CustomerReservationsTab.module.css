@@ -17,7 +17,6 @@
 .hero {
   position: relative;
   overflow: hidden;
-  margin: 0 -0.85rem;
   padding: 1.35rem 1.1rem 1.15rem;
   color: var(--night-text);
   background: linear-gradient(135deg, var(--night-bg) 0%, var(--night-bg-2) 100%);

@@ -54,6 +54,7 @@ export async function fetchSaasCheckoutSession(sessionId: string): Promise<SaasC
 }
 
 type CompanySignupInput = {
+  acceptedLegalVersion: string
   email: string
   phone: string
   password: string

@@ -152,7 +152,7 @@ function recordTime(game: StopwatchGame, uid: string, hundredths: number) {
   game.startedAt = null
   game.turnDeadlineAt = null
   maybeFinish(game)
-  if (game.phase !== 'done' && game.turnIndex % 2 === 0) {
+  if ((game.phase as StopwatchGame['phase']) !== 'done' && game.turnIndex % 2 === 0) {
     const fresh = nextTarget(currentTarget(game))
     game.targetHundredthsList = [...game.targetHundredthsList, fresh]
   }

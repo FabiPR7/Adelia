@@ -14,6 +14,7 @@ function asCheckoutSessionId(value: unknown): string {
 
 function signupProfileFromBody(body: Record<string, unknown>) {
   return {
+    acceptedLegalVersion: body.acceptedLegalVersion,
     email: String(body.email ?? ''),
     phone: String(body.phone ?? ''),
     password: String(body.password ?? ''),

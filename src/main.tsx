@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext'
 import { FavoriteRestaurantsProvider } from './context/FavoriteRestaurantsContext'
 import { CustomerGamificationProvider } from './context/CustomerGamificationContext'
 import { CustomerProductTourProvider } from './context/CustomerProductTourContext'
+import './styles/fonts.css'
 import './styles/global.css'
 
 createRoot(document.getElementById('root')!).render(

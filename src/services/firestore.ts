@@ -78,6 +78,7 @@ import {
 } from '../utils/companyValidation'
 import { notifyReservationCancelledNotification, notifyReservationConfirmationEmail } from './reservationEmailApi'
 import type { QrBrandingConfig, QrBrandingKind } from '../types/company'
+import { splitCustomerReservations, type CustomerReservationLists } from '../utils/customerReservationLists'
 import {
   normalizeQrBrandingConfig,
   parseCompanyQrBranding,
@@ -858,6 +859,8 @@ export async function updateCustomerGamification(
   inventory: Record<string, number>
   grantedItemKeys: string[]
   newItemGrantBatches: Array<{ grantKey: string; grants: Array<{ itemId: string; quantity: number }> }>
+  /** El servidor guardó solo parte de las misiones: hay que volver a sincronizar. */
+  deferred: boolean
 }> {
   const data = await callCustomerGamificationApi('/sync', {
     gamification,
@@ -900,6 +903,7 @@ export async function updateCustomerGamification(
     inventory,
     grantedItemKeys,
     newItemGrantBatches: batches,
+    deferred: data.deferred === true,
   }
 }
 
@@ -1176,87 +1180,62 @@ export async function getVerifiedConsumptionsByCompany(
     .sort((left, right) => right.verifiedAt.getTime() - left.verifiedAt.getTime())
 }
 
-export async function getCustomerReservations(
-  email: string,
-  uid?: string,
+async function queryCustomerReservations(
+  field: 'customerUid' | 'clientEmail',
+  value: string,
 ): Promise<Reservation[]> {
-  const normalizedEmail = email.trim().toLowerCase()
-  const cacheKey = `customer:${uid ?? ''}:${normalizedEmail}`
-  const cached = reservationQueryCache.get(cacheKey)
-  if (cached && Date.now() - cached.at < RESERVATION_QUERY_CACHE_MS) {
-    return cached.rows
-  }
+  const toRows = (docs: { id: string; data: () => Record<string, unknown> }[]) =>
+    docs.map((item) => mapReservation(item.id, item.data()))
 
-  const byId = new Map<string, Reservation>()
-  let uidQuerySucceeded = false
-
-  if (uid) {
-    try {
-      const uidSnapshot = await getDocs(
-        query(
-          collection(db, 'reservations'),
-          where('customerUid', '==', uid),
-          orderBy('createdAt', 'desc'),
-          limit(CUSTOMER_RESERVATION_LIMIT),
-        ),
-      )
-      uidSnapshot.docs.forEach((item) => {
-        byId.set(item.id, mapReservation(item.id, item.data()))
-      })
-      uidQuerySucceeded = true
-    } catch {
-      try {
-        const uidSnapshot = await getDocs(
-          query(collection(db, 'reservations'), where('customerUid', '==', uid), limit(CUSTOMER_RESERVATION_LIMIT)),
-        )
-        uidSnapshot.docs.forEach((item) => {
-          byId.set(item.id, mapReservation(item.id, item.data()))
-        })
-        uidQuerySucceeded = true
-      } catch {
-        // Índice o reglas aún no publicadas: se intenta por email.
-      }
-    }
-  }
-
-  if (normalizedEmail && (!uidQuerySucceeded || byId.size === 0) && byId.size < CUSTOMER_RESERVATION_LIMIT) {
+  try {
+    const snapshot = await getDocs(
+      query(
+        collection(db, 'reservations'),
+        where(field, '==', value),
+        orderBy('createdAt', 'desc'),
+        limit(CUSTOMER_RESERVATION_LIMIT),
+      ),
+    )
+    return toRows(snapshot.docs)
+  } catch {
     try {
       const snapshot = await getDocs(
-        query(
-          collection(db, 'reservations'),
-          where('clientEmail', '==', normalizedEmail),
-          orderBy('createdAt', 'desc'),
-          limit(CUSTOMER_RESERVATION_LIMIT),
-        ),
+        query(collection(db, 'reservations'), where(field, '==', value), limit(CUSTOMER_RESERVATION_LIMIT)),
       )
-      snapshot.docs.forEach((item) => {
-        if (!byId.has(item.id)) {
-          byId.set(item.id, mapReservation(item.id, item.data()))
-        }
-      })
+      return toRows(snapshot.docs)
     } catch {
-      try {
-        const snapshot = await getDocs(
-          query(
-            collection(db, 'reservations'),
-            where('clientEmail', '==', normalizedEmail),
-            limit(CUSTOMER_RESERVATION_LIMIT),
-          ),
-        )
-        snapshot.docs.forEach((item) => {
-          if (!byId.has(item.id)) {
-            byId.set(item.id, mapReservation(item.id, item.data()))
-          }
-        })
-      } catch {
-        // Sin permiso o índice pendiente.
-      }
+      // Sin permiso o índice pendiente.
+      return []
     }
   }
+}
 
-  const rows = [...byId.values()].sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
-  reservationQueryCache.set(cacheKey, { at: Date.now(), rows })
-  return rows
+export async function getCustomerReservationLists(
+  email: string,
+  uid?: string,
+): Promise<CustomerReservationLists> {
+  const normalizedEmail = email.trim().toLowerCase()
+  const cacheKey = `customer:${uid ?? ''}:${normalizedEmail}`
+  const cachedAll = reservationQueryCache.get(`${cacheKey}:all`)
+  const cachedMissions = reservationQueryCache.get(`${cacheKey}:missions`)
+  if (
+    cachedAll && cachedMissions
+    && Date.now() - cachedAll.at < RESERVATION_QUERY_CACHE_MS
+    && Date.now() - cachedMissions.at < RESERVATION_QUERY_CACHE_MS
+  ) {
+    return { all: cachedAll.rows, forMissions: cachedMissions.rows }
+  }
+
+  const [byAccount, byEmail] = await Promise.all([
+    uid ? queryCustomerReservations('customerUid', uid) : Promise.resolve([]),
+    normalizedEmail ? queryCustomerReservations('clientEmail', normalizedEmail) : Promise.resolve([]),
+  ])
+
+  const lists = splitCustomerReservations(byAccount, byEmail)
+  const at = Date.now()
+  reservationQueryCache.set(`${cacheKey}:all`, { at, rows: lists.all })
+  reservationQueryCache.set(`${cacheKey}:missions`, { at, rows: lists.forMissions })
+  return lists
 }
 
 export function filterReservationsForDate(

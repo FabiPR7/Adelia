@@ -34,3 +34,6 @@ functions/.env.*
 *.njsproj
 *.sln
 *.sw?
+
+# Copias de scripts/restore-customer-gamification.mjs (datos personales)
+.restore-backups/

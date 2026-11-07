@@ -1,4 +1,4 @@
-import { APP_URL } from './config.ts'
+import { APP_URL, EMAIL_REPLY_TO } from './config.ts'
 import {
   applyTemplatePlaceholders,
   buildReservationCancelUrl,
@@ -165,7 +165,7 @@ function buildButtonHtml(label: string, href: string, variant: 'primary' | 'dang
   </table>`
 }
 
-function buildPromotionBlock(template: ReservationEmailTemplate, placeholders: Record<string, string>) {
+function buildPromotionBlock(template: ReservationEmailTemplate, placeholders: { nombre: string; restaurante: string; fecha?: string; hora?: string }) {
   if (!template.showPromotion) {
     return ''
   }
@@ -181,10 +181,11 @@ function buildPromotionBlock(template: ReservationEmailTemplate, placeholders: R
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;border-collapse:separate;border-spacing:0;">
     <tr>
       <td style="padding:16px 18px;border-radius:12px;background:linear-gradient(135deg,rgba(196,168,130,0.18),rgba(250,247,242,0.95));border:1px solid rgba(196,168,130,0.45);">
-        <div style="font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#8b7355;margin-bottom:6px;">Promoción</div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#8b7355;margin-bottom:6px;">Publicidad · ${escapeHtml(placeholders.restaurante)}</div>
         <div style="font-size:16px;font-weight:700;color:#5c4a3a;margin-bottom:6px;">${title}</div>
         <div style="font-size:14px;line-height:1.55;color:#5c4a3a;">${message}</div>
         ${codeBlock}
+        <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#8b7355;">¿No quieres recibir ofertas en estos correos? Escribe a ${escapeHtml(EMAIL_REPLY_TO)}.</div>
       </td>
     </tr>
   </table>`
@@ -375,12 +376,14 @@ export function buildReservationEmailText(data: ReservationEmailBuildData): stri
 
   if (template.showPromotion) {
     lines.push(
+      `Publicidad · ${placeholders.restaurante}`,
       applyTemplatePlaceholders(template.promotionTitle, placeholders),
       applyTemplatePlaceholders(template.promotionMessage, placeholders),
     )
     if (template.promotionCode.trim()) {
       lines.push(`Código: ${template.promotionCode.trim()}`)
     }
+    lines.push(`¿No quieres recibir ofertas en estos correos? Escribe a ${EMAIL_REPLY_TO}.`)
     lines.push('')
   }
 

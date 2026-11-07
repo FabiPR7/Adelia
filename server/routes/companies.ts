@@ -10,7 +10,7 @@ import { syncRestaurantIndex } from '../data/restaurantIndex.ts'
 import { writeCompanyOps } from '../data/companyOps.ts'
 import { defaultCompanyEmailTemplates } from '../email/emailTemplateDefaults.ts'
 import { applyPlanFeatureLimitsIfChanged } from '../company/enforcePlanLimits.ts'
-import { deleteQueryInBatches } from '../data/deleteQueryInBatches.ts'
+import { CompanyDeletionBlockedError, deleteCompanyAccount } from '../stripe/saasPlanChanges.ts'
 
 const router = Router()
 
@@ -33,24 +33,6 @@ async function removeLoginIndex(loginName: string) {
   await adminDb.collection('logins').doc(slugify(loginName)).delete()
 }
 
-async function deleteCompanyData(companyId: string, loginName: string) {
-  await deleteQueryInBatches(
-    adminDb.collection('reservations').where('companyId', '==', companyId),
-  )
-  await deleteQueryInBatches(
-    adminDb.collection('tables').where('companyId', '==', companyId),
-  )
-
-  const batch = adminDb.batch()
-  batch.delete(adminDb.collection('companies').doc(companyId))
-  batch.delete(adminDb.collection('companyCredentials').doc(companyId))
-  batch.delete(adminDb.collection('restaurantIndex').doc(companyId))
-  batch.delete(adminDb.collection('companies').doc(companyId).collection('private').doc('ops'))
-  batch.delete(adminDb.collection('companies').doc(companyId).collection('private').doc('promotionPin'))
-  await batch.commit()
-  await removeLoginIndex(loginName)
-}
-
 async function markMustChangePassword(ownerUid: string, companyId: string) {
   await adminAuth.setCustomUserClaims(ownerUid, { mustChangePassword: true })
   await adminDb.collection('users').doc(ownerUid).set(
@@ -66,7 +48,7 @@ async function markMustChangePassword(ownerUid: string, companyId: string) {
   )
 }
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const {
       name,
@@ -297,7 +279,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     if (!canUseAdminSdk) {
       res.status(503).json({
@@ -427,7 +409,7 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 })
 
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     if (!canUseAdminSdk) {
       res.status(503).json({
@@ -446,24 +428,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return
     }
 
-    const companyData = companySnap.data()!
-    const ownerUid = companyData.ownerUid as string
-
-    const credentialsSnap = await adminDb.collection('companyCredentials').doc(id).get()
-    const loginName =
-      (credentialsSnap.data()?.loginName as string) ?? (companyData.name as string)
-
-    await deleteCompanyData(id, loginName)
-    await adminDb.collection('users').doc(ownerUid).delete()
-
-    try {
-      await adminAuth.deleteUser(ownerUid)
-    } catch {
-      // Usuario de auth ya eliminado
-    }
+    await deleteCompanyAccount(id)
 
     res.json({ success: true })
   } catch (error) {
+    if (error instanceof CompanyDeletionBlockedError) {
+      res.status(409).json({ error: error.message })
+      return
+    }
     const message = error instanceof Error ? error.message : 'Error eliminando empresa.'
     res.status(500).json({ error: message })
   }

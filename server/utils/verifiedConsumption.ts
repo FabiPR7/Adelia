@@ -179,7 +179,13 @@ export type WalkInConsumptionDecision =
 export function evaluateWalkInConsumption(input: {
   pinMatches: boolean
   reservationRequired: boolean
+  /** Premios del mapa: otorgan crédito de visita. */
   ladderPromotionIds: string[]
+  /**
+   * Promos que se pueden verificar en walk-in: escaleras + ofertas con gasto mínimo.
+   * Si no se pasa, se usan solo las escaleras (compat).
+   */
+  eligiblePromotionIds?: string[]
   requestedPromotionId: string
   captureError: string | null
   requiredCents: number
@@ -195,8 +201,11 @@ export function evaluateWalkInConsumption(input: {
     }
   }
 
+  const eligibleIds = input.eligiblePromotionIds ?? input.ladderPromotionIds
   const requested = input.requestedPromotionId.trim()
-  if (requested && !input.ladderPromotionIds.includes(requested)) {
+  // Si piden una promo concreta, debe estar activa y ser elegible (mapa o
+  // cualquier oferta del local pasada en eligiblePromotionIds).
+  if (requested && !eligibleIds.includes(requested)) {
     return {
       ok: false,
       status: 404,
@@ -237,10 +246,13 @@ export function evaluateWalkInConsumption(input: {
   }
 
   const promotionId = requested || input.ladderPromotionIds[0] || null
+  const grantCredit = Boolean(
+    promotionId && input.ladderPromotionIds.includes(promotionId),
+  )
   return {
     ok: true,
     status: 200,
-    grantCredit: Boolean(promotionId),
+    grantCredit,
     writeRecord: true,
     promotionId,
   }

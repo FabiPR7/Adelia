@@ -22,7 +22,7 @@ async function syncClientForReservation(reservationId: string, data: FirebaseFir
   }
 }
 
-router.post('/:reservationId/sync-client', async (req: Request, res: Response) => {
+router.post('/:reservationId/sync-client', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const { reservationId } = req.params
     const reservationSnap = await adminDb.collection('reservations').doc(reservationId).get()
@@ -55,7 +55,7 @@ router.post('/:reservationId/sync-client', async (req: Request, res: Response) =
   }
 })
 
-router.post('/:reservationId/notify-received', async (req: Request, res: Response) => {
+router.post('/:reservationId/notify-received', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const { reservationId } = req.params
     const reservationSnap = await adminDb.collection('reservations').doc(reservationId).get()
@@ -95,7 +95,7 @@ router.post('/:reservationId/notify-received', async (req: Request, res: Respons
   }
 })
 
-router.post('/:reservationId/notify-confirmation', async (req: Request, res: Response) => {
+router.post('/:reservationId/notify-confirmation', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const { reservationId } = req.params
     const reservationSnap = await adminDb.collection('reservations').doc(reservationId).get()
@@ -134,7 +134,7 @@ router.post('/:reservationId/notify-confirmation', async (req: Request, res: Res
   }
 })
 
-router.post('/:reservationId/notify-cancelled', async (req: Request, res: Response) => {
+router.post('/:reservationId/notify-cancelled', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const { reservationId } = req.params
     const reservationSnap = await adminDb.collection('reservations').doc(reservationId).get()

@@ -5,7 +5,7 @@ import { createRateLimit } from '../middleware/rateLimit.ts'
 import { resolveCompanyPromotionPin } from '../utils/companyPromotionPin.ts'
 import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
 import { parseCompanyReservationMode } from '../utils.ts'
-import { parseStoredPlanId, planAllowsPromotions } from '../company/planLimits.ts'
+import { clampPromotionsToPlan, parseStoredPlanId, planAllowsPromotions } from '../company/planLimits.ts'
 import { allowPublicCache } from '../security/httpCache.ts'
 
 const router = Router()
@@ -238,7 +238,8 @@ function mapPromotionPayload(
 async function loadPromotionsForCompany(
   companyDoc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot,
 ): Promise<PublicPromotionPayload[]> {
-  if (!planAllowsPromotions(parseStoredPlanId(companyDoc.data()?.planId))) {
+  const planId = parseStoredPlanId(companyDoc.data()?.planId)
+  if (!planAllowsPromotions(planId)) {
     return []
   }
   const promotionsSnapshot = await companyDoc.ref
@@ -247,7 +248,8 @@ async function loadPromotionsForCompany(
     .limit(40)
     .get()
 
-  return promotionsSnapshot.docs.map((promotionDoc) => mapPromotionPayload(promotionDoc, companyDoc))
+  return clampPromotionsToPlan(promotionsSnapshot.docs, planId, (docSnap) => docSnap.data().type)
+    .map((promotionDoc) => mapPromotionPayload(promotionDoc, companyDoc))
 }
 
 router.post('/validate-pin', validatePinRateLimit, async (req: Request, res: Response) => {
@@ -304,17 +306,22 @@ router.get('/', async (_req: Request, res: Response) => {
       : []
     const companiesById = new Map(companySnaps.filter((snap) => snap.exists).map((snap) => [snap.id, snap]))
 
-    const promotions = activeSnap.docs.flatMap((promotionDoc) => {
+    const docsByCompany = new Map<string, FirebaseFirestore.QueryDocumentSnapshot[]>()
+    for (const promotionDoc of activeSnap.docs) {
       const companyId = promotionDoc.ref.parent.parent?.id
-      const companySnap = companyId ? companiesById.get(companyId) : undefined
-      if (
-        !companySnap
-        || companySnap.data()?.deactivated === true
-        || !planAllowsPromotions(parseStoredPlanId(companySnap.data()?.planId))
-      ) {
+      if (companyId) {
+        docsByCompany.set(companyId, [...(docsByCompany.get(companyId) ?? []), promotionDoc])
+      }
+    }
+
+    const promotions = [...docsByCompany].flatMap(([companyId, promotionDocs]) => {
+      const companySnap = companiesById.get(companyId)
+      const planId = parseStoredPlanId(companySnap?.data()?.planId)
+      if (!companySnap || companySnap.data()?.deactivated === true || !planAllowsPromotions(planId)) {
         return []
       }
-      return [mapPromotionPayload(promotionDoc, companySnap)]
+      return clampPromotionsToPlan(promotionDocs, planId, (docSnap) => docSnap.data().type)
+        .map((promotionDoc) => mapPromotionPayload(promotionDoc, companySnap))
     })
 
     promotions.sort((left, right) => left.companyName.localeCompare(right.companyName, 'es'))

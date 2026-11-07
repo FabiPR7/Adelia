@@ -16,7 +16,7 @@ import LegalLinks from '../components/LegalLinks'
 import styles from './CompanyLandingPage.module.css'
 
 const STATS = [
-  { value: '+35%', label: 'más reservas online' },
+  { value: 'Gratis', label: 'para empezar con Mesa' },
   { value: '24/7', label: 'reservas sin llamadas' },
   { value: '1 panel', label: 'mesas, clientes y promos' },
   { value: '0 €', label: 'comisión por reserva*' },
@@ -122,57 +122,6 @@ const MANAGED = [
   },
 ] as const
 
-const QUOTES = [
-  {
-    text: 'Antes perdíamos reservas por WhatsApp. Ahora el viernes lo vemos todo en el móvil y la sala respira.',
-    name: 'María G.',
-    role: 'Dueña · Taberna El Rincón',
-    initials: 'MG',
-  },
-  {
-    text: 'Las promos de mediodía nos llenaron los martes. La gente entra desde la app sin que hagamos nada.',
-    name: 'Jordi L.',
-    role: 'Gerente · Trattoria Roma',
-    initials: 'JL',
-  },
-  {
-    text: 'Configuré mesas y perfil en una tarde. Mis clientes reservan solos y yo me centro en cocina.',
-    name: 'Ana R.',
-    role: 'Chef · La Brasa del Mar',
-    initials: 'AR',
-  },
-  {
-    text: 'El plano de mesas es oro puro. Los clientes eligen la suya y en sala ya sabemos dónde sentarlos.',
-    name: 'Pablo S.',
-    role: 'Maître · Casa Pablo',
-    initials: 'PS',
-  },
-  {
-    text: 'Pasamos de 4 llamadas diarias a cero. Reservan de noche, confirmamos solos y listo.',
-    name: 'Elena V.',
-    role: 'Propietaria · Marisquería Norte',
-    initials: 'EV',
-  },
-  {
-    text: 'La promo de 3 reservas nos trajo habituales nuevos. Vuelven por el postre y se quedan a cenar.',
-    name: 'Miguel T.',
-    role: 'Dueño · Asador Miguel',
-    initials: 'MT',
-  },
-  {
-    text: 'Aparecer en Adelia nos dio visibilidad que Instagram no nos daba. Reservas de gente que no nos conocía.',
-    name: 'Lucía M.',
-    role: 'Gerente · Bistró Lucía',
-    initials: 'LM',
-  },
-  {
-    text: 'Informes claros, clientes ordenados, promos que se venden solas. Por fin todo en un sitio.',
-    name: 'Carlos H.',
-    role: 'Dueño · Hamburguesería 88',
-    initials: 'CH',
-  },
-] as const
-
 const WITHOUT = [
   'Llamadas a deshora y mensajes perdidos',
   'Mesas vacías que no sabes cómo llenar',
@@ -240,7 +189,7 @@ function CompanyLandingPage() {
               </Link>
             </div>
             <p className={styles.heroNote}>
-              Sin tarjeta · Te activamos la cuenta · Empiezas en minutos
+              Sin tarjeta · Te das de alta tú · Empiezas en minutos
             </p>
           </div>
         </section>
@@ -258,12 +207,12 @@ function CompanyLandingPage() {
           <div className={styles.sectionHead}>
             <p className={styles.eyebrow}>Lo que ganas</p>
             <h2>
-              La competencia ya se pasó a Adelia.
+              Reservas, clientes y promos en un solo sitio.
               <span> ¿Qué estás esperando?</span>
             </h2>
             <p>
-              No hace falta ser una cadena. Si ellos ya reservan por app, tú también puedes
-              llenar mesas, fidelizar y destacar — desde el primer día.
+              No hace falta ser una cadena. Con Adelia puedes llenar mesas, fidelizar y
+              destacar — desde el primer día.
             </p>
           </div>
 
@@ -288,7 +237,7 @@ function CompanyLandingPage() {
             <p className={styles.eyebrow}>Visibilidad + gestión</p>
             <h2>Te ven. Reservan. Vuelven.</h2>
             <p>
-              Miles de comensales descubren restaurantes en Adelia. Tú controlas cómo te ven:
+              Los comensales descubren restaurantes en Adelia. Tú controlas cómo te ven:
               fotos, promos, ubicación en mapa y enlace propio para redes y cartelería.
             </p>
             <ul className={styles.growthList}>
@@ -302,11 +251,6 @@ function CompanyLandingPage() {
           </div>
           <div className={styles.growthVisual}>
             <img src={growthImage} alt="" className={styles.growthImage} />
-            <div className={styles.floatingCard}>
-              <span className={styles.floatingLabel}>Esta semana</span>
-              <strong>+28 reservas</strong>
-              <small>desde la app pública</small>
-            </div>
           </div>
         </section>
 
@@ -404,40 +348,12 @@ function CompanyLandingPage() {
           </div>
         </section>
 
-        <section className={styles.quotesSection} aria-label="Opiniones">
-          <div className={styles.quotesHead}>
-            <p className={styles.eyebrow}>Restauradores reales</p>
-            <h2>Lo que dicen de Adelia</h2>
-            <p>Dueños, gerentes y equipos de sala que ya gestionan con nosotros.</p>
-          </div>
-
-          <div className={styles.quotesMarquee}>
-            <div className={styles.quoteTrack}>
-              {[...QUOTES, ...QUOTES].map((quote, index) => (
-                <blockquote key={`${quote.name}-${index}`} className={styles.quoteCard}>
-                  <div className={styles.quoteStars} aria-hidden="true">
-                    ★★★★★
-                  </div>
-                  <p>“{quote.text}”</p>
-                  <footer>
-                    <span className={styles.quoteAvatar}>{quote.initials}</span>
-                    <div>
-                      <strong>{quote.name}</strong>
-                      <span>{quote.role}</span>
-                    </div>
-                  </footer>
-                </blockquote>
-              ))}
-            </div>
-          </div>
-        </section>
-
         <section className={styles.cta} id="solicitar">
           <div className={styles.ctaGlow} aria-hidden="true" />
           <p className={styles.eyebrow}>Empieza hoy</p>
           <h2>Tu restaurante merece llenarse</h2>
           <p>
-            Elige Mesa (gratis), Sala (39 €/mes) o Local (59 €/mes). Configuras mesas, perfil y
+            Elige Mesa (gratis), Sala (39,99 €/mes) o Local (59,99 €/mes). Configuras mesas, perfil y
             promos en una tarde. Tus clientes reservan desde el mismo día.
           </p>
           <div className={styles.ctaActions}>

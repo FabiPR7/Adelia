@@ -3,6 +3,7 @@ import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import { COLLECTIONS } from './collections.ts'
 import { writeCompanyOps } from './companyOps.ts'
 import { syncRestaurantIndex } from './restaurantIndex.ts'
+import { requireAcceptedLegalVersion } from './legalAcceptance.ts'
 import { defaultCompanyEmailTemplates } from '../email/emailTemplateDefaults.ts'
 import { InputError, asEmail, asOptionalTrimmed, asPlainText } from '../security/validate.ts'
 import { requireSpanishPhone } from '../security/phone.ts'
@@ -78,6 +79,7 @@ function optionalCoord(value: unknown): number | null {
 }
 
 interface CompanySignupProfile {
+  acceptedLegalVersion?: unknown
   email: string
   phone: string
   password: string
@@ -332,6 +334,7 @@ export async function completeFreeCompanySignup(
     throw new Error('El alta no está disponible en este servidor.')
   }
 
+  const acceptedLegalVersion = requireAcceptedLegalVersion(input.acceptedLegalVersion)
   const profile = parseSignupProfile(input)
   const created = await provisionCompanyAccount(profile, {
     planId: 'free',
@@ -340,6 +343,11 @@ export async function completeFreeCompanySignup(
     stripeSubscriptionId: null,
     markPlanPaid: false,
   })
+
+  await adminDb.collection(COLLECTIONS.companies).doc(created.companyId).set(
+    { acceptedLegalVersion, acceptedLegalAt: Timestamp.now() },
+    { merge: true },
+  )
 
   await claimPendingLemonPlan(created.companyId, profile.contactEmail).catch((error) => {
     console.error('Lemon Squeezy pending plan claim error:', error)

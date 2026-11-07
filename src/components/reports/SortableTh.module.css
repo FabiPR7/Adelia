@@ -1,4 +1,6 @@
 .sortButton {
+  /* Contiene a .srOnly: si no, escapa del scroll de la tabla y ensancha la página en móvil. */
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;

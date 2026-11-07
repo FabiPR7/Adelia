@@ -13,7 +13,6 @@ function CompanyPlanCheckoutSuccessPage() {
 
   useEffect(() => {
     if (!sessionId) {
-      setError('Falta la sesión de pago.')
       return
     }
 
@@ -51,7 +50,24 @@ function CompanyPlanCheckoutSuccessPage() {
 
       <main className={styles.main}>
         <section className={styles.success} aria-live="polite">
-          {error ? (
+          {!sessionId ? (
+            <>
+              <h1>¡Gracias por tu compra!</h1>
+              <p>
+                Si aún no tienes cuenta, créala con <strong>el mismo correo</strong> con el que has
+                pagado y tu plan se activará solo. Si ya la tienes, el plan aparecerá en tu panel en
+                unos minutos.
+              </p>
+              <p>
+                <Link to="/empresa/alta" className={`${styles.ctaGhost} ${styles.successBack}`}>
+                  Crear mi cuenta
+                </Link>
+              </p>
+              <p>
+                <Link to="/login">Ya tengo cuenta</Link>
+              </p>
+            </>
+          ) : error ? (
             <>
               <h1>No encontramos el pago</h1>
               <p>{error}</p>

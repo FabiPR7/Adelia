@@ -8,7 +8,23 @@ import {
 import type { AdelinaSlotState } from '../../types/review'
 import { getAdelinaSlotStates, normalizeReviewRating } from '../../types/review'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../../utils/cloudinaryUrl'
+import { LEGAL_CONTACT_EMAIL } from '../../content/publicLegal'
 import styles from './PublicRestaurantReviews.module.css'
+
+function buildReportHref(companyName: string, authorName: string, createdAt: string): string {
+  const subject = `Denuncia de reseña en ${companyName}`
+  const body = [
+    `Reseña de ${authorName} del ${createdAt} en ${companyName}.`,
+    `Enlace: ${window.location.href}`,
+    '',
+    'Por qué es ilícita o incumple los términos:',
+    '',
+    'Tu nombre y correo:',
+    '',
+    'Declaro que actúo de buena fe y que lo que indico es correcto.',
+  ].join('\n')
+  return `mailto:${LEGAL_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
 
 interface PublicRestaurantReviewsProps {
   companySlug: string
@@ -137,6 +153,10 @@ function PublicReviewCard({
           <p>{review.ownerReply.text}</p>
         </div>
       ) : null}
+
+      <a className={styles.reportLink} href={buildReportHref(companyName, authorName, review.createdAt)}>
+        Denunciar
+      </a>
     </article>
   )
 }
@@ -245,6 +265,7 @@ export default function PublicRestaurantReviews({
             )
           })}
         </div>
+        <p className={styles.verifiedNote}>Solo pueden opinar clientes con una reserva confirmada en este local.</p>
       </header>
 
       {error ? <p className={styles.error}>{error}</p> : null}

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { FEATURED_PROMOTIONS, PROMO_HERO_IMAGE } from '../data/featuredPromotions'
+import { PROMO_HERO_IMAGE } from '../data/featuredPromotions'
 import { fetchPublicPromotions, type PublicPromotion } from '../services/publicPromotions'
 import { PROMOTION_TYPE_LABELS } from '../types/company'
 import type { PromotionType } from '../types/company'
@@ -40,29 +40,20 @@ interface DiscoveryPromotionsSectionProps {
 }
 
 function DiscoveryPromotionsSection({ allowedCompanyIds }: DiscoveryPromotionsSectionProps) {
-  const [items, setItems] = useState(
-    FEATURED_PROMOTIONS.map((promotion, index) => ({
-      ...promotion,
-      slug: '',
-      companyId: '',
-      accent: accentForIndex(index),
-    })),
-  )
+  const [items, setItems] = useState<ReturnType<typeof mapPublicPromotion>[]>([])
 
   useEffect(() => {
     void fetchPublicPromotions()
       .then((promotions) => {
-        if (promotions.length > 0) {
-          setItems(promotions.map(mapPublicPromotion))
-        }
+        setItems(promotions.map(mapPublicPromotion))
       })
       .catch(() => {
-        // Keep featured fallback content.
+        // Sin promociones reales no se enseña nada: nunca ofertas de ejemplo.
       })
   }, [])
 
   const visibleItems = allowedCompanyIds
-    ? items.filter((item) => typeof item.companyId === 'string' && allowedCompanyIds.includes(item.companyId))
+    ? items.filter((item) => allowedCompanyIds.includes(item.companyId))
     : items
 
   return (
@@ -85,6 +76,7 @@ function DiscoveryPromotionsSection({ allowedCompanyIds }: DiscoveryPromotionsSe
         </div>
       </div>
 
+      {visibleItems.length > 0 ? (
       <div className={styles.cardsTrack}>
         {visibleItems.map((promotion) => (
           <article
@@ -107,7 +99,7 @@ function DiscoveryPromotionsSection({ allowedCompanyIds }: DiscoveryPromotionsSe
                 <h3>{promotion.title}</h3>
                 <p className={styles.description}>{promotion.description}</p>
                 <span className={styles.detailChip}>{promotion.detail}</span>
-                {'slug' in promotion && promotion.slug && (
+                {promotion.slug && (
                   <Link
                     to={buildPromotionBookingHref(promotion.slug, promotion.id)}
                     className={styles.cardLink}
@@ -120,6 +112,7 @@ function DiscoveryPromotionsSection({ allowedCompanyIds }: DiscoveryPromotionsSe
           </article>
         ))}
       </div>
+      ) : null}
 
       <div className={styles.cta}>
         <div className={styles.ctaGlow} aria-hidden="true" />

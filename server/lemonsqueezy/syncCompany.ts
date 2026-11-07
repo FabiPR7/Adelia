@@ -59,34 +59,57 @@ export function parseLemonSubscription(data: unknown): ParsedSubscription | null
   }
 }
 
-async function findCompanyByEmail(email: string) {
+/**
+ * Busca la empresa de una suscripción. `contactEmail` lo edita el restaurante,
+ * así que va lo último: una suscripción ya enlazada nunca cambia de empresa
+ * porque otro local se ponga ese correo.
+ */
+async function findCompanyForSubscription(subscriptionId: string, email: string) {
+  const companies = adminDb.collection(COLLECTIONS.companies)
+  if (subscriptionId) {
+    const bySubscription = await companies
+      .where('lemonSqueezySubscriptionId', '==', subscriptionId)
+      .limit(1)
+      .get()
+    if (!bySubscription.empty) {
+      return bySubscription.docs[0]
+    }
+  }
   if (!email) {
     return null
   }
-  const snap = await adminDb
-    .collection(COLLECTIONS.companies)
-    .where('contactEmail', '==', email)
-    .limit(1)
-    .get()
-  if (!snap.empty) {
-    return snap.docs[0]
-  }
-  // La empresa podría tener el correo guardado por la suscripción de LS.
-  const bySub = await adminDb
-    .collection(COLLECTIONS.companies)
+  const byLemonEmail = await companies
     .where('lemonSqueezyEmail', '==', email)
     .limit(1)
     .get()
-  return bySub.empty ? null : bySub.docs[0]
+  if (!byLemonEmail.empty) {
+    return byLemonEmail.docs[0]
+  }
+  const byContactEmail = await companies
+    .where('contactEmail', '==', email)
+    .limit(1)
+    .get()
+  return byContactEmail.empty ? null : byContactEmail.docs[0]
 }
 
 /** Campos base que fijan un plan de pago activo desde Lemon Squeezy. */
-function activePlanWrites(sub: ParsedSubscription, planId: LemonPlanId, pastDue: boolean) {
+function activePlanWrites(
+  sub: ParsedSubscription,
+  planId: LemonPlanId,
+  pastDue: boolean,
+  isNewSubscription: boolean,
+) {
   return {
     planId,
     planBilling: sub.period,
-    planStartedAt: FieldValue.serverTimestamp(),
-    planLastPaidAt: pastDue ? FieldValue.delete() : FieldValue.serverTimestamp(),
+    // Las fechas solo se fijan al enlazar la suscripción: subscription_updated
+    // llega muchas veces y no significa que haya un cobro nuevo.
+    ...(isNewSubscription
+      ? {
+          planStartedAt: FieldValue.serverTimestamp(),
+          ...(pastDue ? {} : { planLastPaidAt: FieldValue.serverTimestamp() }),
+        }
+      : {}),
     planPaymentState: pastDue ? 'past_due' : FieldValue.delete(),
     planPaymentFailedAt: pastDue ? FieldValue.serverTimestamp() : FieldValue.delete(),
     pendingPlanId: FieldValue.delete(),
@@ -126,7 +149,13 @@ export async function syncCompanyFromLemonSubscription(data: unknown): Promise<v
     return
   }
 
-  const company = await findCompanyByEmail(sub.email)
+  if (!sub.planId) {
+    // Una variante desconocida (p. ej. IDs de prueba tras pasar a modo real) no
+    // debe pasar en silencio: el cliente ha pagado y no recibiría el plan.
+    console.error('Lemon Squeezy: variante sin plan asociado', sub.subscriptionId)
+  }
+
+  const company = await findCompanyForSubscription(sub.subscriptionId, sub.email)
 
   const cancelledOrGone = sub.status === 'expired'
   const stillPayingButAtRisk = sub.status === 'past_due'
@@ -134,9 +163,14 @@ export async function syncCompanyFromLemonSubscription(data: unknown): Promise<v
   const scheduledToEnd = sub.status === 'cancelled'
 
   if (!company) {
+    const pendingRef = adminDb.collection(PENDING_COLLECTION).doc(lemonPendingKey(sub.email))
+    if (cancelledOrGone || lostAccess) {
+      await pendingRef.delete().catch(() => undefined)
+      return
+    }
     // Sin empresa todavía: dejamos el estado listo para el alta.
-    if (sub.planId && !cancelledOrGone && !lostAccess) {
-      await adminDb.collection(PENDING_COLLECTION).doc(lemonPendingKey(sub.email)).set({
+    if (sub.planId) {
+      await pendingRef.set({
         planId: sub.planId,
         period: sub.period,
         subscriptionId: sub.subscriptionId,
@@ -147,8 +181,6 @@ export async function syncCompanyFromLemonSubscription(data: unknown): Promise<v
         updatedAt: FieldValue.serverTimestamp(),
         expireAt: Timestamp.fromMillis(Date.now() + PENDING_TTL_MS),
       })
-    } else {
-      await adminDb.collection(PENDING_COLLECTION).doc(lemonPendingKey(sub.email)).delete().catch(() => undefined)
     }
     return
   }
@@ -179,8 +211,55 @@ export async function syncCompanyFromLemonSubscription(data: unknown): Promise<v
     return
   }
 
-  await ref.set(activePlanWrites(sub, sub.planId, stillPayingButAtRisk), { merge: true })
+  const isNewSubscription = company.data().lemonSqueezySubscriptionId !== sub.subscriptionId
+  await ref.set(activePlanWrites(sub, sub.planId, stillPayingButAtRisk, isNewSubscription), { merge: true })
   await applyPlanFeatureLimits(company.id, sub.planId)
+}
+
+interface LemonInvoiceAttributes {
+  subscription_id?: unknown
+  user_email?: unknown
+}
+
+/**
+ * `subscription_payment_*` no trae una suscripción sino una factura (sin
+ * variante ni estado de suscripción). Solo actualiza el estado del cobro: nunca
+ * crea ni borra el plan pendiente, porque esos avisos llegan también antes del alta.
+ */
+export async function syncCompanyFromLemonInvoice(data: unknown, eventName: string): Promise<void> {
+  if (!data || typeof data !== 'object') {
+    return
+  }
+  const attrs = (data as { attributes?: LemonInvoiceAttributes }).attributes ?? {}
+  const company = await findCompanyForSubscription(
+    String(attrs.subscription_id ?? ''),
+    String(attrs.user_email ?? '').trim().toLowerCase(),
+  )
+  if (!company) {
+    return
+  }
+
+  if (eventName === 'subscription_payment_failed') {
+    await company.ref.set(
+      {
+        planPaymentState: 'past_due',
+        planPaymentFailedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+    return
+  }
+
+  await company.ref.set(
+    {
+      planLastPaidAt: FieldValue.serverTimestamp(),
+      planPaymentState: FieldValue.delete(),
+      planPaymentFailedAt: FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 } from './saasCatalog.ts'
 import { getOrCreateSaasPrice } from './saasPrices.ts'
 import { applyPlanFeatureLimits } from '../company/enforcePlanLimits.ts'
+import { cancelLemonSubscription } from '../lemonsqueezy/config.ts'
 
 type StoredPlanId = 'free' | 'basic' | 'premium' | 'premium_plus'
 type ChangeKind = 'none' | 'start_paid' | 'upgrade_now' | 'downgrade_later' | 'cancel_later'
@@ -62,17 +63,17 @@ function addCalendarMonths(date: Date, months: number): Date {
   return next
 }
 
-function nextCycleDate(startedAt: Date, from = new Date()): Date {
+function nextCycleDate(startedAt: Date, from = new Date(), cycleMonths = 1): Date {
   const start = new Date(startedAt.getFullYear(), startedAt.getMonth(), startedAt.getDate())
   const today = new Date(from.getFullYear(), from.getMonth(), from.getDate())
   if (start.getTime() > today.getTime()) {
     return start
   }
   let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 12, 0, 0, 0)
-  let next = addCalendarMonths(cursor, 1)
+  let next = addCalendarMonths(cursor, cycleMonths)
   while (new Date(next.getFullYear(), next.getMonth(), next.getDate()).getTime() <= today.getTime()) {
     cursor = next
-    next = addCalendarMonths(cursor, 1)
+    next = addCalendarMonths(cursor, cycleMonths)
   }
   return new Date(next.getFullYear(), next.getMonth(), next.getDate(), 12, 0, 0, 0)
 }
@@ -82,7 +83,7 @@ function unixSeconds(value: unknown): number | null {
 }
 
 function subscriptionPeriodUnix(subscription: Stripe.Subscription, field: 'start' | 'end'): number | null {
-  const item = subscription.items.data[0] as Record<string, unknown> | undefined
+  const item = subscription.items.data[0] as unknown as Record<string, unknown> | undefined
   const itemValue = unixSeconds(item?.[field === 'end' ? 'current_period_end' : 'current_period_start'])
   if (itemValue) {
     return itemValue
@@ -222,12 +223,13 @@ export async function applyDuePendingPlan(companyId: string): Promise<void> {
   await ref.set(
     {
       planId: nextPlanId,
-      planBilling: nextPlanId === 'free' ? null : 'monthly',
+      planBilling: nextPlanId === 'free' ? null : data.planBilling === 'annual' ? 'annual' : 'monthly',
       ...(nextPlanId === 'free'
         ? {
             planStartedAt: FieldValue.delete(),
             planLastPaidAt: FieldValue.delete(),
             stripeSubscriptionId: FieldValue.delete(),
+            lemonSqueezySubscriptionId: FieldValue.delete(),
           }
         : {}),
       ...pendingWrites(null, null),
@@ -245,17 +247,16 @@ export async function readCompanyBillingStatus(companyId: string) {
   const pendingPlanId = data.pendingPlanId ? parseStoredPlanId(data.pendingPlanId) : null
   const pendingPlanAt = readTimestamp(data.pendingPlanAt)
   const planStartedAt = readTimestamp(data.planStartedAt)
+  const stripeSubscriptionId = typeof data.stripeSubscriptionId === 'string' ? data.stripeSubscriptionId : ''
   const lemonSubscriptionId = typeof data.lemonSqueezySubscriptionId === 'string' ? data.lemonSqueezySubscriptionId : ''
   const lemonPortalUrl = typeof data.lemonSqueezyPortalUrl === 'string' ? data.lemonSqueezyPortalUrl : ''
-  const hasSubscription =
-    (typeof data.stripeSubscriptionId === 'string' && data.stripeSubscriptionId.length > 0)
-    || lemonSubscriptionId.length > 0
+  const hasSubscription = stripeSubscriptionId.length > 0 || lemonSubscriptionId.length > 0
   let currentPeriodEnd = pendingPlanAt
 
-  if (hasSubscription && isStripeConfigured()) {
+  if (stripeSubscriptionId && isStripeConfigured()) {
     try {
       const stripe = createStripeClient()
-      const subscription = await stripe.subscriptions.retrieve(data.stripeSubscriptionId as string, {
+      const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
         expand: ['items.data.price'],
       })
       currentPeriodEnd = subscriptionPeriodEnd(subscription) ?? currentPeriodEnd
@@ -264,8 +265,9 @@ export async function readCompanyBillingStatus(companyId: string) {
     }
   }
 
+  const isAnnual = data.planBilling === 'annual'
   if (!currentPeriodEnd && planId !== 'free' && data.planBilling !== 'perpetual' && planStartedAt) {
-    currentPeriodEnd = nextCycleDate(planStartedAt)
+    currentPeriodEnd = nextCycleDate(planStartedAt, new Date(), isAnnual ? 12 : 1)
   }
 
   const paymentState = data.planPaymentState === 'past_due' || data.planPaymentState === 'unpaid'
@@ -281,7 +283,9 @@ export async function readCompanyBillingStatus(companyId: string) {
       : null,
     currentPeriodEnd: currentPeriodEnd ? currentPeriodEnd.toISOString() : null,
     hasSubscription,
-    planBilling: planId === 'free' ? null : data.planBilling === 'perpetual' ? 'perpetual' : 'monthly',
+    planBilling: planId === 'free'
+      ? null
+      : data.planBilling === 'perpetual' ? 'perpetual' : isAnnual ? 'annual' : 'monthly',
     paymentState,
     paymentFailedAt: readTimestamp(data.planPaymentFailedAt)?.toISOString() ?? null,
     // Portal de Lemon Squeezy para cambiar de plan / tarjeta / cancelar.
@@ -337,7 +341,7 @@ export async function changeCompanySubscriptionPlan(input: {
 
   if (subscriptionId && isStripeConfigured()) {
     const stripe = createStripeClient()
-    let subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items.data.price'] })
+    let subscription: Stripe.Subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items.data.price'] })
 
     if (kind === 'upgrade_now') {
       const paidPlan = parseSaasCheckoutPlanId(toId)
@@ -448,7 +452,7 @@ export async function changeCompanySubscriptionPlan(input: {
     await ref.set(
       {
         planId: toId,
-        planBilling: toId === 'free' ? null : billing === 'perpetual' && kind !== 'start_paid' ? 'perpetual' : 'monthly',
+        planBilling: toId === 'free' ? null : billing === 'perpetual' ? 'perpetual' : 'monthly',
         ...pendingWrites(null, null),
         updatedAt: FieldValue.serverTimestamp(),
       },
@@ -664,33 +668,64 @@ export async function cancelCompanyStripeSubscription(companyId: string): Promis
   }
 }
 
-export async function deleteCompanyAccount(companyId: string): Promise<void> {
-  await cancelCompanyStripeSubscription(companyId)
+/** La cuenta no se ha tocado: el restaurante debe resolver el cobro antes de borrarla. */
+export class CompanyDeletionBlockedError extends Error {}
 
+const LEMON_CANCEL_BLOCKED_MESSAGE =
+  'Tu plan de pago sigue activo y no hemos podido cancelarlo. Cancélalo en Lemon Squeezy desde tu zona de Plan y vuelve a intentarlo. No se ha borrado nada.'
+
+async function cancelCompanyLemonSubscription(data: FirebaseFirestore.DocumentData): Promise<void> {
+  const subscriptionId = typeof data.lemonSqueezySubscriptionId === 'string' ? data.lemonSqueezySubscriptionId : ''
+  // Si ya está cancelada a fin de ciclo, Lemon Squeezy no volverá a cobrar.
+  if (!subscriptionId || parseStoredPlanId(data.planId) === 'free' || data.pendingPlanId === 'free') {
+    return
+  }
+  let cancelled = false
+  try {
+    cancelled = await cancelLemonSubscription(subscriptionId)
+  } catch (error) {
+    console.error('Lemon Squeezy cancel error:', error)
+  }
+  if (!cancelled) {
+    throw new CompanyDeletionBlockedError(LEMON_CANCEL_BLOCKED_MESSAGE)
+  }
+}
+
+export async function deleteCompanyAccount(companyId: string): Promise<void> {
   const companyRef = adminDb.collection(COLLECTIONS.companies).doc(companyId)
   const companySnap = await companyRef.get()
   if (!companySnap.exists) {
     throw new Error('Restaurante no encontrado.')
   }
   const companyData = companySnap.data()!
+
+  // Primero los cobros: si fallan, no se borra nada y se puede reintentar.
+  await cancelCompanyLemonSubscription(companyData)
+  await cancelCompanyStripeSubscription(companyId)
+
   const ownerUid = typeof companyData.ownerUid === 'string' ? companyData.ownerUid : ''
   const credentialsSnap = await adminDb.collection(COLLECTIONS.companyCredentials).doc(companyId).get()
   const loginName =
     (credentialsSnap.data()?.loginName as string | undefined) ?? (companyData.name as string | undefined) ?? ''
 
-  await deleteQueryInBatches(
-    adminDb.collection(COLLECTIONS.reservations).where('companyId', '==', companyId),
-  )
-  await deleteQueryInBatches(
-    adminDb.collection(COLLECTIONS.tables).where('companyId', '==', companyId),
-  )
+  for (const collection of [
+    COLLECTIONS.reservations,
+    COLLECTIONS.tables,
+    COLLECTIONS.promotionClaims,
+    COLLECTIONS.productClaims,
+    COLLECTIONS.reviewIndex,
+  ]) {
+    await deleteQueryInBatches(adminDb.collection(collection).where('companyId', '==', companyId))
+  }
+
+  // recursiveDelete incluye clientes, reseñas, consumos, promociones, cartas…:
+  // borrar solo el documento dejaría esas subcolecciones huérfanas.
+  await adminDb.recursiveDelete(companyRef)
 
   const batch = adminDb.batch()
-  batch.delete(companyRef)
   batch.delete(adminDb.collection(COLLECTIONS.companyCredentials).doc(companyId))
   batch.delete(adminDb.collection(COLLECTIONS.restaurantIndex).doc(companyId))
-  batch.delete(adminDb.collection(COLLECTIONS.companies).doc(companyId).collection('private').doc('ops'))
-  batch.delete(adminDb.collection(COLLECTIONS.companies).doc(companyId).collection('private').doc('promotionPin'))
+  batch.delete(adminDb.collection(COLLECTIONS.companyGamification).doc(companyId))
   if (loginName) {
     batch.delete(adminDb.collection(COLLECTIONS.logins).doc(slugify(loginName)))
   }

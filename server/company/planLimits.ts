@@ -34,6 +34,22 @@ export function planMaxPromosOfType(planId: StoredPlanId, type: string): number 
   return 0
 }
 
+/** Deja solo las promociones que el plan permite publicar, por tipo y cantidad. */
+export function clampPromotionsToPlan<T>(
+  promotions: T[],
+  planId: StoredPlanId,
+  typeOf: (promotion: T) => unknown,
+): T[] {
+  const countByType = new Map<string, number>()
+  return promotions.filter((promotion) => {
+    const type = String(typeOf(promotion) ?? '')
+    const count = (countByType.get(type) ?? 0) + 1
+    countByType.set(type, count)
+    const max = planMaxPromosOfType(planId, type)
+    return max == null || count <= max
+  })
+}
+
 export function planPromoTypes(): readonly string[] {
   return PROMO_TYPES
 }

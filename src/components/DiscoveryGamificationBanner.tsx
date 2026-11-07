@@ -109,7 +109,7 @@ function DiscoveryGamificationBanner({
             )}
             <span className={`${styles.livePill} ${celebrations.rankJustImproved ? styles.livePillRankUp : ''}`}>
               <span className={styles.liveDot} aria-hidden="true" />
-              {isCustomer ? `#${userRank} esta semana` : '847 foodies compitiendo'}
+              {isCustomer ? `#${userRank} esta semana` : 'Ranking semanal en vivo'}
             </span>
           </div>
         </div>
