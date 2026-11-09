@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ArrowRight, BookOpen } from 'lucide-react'
 import MenuPromotionsFab from '../components/MenuPromotionsFab'
 import { fetchPublicMenu, type PublicBookingCompany } from '../services/publicApi'
 import type { MenuBoard } from '../types/company'
 import { trackAppEvent } from '../utils/appEvents'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
+import { getCompanyMainPhotoUrl } from '../utils/companyPhotos'
 import styles from './PublicMenuPage.module.css'
 
 function PublicMenuPage() {
@@ -71,15 +74,23 @@ function PublicMenuPage() {
     )
   }
 
+  const coverPhoto = getCompanyMainPhotoUrl(company.photos ?? [], company.mainPhotoIndex ?? 0)
+  const coverUrl = coverPhoto ? optimizeCloudinaryUrl(coverPhoto, CLOUDINARY_DISPLAY.photoGallery) : ''
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <Link to={reserveHref} className={styles.backLink}>
-          ← Volver
-        </Link>
-        <div className={styles.headerText}>
-          <h1>{company.name}</h1>
-          <p>Elige una carta</p>
+        {coverUrl ? <img src={coverUrl} alt="" className={styles.headerImage} /> : null}
+        <div className={styles.headerShade} aria-hidden="true" />
+        <div className={styles.headerInner}>
+          <Link to={reserveHref} className={styles.backLink}>
+            ← Volver
+          </Link>
+          <div className={styles.headerText}>
+            <p className={styles.eyebrow}>La carta</p>
+            <h1>{company.name}</h1>
+            {boards.length > 1 ? <p>Elige qué carta quieres ver.</p> : null}
+          </div>
         </div>
       </header>
 
@@ -94,13 +105,29 @@ function PublicMenuPage() {
             {boards.map((board) => (
               <li key={board.id}>
                 <Link to={`/reservar/${slug}/carta/${board.id}`} className={styles.boardCard}>
+                  <span className={styles.boardIcon}>
+                    <BookOpen size={24} aria-hidden="true" />
+                  </span>
                   <span className={styles.boardName}>{board.name}</span>
-                  <span className={styles.boardAction}>Ver carta →</span>
+                  <span className={styles.boardAction}>
+                    Ver
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </span>
                 </Link>
               </li>
             ))}
           </ul>
         )}
+
+        <section className={styles.reserveCard} aria-label="Reservar mesa">
+          <div>
+            <h2>¿Te apetece?</h2>
+            <p>Reserva tu mesa en {company.name} en un momento.</p>
+          </div>
+          <Link to={`${reserveHref}?reservar=1`} className={styles.reserveButton}>
+            Reservar mesa
+          </Link>
+        </section>
       </main>
 
       <MenuPromotionsFab slug={slug} />

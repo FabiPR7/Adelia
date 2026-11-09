@@ -12,6 +12,7 @@ import RotatingRestaurantSpotlight from '../../components/RotatingRestaurantSpot
 import AdelinaCoin from '../../components/AdelinaCoin'
 import { useAuth } from '../../context/AuthContext'
 import { useFavoriteRestaurants } from '../../hooks/useFavoriteRestaurants'
+import { usePromotionCounts } from '../../hooks/usePromotionCounts'
 import { fetchPublicDiscoveryRestaurants } from '../../services/publicDiscovery'
 import type { CitySuggestion } from '../../services/citySearch'
 import { haversineDistanceKm, type GeoCoordinates } from '../../utils/geo'
@@ -50,6 +51,7 @@ function CustomerExploreTab() {
   const [nearbyMessage, setNearbyMessage] = useState<string | null>(null)
   const [userCoords, setUserCoords] = useState<GeoCoordinates | null>(null)
   const [favoritesActive, setFavoritesActive] = useState(false)
+  const promoCounts = usePromotionCounts()
 
   useEffect(() => {
     let cancelled = false
@@ -352,6 +354,7 @@ function CustomerExploreTab() {
               homeCoords={homeCoords}
               locating={nearbyState === 'locating'}
               locationError={nearbyState === 'error' ? nearbyMessage : null}
+              promoCounts={promoCounts}
               onRequestGps={requestGpsLocation}
               onOpenRestaurant={openRestaurant}
             />

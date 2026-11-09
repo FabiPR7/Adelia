@@ -2,18 +2,21 @@ import RankingNotice from '../components/RankingNotice'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import CityAutocomplete from '../components/CityAutocomplete'
-import DiscoveryGamificationBanner from '../components/DiscoveryGamificationBanner'
-import DiscoveryReviewsCallout from '../components/DiscoveryReviewsCallout'
-import DiscoveryPromotionsSection from '../components/DiscoveryPromotionsSection'
 import DiscoverySkeleton from '../components/DiscoverySkeleton'
 import DiscoveryTraitsFilter from '../components/DiscoveryTraitsFilter'
 import DiscoveryVenueKindFilter from '../components/DiscoveryVenueKindFilter'
+import LandingBusinessBand from '../components/LandingBusinessBand'
+import LandingFaq from '../components/LandingFaq'
+import LandingFriends from '../components/LandingFriends'
+import LandingNearbyMap from '../components/LandingNearbyMap'
+import LandingRewards from '../components/LandingRewards'
 import FavoriteRestaurantsRow from '../components/FavoriteRestaurantsRow'
 import RestaurantInfiniteCarousel from '../components/RestaurantInfiniteCarousel'
 import LegalLinks from '../components/LegalLinks'
 import { useAuth } from '../context/AuthContext'
 import { ADELIA_LOGO_URL } from '../constants/brand'
-import { useCustomerGamificationContext } from '../context/CustomerGamificationContext'
+import { PROMO_HERO_IMAGE } from '../data/featuredPromotions'
+import { LEGAL_CONTACT_EMAIL } from '../content/publicLegal'
 import { useFavoriteRestaurants } from '../hooks/useFavoriteRestaurants'
 import { fetchPublicDiscoveryRestaurants } from '../services/publicDiscovery'
 import type { CitySuggestion } from '../services/citySearch'
@@ -25,9 +28,7 @@ import {
   restaurantHasMapPin,
   restaurantMatchesVenueKind,
   sortRestaurantsByDistance,
-  splitRestaurantsForCarousels,
-  getDiscoveryAverageRating,
-  getDiscoveryReviewAdelinas,
+  restaurantsForCarouselRows,
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
 import { getLocationErrorMessage, requestUserLocation } from '../utils/requestUserLocation'
@@ -83,7 +84,6 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   }, [])
 
   const isCustomer = profile?.role === 'customer'
-  const gamification = useCustomerGamificationContext()
   const openRestaurant = useCallback(
     (restaurant: PublicDiscoveryRestaurant) => {
       navigate(`/reservar/${restaurant.slug}`)
@@ -131,7 +131,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   }, [restaurants, effectiveQuery, selectedCity, venueKind, nearbyActive, userCoords, distancesKm])
 
   const { primary, secondary } = useMemo(
-    () => splitRestaurantsForCarousels(filteredRestaurants),
+    () => restaurantsForCarouselRows(filteredRestaurants),
     [filteredRestaurants],
   )
 
@@ -142,25 +142,6 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
         .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind)),
     [restaurants, favoriteSlugs, venueKind],
   )
-
-  const reviewSpotlight = useMemo(() => {
-    const pick = [...restaurants]
-      .filter((restaurant) => restaurant.reviewCount > 0)
-      .sort(
-        (left, right) => getDiscoveryAverageRating(right) - getDiscoveryAverageRating(left),
-      )[0]
-
-    if (!pick) {
-      return null
-    }
-
-    return {
-      name: pick.name,
-      reviewRating: getDiscoveryAverageRating(pick),
-      adelinaCount: getDiscoveryReviewAdelinas(pick),
-      isFavorite: favoriteSlugs.includes(pick.slug),
-    }
-  }, [favoriteSlugs, restaurants])
 
   const handleSearch = () => {
     setAppliedSearch(searchDraft.trim())
@@ -242,6 +223,11 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
     <div className={`${styles.page} ${appMode ? styles.pageAppMode : ''}`}>
       {!appMode ? (
       <header className={styles.header}>
+        <Link to="/" className={styles.brand} aria-label="Adelia inicio">
+          <img src={ADELIA_LOGO_URL} alt="" className={styles.logo} />
+          <span className={styles.brandName}>Adelia</span>
+        </Link>
+
         <div className={styles.authLinks}>
           {isCustomer ? (
             <Link to="/app/perfil" className={`${styles.authLink} ${styles.authLinkPrimary}`}>
@@ -261,11 +247,6 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
             ¿Eres empresa?
           </Link>
         </div>
-
-        <Link to="/" className={styles.brand} aria-label="Adelia inicio">
-          <span className={styles.brandName}>Adelia</span>
-          <img src={ADELIA_LOGO_URL} alt="" className={styles.logo} />
-        </Link>
       </header>
       ) : (
         <header className={styles.appHeader}>
@@ -275,17 +256,21 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
       )}
 
       <main className={styles.main}>
+        <section className={styles.heroBlock}>
+          <img src={PROMO_HERO_IMAGE} alt="" className={styles.heroImage} />
+          <div className={styles.heroShade} aria-hidden="true" />
+          <div className={styles.heroInner}>
         {!appMode ? (
-        <section className={styles.hero}>
-          <p className={styles.heroEyebrow}>Reserva · Opina · Domina</p>
-          <h1 className={styles.heroTitle}>Encuentra tu mesa ideal</h1>
+        <div className={styles.hero}>
+          <p className={styles.heroEyebrow}>Reserva · Premios · Compite</p>
+          <h1 className={styles.heroTitle}>Tu mesa, con premio</h1>
           <p className={styles.heroText}>
-            Descubre restaurantes y desbloquea promociones exclusivas.
+            Reserva sin llamar, consigue descuentos y regalos de cada local y compite con tus amigos.
           </p>
-        </section>
+        </div>
         ) : null}
 
-        <section className={styles.searchSection}>
+        <div className={styles.searchSection}>
           <DiscoveryVenueKindFilter value={venueKind} onChange={setVenueKind} />
 
           <div className={styles.searchRow}>
@@ -354,6 +339,8 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
               {nearbyMessage}
             </p>
           )}
+        </div>
+          </div>
         </section>
 
         {loading && <DiscoverySkeleton />}
@@ -380,16 +367,18 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
           </div>
         )}
 
-        {!loading && !error && filteredRestaurants.length > 0 && <RankingNotice />}
-
         {!loading && !error && filteredRestaurants.length > 0 && (
           <>
             <section className={`${styles.carouselSection} ${styles.carouselBleed}`}>
               <div className={styles.carouselHeader}>
                 <div className={styles.sectionHeader}>
-                  <h2>{nearbyActive ? 'Cerca de ti' : 'Para ti hoy'}</h2>
-                  <span>{filteredRestaurants.length} restaurantes</span>
+                  <h2>{nearbyActive ? 'Cerca de ti' : 'Restaurantes en Adelia'}</h2>
+                  <span>
+                    {filteredRestaurants.length}{' '}
+                    {filteredRestaurants.length === 1 ? 'restaurante' : 'restaurantes'}
+                  </span>
                 </div>
+                <RankingNotice />
               </div>
               <RestaurantInfiniteCarousel
                 key={"primary-" + (venueKind || "all")}
@@ -419,25 +408,54 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
           </>
         )}
 
+        {!loading && !error ? (
+          <LandingNearbyMap restaurants={restaurants} onOpenRestaurant={openRestaurant} />
+        ) : null}
+
+        <LandingRewards />
+
         <section className={styles.experienceFlow}>
           <div className={styles.experienceInner}>
-            <DiscoveryPromotionsSection
-              allowedCompanyIds={venueKind ? filteredRestaurants.map((restaurant) => restaurant.id) : undefined}
-            />
-            <DiscoveryReviewsCallout isCustomer={isCustomer} spotlight={reviewSpotlight} />
-            <DiscoveryGamificationBanner
-              gamification={gamification}
-              isCustomer={isCustomer}
-              userName={profile?.displayName}
-            />
+            <LandingFriends isCustomer={isCustomer} />
           </div>
         </section>
+
+        <LandingFaq />
+
+        <LandingBusinessBand />
       </main>
 
       {!appMode ? (
         <footer className={styles.siteFooter}>
-          <LegalLinks from="/" />
-          <p>© {new Date().getFullYear()} Adelia</p>
+          <div className={styles.footerInner}>
+            <div className={styles.footerBrand}>
+              <span className={styles.footerLogo}>
+                <img src={ADELIA_LOGO_URL} alt="" />
+                Adelia
+              </span>
+              <p>Reserva en restaurantes, consigue premios y compite con tus amigos.</p>
+            </div>
+            <nav className={styles.footerColumn} aria-label="Adelia">
+              <h2>Adelia</h2>
+              <Link to="/cuenta/registro">Crear cuenta</Link>
+              <Link to="/cuenta/entrar">Iniciar sesión</Link>
+            </nav>
+            <nav className={styles.footerColumn} aria-label="Restaurantes">
+              <h2>Restaurantes</h2>
+              <Link to="/empresa">Adelia para restaurantes</Link>
+              <Link to="/empresa/planes">Planes y precios</Link>
+              <Link to="/empresa/alta">Dar de alta mi local</Link>
+            </nav>
+            <div className={styles.footerColumn}>
+              <h2>Legal</h2>
+              <LegalLinks from="/" variant="sidebar" />
+            </div>
+            <div className={styles.footerColumn}>
+              <h2>Contacto</h2>
+              <a href={`mailto:${LEGAL_CONTACT_EMAIL}`}>{LEGAL_CONTACT_EMAIL}</a>
+            </div>
+          </div>
+          <p className={styles.footerCopy}>© {new Date().getFullYear()} Adelia</p>
         </footer>
       ) : null}
     </div>

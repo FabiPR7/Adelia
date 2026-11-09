@@ -1,4 +1,12 @@
 .page {
+  /* Un solo acento para toda la landing: terracota sobre crema y marrón. */
+  --landing-accent: #c2553a;
+  --landing-accent-strong: #a8432f;
+  --landing-accent-soft: #e3825f;
+  --landing-dark: #1f1714;
+  --discovery-cta: var(--landing-accent);
+  --discovery-cta-shadow: rgba(168, 67, 47, 0.32);
+
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -98,6 +106,13 @@
   border: 1px solid rgba(107, 83, 68, 0.14);
 }
 
+@media (max-width: 480px) {
+  /* En móvil sobra: la banda de restaurantes y el pie ya enlazan a empresas. */
+  .headerBusinessLink {
+    display: none;
+  }
+}
+
 .headerBusinessLink:hover {
   color: var(--color-brown);
   text-decoration: underline;
@@ -113,7 +128,8 @@
 
 .brandName {
   font-family: var(--font-display);
-  font-size: 1.05rem;
+  font-size: 1.45rem;
+  font-weight: 600;
   line-height: 1;
   color: var(--color-brown);
 }
@@ -142,34 +158,67 @@
   }
 }
 
+.heroBlock {
+  position: relative;
+  margin: -0.35rem -1rem 1.75rem;
+  overflow: hidden;
+  background: var(--landing-dark);
+}
+
+.heroImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 40%;
+}
+
+.heroShade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(31, 23, 20, 0.35) 0%, rgba(31, 23, 20, 0.55) 45%, rgba(31, 23, 20, 0.9) 100%);
+}
+
+.heroInner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 560px;
+  padding: 3rem 1rem 1.25rem;
+}
+
 .hero {
-  padding: 0.35rem 0 0.65rem;
   text-align: left;
 }
 
 .heroEyebrow {
-  margin: 0 0 0.2rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--color-brown-light);
+  color: #ffd9c7;
   font-weight: 700;
 }
 
-.heroText {
-  margin: 0.25rem 0 0;
-  max-width: 28rem;
-  font-size: 0.875rem;
-  line-height: 1.45;
-  color: var(--color-text-muted);
+.heroTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 12vw, 5.25rem);
+  font-weight: 600;
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  color: #fff7f0;
 }
 
-.heroTitle {
-  margin: 0.15rem 0 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.65rem, 7vw, 2.2rem);
-  line-height: 1.05;
-  color: var(--color-brown);
+.heroText {
+  margin: 0.75rem 0 0;
+  max-width: 34rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: rgba(255, 247, 240, 0.86);
 }
 
 .toolbar {
@@ -235,7 +284,11 @@
 }
 
 .searchSection {
-  margin-bottom: 0.85rem;
+  margin-top: 1.5rem;
+  padding: 0.85rem;
+  border-radius: 24px;
+  background: #fff9f2;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
 }
 
 .searchRow {
@@ -353,6 +406,12 @@
   color: var(--color-text-muted);
 }
 
+@media (min-width: 720px) and (max-width: 959px) {
+  .experienceInner {
+    padding-inline: 1.25rem;
+  }
+}
+
 .stateBox,
 .errorBox {
   padding: 1rem;
@@ -386,45 +445,14 @@
 }
 
 .experienceFlow {
-  margin: 1.35rem -1rem 0;
-  padding: 0 0 1.5rem;
-  border-radius: 28px 28px 0 0;
+  margin: 3.5rem -1rem 0;
+  padding: 0 0 3rem;
   overflow: hidden;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(243, 235, 225, 0) 0%,
-      rgba(239, 228, 220, 0.92) 3%,
-      #e8d5cf 10%,
-      #d4b5b0 22%,
-      #b8898f 38%,
-      #8f6678 54%,
-      #6f4f62 68%,
-      #5a3f52 82%,
-      #4a3348 100%
-    );
-  box-shadow: 0 -8px 32px rgba(107, 83, 68, 0.08);
+  background: var(--landing-dark);
 }
 
 .experienceInner {
   width: 100%;
-}
-
-@media (min-width: 960px) {
-  .experienceFlow {
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    margin-top: 2rem;
-    padding-bottom: 2.5rem;
-    border-radius: 0;
-  }
-
-  .experienceInner {
-    max-width: 1400px;
-    margin-inline: auto;
-    padding-inline: clamp(1.5rem, 3vw, 3rem);
-  }
 }
 
 @media (min-width: 720px) {
@@ -445,59 +473,180 @@
     display: contents;
   }
 
+  .heroBlock,
   .experienceFlow {
     margin-inline: -1.25rem;
-    border-radius: 32px 32px 0 0;
+  }
+
+  .heroInner {
+    padding-inline: 1.25rem;
+  }
+
+  .experienceInner {
+    padding-inline: 1.25rem;
   }
 }
 
 @media (min-width: 960px) {
   .header {
+    box-sizing: border-box;
+    width: 100%;
     max-width: 1400px;
     margin-inline: auto;
     padding-inline: clamp(1.5rem, 3vw, 3rem);
   }
 
-  .main > :not(.experienceFlow) {
+  .main > :not(.experienceFlow):not(.heroBlock) {
     max-width: 1400px;
     margin-inline: auto;
     padding-inline: clamp(1.5rem, 3vw, 3rem);
+  }
+
+  /* Llegan al borde anulando el padding de .main; 100vw desbordaba por la barra de scroll. */
+  .main > .carouselBleed {
+    width: auto;
+    max-width: none;
+    margin-inline: -1.25rem;
+    padding-inline: 0;
+  }
+
+  .heroInner,
+  .experienceInner {
+    box-sizing: border-box;
+    max-width: 1400px;
+    margin-inline: auto;
+    padding-inline: clamp(1.5rem, 3vw, 3rem);
+  }
+
+  .heroInner {
+    min-height: 620px;
+    padding-bottom: 2.5rem;
+  }
+
+  .heroShade {
+    background: linear-gradient(90deg, rgba(31, 23, 20, 0.86) 0%, rgba(31, 23, 20, 0.5) 50%, rgba(31, 23, 20, 0.2) 100%),
+      linear-gradient(180deg, transparent 55%, rgba(31, 23, 20, 0.7) 100%);
+  }
+
+  .searchSection {
+    max-width: 1100px;
+    margin-top: 2rem;
+    padding: 1rem;
   }
 
   .experienceFlow {
-    margin-inline: calc(50% - 50vw);
-    border-radius: 0;
+    margin-top: 5rem;
+    padding-bottom: 4rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .heroTitle {
-    font-size: clamp(2rem, 3.2vw, 2.85rem);
-  }
-
-  .heroText {
-    font-size: 1rem;
-    max-width: 36rem;
-  }
-
   .sectionHeader h2 {
     font-size: 1.55rem;
-  }
-
-  .searchSection {
-    margin-bottom: 1.15rem;
   }
 }
 
 .siteFooter {
   margin-top: auto;
-  padding: 1.15rem 1rem 1.35rem;
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-  text-align: center;
+  padding: 2.5rem 1rem 1.5rem;
+  background: var(--landing-dark);
+  color: rgba(255, 247, 240, 0.72);
 }
 
-.siteFooter p {
-  margin: 0.45rem 0 0;
-  font-size: 0.72rem;
+.footerInner {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.75rem 1.25rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.footerBrand {
+  grid-column: 1 / -1;
+}
+
+.footerLogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: #fff7f0;
+}
+
+.footerLogo img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  object-fit: contain;
+}
+
+.footerBrand p {
+  margin: 0.6rem 0 0;
+  max-width: 22rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.footerColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.footerColumn h2 {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff7f0;
+}
+
+.footerColumn a,
+.footerColumn nav a {
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 247, 240, 0.72);
+  text-decoration: none;
+}
+
+.footerColumn a:hover {
+  color: #fff7f0;
+  text-decoration: underline;
+}
+
+.footerColumn nav {
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.footerCopy {
+  max-width: 1400px;
+  margin: 2rem auto 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 247, 240, 0.12);
+  font-size: 0.75rem;
+}
+
+@media (min-width: 960px) {
+  .siteFooter {
+    padding: 3.5rem clamp(1.5rem, 3vw, 3rem) 2rem;
+  }
+
+  .footerInner {
+    grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)) max-content;
+  }
+
+  .footerColumn a {
+    overflow-wrap: normal;
+  }
+
+  .footerBrand {
+    grid-column: auto;
+  }
 }

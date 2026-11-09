@@ -1,13 +1,11 @@
 .notice {
-  max-width: 1400px;
-  margin: 0 auto 0.75rem;
-  padding-inline: clamp(0rem, 3vw, 3rem);
-  font-size: 0.75rem;
-  line-height: 1.45;
+  margin: 0.1rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
   color: var(--color-text-muted);
 }
 
 .notice a {
-  color: var(--color-brown);
+  color: inherit;
   font-weight: 600;
 }

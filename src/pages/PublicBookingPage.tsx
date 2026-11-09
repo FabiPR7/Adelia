@@ -50,6 +50,7 @@ import {
   validatePromoSlotSelection,
 } from '../utils/promotionBooking'
 import { resolvePromotionHighlight, formatPromotionMinimumSpendBookingNote } from '../utils/promotionOffer'
+import { groupBookableSlots } from '../utils/bookingSlotGroups'
 import {
   companyCanCollectReservationDeposits,
   companyRequiresReservationDeposit,
@@ -422,6 +423,11 @@ function PublicBookingPage() {
       }
     })
   }, [hourSlots, activePromo, selectedDate, availableHourTimes])
+
+  const hourSlotGroups = useMemo(
+    () => groupBookableSlots(enrichedHourSlots),
+    [enrichedHourSlots],
+  )
 
   const attendanceDayBlock = useMemo(() => {
     if (!activePromo || activePromo.type !== 'attendance') {
@@ -1200,20 +1206,31 @@ function PublicBookingPage() {
                     {!selectedTime ? (
                       <>
                         <h3>Elige una hora</h3>
-                        <div className={styles.slotGrid}>
-                          {enrichedHourSlots.map((slot) => (
-                              <button
-                                key={slot.time}
-                                type="button"
-                                className={`${styles.slotButton} ${!slot.available ? styles.slotButtonDisabled : ''} ${slot.promoBlocked ? styles.slotButtonPromoBlocked : ''}`}
-                                disabled={!slot.available}
-                                title={slot.promoReason}
-                                onClick={() => handleSelectHour(slot.time)}
-                              >
-                                {slot.time}
-                              </button>
-                            ))}
-                        </div>
+                        {hourSlotGroups.length === 0 ? (
+                          <p className={styles.emptySlots}>
+                            No quedan horas libres este día. Prueba con otro día en el calendario.
+                          </p>
+                        ) : (
+                          hourSlotGroups.map((group) => (
+                            <div key={group.id} className={styles.slotGroup}>
+                              <h4 className={styles.slotGroupTitle}>{group.label}</h4>
+                              <div className={styles.slotGrid}>
+                                {group.slots.map((slot) => (
+                                  <button
+                                    key={slot.time}
+                                    type="button"
+                                    className={`${styles.slotButton} ${!slot.available ? styles.slotButtonDisabled : ''} ${slot.promoBlocked ? styles.slotButtonPromoBlocked : ''}`}
+                                    disabled={!slot.available}
+                                    title={slot.promoReason}
+                                    onClick={() => handleSelectHour(slot.time)}
+                                  >
+                                    {slot.time}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </>
                     ) : (
                       <>

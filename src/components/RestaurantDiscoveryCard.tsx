@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { UtensilsCrossed } from 'lucide-react'
 import DiscoveryRatingBadge from './DiscoveryRatingBadge'
 import { formatDistanceKm } from '../utils/geo'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
@@ -65,7 +66,11 @@ function RestaurantDiscoveryCard({
           variant="overlay"
         />
 
-        {!imageUrl && <span className={styles.imageFallback}>{restaurant.name.charAt(0)}</span>}
+        {!imageUrl && (
+          <span className={styles.imageFallback} aria-hidden="true">
+            <UtensilsCrossed size={44} strokeWidth={1.5} />
+          </span>
+        )}
 
         {ratingBadge ? (
           <DiscoveryRatingBadge rating={ratingBadge} className={styles.reviewBadge} />

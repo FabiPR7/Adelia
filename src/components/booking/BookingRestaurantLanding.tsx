@@ -1,21 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowRight, BookOpen, CalendarCheck, Clock, Mail, MapPin, Navigation, Phone, Tag } from 'lucide-react'
 import PublicRestaurantReviews from './PublicRestaurantReviews'
 import RestaurantRouteMapModal from './RestaurantRouteMapModal'
 import RestaurantPhotoCollage from './RestaurantPhotoCollage'
+import AdelinaCoin from '../AdelinaCoin'
+import FacilityIcon from '../FacilityIcon'
+import FavoriteButton from '../FavoriteButton'
 import type { PublicBookingCompany } from '../../services/publicApi'
+import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../../services/publicPromotions'
+import { computeAverageReviewRating } from '../../types/review'
 import { getCompanyMainPhotoUrl } from '../../utils/companyPhotos'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
 import { formatRestaurantLocation } from '../../utils/publicBooking'
 import { toGeoCoordinates } from '../../utils/mapCoordinates'
-import FavoriteButton from '../FavoriteButton'
-import FacilityIcon from '../FacilityIcon'
-import SlidingFitRow from './SlidingFitRow'
+import { getDaySchedule } from '../../utils/reservationSlots'
+import { getDaySchedulePeriods } from '../../utils/schedule'
+import { resolvePromotionDetail, resolvePromotionHighlight } from '../../utils/promotionOffer'
 import {
   getAmenityIcon,
   getAmenityLabel,
-  getAmenityTone,
   getPriceRangeSymbol,
   getVenueTypeLabel,
 } from '../../data/companyProfileFacilities'
@@ -26,6 +30,11 @@ import {
 } from '../../data/companyReservationMode'
 import styles from './BookingRestaurantLanding.module.css'
 
+const MAX_TEASER_PROMOTIONS = 3
+const VISIBLE_AMENITIES = 12
+/** Los distintivos largos («3 reservas o consumos») van en letra pequeña para caber. */
+const SHORT_BADGE_LENGTH = 7
+
 interface BookingRestaurantLandingProps {
   company: PublicBookingCompany
   menuHref: string
@@ -35,115 +44,24 @@ interface BookingRestaurantLandingProps {
   onReserve: () => void
 }
 
-const BUBBLE_VARIANTS = ['bubbleA', 'bubbleB', 'bubbleC', 'bubbleD', 'bubbleE'] as const
-const AMENITY_TIP_MS = 1000
-
-function UtensilsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M5 3.2v5.3c0 1 .8 1.8 1.8 1.8h.4c1 0 1.8-.8 1.8-1.8V3.2"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-      />
-      <path d="M5 3.2V6M9 3.2V6M7.2 10.3V20.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-      <path d="M15.2 20.8V8.4c0-2.6 1.4-4.4 3.6-5.2" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-      <path d="M15.2 8.4h3.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function PercentTagIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="8" cy="8.2" r="2.15" stroke="currentColor" strokeWidth="1.9" />
-      <circle cx="16" cy="15.8" r="2.15" stroke="currentColor" strokeWidth="1.9" />
-      <path d="M15.6 6.4 8.4 17.6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function CalendarCheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3.4" y="5.2" width="17.2" height="15.4" rx="2.2" stroke="currentColor" strokeWidth="1.9" />
-      <path d="M3.4 10.2h17.2M8 3.4v3.4M16 3.4v3.4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-      <path d="m8.6 16.1 2.2 2.2 4.7-4.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function AmenityHintButton({
-  id,
-  label,
-  icon,
-}: {
-  id: string
-  label: string
-  icon: string
-}) {
-  const [open, setOpen] = useState(false)
-  const [tipKey, setTipKey] = useState(0)
-  const [tipPos, setTipPos] = useState<{ left: number; top: number } | null>(null)
-  const timerRef = useRef<number | null>(null)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  const tone = getAmenityTone(id)
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current != null) {
-        window.clearTimeout(timerRef.current)
-      }
-    }
-  }, [])
-
-  const showTip = () => {
-    const rect = buttonRef.current?.getBoundingClientRect()
-    if (rect) {
-      setTipPos({ left: rect.left + rect.width / 2, top: rect.top })
-    }
-
-    setOpen(true)
-    setTipKey((current) => current + 1)
-
-    if (timerRef.current != null) {
-      window.clearTimeout(timerRef.current)
-    }
-
-    timerRef.current = window.setTimeout(() => {
-      setOpen(false)
-      timerRef.current = null
-    }, AMENITY_TIP_MS)
+function formatTodaySchedule(company: PublicBookingCompany): string | null {
+  if (!company.schedule) {
+    return null
   }
 
-  return (
-    <li className={styles.amenityItem}>
-      <button
-        ref={buttonRef}
-        type="button"
-        className={`${styles.amenityIcon} ${open ? styles.amenityIconOn : ''}`}
-        style={{ color: tone.ink, background: tone.wash, borderColor: `${tone.ink}33` }}
-        aria-label={label}
-        onClick={showTip}
-      >
-        <FacilityIcon name={icon} />
-      </button>
-      {open && tipPos
-        ? createPortal(
-            <span
-              key={tipKey}
-              className={styles.amenityTip}
-              role="status"
-              style={{ left: tipPos.left, top: tipPos.top }}
-            >
-              {label}
-            </span>,
-            document.body,
-          )
-        : null}
-    </li>
-  )
+  const today = getDaySchedule(new Date(), company.schedule)
+  if (!today) {
+    return null
+  }
+  if (!today.active) {
+    return 'Hoy cerrado'
+  }
+
+  const periods = getDaySchedulePeriods(today)
+    .filter((period) => period.open && period.close)
+    .map((period) => `${period.open}–${period.close}`)
+
+  return periods.length > 0 ? `Hoy de ${periods.join(' y ')}` : null
 }
 
 export default function BookingRestaurantLanding({
@@ -155,9 +73,30 @@ export default function BookingRestaurantLanding({
   onReserve,
 }: BookingRestaurantLandingProps) {
   const [routeMapOpen, setRouteMapOpen] = useState(false)
+  const [promotions, setPromotions] = useState<PublicPromotion[]>([])
+  const [showAllAmenities, setShowAllAmenities] = useState(false)
   const locationLine = formatRestaurantLocation(company)
   const restaurantCoords = toGeoCoordinates(company.latitude, company.longitude)
   const mainPhotoIndex = company.mainPhotoIndex ?? 0
+  const acceptsReservations = companyAcceptsReservations(company.reservationMode)
+
+  useEffect(() => {
+    let cancelled = false
+
+    void fetchPublicPromotionsBySlug(company.slug)
+      .then((items) => {
+        if (!cancelled) {
+          setPromotions(items)
+        }
+      })
+      .catch(() => {
+        // Sin promociones la ficha sigue igual: solo se oculta el bloque.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [company.slug])
 
   const allPhotos = useMemo(() => {
     if (company.photos.length > 0) {
@@ -183,19 +122,29 @@ export default function BookingRestaurantLanding({
     [company.amenities],
   )
 
+  const rating = company.reviewCount > 0
+    ? computeAverageReviewRating(company.reviewRatingSum, company.reviewCount)
+    : 0
+  const ratingLabel = rating > 0
+    ? rating.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
+    : null
+  const todaySchedule = formatTodaySchedule(company)
+  const reservationNote = companyRequiresReservation(company.reservationMode)
+    ? 'Este local trabaja solo con reserva.'
+    : acceptsReservations
+      ? 'Reserva opcional: también puedes venir sin mesa.'
+      : reservationModeHint(company.reservationMode)
+
   const mainPhotoUrl = getCompanyMainPhotoUrl(allPhotos, mainPhotoIndex)
   const heroImage = mainPhotoUrl
     ? optimizeCloudinaryUrl(mainPhotoUrl, CLOUDINARY_DISPLAY.photoGallery)
     : null
+  const teaserPromotions = promotions.slice(0, MAX_TEASER_PROMOTIONS)
+  const visibleAmenities = showAllAmenities ? amenityItems : amenityItems.slice(0, VISIBLE_AMENITIES)
+  const hiddenAmenityCount = amenityItems.length - visibleAmenities.length
 
   return (
-    <div className={styles.page}>
-      <div className={styles.ambientOrbs} aria-hidden="true">
-        <span className={styles.orbA} />
-        <span className={styles.orbB} />
-        <span className={styles.orbC} />
-      </div>
-
+    <div className={`${styles.page} ${acceptsReservations ? styles.pageWithBar : ''}`}>
       <section className={styles.hero} aria-label="Foto principal del restaurante">
         {backHref ? (
           <Link to={backHref} className={styles.backButton} data-tour="tour-restaurant-back">
@@ -220,41 +169,39 @@ export default function BookingRestaurantLanding({
                 alt=""
                 className={styles.heroLogo}
               />
-            ) : (
-              <span className={styles.heroInitial}>{company.name.charAt(0).toUpperCase()}</span>
-            )}
+            ) : null}
           </div>
         )}
 
-        <div className={styles.heroOverlayTop} aria-hidden="true" />
-        <div className={styles.heroOverlayBottom} aria-hidden="true" />
-        <div className={styles.heroGrain} aria-hidden="true" />
+        <div className={styles.heroShade} aria-hidden="true" />
 
         <div className={styles.heroContent}>
-          <div className={styles.nameBlock}>
-            <h1 className={styles.name}>{company.name}</h1>
-          </div>
+          {venueLine ? <p className={styles.venueLine}>{venueLine}</p> : null}
+          <h1 className={styles.name}>{company.name}</h1>
 
-          {locationLine && (
-            <div className={styles.locationRow}>
-              <p className={styles.location}>
-                <svg className={styles.locationIcon} viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"
-                  />
-                </svg>
+          <ul className={styles.heroMeta}>
+            {ratingLabel ? (
+              <li>
+                <AdelinaCoin size="sm" variant="review" alt="" />
+                <strong>{ratingLabel}</strong>
+                <span>
+                  {company.reviewCount} {company.reviewCount === 1 ? 'reseña' : 'reseñas'}
+                </span>
+              </li>
+            ) : null}
+            {todaySchedule ? (
+              <li>
+                <Clock size={15} aria-hidden="true" />
+                <span>{todaySchedule}</span>
+              </li>
+            ) : null}
+            {locationLine ? (
+              <li>
+                <MapPin size={15} aria-hidden="true" />
                 <span>{locationLine}</span>
-              </p>
-              <button
-                type="button"
-                className={styles.locationButton}
-                onClick={() => setRouteMapOpen(true)}
-              >
-                Ver ubicación
-              </button>
-            </div>
-          )}
+              </li>
+            ) : null}
+          </ul>
         </div>
       </section>
 
@@ -266,126 +213,208 @@ export default function BookingRestaurantLanding({
         restaurantCoords={restaurantCoords}
       />
 
-      <div className={styles.body}>
-        <section className={`${styles.profileMeta} ${styles.revealCard}`} aria-label="Perfil del local">
-          <div className={styles.venueRow}>
-            <p className={styles.venueTypes}>{venueLine || 'Restaurante'}</p>
-            <div
-              className={styles.quickActions}
-              data-tour="tour-restaurant-actions"
-              data-tour-measure="children"
-            >
-              <Link to={menuHref} className={styles.quickMenu} aria-label="Carta" title="Carta">
-                <UtensilsIcon />
-                <span className={styles.quickLabel}>Carta</span>
-              </Link>
-              <Link to={promotionsHref} className={styles.quickPromo} aria-label="Promociones" title="Promos">
-                <PercentTagIcon />
-                <span className={styles.quickLabel}>Promos</span>
-              </Link>
-              {companyAcceptsReservations(company.reservationMode) ? (
-                <button
-                  type="button"
-                  className={styles.quickReserve}
-                  onClick={onReserve}
-                  aria-label="Reservar"
-                  title="Reservar"
-                >
-                  <CalendarCheckIcon />
-                  <span className={styles.quickLabel}>Reserva</span>
-                </button>
-              ) : null}
-            </div>
-          </div>
-          {amenityItems.length > 0 ? (
-            <ul className={styles.amenityStrip} aria-label="Servicios del local">
-              {amenityItems.map((item) => (
-                <AmenityHintButton
-                  key={item.id}
-                  id={item.id}
-                  label={item.label}
-                  icon={item.icon}
-                />
-              ))}
-            </ul>
+      <div className={styles.actionsWrap}>
+        <div
+          className={styles.actions}
+          data-tour="tour-restaurant-actions"
+          data-tour-measure="children"
+        >
+          {acceptsReservations ? (
+            <button type="button" className={styles.actionPrimary} onClick={onReserve}>
+              <CalendarCheck size={20} aria-hidden="true" />
+              Reservar mesa
+            </button>
           ) : null}
-
-          {company.characteristics.length > 0 ? (
-            <SlidingFitRow ariaLabel="Características" className={styles.characteristicRow}>
-              {company.characteristics.map((item, index) => (
-                <li
-                  key={`${item}-${index}`}
-                  className={styles[BUBBLE_VARIANTS[index % BUBBLE_VARIANTS.length]]}
-                >
-                  {item}
-                </li>
-              ))}
-            </SlidingFitRow>
-          ) : null}
-        </section>
-
-        <div className={`${styles.featureRow} ${styles.revealCardDelayed}`}>
-          <RestaurantPhotoCollage
-            photos={allPhotos}
-            videos={company.videos ?? []}
-            mainPhotoIndex={mainPhotoIndex}
-            fallbackLabel={company.name}
-            restaurantName={company.name}
-          />
-          <p className={styles.reservationModeNote}>
-            {companyRequiresReservation(company.reservationMode)
-              ? 'Reserva obligatoria.'
-              : companyAcceptsReservations(company.reservationMode)
-                ? 'Reserva opcional. También puedes venir sin mesa.'
-                : reservationModeHint(company.reservationMode)}
-          </p>
-        </div>
-
-        <div className={styles.infoRow}>
-          <section className={`${styles.infoCard} ${styles.revealInfo}`} aria-label="Contacto">
-            <h2 className={styles.cardLabel}>
-              <span className={styles.cardLabelDot} aria-hidden="true" />
-              <span className={styles.cardLabelText}>Contacto</span>
-            </h2>
-            {company.phone && (
-              <p className={styles.contactLine}>
-                <span className={styles.contactIcon} aria-hidden="true">☎</span>
-                <a href={`tel:${company.phone.replace(/\s/g, '')}`}>{company.phone}</a>
-              </p>
-            )}
-            {company.contactEmail && (
-              <p className={styles.contactLine}>
-                <span className={styles.contactIcon} aria-hidden="true">✉</span>
-                <a href={`mailto:${company.contactEmail}`}>{company.contactEmail}</a>
-              </p>
-            )}
-            {!company.phone && !company.contactEmail && (
-              <p className={styles.emptyHint}>Sin datos de contacto.</p>
-            )}
-          </section>
-
-          <section
-            className={`${styles.infoCard} ${styles.descriptionCard} ${styles.revealInfoDelayed}`}
-            aria-label="Descripción"
-          >
-            <h2 className={styles.cardLabel}>
-              <span className={styles.cardLabelDot} aria-hidden="true" />
-              <span className={styles.cardLabelTextShort}>Desc.</span>
-              <span className={styles.cardLabelTextFull}>Descripción</span>
-            </h2>
-            {company.description ? (
-              <p className={styles.description}>{company.description}</p>
-            ) : (
-              <p className={styles.emptyHint}>Sin descripción publicada.</p>
-            )}
-          </section>
+          <Link to={menuHref} className={styles.actionSecondary}>
+            <BookOpen size={20} aria-hidden="true" />
+            Ver la carta
+          </Link>
+          <Link to={promotionsHref} className={styles.actionSecondary}>
+            <Tag size={20} aria-hidden="true" />
+            Promociones
+            {promotions.length > 0 ? <span className={styles.actionCount}>{promotions.length}</span> : null}
+          </Link>
         </div>
       </div>
 
-      <PublicRestaurantReviews
-        companySlug={company.slug}
-        companyName={company.name}
-      />
+      <div className={styles.layout}>
+        <div className={styles.mainColumn}>
+          {teaserPromotions.length > 0 ? (
+            <section className={styles.section} aria-labelledby="restaurant-promos-title">
+              <div className={styles.sectionHeader}>
+                <h2 id="restaurant-promos-title">Promociones en {company.name}</h2>
+                <Link to={promotionsHref} className={styles.sectionLink}>
+                  Ver todas
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              </div>
+              <ul className={styles.promoList}>
+                {teaserPromotions.map((promotion, index) => {
+                  const detail = resolvePromotionDetail(promotion)
+                  const highlight = resolvePromotionHighlight(promotion, index)
+
+                  return (
+                    <li key={promotion.id}>
+                      <Link
+                        to={`/reservar/${company.slug}/promo/${promotion.id}`}
+                        className={styles.promoCard}
+                      >
+                        <span
+                          className={`${styles.promoBadge} ${highlight.length > SHORT_BADGE_LENGTH ? styles.promoBadgeLong : ''}`}
+                        >
+                          {highlight}
+                        </span>
+                        <span className={styles.promoText}>
+                          <strong>{promotion.title}</strong>
+                          {detail ? <span>{detail}</span> : null}
+                        </span>
+                        <ArrowRight size={18} aria-hidden="true" className={styles.promoArrow} />
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          ) : null}
+
+          {allPhotos.length > 0 || (company.videos?.length ?? 0) > 0 ? (
+          <section className={styles.section} aria-label="Fotos del local">
+            <RestaurantPhotoCollage
+              photos={allPhotos}
+              videos={company.videos ?? []}
+              mainPhotoIndex={mainPhotoIndex}
+              fallbackLabel={company.name}
+              restaurantName={company.name}
+            />
+          </section>
+          ) : null}
+
+          <Link to={menuHref} className={styles.menuCard}>
+            <span className={styles.menuIcon}>
+              <BookOpen size={26} aria-hidden="true" />
+            </span>
+            <span className={styles.menuText}>
+              <strong>La carta</strong>
+              <span>Platos, bebidas y precios antes de ir.</span>
+            </span>
+            <span className={styles.menuCta}>
+              Ver la carta
+              <ArrowRight size={16} aria-hidden="true" />
+            </span>
+          </Link>
+
+          <section className={styles.section} aria-labelledby="restaurant-about-title">
+            <h2 id="restaurant-about-title" className={styles.sectionTitle}>Sobre el local</h2>
+            {company.description ? (
+              <p className={styles.description}>{company.description}</p>
+            ) : null}
+
+            {company.characteristics.length > 0 ? (
+              <ul className={styles.tagList} aria-label="Características">
+                {company.characteristics.map((item, index) => (
+                  <li key={`${item}-${index}`}>{item}</li>
+                ))}
+              </ul>
+            ) : null}
+
+            {amenityItems.length > 0 ? (
+              <>
+                <h3 className={styles.subTitle}>Servicios</h3>
+                <ul className={styles.amenityList} aria-label="Servicios del local">
+                  {visibleAmenities.map((item) => (
+                    <li key={item.id}>
+                      <FacilityIcon name={item.icon} />
+                      <span>{item.label}</span>
+                    </li>
+                  ))}
+                </ul>
+                {hiddenAmenityCount > 0 ? (
+                  <button
+                    type="button"
+                    className={styles.moreButton}
+                    onClick={() => setShowAllAmenities(true)}
+                  >
+                    Ver los {amenityItems.length} servicios
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+          </section>
+        </div>
+
+        <aside className={styles.aside}>
+          <div className={styles.asideCard}>
+            {acceptsReservations ? (
+              <>
+                <h2>Reserva tu mesa</h2>
+                <p>{reservationNote}</p>
+                <button type="button" className={styles.asideReserve} onClick={onReserve}>
+                  Reservar mesa
+                </button>
+              </>
+            ) : (
+              <>
+                <h2>Reservas</h2>
+                <p>{reservationNote}</p>
+              </>
+            )}
+
+            <ul className={styles.contactList}>
+              {todaySchedule ? (
+                <li>
+                  <Clock size={18} aria-hidden="true" />
+                  <span>{todaySchedule}</span>
+                </li>
+              ) : null}
+              {locationLine ? (
+                <li>
+                  <MapPin size={18} aria-hidden="true" />
+                  <span>{locationLine}</span>
+                </li>
+              ) : null}
+              {company.phone ? (
+                <li>
+                  <Phone size={18} aria-hidden="true" />
+                  <a href={`tel:${company.phone.replace(/\s/g, '')}`}>{company.phone}</a>
+                </li>
+              ) : null}
+              {company.contactEmail ? (
+                <li>
+                  <Mail size={18} aria-hidden="true" />
+                  <a href={`mailto:${company.contactEmail}`}>{company.contactEmail}</a>
+                </li>
+              ) : null}
+            </ul>
+
+            {locationLine ? (
+              <button type="button" className={styles.routeButton} onClick={() => setRouteMapOpen(true)}>
+                <Navigation size={16} aria-hidden="true" />
+                Cómo llegar
+              </button>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+
+      <div className={styles.reviews}>
+        <PublicRestaurantReviews companySlug={company.slug} companyName={company.name} />
+      </div>
+
+      {acceptsReservations ? (
+        <div className={styles.mobileBar}>
+          <Link to={menuHref} className={styles.mobileBarLink}>
+            <BookOpen size={18} aria-hidden="true" />
+            Carta
+          </Link>
+          <Link to={promotionsHref} className={styles.mobileBarLink}>
+            <Tag size={18} aria-hidden="true" />
+            Promos
+          </Link>
+          <button type="button" className={styles.mobileBarReserve} onClick={onReserve}>
+            Reservar mesa
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

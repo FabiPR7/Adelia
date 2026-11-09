@@ -41,6 +41,42 @@ export async function geocodePlace(query: string): Promise<GeoCoordinates | null
   return coordinates
 }
 
+export interface AddressSuggestion {
+  id: string
+  title: string
+  subtitle: string
+  label: string
+  lat: number
+  lng: number
+}
+
+export async function suggestAddresses(
+  query: string,
+  near: GeoCoordinates | null,
+  signal?: AbortSignal,
+): Promise<AddressSuggestion[]> {
+  const trimmed = query.trim()
+
+  if (trimmed.length < 3) {
+    return []
+  }
+
+  const params = new URLSearchParams({ q: trimmed })
+  if (near) {
+    params.set('lat', near.lat.toFixed(4))
+    params.set('lng', near.lng.toFixed(4))
+  }
+
+  const response = await fetch(`${API_BASE}/api/public/geocode/suggest?${params.toString()}`, { signal })
+
+  if (!response.ok) {
+    return []
+  }
+
+  const payload = (await response.json()) as { suggestions?: AddressSuggestion[] }
+  return payload.suggestions ?? []
+}
+
 export async function resolveRestaurantCoordinates(
   restaurants: PublicDiscoveryRestaurant[],
 ): Promise<Record<string, GeoCoordinates>> {

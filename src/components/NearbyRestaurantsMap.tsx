@@ -12,11 +12,39 @@ import {
   restaurantsForDiscoveryMap,
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
+import {
+  MAP_MARKER_DIMENSIONS,
+  markerSizeForGap,
+  nearestNeighborDistances,
+  promoTierForCount,
+  type MapMarkerSize,
+  type MapPromoTier,
+} from '../utils/mapMarkerLayout'
 import styles from './NearbyRestaurantsMap.module.css'
 import 'leaflet/dist/leaflet.css'
 
-const MAP_CARD_SIZE: [number, number] = [96, 104]
-const MAP_CARD_ANCHOR: [number, number] = [48, 104]
+const SIZE_CLASS: Record<MapMarkerSize, string> = {
+  large: '',
+  medium: styles.sizeMedium,
+  small: styles.sizeSmall,
+}
+
+const PROMO_CLASS: Record<MapPromoTier, string> = {
+  0: '',
+  1: styles.promoTier1,
+  2: styles.promoTier2,
+  3: styles.promoTier3,
+}
+
+interface PlacedMarker {
+  marker: L.Marker
+  restaurant: PublicDiscoveryRestaurant & { distanceKm?: number }
+  selected: boolean
+  featured: boolean
+}
+
+/** Icono «utensils-crossed» de lucide, en texto porque los marcadores de Leaflet son HTML. */
+const UTENSILS_ICON_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"/><path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7"/><path d="m2.1 21.8 6.4-6.3"/><path d="m19 5-7 7"/></svg>'
 
 interface NearbyRestaurantsMapProps {
   restaurants: PublicDiscoveryRestaurant[]
@@ -25,6 +53,10 @@ interface NearbyRestaurantsMapProps {
   locating: boolean
   locationError: string | null
   selectedSlug?: string | null
+  /** Solo el mapa: quien lo usa pone su propia cabecera y controles. */
+  bare?: boolean
+  /** Promociones activas por id de restaurante: cuantas más, más destaca en el mapa. */
+  promoCounts?: Record<string, number>
   onRequestGps: () => void
   onOpenRestaurant: (restaurant: PublicDiscoveryRestaurant) => void
 }
@@ -49,16 +81,22 @@ function createYouIcon(): L.DivIcon {
 function createRestaurantCardIcon(
   restaurant: PublicDiscoveryRestaurant & { distanceKm?: number },
   variant: 'default' | 'featured' | 'selected',
+  size: MapMarkerSize,
+  promoCount: number,
 ): L.DivIcon {
+  const promoTier = promoTierForCount(promoCount)
+  const dimensions = MAP_MARKER_DIMENSIONS[size]
+  const promoBadgeHtml = promoTier >= 2
+    ? `<span class="${styles.promoBadge}" title="${promoCount} promociones">${promoCount}</span>`
+    : ''
   const photo = restaurant.photoUrl.trim()
     ? optimizeCloudinaryUrl(restaurant.photoUrl, CLOUDINARY_DISPLAY.photoThumb)
     : ''
   const name = escapeHtml(restaurant.name)
-  const initial = escapeHtml(restaurant.name.charAt(0).toUpperCase() || 'R')
   const rating = formatDiscoveryRatingBadge(restaurant)
   const photoHtml = photo
     ? `<img class="${styles.cardPhotoImg}" src="${escapeHtml(photo)}" alt="" draggable="false" />`
-    : `<span class="${styles.cardFallback}">${initial}</span>`
+    : `<span class="${styles.cardFallback}">${UTENSILS_ICON_SVG}</span>`
   const ratingHtml = rating
     ? `<span class="${styles.cardRating}"><img class="${styles.cardCoin}" src="${adelinaCoinUrl}" alt="" draggable="false" /><b>${escapeHtml(rating)}</b></span>`
     : ''
@@ -66,11 +104,13 @@ function createRestaurantCardIcon(
   return L.divIcon({
     className: [
       styles.restaurantCard,
-      variant === 'featured' ? styles.restaurantCardFeatured : '',
+      SIZE_CLASS[size],
+      PROMO_CLASS[promoTier],
       variant === 'selected' ? styles.restaurantCardSelected : '',
     ].filter(Boolean).join(' '),
     html: `
       <article class="${styles.cardInner}">
+        ${promoBadgeHtml}
         <div class="${styles.cardStack}">
           <div class="${styles.cardPhoto}">
             ${photoHtml}
@@ -82,8 +122,8 @@ function createRestaurantCardIcon(
         <span class="${styles.cardPointer}" aria-hidden="true"></span>
       </article>
     `,
-    iconSize: MAP_CARD_SIZE,
-    iconAnchor: MAP_CARD_ANCHOR,
+    iconSize: dimensions.size,
+    iconAnchor: dimensions.anchor,
   })
 }
 
@@ -94,6 +134,8 @@ function NearbyRestaurantsMap({
   locating,
   locationError,
   selectedSlug = null,
+  bare = false,
+  promoCounts,
   onRequestGps,
   onOpenRestaurant,
 }: NearbyRestaurantsMapProps) {
@@ -103,6 +145,8 @@ function NearbyRestaurantsMap({
   const onOpenRef = useRef(onOpenRestaurant)
   const restaurantsRef = useRef(restaurants)
   const lastFitKeyRef = useRef('')
+  const placedMarkersRef = useRef<PlacedMarker[]>([])
+  const restyleMarkersRef = useRef<() => void>(() => {})
 
   onOpenRef.current = onOpenRestaurant
   restaurantsRef.current = restaurants
@@ -135,6 +179,8 @@ function NearbyRestaurantsMap({
 
     layerGroupRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
+    // Al cambiar el zoom cambia la separación en pantalla: se recalcula el tamaño de cada tarjeta.
+    map.on('zoomend', () => restyleMarkersRef.current())
 
     const resize = window.setTimeout(() => {
       map.invalidateSize()
@@ -188,19 +234,24 @@ function NearbyRestaurantsMap({
     }
 
     const points: L.LatLngExpression[] = origin ? [[origin.lat, origin.lng]] : []
+    const placed: PlacedMarker[] = []
 
     nearby.forEach((restaurant, index) => {
       const selected = restaurant.slug === selectedSlug
       const featured = index < 3
+      const promoCount = promoCounts?.[restaurant.id] ?? 0
       const marker = L.marker(
         [restaurant.latitude as number, restaurant.longitude as number],
         {
           icon: createRestaurantCardIcon(
             restaurant,
             selected ? 'selected' : featured ? 'featured' : 'default',
+            'large',
+            promoCount,
           ),
           riseOnHover: true,
-          zIndexOffset: selected ? 900 : featured ? 500 : 220,
+          // Los que tienen más promociones quedan por encima de los demás.
+          zIndexOffset: selected ? 900 : 220 + promoTierForCount(promoCount) * 120 + (featured ? 40 : 0),
         },
       )
 
@@ -211,12 +262,44 @@ function NearbyRestaurantsMap({
         }
       })
       layerGroup.addLayer(marker)
+      placed.push({ marker, restaurant, selected, featured })
       points.push([restaurant.latitude as number, restaurant.longitude as number])
     })
 
+    placedMarkersRef.current = placed
+    restyleMarkersRef.current = () => {
+      const current = placedMarkersRef.current
+      if (current.length === 0) {
+        return
+      }
+
+      const gaps = nearestNeighborDistances(
+        current.map(({ marker }) => map.latLngToContainerPoint(marker.getLatLng())),
+      )
+
+      current.forEach(({ marker, restaurant, selected, featured }, index) => {
+        const size = selected ? 'large' : markerSizeForGap(gaps[index])
+        marker.setIcon(
+          createRestaurantCardIcon(
+            restaurant,
+            selected ? 'selected' : featured ? 'featured' : 'default',
+            size,
+            promoCounts?.[restaurant.id] ?? 0,
+          ),
+        )
+        marker.unbindTooltip()
+        if (size === 'small') {
+          marker.bindTooltip(restaurant.name, {
+            direction: 'top',
+            offset: [0, -MAP_MARKER_DIMENSIONS.small.size[1]],
+          })
+        }
+      })
+    }
+    restyleMarkersRef.current()
+
     const fitKey = `${origin ? `${origin.lat},${origin.lng}` : 'no-origin'}|${nearby.map((item) => item.slug).join(',')}`
     const shouldFit = lastFitKeyRef.current !== fitKey
-    lastFitKeyRef.current = fitKey
 
     const frameTimer = window.setTimeout(() => {
       map.invalidateSize()
@@ -226,6 +309,9 @@ function NearbyRestaurantsMap({
       if (points.length === 0) {
         return
       }
+      // Se marca al encuadrar, no antes: si el efecto se repite y cancela
+      // este temporizador, la siguiente pasada tiene que volver a intentarlo.
+      lastFitKeyRef.current = fitKey
       if (points.length === 1) {
         map.setView(points[0], 14)
         return
@@ -239,7 +325,7 @@ function NearbyRestaurantsMap({
     }, 80)
 
     return () => window.clearTimeout(frameTimer)
-  }, [nearby, origin, originKind, selectedSlug])
+  }, [nearby, origin, originKind, selectedSlug, promoCounts])
 
   const hasOrigin = Boolean(origin)
   const subtitle = nearby.length === 0
@@ -251,6 +337,31 @@ function NearbyRestaurantsMap({
         ? `${nearby.length} ${nearby.length === 1 ? 'local' : 'locales'} cerca de ti.`
         : `${nearby.length} ${nearby.length === 1 ? 'local' : 'locales'} cerca de tu zona.`
       : `${nearby.length} ${nearby.length === 1 ? 'local' : 'locales'} en el mapa.`
+
+  const mapCard = (
+    <div className={`${styles.mapCard} ${bare ? styles.mapCardFill : ''}`}>
+      <div
+        ref={mapContainerRef}
+        className={`${styles.map} ${bare ? styles.mapFill : ''}`}
+        aria-label="Mapa con tu ubicación y restaurantes cercanos"
+      />
+
+      {!bare && !hasOrigin && nearby.length === 0 ? (
+        <div className={styles.overlay}>
+          <p>Para ver dónde estás y qué hay cerca, permite tu ubicación o completa tu zona en el perfil.</p>
+          <button type="button" className={styles.overlayButton} onClick={onRequestGps} disabled={locating}>
+            {locating ? 'Buscando…' : 'Mostrar cerca de mí'}
+          </button>
+        </div>
+      ) : null}
+
+      {locating ? <div className={styles.loading}>Obteniendo tu ubicación…</div> : null}
+    </div>
+  )
+
+  if (bare) {
+    return mapCard
+  }
 
   return (
     <section className={styles.section} aria-labelledby="nearby-map-title">
@@ -270,24 +381,7 @@ function NearbyRestaurantsMap({
         </button>
       </header>
 
-      <div className={styles.mapCard}>
-        <div
-          ref={mapContainerRef}
-          className={styles.map}
-          aria-label="Mapa con tu ubicación y restaurantes cercanos"
-        />
-
-        {!hasOrigin && nearby.length === 0 ? (
-          <div className={styles.overlay}>
-            <p>Para ver dónde estás y qué hay cerca, permite tu ubicación o completa tu zona en el perfil.</p>
-            <button type="button" className={styles.overlayButton} onClick={onRequestGps} disabled={locating}>
-              {locating ? 'Buscando…' : 'Mostrar cerca de mí'}
-            </button>
-          </div>
-        ) : null}
-
-        {locating ? <div className={styles.loading}>Obteniendo tu ubicación…</div> : null}
-      </div>
+      {mapCard}
 
       {locationError ? <p className={styles.error}>{locationError}</p> : null}
     </section>

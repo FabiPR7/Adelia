@@ -257,6 +257,26 @@ export function splitRestaurantsForCarousels(restaurants: PublicDiscoveryRestaur
   }
 }
 
+/** Con pocos locales cada fila lleva todos (la segunda desplazada) para no repetir tres tarjetas en bucle. */
+export const MIN_RESTAURANTS_TO_SPLIT_CAROUSELS = 12
+
+export function restaurantsForCarouselRows(restaurants: PublicDiscoveryRestaurant[]) {
+  if (restaurants.length >= MIN_RESTAURANTS_TO_SPLIT_CAROUSELS) {
+    return splitRestaurantsForCarousels(restaurants)
+  }
+
+  if (restaurants.length <= 1) {
+    return { primary: restaurants, secondary: [] }
+  }
+
+  const half = Math.ceil(restaurants.length / 2)
+
+  return {
+    primary: restaurants,
+    secondary: [...restaurants.slice(half), ...restaurants.slice(0, half)],
+  }
+}
+
 export function collectPopularCharacteristics(
   restaurants: PublicDiscoveryRestaurant[],
   limit = 10,

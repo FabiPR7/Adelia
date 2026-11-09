@@ -5,8 +5,7 @@ import styles from './RankingNotice.module.css'
 function RankingNotice() {
   return (
     <p className={styles.notice}>
-      Aparecen primero los locales destacados: los que tienen plan Local, de pago, y los que selecciona
-      Adelia. <Link to="/legal/terminos">Cómo ordenamos</Link>
+      Incluye locales destacados de pago. <Link to="/legal/terminos">Cómo ordenamos</Link>
     </p>
   )
 }
