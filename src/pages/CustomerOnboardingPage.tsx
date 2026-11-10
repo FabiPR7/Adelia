@@ -65,8 +65,9 @@ function CustomerOnboardingPageContent() {
       return
     }
 
-    if (needsPhone && !isValidSpanishPhone(phone)) {
-      setError('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678).')
+    // El teléfono es opcional, pero si se escribe tiene que ser válido.
+    if (phone.trim() && !isValidSpanishPhone(phone)) {
+      setError('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678) o déjalo vacío.')
       return
     }
 
@@ -82,7 +83,7 @@ function CustomerOnboardingPageContent() {
         homeLatitude: coordinates?.lat ?? null,
         homeLongitude: coordinates?.lng ?? null,
         foodPreferences,
-        ...(needsPhone || isValidSpanishPhone(phone)
+        ...(isValidSpanishPhone(phone)
           ? { phone: formatSpanishPhoneForStorage(phone) }
           : {}),
       })
@@ -90,6 +91,37 @@ function CustomerOnboardingPageContent() {
       navigate(isEditing ? '/app/perfil' : '/app/explorar', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar tu perfil.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Nadie tiene que rellenar nada para entrar: se completa luego desde el perfil.
+  const handleSkip = async () => {
+    if (!user) {
+      setError('Sesión expirada. Vuelve a iniciar sesión.')
+      return
+    }
+
+    setError(null)
+    setIsSaving(true)
+
+    try {
+      await completeCustomerOnboarding(user.uid, {
+        photoUrl,
+        homeCity: city?.name ?? '',
+        homeMunicipality: city?.region ?? '',
+        homeCountry: city?.country ?? '',
+        homePostalCode: profile?.homePostalCode ?? '',
+        homeLatitude: coordinates?.lat ?? null,
+        homeLongitude: coordinates?.lng ?? null,
+        foodPreferences,
+        ...(isValidSpanishPhone(phone) ? { phone: formatSpanishPhoneForStorage(phone) } : {}),
+      })
+      await refreshProfile()
+      navigate('/app/explorar', { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo continuar.')
     } finally {
       setIsSaving(false)
     }
@@ -132,7 +164,7 @@ function CustomerOnboardingPageContent() {
 
           {needsPhone ? (
             <label className={styles.field}>
-              <span className={styles.label}>Teléfono</span>
+              <span className={styles.label}>Teléfono (opcional)</span>
               <input
                 type="tel"
                 value={phone}
@@ -140,11 +172,10 @@ function CustomerOnboardingPageContent() {
                 autoComplete="tel"
                 inputMode="tel"
                 placeholder="612 345 678"
-                required
                 className={styles.textInput}
               />
               <span className={styles.fieldHint}>
-                Obligatorio para cuentas nuevas. El restaurante podrá contactarte si hace falta.
+                Así el restaurante puede avisarte si cambia algo de tu reserva.
               </span>
             </label>
           ) : null}
@@ -181,7 +212,16 @@ function CustomerOnboardingPageContent() {
           <Link to="/app/perfil" className={styles.skipLink}>
             Cancelar
           </Link>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            className={styles.skipLink}
+            onClick={() => void handleSkip()}
+            disabled={isSaving}
+          >
+            Ahora no, entrar a Adelia
+          </button>
+        )}
       </main>
     </div>
   )

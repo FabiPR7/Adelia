@@ -117,6 +117,25 @@
   text-decoration: none;
 }
 
+button.skipLink {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 0.5rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #8f6678;
+  cursor: pointer;
+}
+
+button.skipLink:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 @media (min-width: 900px) {
   .page {
     padding: 2rem;

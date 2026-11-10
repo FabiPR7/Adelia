@@ -8,6 +8,7 @@ import { getUserProfile } from '../services/firestore'
 import { getAuthErrorMessage } from '../services/auth'
 import { getPostLoginPath, resolveSafeRedirect } from '../utils/authProfile'
 import { executeRecaptcha, loadRecaptchaScript } from '../services/recaptcha'
+import { LEGAL_ACCEPTANCE_VERSION } from '../content/publicLegal'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
 import LegalLinks from '../components/LegalLinks'
@@ -81,8 +82,10 @@ function UserLoginPage() {
       } catch {
         recaptchaToken = ''
       }
+      // Si la cuenta de Google es nueva se crea aquí mismo, con el aviso legal junto al botón.
       await signInCustomerWithGoogle({
         recaptchaToken: recaptchaToken || undefined,
+        acceptedLegalVersion: LEGAL_ACCEPTANCE_VERSION,
       })
       await finishLogin()
     } catch (err) {
@@ -129,6 +132,12 @@ function UserLoginPage() {
           disabled={isLoading}
           onClick={() => void handleGoogle()}
         />
+        <p className={styles.googleNote}>
+          ¿Primera vez? Al continuar con Google creas tu cuenta: confirmas que tienes 14 años o más
+          y aceptas el <Link to="/legal/aviso-legal?from=/cuenta/entrar">aviso legal</Link> y los{' '}
+          <Link to="/legal/terminos?from=/cuenta/entrar">términos de uso</Link>. Consulta la{' '}
+          <Link to="/legal/privacidad?from=/cuenta/entrar">política de privacidad</Link>.
+        </p>
 
         <div className={styles.divider}>o con email</div>
 

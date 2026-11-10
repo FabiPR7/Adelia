@@ -38,9 +38,7 @@ function LoginPage() {
 
       if (!profile) {
         await logout()
-        setError(
-          'No se pudo leer tu perfil. Despliega las reglas con npm run deploy:rules y vuelve a entrar.',
-        )
+        setError('No se pudo cargar tu cuenta. Vuelve a intentarlo en unos minutos o escríbenos.')
         return
       }
 
@@ -136,10 +134,6 @@ function LoginPage() {
             </div>
 
             <div className={styles.options}>
-              <label className={styles.checkbox}>
-                <input type="checkbox" />
-                <span>Recordarme</span>
-              </label>
               <Link to="/olvide-contrasena" className={styles.forgotLink}>
                 ¿Olvidaste tu contraseña?
               </Link>

@@ -69,11 +69,7 @@ function UserRegisterPage() {
   const handleGoogle = async () => {
     setError(null)
 
-    if (!isValidSpanishPhone(phone)) {
-      setError('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678) antes de continuar.')
-      return
-    }
-
+    // Con Google no hace falta rellenar el formulario: el teléfono se guarda solo si se ha escrito.
     if (!acceptedLegal) {
       setError('Debes aceptar el aviso legal y los términos para continuar.')
       return
@@ -92,7 +88,7 @@ function UserRegisterPage() {
         acceptedLegalVersion: LEGAL_ACCEPTANCE_VERSION,
       })
       const currentUser = auth.currentUser
-      if (currentUser && (googleResult === 'created' || googleResult === 'existing')) {
+      if (currentUser && isValidSpanishPhone(phone)) {
         const nextProfile = await getUserProfile(currentUser.uid)
         if (googleResult === 'created' || !nextProfile?.phone) {
           await updateCustomerPhone(currentUser.uid, phone)
@@ -284,7 +280,7 @@ function UserRegisterPage() {
 
         <GoogleSignInButton
           label="Registrarse con Google"
-          disabled={isLoading || !acceptedLegal}
+          disabled={isLoading}
           onClick={() => void handleGoogle()}
         />
 
