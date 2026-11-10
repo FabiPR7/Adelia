@@ -34,6 +34,12 @@ import { isPromoLockedForBooking,
 } from '../gamification/cancellationPenalty.ts'
 import { InputError, asDateYmd, asId, asInt, asOptionalTrimmed, asPlainText, asSlug } from '../security/validate.ts'
 import { allowPublicCache } from '../security/httpCache.ts'
+import {
+  countCustomerPromotionReservations,
+  customerLimitMessage,
+  isPromotionSoldOut,
+  readMaxClaimsPerCustomer,
+} from '../promotions/customerPromotionUses.ts'
 
 const router = Router()
 
@@ -723,6 +729,20 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
 
       if (await isPromoLockedForBooking(customer?.uid ?? null, email)) {
         res.status(403).json({ error: PROMO_LOCK_BOOKING_MESSAGE })
+        return
+      }
+
+      if (isPromotionSoldOut(promoData)) {
+        res.status(409).json({ error: 'Esta promoción está agotada. Puedes reservar sin ella.' })
+        return
+      }
+
+      const claimLimit = readMaxClaimsPerCustomer(promoData)
+      if (
+        claimLimit != null
+        && await countCustomerPromotionReservations(company.id, promotionId, email) >= claimLimit
+      ) {
+        res.status(409).json({ error: `${customerLimitMessage(claimLimit)} Puedes reservar sin la promoción.` })
         return
       }
 

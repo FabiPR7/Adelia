@@ -8,6 +8,7 @@ import {
 } from '../data/promotionClaims.ts'
 import { readGamificationFromDocs, userGamificationRef } from '../data/userGamification.ts'
 import { isPromoLockedFromState } from '../gamification/cancellationPenalty.ts'
+import { countClaimsForPromotion, readMaxClaimsPerCustomer } from '../promotions/customerPromotionUses.ts'
 
 interface PromotionOfferConfig {
   kind: string
@@ -184,6 +185,11 @@ export async function recordTimeLimitedPromotionClaimForVerification(
     : []
 
   if (existingClaims.some((record) => record.reservationId === reservationId)) {
+    return false
+  }
+
+  const claimLimit = readMaxClaimsPerCustomer(promotionData)
+  if (claimLimit != null && countClaimsForPromotion(existingClaims, promotionId, reservationId) >= claimLimit) {
     return false
   }
 

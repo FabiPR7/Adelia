@@ -7,6 +7,7 @@ import { normalizePromotionPinCode } from '../utils/promotionPin.ts'
 import { parseCompanyReservationMode } from '../utils.ts'
 import { clampPromotionsToPlan, parseStoredPlanId, planAllowsPromotions } from '../company/planLimits.ts'
 import { allowPublicCache } from '../security/httpCache.ts'
+import { readMaxClaimsPerCustomer } from '../promotions/customerPromotionUses.ts'
 
 const router = Router()
 const validatePinRateLimit = createRateLimit(10, 60_000)
@@ -48,6 +49,8 @@ export interface PublicPromotionPayload {
   arrivalWindowMinutes: number | null
   maxRedemptions: number | null
   currentRedemptions: number
+  maxClaimsPerCustomer: number | null
+  claimWindowEnabled: boolean
   detail: string
   highlight: string
   reservationMode: 'required' | 'optional' | 'none'
@@ -229,6 +232,8 @@ function mapPromotionPayload(
       : null,
     maxRedemptions: typeof data.maxRedemptions === 'number' ? data.maxRedemptions : null,
     currentRedemptions: typeof data.currentRedemptions === 'number' ? data.currentRedemptions : 0,
+    maxClaimsPerCustomer: readMaxClaimsPerCustomer(data),
+    claimWindowEnabled: data.claimWindowEnabled === true,
     detail: buildDetail(data),
     highlight: buildHighlight(data, offer),
     reservationMode: parseCompanyReservationMode(companyData.reservationMode),

@@ -1,12 +1,26 @@
-import { useEffect, useMemo, useState, type RefObject } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import PromotionClaimFlowModal from '../../components/promotions/PromotionClaimFlowModal'
 import PromotionLadderMapModal, {
   type LadderRestaurantGroup,
 } from '../../components/promotions/PromotionLadderMapModal'
 import LadderRestaurantPromoCard from '../../components/promotions/LadderRestaurantPromoCard'
-import PromotionOfferCard from '../../components/promotions/PromotionOfferCard'
-import PromotionSwipeDeck from '../../components/promotions/PromotionSwipeDeck'
+import PromotionDetailView from '../../components/promotions/PromotionDetailView'
+import {
+  LadderMapCard,
+  PromoAppCard,
+  PromoSidePanel,
+  RestaurantAvatar,
+  RestaurantPromosRow,
+  TreasureMapsCard,
+} from '../../components/promotions/PromoAppCards'
+import {
+  groupLadderRestaurants,
+  groupPromotionsByRestaurant,
+  isLadderStep,
+  promotionDistanceKm,
+  type RestaurantPromoGroup,
+} from '../../components/promotions/promoAppDisplay'
 import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerProductTourOptional } from '../../context/CustomerProductTourContext'
@@ -30,55 +44,41 @@ import {
   getTimeLimitedPromotionPresentation,
   isTimeLimitedPromotionVisitComplete,
 } from '../../utils/reservationPromotionEligibility'
-import {
-  DEMO_PREVIEW_COORDS,
-  mergeDemoPromotions,
-} from '../../data/demoNearbyPromotions'
-import { haversineDistanceKm, PROMO_NEARBY_MAX_KM } from '../../utils/geo'
+import { DEMO_PREVIEW_COORDS, mergeDemoPromotions } from '../../data/demoNearbyPromotions'
 import { requestUserLocation } from '../../utils/requestUserLocation'
 import {
   getActiveLadderPromotionSummary,
   isLadderRestaurantActive,
 } from '../../utils/promotionLadderStatus'
 import {
-  isActiveStripPromotion,
   comparePromotionPriority,
   buildCompanyLadderPromotionsMap,
-  getClaimedPromotionIds,
   persistClaimedPromotionId,
   sortCompanyLadderPromotions,
   type CompanyLadderRuntime,
 } from '../../utils/promotionReservationProgress'
 import { buildPromotionBookingHref } from '../../utils/promotionBooking'
-import { seededShuffle } from '../../utils/shuffle'
+import {
+  countCustomerPromotionUses,
+  findUpcomingPromotionReservation,
+  getPromotionAvailability,
+  type PromotionAvailability,
+} from '../../utils/promotionAvailability'
 import { readSavedPromotionIds, toggleSavedPromotionId } from '../../utils/savedPromotions'
 import { useIncrementalReveal } from '../../hooks/useIncrementalReveal'
 import { trackAppEvent } from '../../utils/appEvents'
+import panelStyles from '../../components/promotions/PromoApp.module.css'
 import styles from './CustomerPromotionsTab.module.css'
 
-type PromoView = 'activas' | 'reclamadas' | 'guardadas'
-type PromoFilter = 'todas' | 'puntuales' | 'fidelidad'
-type PromoDisplayMode = 'grid' | 'swipe'
+type PromoView = 'activas' | 'guardadas' | 'reclamadas'
 
-const PROMO_FILTERS: Array<{ id: PromoFilter; label: string; icon: string }> = [
-  { id: 'todas', label: 'Todas', icon: '✨' },
-  { id: 'puntuales', label: 'Puntuales', icon: '⏱' },
-  { id: 'fidelidad', label: 'De fidelidad', icon: '🎯' },
+const VIEW_TABS: Array<{ id: PromoView; label: string }> = [
+  { id: 'activas', label: 'Activas' },
+  { id: 'guardadas', label: 'Guardadas' },
+  { id: 'reclamadas', label: 'Reclamadas' },
 ]
 
-const DISPLAY_MODE_KEY = 'adelia_promos_display_mode'
-
-function readDisplayMode(): PromoDisplayMode {
-  try {
-    return localStorage.getItem(DISPLAY_MODE_KEY) === 'swipe' ? 'swipe' : 'grid'
-  } catch {
-    return 'grid'
-  }
-}
-
-function randomSeed(): number {
-  return Math.floor(Math.random() * 2 ** 31)
-}
+type Coords = { lat: number; lng: number }
 
 function canUsePromoTokenOnGroup(
   group: LadderRestaurantGroup,
@@ -102,79 +102,6 @@ function canUsePromoTokenOnGroup(
   ).length > 0
 }
 
-type PromoEntry = {
-  promotion: PublicPromotion
-  distanceKm: number | null
-}
-
-type CercaItem =
-  | { kind: 'ladder'; group: LadderRestaurantGroup }
-  | { kind: 'regular'; entry: PromoEntry }
-
-/** Centinela invisible al final de la lista: dispara la carga del siguiente lote. */
-function LoadMoreSentinel({
-  sentinelRef,
-  hasMore,
-}: {
-  sentinelRef: RefObject<HTMLDivElement | null>
-  hasMore: boolean
-}) {
-  if (!hasMore) {
-    return null
-  }
-
-  return (
-    <div ref={sentinelRef} className={styles.loadMore} aria-hidden="true">
-      <span className={styles.loadMoreDot} />
-      <span className={styles.loadMoreDot} />
-      <span className={styles.loadMoreDot} />
-    </div>
-  )
-}
-
-function buildNearbyLadderRestaurantGroups(
-  nearbyPromotions: PromoEntry[],
-  companyLadderMap: Map<string, PublicPromotion[]>,
-): LadderRestaurantGroup[] {
-  const groups = new Map<string, LadderRestaurantGroup>()
-
-  for (const { promotion, distanceKm } of nearbyPromotions) {
-    if (promotion.type !== 'reservation_ladder') {
-      continue
-    }
-
-    const ladderPromotions = sortCompanyLadderPromotions(
-      companyLadderMap.get(promotion.companyId) ?? [],
-    )
-
-    if (ladderPromotions.length === 0) {
-      continue
-    }
-
-    const existing = groups.get(promotion.companyId)
-    if (existing) {
-      if (
-        distanceKm != null
-        && (existing.distanceKm == null || distanceKm < existing.distanceKm)
-      ) {
-        existing.distanceKm = distanceKm
-      }
-      continue
-    }
-
-    groups.set(promotion.companyId, {
-      companyId: promotion.companyId,
-      companyName: promotion.companyName,
-      companySlug: promotion.companySlug,
-      companyPhotoUrl: promotion.companyPhotoUrl,
-      distanceKm,
-      ladderPromotions,
-    })
-  }
-
-  return [...groups.values()]
-}
-
 function compareLadderRestaurantPriority(
   left: LadderRestaurantGroup,
   right: LadderRestaurantGroup,
@@ -183,23 +110,20 @@ function compareLadderRestaurantPriority(
   ladderRuntime: CompanyLadderRuntime,
   claimedPromotions: ClaimedPromotionRecord[],
 ): number {
-  const leftSummary = getActiveLadderPromotionSummary(
+  const leftPromotion = getActiveLadderPromotionSummary(
     left.ladderPromotions,
     confirmedCounts,
     pendingCounts,
     ladderRuntime,
     claimedPromotions,
-  )
-  const rightSummary = getActiveLadderPromotionSummary(
+  )?.promotion ?? left.ladderPromotions[0]
+  const rightPromotion = getActiveLadderPromotionSummary(
     right.ladderPromotions,
     confirmedCounts,
     pendingCounts,
     ladderRuntime,
     claimedPromotions,
-  )
-
-  const leftPromotion = leftSummary?.promotion ?? left.ladderPromotions[0]
-  const rightPromotion = rightSummary?.promotion ?? right.ladderPromotions[0]
+  )?.promotion ?? right.ladderPromotions[0]
 
   return comparePromotionPriority(
     leftPromotion,
@@ -251,49 +175,28 @@ function promotionFromClaim(claim: ClaimedPromotionRecord): PublicPromotion {
   }
 }
 
-function RegularPromoCard({
-  entry,
-  index,
-  claimed = false,
-  claimedAt,
-  reservation = null,
-  compact = false,
-  onVerify,
-  saved,
-  onToggleSave,
+function PanelTop({
+  eyebrow,
+  title,
+  onBack,
+  photo,
 }: {
-  entry: PromoEntry
-  index: number
-  claimed?: boolean
-  claimedAt?: string
-  reservation?: Reservation | null
-  compact?: boolean
-  onVerify?: (reservation: Reservation) => void
-  saved?: boolean
-  onToggleSave?: () => void
+  eyebrow: string
+  title: string
+  onBack: () => void
+  photo?: { name: string; url: string }
 }) {
-  const reservationStatusLine = entry.promotion.type === 'time_limited' && reservation
-    ? getTimeLimitedPromotionPresentation(reservation, {
-      type: entry.promotion.type,
-      title: entry.promotion.title,
-    })
-    : null
-
   return (
-    <PromotionOfferCard
-      promotion={entry.promotion}
-      index={index}
-      distanceKm={entry.distanceKm}
-      claimed={claimed}
-      claimedAt={claimedAt}
-      compact={compact}
-      reservationStatusLine={reservationStatusLine}
-      linkedReservation={reservation}
-      onVerify={reservation && onVerify ? () => onVerify(reservation) : undefined}
-      saved={saved}
-      onToggleSave={onToggleSave}
-      className={compact ? styles.compactPromoCard : ''}
-    />
+    <header className={panelStyles.panelTop}>
+      <button type="button" className={panelStyles.backChip} onClick={onBack} aria-label="Volver">
+        ←
+      </button>
+      {photo ? <RestaurantAvatar name={photo.name} photoUrl={photo.url} /> : null}
+      <div className={panelStyles.panelTopCopy}>
+        <p className={panelStyles.panelEyebrow}>{eyebrow}</p>
+        <h2 className={panelStyles.panelTitle}>{title}</h2>
+      </div>
+    </header>
   )
 }
 
@@ -315,13 +218,14 @@ function CustomerPromotionsTab() {
     reservations: customerReservations,
   } = useCustomerGamificationContext()
 
+  const [searchParams, setSearchParams] = useSearchParams()
   const [promotions, setPromotions] = useState<PublicPromotion[]>([])
-  const [view, setView] = useState<PromoView>('activas')
-  const [promoFilter, setPromoFilter] = useState<PromoFilter>('todas')
   const [claimFlowPromotion, setClaimFlowPromotion] = useState<PublicPromotion | null>(null)
   const [ladderMapGroup, setLadderMapGroup] = useState<LadderRestaurantGroup | null>(null)
   const [loadingPromos, setLoadingPromos] = useState(true)
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [coords, setCoords] = useState<Coords | null>(null)
   const [usingDemoLocation, setUsingDemoLocation] = useState(false)
   const [locationRequesting, setLocationRequesting] = useState(false)
   const [locationDenied, setLocationDenied] = useState(false)
@@ -332,41 +236,62 @@ function CustomerPromotionsTab() {
   const [tokenApplying, setTokenApplying] = useState(false)
   const [tokenError, setTokenError] = useState<string | null>(null)
   const [tokenNotice, setTokenNotice] = useState<string | null>(null)
-  const [displayMode, setDisplayMode] = useState<PromoDisplayMode>(readDisplayMode)
-  const [swipeSeed, setSwipeSeed] = useState(randomSeed)
   const [savedPromoIds, setSavedPromoIds] = useState<Set<string>>(() => new Set())
 
+  const [now, setNow] = useState(() => new Date())
   const navigate = useNavigate()
   const userClaimKey = profile?.email ?? user?.uid ?? ''
   const promoLocked = isCustomerPromoLocked(profile)
 
-  useEffect(() => {
-    const step = productTour?.stepId
-    if (step !== 'promos-types' && step !== 'promos-feed') return
-    setView('activas')
-    setDisplayMode('grid')
-    setPromoFilter('todas')
-  }, [productTour?.stepId])
+  // La navegación interna vive en la URL para que "atrás" del navegador funcione.
+  const tabParam = searchParams.get('lista')
+  const view: PromoView = tabParam === 'guardadas' || tabParam === 'reclamadas' ? tabParam : 'activas'
+  const showMaps = searchParams.get('ver') === 'mapas'
+  const restaurantSlug = searchParams.get('local')
+  const promotionId = searchParams.get('promo')
+
+  const openParams = (next: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams)
+    for (const [key, value] of Object.entries(next)) {
+      if (value == null) params.delete(key)
+      else params.set(key, value)
+    }
+    setSearchParams(params)
+  }
+
+  const goBack = () => {
+    if (window.history.state?.idx > 0) {
+      navigate(-1)
+      return
+    }
+    openParams({ ver: null, local: null, promo: null })
+  }
+
+  const setView = (next: PromoView) => {
+    openParams({ lista: next === 'activas' ? null : next, ver: null, local: null, promo: null })
+    window.scrollTo({ top: 0 })
+  }
 
   useEffect(() => {
     const step = productTour?.stepId
     if (step !== 'promos-types' && step !== 'promos-feed') return
-    if (coords) return
-    setCoords(DEMO_PREVIEW_COORDS)
-    setUsingDemoLocation(true)
-  }, [coords, productTour?.stepId])
+    setSearchParams(new URLSearchParams(), { replace: true })
+    if (!coords) {
+      setCoords(DEMO_PREVIEW_COORDS)
+      setUsingDemoLocation(true)
+    }
+    // Solo al entrar en un paso del tour.
+  }, [productTour?.stepId])
 
   useEffect(() => {
     setSavedPromoIds(readSavedPromotionIds(userClaimKey))
   }, [userClaimKey])
 
+  // Los candados por horario cambian con la hora: se recalculan cada minuto.
   useEffect(() => {
-    try {
-      localStorage.setItem(DISPLAY_MODE_KEY, displayMode)
-    } catch {
-      // Sin persistencia: el modo vuelve a "cuadrícula" en la próxima visita.
-    }
-  }, [displayMode])
+    const timer = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const claimedReservationIds = useMemo(
     () => new Set(
@@ -446,32 +371,45 @@ function CustomerPromotionsTab() {
 
   useEffect(() => {
     let cancelled = false
+    setLoadError(false)
 
-    void Promise.all([
-      fetchPublicPromotions().catch(() => []),
-      requestUserLocation().catch(() => null),
-    ])
-      .then(([promoData, location]) => {
-        if (cancelled) {
-          return
+    void fetchPublicPromotions()
+      .then((promoData) => {
+        if (!cancelled) {
+          setPromotions(import.meta.env.DEV ? mergeDemoPromotions(promoData) : promoData)
         }
-
-        setPromotions(import.meta.env.DEV ? mergeDemoPromotions(promoData) : promoData)
-
-        if (location?.coords) {
-          setCoords(location.coords)
-          setUsingDemoLocation(false)
-        } else if (import.meta.env.DEV) {
-          setCoords(DEMO_PREVIEW_COORDS)
-          setUsingDemoLocation(true)
-        } else {
-          setCoords(null)
-          setUsingDemoLocation(false)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadError(true)
         }
       })
       .finally(() => {
         if (!cancelled) {
           setLoadingPromos(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [reloadKey])
+
+  // La ubicación solo ordena por cercanía: las promos se ven igual sin ella.
+  useEffect(() => {
+    let cancelled = false
+
+    void requestUserLocation()
+      .then((location) => {
+        if (!cancelled && location?.coords) {
+          setCoords(location.coords)
+          setUsingDemoLocation(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled && import.meta.env.DEV) {
+          setCoords(DEMO_PREVIEW_COORDS)
+          setUsingDemoLocation(true)
         }
       })
 
@@ -494,43 +432,18 @@ function CustomerPromotionsTab() {
     }
   }
 
-  const nearbyPromotions = useMemo(() => {
-    const withDistance = promotions.map((promotion) => {
-      let distanceKm: number | null = null
-
-      if (coords && promotion.companyLatitude != null && promotion.companyLongitude != null) {
-        distanceKm = haversineDistanceKm(coords, {
-          lat: promotion.companyLatitude,
-          lng: promotion.companyLongitude,
-        })
-      }
-
-      return { promotion, distanceKm }
-    })
-
-    const inRange = coords
-      ? withDistance.filter(
-          ({ distanceKm }) => distanceKm != null && distanceKm <= PROMO_NEARBY_MAX_KM,
-        )
-      : []
-
-    inRange.sort((left, right) => (left.distanceKm ?? 0) - (right.distanceKm ?? 0))
-
-    return inRange
-  }, [promotions, coords])
-
   const companyLadderMap = useMemo(
     () => buildCompanyLadderPromotionsMap(promotions),
     [promotions],
   )
 
-  const ladderRestaurantGroups = useMemo(
-    () => buildNearbyLadderRestaurantGroups(nearbyPromotions, companyLadderMap),
-    [nearbyPromotions, companyLadderMap],
+  const ladderRestaurants = useMemo<LadderRestaurantGroup[]>(
+    () => groupLadderRestaurants(promotions, coords),
+    [promotions, coords],
   )
 
   const activeLadderRestaurants = useMemo(() => {
-    const active = ladderRestaurantGroups.filter((group) =>
+    const active = ladderRestaurants.filter((group) =>
       isLadderRestaurantActive(
         group.ladderPromotions,
         verifiedReservationCounts,
@@ -553,62 +466,34 @@ function CustomerPromotionsTab() {
 
     return active
   }, [
-    ladderRestaurantGroups,
+    ladderRestaurants,
     verifiedReservationCounts,
     pendingReservationCounts,
     ladderRuntime,
     claimedPromotions,
   ])
 
-  const idleLadderRestaurants = useMemo(() => {
-    const activeIds = new Set(activeLadderRestaurants.map((group) => group.companyId))
-
-    return ladderRestaurantGroups
-      .filter((group) => !activeIds.has(group.companyId))
-      .sort((left, right) => (left.distanceKm ?? 0) - (right.distanceKm ?? 0))
-  }, [ladderRestaurantGroups, activeLadderRestaurants])
-
   const regularPromotions = useMemo(
-    () =>
-      nearbyPromotions.filter(({ promotion }) => {
-        if (promotion.type === 'reservation_ladder') {
-          return false
-        }
-
-        const companyLadder = companyLadderMap.get(promotion.companyId) ?? []
-
-        return !isActiveStripPromotion(
-          promotion,
-          verifiedReservationCounts,
-          pendingReservationCounts,
-          ladderRuntime,
-          companyLadder,
-        )
-      }),
-    [
-      nearbyPromotions,
-      verifiedReservationCounts,
-      pendingReservationCounts,
-      ladderRuntime,
-      companyLadderMap,
-    ],
+    () => promotions.filter((promotion) => !isLadderStep(promotion)),
+    [promotions],
   )
 
-  const inProgressTimeLimitedPromotions = useMemo(
+  const inProgressTimeLimited = useMemo(
     () =>
       regularPromotions.filter(
-        ({ promotion }) =>
+        (promotion) =>
           promotion.type === 'time_limited'
           && findTimeLimitedReservationForStrip(customerReservations, promotion.id) != null,
       ),
     [regularPromotions, customerReservations],
   )
 
-  const idleRegularPromotions = useMemo(() => {
-    const inProgressIds = new Set(inProgressTimeLimitedPromotions.map((entry) => entry.promotion.id))
+  const restaurantRows = useMemo(
+    () => groupPromotionsByRestaurant(regularPromotions, coords),
+    [regularPromotions, coords],
+  )
 
-    return regularPromotions.filter((entry) => !inProgressIds.has(entry.promotion.id))
-  }, [regularPromotions, inProgressTimeLimitedPromotions])
+  const rowsReveal = useIncrementalReveal(restaurantRows.length, 'filas', 8)
 
   const sortedClaims = useMemo(
     () =>
@@ -623,60 +508,33 @@ function CustomerPromotionsTab() {
     [promotions, savedPromoIds],
   )
 
-  // "Cerca de ti" (cuadrícula): fidelidad + cupones en una sola lista, respetando
-  // el filtro. Se pinta poco a poco con scroll infinito.
-  const cercaItems = useMemo<CercaItem[]>(() => {
-    const showLadder = promoFilter !== 'puntuales'
-    const showRegular = promoFilter !== 'fidelidad'
-    return [
-      ...(showLadder
-        ? idleLadderRestaurants.map((group) => ({ kind: 'ladder' as const, group }))
-        : []),
-      ...(showRegular
-        ? idleRegularPromotions.map((entry) => ({ kind: 'regular' as const, entry }))
-        : []),
-    ]
-  }, [promoFilter, idleLadderRestaurants, idleRegularPromotions])
-
-  const cercaReveal = useIncrementalReveal(cercaItems.length, promoFilter)
-  const claimsReveal = useIncrementalReveal(sortedClaims.length, 'reclamadas')
-  const savedReveal = useIncrementalReveal(savedPromotions.length, 'guardadas')
-
-  // Modo "Descubrir": todas las promos activas sin reclamar, en orden aleatorio
-  // (no por cercanía). Las de fidelidad se colapsan a una tarjeta por restaurante.
-  const swipeDeck = useMemo(() => {
-    const claimedIds = getClaimedPromotionIds(claimedPromotions, userClaimKey)
-    const seenLadderCompanies = new Set<string>()
-    const deck: PublicPromotion[] = []
-
+  const availabilityById = useMemo(() => {
+    const map = new Map<string, PromotionAvailability>()
     for (const promotion of promotions) {
-      if (claimedIds.has(promotion.id)) {
-        continue
-      }
-
-      if (promotion.type === 'reservation_ladder') {
-        if (seenLadderCompanies.has(promotion.companyId)) {
-          continue
-        }
-        seenLadderCompanies.add(promotion.companyId)
-        const ladder = sortCompanyLadderPromotions(
-          companyLadderMap.get(promotion.companyId) ?? [promotion],
-        )
-        deck.push(ladder[0] ?? promotion)
-        continue
-      }
-
-      deck.push(promotion)
+      if (isLadderStep(promotion)) continue
+      map.set(promotion.id, getPromotionAvailability(promotion, {
+        now,
+        promoLocked,
+        customerUses: countCustomerPromotionUses(promotion.id, claimedPromotions, customerReservations),
+        upcomingReservation: findUpcomingPromotionReservation(promotion.id, customerReservations, now),
+      }))
     }
+    return map
+  }, [promotions, now, promoLocked, claimedPromotions, customerReservations])
 
-    return seededShuffle(deck, swipeSeed)
-  }, [promotions, claimedPromotions, userClaimKey, companyLadderMap, swipeSeed])
+  const lockLabelFor = (promotion: PublicPromotion) => {
+    const availability = availabilityById.get(promotion.id)
+    return availability?.locked ? availability.badge : null
+  }
+
+  const ladderGroupFor = (companyId: string): LadderRestaurantGroup | null =>
+    ladderRestaurants.find((group) => group.companyId === companyId) ?? null
 
   const handleToggleSavePromotion = (promotion: PublicPromotion) => {
     setSavedPromoIds(toggleSavedPromotionId(userClaimKey, promotion.id))
   }
 
-  const handleReserveFromDeck = (promotion: PublicPromotion) => {
+  const handleReserve = (promotion: PublicPromotion) => {
     if (promoLocked) {
       return
     }
@@ -686,7 +544,7 @@ function CustomerPromotionsTab() {
         companyId: promotion.companyId,
         entityId: promotion.id,
         entityKind: 'promotion',
-        source: 'discover',
+        source: 'promo_detail',
       })
     }
 
@@ -696,8 +554,19 @@ function CustomerPromotionsTab() {
     )
   }
 
-  const handleRestartDeck = () => {
-    setSwipeSeed(randomSeed())
+  const openPromotion = (promotion: PublicPromotion) => {
+    openParams({ promo: promotion.id, local: promotion.companySlug })
+  }
+
+  const openRestaurant = (group: RestaurantPromoGroup) => {
+    openParams({ local: group.companySlug, promo: null, ver: null })
+  }
+
+  const openLadderMap = (promotion: PublicPromotion) => {
+    const group = ladderGroupFor(promotion.companyId)
+    if (group) {
+      setLadderMapGroup(group)
+    }
   }
 
   const handleClaimRequest = (promotion: PublicPromotion) => {
@@ -722,12 +591,8 @@ function CustomerPromotionsTab() {
 
     const companyLadder = companyLadderMap.get(promotion.companyId) ?? [promotion]
     await claimPromotion(promotion, companyLadder)
-    setView('reclamadas')
     setLadderMapGroup(null)
-  }
-
-  const handleClaimFlowClose = () => {
-    setClaimFlowPromotion(null)
+    setView('reclamadas')
   }
 
   const handleApplyToken = async (itemId: string) => {
@@ -765,108 +630,356 @@ function CustomerPromotionsTab() {
       ?? 'Restaurante'
     : ''
 
+  const tokenHandlerFor = (group: LadderRestaurantGroup) =>
+    canUsePromoTokenOnGroup(
+      group,
+      gamificationState.inventory,
+      ladderRuntime.activeLadderPromotionByCompany,
+      promoLocked,
+    )
+      ? openTokenModal
+      : undefined
+
   const loading = loadingPromos || gamificationLoading
 
-  if (loading && !claimFlowPromotion && !ladderMapGroup) {
-    return <div className={styles.loading}>Cargando promociones…</div>
-  }
+  const claimForPromotion = (id: string) => sortedClaims.find((claim) => claim.promotionId === id)
 
-  const hasActiveContent = activeLadderRestaurants.length > 0
-    || inProgressTimeLimitedPromotions.length > 0
-    || idleLadderRestaurants.length > 0
-    || idleRegularPromotions.length > 0
+  const renderContent = () => {
+    if (loading) {
+      return <div className={styles.loading}>Cargando promociones…</div>
+    }
 
-  const showLadder = promoFilter !== 'puntuales'
-  const showRegular = promoFilter !== 'fidelidad'
-  const inCurso = [
-    ...(showLadder ? activeLadderRestaurants : []),
-    ...(showRegular ? inProgressTimeLimitedPromotions : []),
-  ]
-  const cercaVisible = cercaItems.slice(0, cercaReveal.visibleCount)
-
-  const swipeActive = view === 'activas' && displayMode === 'swipe'
-
-  return (
-    <div className={`${styles.page} ${swipeActive ? styles.pageSwipe : ''}`}>
-      <div className={styles.controlsRow}>
-        <div className={styles.segmented} role="tablist" aria-label="Promociones">
+    if (loadError) {
+      return (
+        <div className={styles.empty}>
+          <p>No se pudieron cargar las promociones.</p>
           <button
             type="button"
-            role="tab"
-            aria-selected={view === 'activas'}
-            className={view === 'activas' ? styles.segOn : styles.seg}
-            onClick={() => setView('activas')}
+            className={styles.retryButton}
+            onClick={() => {
+              setLoadingPromos(true)
+              setReloadKey((key) => key + 1)
+            }}
           >
-            Activas
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'guardadas'}
-            className={view === 'guardadas' ? styles.segOn : styles.seg}
-            onClick={() => setView('guardadas')}
-          >
-            Guardadas
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'reclamadas'}
-            className={view === 'reclamadas' ? styles.segOn : styles.seg}
-            onClick={() => setView('reclamadas')}
-          >
-            Reclamadas
+            Reintentar
           </button>
         </div>
+      )
+    }
 
-        {view === 'activas' ? (
-          <div className={styles.modeToggle} role="tablist" aria-label="Cómo ver las promociones">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={displayMode === 'grid'}
-              aria-label="Ver en cuadrícula"
-              title="Cuadrícula"
-              className={displayMode === 'grid' ? styles.modeOptionOn : styles.modeOption}
-              onClick={() => setDisplayMode('grid')}
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                <rect x="1" y="1" width="6" height="6" rx="1.4" fill="currentColor" />
-                <rect x="9" y="1" width="6" height="6" rx="1.4" fill="currentColor" />
-                <rect x="1" y="9" width="6" height="6" rx="1.4" fill="currentColor" />
-                <rect x="9" y="9" width="6" height="6" rx="1.4" fill="currentColor" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={displayMode === 'swipe'}
-              aria-label="Ver en modo descubrir"
-              title="Descubrir"
-              className={displayMode === 'swipe' ? styles.modeOptionOn : styles.modeOption}
-              onClick={() => setDisplayMode('swipe')}
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                <rect
-                  x="3.5"
-                  y="3"
-                  width="9"
-                  height="11"
-                  rx="2"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                />
-                <path
-                  d="M6 1.6h4"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
+    return renderList()
+  }
+
+  // Lo que se abre en el panel de la derecha: ficha de promo, restaurante o lista de mapas.
+  const renderPanelBody = () => {
+    // Ficha de una promo (también sirve para las reclamadas que ya no están activas).
+    if (promotionId) {
+      const claim = claimForPromotion(promotionId)
+      const promotion = promotions.find((row) => row.id === promotionId)
+        ?? (claim ? promotionFromClaim(claim) : null)
+
+      if (!promotion) {
+        return (
+          <div className={panelStyles.panelPage}>
+            <PanelTop eyebrow="Promoción" title="No disponible" onBack={goBack} />
+            <p className={panelStyles.panelEmpty}>Esta promoción ya no está activa.</p>
           </div>
+        )
+      }
+
+      const linkedReservation = promotion.type === 'time_limited'
+        ? findReservationForActivasFeed(customerReservations, promotion.id, claimedReservationIds)
+        : null
+      const statusLine = linkedReservation
+        ? getTimeLimitedPromotionPresentation(linkedReservation, {
+            type: promotion.type,
+            title: promotion.title,
+          })?.label ?? null
+        : null
+
+      return (
+        <PromotionDetailView
+          promotion={promotion}
+          companyPromotions={promotions}
+          distanceKm={promotionDistanceKm(promotion, coords)}
+          saved={savedPromoIds.has(promotion.id)}
+          promoLocked={promoLocked}
+          claimedAt={claim?.claimedAt}
+          reservationStatusLine={statusLine}
+          onBack={goBack}
+          onReserve={handleReserve}
+          onToggleSave={handleToggleSavePromotion}
+          onOpenLadderMap={openLadderMap}
+          onVerify={linkedReservation ? () => setVerifyReservation(linkedReservation) : undefined}
+          availability={claim ? null : availabilityById.get(promotion.id) ?? null}
+        />
+      )
+    }
+
+    if (restaurantSlug) {
+      const companyPromotions = promotions.filter((promotion) => promotion.companySlug === restaurantSlug)
+      const first = companyPromotions[0]
+      const ladderGroup = first ? ladderGroupFor(first.companyId) : null
+      const others = companyPromotions.filter((promotion) => !isLadderStep(promotion))
+
+      return (
+        <div className={panelStyles.panelPage}>
+          <PanelTop
+            eyebrow="Promociones activas"
+            title={first?.companyName ?? 'Restaurante'}
+            onBack={goBack}
+            photo={first ? { name: first.companyName, url: first.companyPhotoUrl } : undefined}
+          />
+          {companyPromotions.length === 0 ? (
+            <p className={panelStyles.panelEmpty}>
+              Este restaurante no tiene promociones activas ahora mismo.
+            </p>
+          ) : (
+            <>
+              {ladderGroup ? (
+                <LadderMapCard
+                  steps={ladderGroup.ladderPromotions}
+                  onOpen={() => setLadderMapGroup(ladderGroup)}
+                />
+              ) : null}
+              {others.length > 0 ? (
+                <div className={panelStyles.panelGrid}>
+                  {others.map((promotion, index) => (
+                    <PromoAppCard
+                      key={promotion.id}
+                      promotion={promotion}
+                      index={index}
+                      tile
+                      lockLabel={lockLabelFor(promotion)}
+                      onOpen={openPromotion}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      )
+    }
+
+    if (showMaps) {
+      return (
+        <div className={panelStyles.panelPage}>
+          <PanelTop eyebrow="Mapas del tesoro" title="Investiga y completa" onBack={goBack} />
+          <p className={panelStyles.panelSub}>
+            Restaurantes con sendero de premios. Reserva o consume para avanzar.
+          </p>
+          {ladderRestaurants.length === 0 ? (
+            <p className={panelStyles.panelEmpty}>No hay mapas activos ahora mismo.</p>
+          ) : (
+            ladderRestaurants.map((group) => {
+              const totalVisits = group.ladderPromotions.reduce(
+                (sum, step) => sum + Math.max(0, step.requiredReservations ?? 0),
+                0,
+              )
+              const missions = group.ladderPromotions.length
+              const hint = group.ladderPromotions
+                .map((step) => step.title)
+                .filter(Boolean)
+                .slice(0, 2)
+                .join(' · ')
+
+              return (
+                <button
+                  key={group.companyId}
+                  type="button"
+                  className={panelStyles.mapRow}
+                  onClick={() => setLadderMapGroup(group)}
+                >
+                  <RestaurantAvatar name={group.companyName} photoUrl={group.companyPhotoUrl} size="lg" />
+                  <span className={panelStyles.mapRowCopy}>
+                    <span className={panelStyles.mapRowName}>{group.companyName}</span>
+                    <span className={panelStyles.mapRowMeta}>
+                      <span className={panelStyles.metaChip}>
+                        {missions} {missions === 1 ? 'misión' : 'misiones'}
+                      </span>
+                      {totalVisits > 0 ? (
+                        <span className={panelStyles.metaChipSoft}>Hasta {totalVisits} visitas</span>
+                      ) : null}
+                    </span>
+                    <span className={panelStyles.mapRowHint}>{hint || 'Abre el mapa de premios'}</span>
+                  </span>
+                  <span className={panelStyles.mapRowArrow} aria-hidden="true">→</span>
+                </button>
+              )
+            })
+          )}
+        </div>
+      )
+    }
+
+    return null
+  }
+
+  const renderList = () => {
+    if (view === 'reclamadas') {
+      return sortedClaims.length === 0 ? (
+        <div className={styles.empty}>
+          <p>Aún no has reclamado ninguna oferta.</p>
+          <p className={styles.emptyHint}>Completa las reservas o consumos necesarios y pulsa Reclamar.</p>
+        </div>
+      ) : (
+        <div className={styles.tileGrid}>
+          {sortedClaims.map((claim, index) => (
+            <PromoAppCard
+              key={`${claim.promotionId}-${claim.claimedAt}`}
+              promotion={promotions.find((row) => row.id === claim.promotionId) ?? promotionFromClaim(claim)}
+              index={index}
+              tile
+              showRestaurant
+              stamp="Reclamada"
+              onOpen={openPromotion}
+            />
+          ))}
+        </div>
+      )
+    }
+
+    if (view === 'guardadas') {
+      return savedPromotions.length === 0 ? (
+        <div className={styles.empty}>
+          <p>Aún no has guardado ninguna promoción.</p>
+          <p className={styles.emptyHint}>Abre una promo y pulsa «Guardar» para tenerla a mano.</p>
+        </div>
+      ) : (
+        <div className={styles.tileGrid}>
+          {savedPromotions.map((promotion, index) => (
+            <PromoAppCard
+              key={promotion.id}
+              promotion={promotion}
+              index={index}
+              tile
+              showRestaurant
+              lockLabel={lockLabelFor(promotion)}
+              onOpen={openPromotion}
+            />
+          ))}
+        </div>
+      )
+    }
+
+    const inCursoCount = activeLadderRestaurants.length + inProgressTimeLimited.length
+
+    return (
+      <div className={styles.feed}>
+        <TreasureMapsCard
+          mapCount={ladderRestaurants.length}
+          onOpen={() => openParams({ ver: 'mapas', local: null, promo: null })}
+        />
+
+        {inCursoCount > 0 ? (
+          <section className={styles.inCurso} aria-label="Promociones en curso">
+            <div className={styles.sectionHead}>
+              <h2>En curso</h2>
+              <span>{inCursoCount}</span>
+            </div>
+            <div className={styles.inCursoRail}>
+              {activeLadderRestaurants.map((group) => (
+                <LadderRestaurantPromoCard
+                  key={group.companyId}
+                  group={group}
+                  variant="compact"
+                  confirmedCounts={verifiedReservationCounts}
+                  pendingCounts={pendingReservationCounts}
+                  ladderRuntime={ladderRuntime}
+                  claimedPromotions={claimedPromotions}
+                  onOpenMap={setLadderMapGroup}
+                  onUseToken={tokenHandlerFor(group)}
+                />
+              ))}
+              {inProgressTimeLimited.map((promotion, index) => (
+                <div key={promotion.id} className={styles.inCursoItem}>
+                  <PromoAppCard promotion={promotion} index={index} showRestaurant onOpen={openPromotion} />
+                </div>
+              ))}
+            </div>
+          </section>
         ) : null}
+
+        {!coords ? (
+          <div className={styles.locationHint}>
+            <p>Activa tu ubicación y te enseñamos primero los restaurantes más cercanos.</p>
+            <button
+              type="button"
+              className={styles.locationButton}
+              onClick={() => void handleRequestLocation()}
+              disabled={locationRequesting}
+            >
+              {locationRequesting ? 'Buscando…' : 'Usar mi ubicación'}
+            </button>
+            {locationDenied ? (
+              <p className={styles.locationError} role="status">
+                No hemos podido acceder a tu ubicación. Permítela en los ajustes del navegador.
+              </p>
+            ) : null}
+          </div>
+        ) : usingDemoLocation ? (
+          <p className={styles.demoLocationHint}>
+            Sin GPS: usamos Logroño como ubicación para enseñarte esta pestaña.
+          </p>
+        ) : null}
+
+        <div className={styles.rows} data-tour="tour-promos-feed">
+          {restaurantRows.length === 0 ? (
+            <div className={styles.empty}>
+              <p>No hay promociones activas ahora mismo.</p>
+            </div>
+          ) : (
+            restaurantRows.slice(0, rowsReveal.visibleCount).map((group, index) => (
+              <RestaurantPromosRow
+                key={group.companyId}
+                group={group}
+                index={index}
+                onOpenPromotion={openPromotion}
+                onOpenRestaurant={openRestaurant}
+                lockLabelFor={lockLabelFor}
+              />
+            ))
+          )}
+          {rowsReveal.hasMore ? (
+            <div ref={rowsReveal.sentinelRef} className={styles.loadMore} aria-hidden="true">
+              <span className={styles.loadMoreDot} />
+              <span className={styles.loadMoreDot} />
+              <span className={styles.loadMoreDot} />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
+  const panelOpen = !loading && !loadError && Boolean(promotionId || restaurantSlug || showMaps)
+  const panelKey = promotionId ? `promo-${promotionId}` : restaurantSlug ? `local-${restaurantSlug}` : 'mapas'
+
+  return (
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <p className={styles.eyebrow}>Ofertas</p>
+        <h1 className={styles.title}>Promociones</h1>
+        <p className={styles.subtitle}>Activas cerca de ti y en tus locales favoritos</p>
+      </header>
+
+      <div className={styles.segmented} role="tablist" aria-label="Promociones">
+        {VIEW_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={view === tab.id}
+            className={view === tab.id ? styles.segOn : styles.seg}
+            onClick={() => setView(tab.id)}
+          >
+            {tab.label}
+            {tab.id === 'guardadas' && savedPromotions.length > 0 ? (
+              <span className={styles.segCount}>{savedPromotions.length}</span>
+            ) : null}
+          </button>
+        ))}
       </div>
 
       {productTour?.stepId === 'promos-types' ? (
@@ -882,7 +995,7 @@ function CustomerPromotionsTab() {
             <span className={styles.tourTypeIcon} aria-hidden="true">🎯</span>
             <div>
               <strong>De fidelidad</strong>
-              <p>Escalera por reservas o consumos: cuantas más visitas, mejor premio.</p>
+              <p>Mapas del tesoro por reservas o consumos: cuantas más visitas, mejor premio.</p>
             </div>
           </article>
         </aside>
@@ -898,242 +1011,17 @@ function CustomerPromotionsTab() {
         </div>
       ) : null}
 
-      {view === 'reclamadas' ? (
-        sortedClaims.length === 0 ? (
-          <div className={styles.empty}>
-            <p>Aún no has reclamado ninguna oferta.</p>
-            <p className={styles.emptyHint}>Completa las reservas o consumos necesarios y pulsa Reclamar.</p>
-          </div>
-        ) : (
-          <>
-            <div className={styles.promoFeed}>
-              {sortedClaims.slice(0, claimsReveal.visibleCount).map((claim, index) => {
-                const livePromotion = promotions.find((promotion) => promotion.id === claim.promotionId)
-                const entry: PromoEntry = {
-                  promotion: livePromotion ?? promotionFromClaim(claim),
-                  distanceKm: null,
-                }
+      {renderContent()}
 
-                return (
-                  <RegularPromoCard
-                    key={`${claim.promotionId}-${claim.claimedAt}`}
-                    entry={entry}
-                    index={index}
-                    claimed
-                    claimedAt={claim.claimedAt}
-                    compact
-                  />
-                )
-              })}
-            </div>
-            <LoadMoreSentinel
-              sentinelRef={claimsReveal.sentinelRef}
-              hasMore={claimsReveal.hasMore}
-            />
-          </>
-        )
-      ) : view === 'guardadas' ? (
-        savedPromotions.length === 0 ? (
-          <div className={styles.empty}>
-            <p>Aún no has guardado ninguna promoción.</p>
-            <p className={styles.emptyHint}>
-              En el modo Descubrir pulsa la estrella (o desliza a la derecha) para guardarlas aquí.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className={styles.promoFeed}>
-              {savedPromotions.slice(0, savedReveal.visibleCount).map((promotion, index) => (
-                <RegularPromoCard
-                  key={promotion.id}
-                  entry={{ promotion, distanceKm: null }}
-                  index={index}
-                  compact
-                  saved
-                  onToggleSave={() => handleToggleSavePromotion(promotion)}
-                />
-              ))}
-            </div>
-            <LoadMoreSentinel
-              sentinelRef={savedReveal.sentinelRef}
-              hasMore={savedReveal.hasMore}
-            />
-          </>
-        )
-      ) : displayMode === 'swipe' ? (
-        <div className={styles.swipeWrap}>
-          <PromotionSwipeDeck
-            promotions={swipeDeck}
-            coords={coords}
-            savedIds={savedPromoIds}
-            promoLocked={promoLocked}
-            onToggleSave={handleToggleSavePromotion}
-            onReserve={handleReserveFromDeck}
-            onRestart={handleRestartDeck}
-          />
-        </div>
-      ) : (
-        <>
-          {usingDemoLocation ? (
-            <p className={styles.demoLocationHint}>
-              Sin GPS — usamos Logroño como ubicación para enseñarte esta pestaña.
-            </p>
-          ) : null}
-          {!coords ? (
-            <div className={styles.locationPrompt} data-tour="tour-promos-feed">
-              <span className={styles.locationIcon} aria-hidden="true">📍</span>
-              <h2>Activa tu ubicación</h2>
-              <p>Solo te mostramos promos de restaurantes cerca de ti — nada de ofertas en otra ciudad.</p>
-              <button
-                type="button"
-                className={styles.locationButton}
-                onClick={() => void handleRequestLocation()}
-                disabled={locationRequesting}
-              >
-                {locationRequesting ? 'Buscando tu ubicación…' : 'Usar mi ubicación'}
-              </button>
-              {locationDenied ? (
-                <p className={styles.locationError} role="status">
-                  No hemos podido acceder a tu ubicación. Permítela para este sitio en los ajustes del
-                  navegador e inténtalo de nuevo.
-                </p>
-              ) : null}
-            </div>
-          ) : !hasActiveContent ? (
-            <div className={styles.empty} data-tour="tour-promos-feed">
-              <p>No hay ofertas cerca tuyo.</p>
-            </div>
-          ) : (
-            <>
-              <div
-                className={styles.filterRow}
-                role="group"
-                aria-label="Filtrar promociones"
-              >
-                {PROMO_FILTERS.map((filter) => (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    className={promoFilter === filter.id ? styles.filterChipActive : styles.filterChip}
-                    aria-pressed={promoFilter === filter.id}
-                    onClick={() => setPromoFilter(filter.id)}
-                  >
-                    <span className={styles.filterChipIcon} aria-hidden="true">{filter.icon}</span>
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-
-              <div data-tour="tour-promos-feed">
-              {inCurso.length > 0 ? (
-                <section className={styles.feedGroup} aria-label="Promociones en curso">
-                  <div className={styles.feedHeading}>
-                    <h2>En curso</h2>
-                    <span>{inCurso.length}</span>
-                  </div>
-                  <div className={styles.activeScroller}>
-                    {showLadder ? activeLadderRestaurants.map((group) => (
-                      <LadderRestaurantPromoCard
-                        key={group.companyId}
-                        group={group}
-                        variant="compact"
-                        confirmedCounts={verifiedReservationCounts}
-                        pendingCounts={pendingReservationCounts}
-                        ladderRuntime={ladderRuntime}
-                        claimedPromotions={claimedPromotions}
-                        onOpenMap={setLadderMapGroup}
-                        onUseToken={
-                          canUsePromoTokenOnGroup(
-                            group,
-                            gamificationState.inventory,
-                            ladderRuntime.activeLadderPromotionByCompany,
-                            promoLocked,
-                          )
-                            ? openTokenModal
-                            : undefined
-                        }
-                      />
-                    )) : null}
-                    {showRegular ? inProgressTimeLimitedPromotions.map((entry, index) => (
-                      <RegularPromoCard
-                        key={entry.promotion.id}
-                        entry={entry}
-                        index={index}
-                        compact
-                        reservation={findTimeLimitedReservationForStrip(
-                          customerReservations,
-                          entry.promotion.id,
-                        )}
-                        onVerify={setVerifyReservation}
-                        saved={savedPromoIds.has(entry.promotion.id)}
-                        onToggleSave={() => handleToggleSavePromotion(entry.promotion)}
-                      />
-                    )) : null}
-                  </div>
-                </section>
-              ) : null}
-
-              {cercaItems.length > 0 ? (
-                <section className={styles.feedGroup} aria-label="Promociones cerca de ti">
-                  <div className={styles.feedHeading}>
-                    <h2>Cerca de ti</h2>
-                    <span>{cercaItems.length}</span>
-                  </div>
-                  <div className={styles.promoFeed}>
-                    {cercaVisible.map((item, index) =>
-                      item.kind === 'ladder' ? (
-                        <LadderRestaurantPromoCard
-                          key={`ladder-${item.group.companyId}`}
-                          group={item.group}
-                          variant="compact"
-                          className={styles.feedItem}
-                          confirmedCounts={verifiedReservationCounts}
-                          pendingCounts={pendingReservationCounts}
-                          ladderRuntime={ladderRuntime}
-                          claimedPromotions={claimedPromotions}
-                          onOpenMap={setLadderMapGroup}
-                          onUseToken={
-                            canUsePromoTokenOnGroup(
-                              item.group,
-                              gamificationState.inventory,
-                              ladderRuntime.activeLadderPromotionByCompany,
-                              promoLocked,
-                            )
-                              ? openTokenModal
-                              : undefined
-                          }
-                        />
-                      ) : (
-                        <RegularPromoCard
-                          key={`promo-${item.entry.promotion.id}`}
-                          entry={item.entry}
-                          index={index}
-                          compact
-                          reservation={findReservationForActivasFeed(
-                            customerReservations,
-                            item.entry.promotion.id,
-                            claimedReservationIds,
-                          )}
-                          onVerify={setVerifyReservation}
-                          saved={savedPromoIds.has(item.entry.promotion.id)}
-                          onToggleSave={() => handleToggleSavePromotion(item.entry.promotion)}
-                        />
-                      ),
-                    )}
-                  </div>
-                  <LoadMoreSentinel
-                    sentinelRef={cercaReveal.sentinelRef}
-                    hasMore={cercaReveal.hasMore}
-                  />
-                </section>
-              ) : (
-                <p className={styles.feedEmpty}>Nada con este filtro. Prueba «Todas».</p>
-              )}
-              </div>
-            </>
-          )}
-        </>
-      )}
+      {panelOpen ? (
+        <PromoSidePanel
+          label={promotionId ? 'Promoción' : restaurantSlug ? 'Promociones del restaurante' : 'Mapas del tesoro'}
+          contentKey={panelKey}
+          onClose={() => openParams({ ver: null, local: null, promo: null })}
+        >
+          {renderPanelBody()}
+        </PromoSidePanel>
+      ) : null}
 
       <ApplyMesaTokenModal
         open={Boolean(tokenGroup)}
@@ -1166,11 +1054,15 @@ function CustomerPromotionsTab() {
         onClose={() => setLadderMapGroup(null)}
         onClaim={handleClaimRequest}
         onRegisterConsumption={registerPromotionConsumption}
+        onOpenPromotion={(promotion) => {
+          setLadderMapGroup(null)
+          openPromotion(promotion)
+        }}
       />
 
       <PromotionClaimFlowModal
         promotion={claimFlowPromotion}
-        onClose={handleClaimFlowClose}
+        onClose={() => setClaimFlowPromotion(null)}
         onClaimed={handleClaimConfirmed}
       />
 

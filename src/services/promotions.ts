@@ -51,6 +51,10 @@ function mapPromotion(id: string, companyId: string, data: Record<string, unknow
     arrivalWindowMinutes: typeof data.arrivalWindowMinutes === 'number'
       ? data.arrivalWindowMinutes
       : null,
+    maxClaimsPerCustomer: typeof data.maxClaimsPerCustomer === 'number' && data.maxClaimsPerCustomer > 0
+      ? data.maxClaimsPerCustomer
+      : null,
+    claimWindowEnabled: data.claimWindowEnabled === true,
     createdAt: (data.createdAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
     updatedAt: (data.updatedAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
   }
@@ -79,6 +83,8 @@ function serializePromotion(
     activeToTime: input.activeToTime,
     maxRedemptions: input.maxRedemptions,
     arrivalWindowMinutes: input.arrivalWindowMinutes,
+    maxClaimsPerCustomer: input.maxClaimsPerCustomer,
+    claimWindowEnabled: input.type === 'reservation_ladder' && input.claimWindowEnabled,
     updatedAt: serverTimestamp(),
   }
 }

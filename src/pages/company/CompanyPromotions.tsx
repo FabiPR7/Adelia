@@ -52,6 +52,7 @@ import {
   suggestPromotionTitle,
 } from '../../utils/promotionOffer'
 import { buildPromotionScanPreview } from '../../utils/promotionScanPreview'
+import { describePromotionRules } from '../../utils/promotionRules'
 import {
   formatPromotionPinRotationHint,
   generatePromotionPinCode,
@@ -87,6 +88,8 @@ function promotionToInput(promotion: CompanyPromotion): PromotionInput {
     activeToTime: promotion.activeToTime,
     maxRedemptions: promotion.maxRedemptions,
     arrivalWindowMinutes: promotion.arrivalWindowMinutes,
+    maxClaimsPerCustomer: promotion.maxClaimsPerCustomer,
+    claimWindowEnabled: promotion.claimWindowEnabled,
   }
 }
 
@@ -396,7 +399,8 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
     const payload: PromotionInput = {
       ...form,
       type: selectedType,
-      maxRedemptions: selectedType === 'attendance' ? form.maxRedemptions : null,
+      maxRedemptions: form.maxRedemptions,
+      maxClaimsPerCustomer: form.maxClaimsPerCustomer,
       minimumSpendCents: form.minimumSpendEnabled ? form.minimumSpendCents : null,
     }
     const validationError = validatePromotionInput(payload, promotions, editingId)
@@ -658,6 +662,11 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                     <div className={styles.promotionCardBody}>
                       <strong>{promotion.title}</strong>
                       <span>{promotionSummary(promotion)}</span>
+                      <span className={styles.ruleChips}>
+                        {describePromotionRules(promotion, { showUsedSpots: true }).map((rule) => (
+                          <em key={rule}>{rule}</em>
+                        ))}
+                      </span>
                     </div>
                     <span className={`${styles.statusBadge} ${
                       promotion.active ? styles.statusActive : styles.statusInactive
@@ -983,6 +992,52 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                 </div>
               )}
 
+              {selectedType === 'reservation_ladder' && (
+                <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
+                  <label className={`${styles.toggleCard} ${styles.formFieldWide} ${form.claimWindowEnabled ? styles.toggleCardActive : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={form.claimWindowEnabled}
+                      onChange={(event) => setForm({ ...form, claimWindowEnabled: event.target.checked })}
+                    />
+                    <span>
+                      <strong>Canjear solo en una franja horaria</strong>
+                      <small>Por ejemplo, el postre gratis solo al mediodía</small>
+                    </span>
+                  </label>
+
+                  {form.claimWindowEnabled ? (
+                    <>
+                      <div className={styles.formField}>
+                        <label htmlFor="promotion-claim-from">Canjeable desde</label>
+                        <input
+                          id="promotion-claim-from"
+                          type="time"
+                          value={form.activeFromTime}
+                          onChange={(event) => setForm({ ...form, activeFromTime: event.target.value })}
+                        />
+                      </div>
+
+                      <div className={styles.formField}>
+                        <label htmlFor="promotion-claim-to">Canjeable hasta</label>
+                        <input
+                          id="promotion-claim-to"
+                          type="time"
+                          value={form.activeToTime}
+                          onChange={(event) => setForm({ ...form, activeToTime: event.target.value })}
+                        />
+                      </div>
+                    </>
+                  ) : null}
+
+                  <p className={`${styles.fieldHint} ${styles.formFieldWide}`}>
+                    {form.claimWindowEnabled
+                      ? `Las visitas cuentan a cualquier hora, pero el premio solo se puede reclamar de ${form.activeFromTime || '…'} a ${form.activeToTime || '…'}. Fuera de esa franja el cliente lo verá con candado.`
+                      : 'Sin franja: el premio se puede reclamar a cualquier hora en cuanto se completen las visitas.'}
+                  </p>
+                </div>
+              )}
+
               {(selectedType === 'time_limited' || selectedType === 'attendance') && (
                 <div className={styles.sectionGrid}>
                   <div className={styles.formField}>
@@ -1010,20 +1065,6 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
               {selectedType === 'attendance' && (
                 <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
                   <div className={styles.formField}>
-                    <label htmlFor="promotion-max">Máximo de canjes</label>
-                    <input
-                      id="promotion-max"
-                      type="number"
-                      min={1}
-                      value={form.maxRedemptions ?? 1}
-                      onChange={(event) => setForm({
-                        ...form,
-                        maxRedemptions: Math.max(1, Number(event.target.value) || 1),
-                      })}
-                    />
-                  </div>
-
-                  <div className={styles.formField}>
                     <label htmlFor="promotion-arrival">Tiempo máximo de llegada (min)</label>
                     <input
                       id="promotion-arrival"
@@ -1042,6 +1083,86 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                   </p>
                 </div>
               )}
+
+              <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
+                <label className={`${styles.toggleCard} ${styles.formFieldWide} ${form.maxRedemptions != null ? styles.toggleCardActive : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={form.maxRedemptions != null}
+                    onChange={(event) => setForm({
+                      ...form,
+                      maxRedemptions: event.target.checked ? (form.maxRedemptions ?? 10) : null,
+                    })}
+                  />
+                  <span>
+                    <strong>Limitar plazas en total</strong>
+                    <small>Solo las primeras personas que la usen</small>
+                  </span>
+                </label>
+
+                {form.maxRedemptions != null ? (
+                  <div className={styles.formField}>
+                    <label htmlFor="promotion-max">Plazas en total</label>
+                    <input
+                      id="promotion-max"
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={form.maxRedemptions}
+                      onChange={(event) => setForm({
+                        ...form,
+                        maxRedemptions: Math.max(1, Math.floor(Number(event.target.value) || 1)),
+                      })}
+                    />
+                  </div>
+                ) : null}
+
+                <p className={`${styles.fieldHint} ${styles.formFieldWide}`}>
+                  {form.maxRedemptions != null
+                    ? `Cuando se usen las ${form.maxRedemptions} plazas, la promo saldrá como «Agotada» y nadie más podrá reservar con ella.`
+                    : 'Sin límite de plazas: puede usarla todo el que quiera.'}
+                </p>
+              </div>
+
+              <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
+                <label className={`${styles.toggleCard} ${styles.formFieldWide} ${form.maxClaimsPerCustomer != null ? styles.toggleCardActive : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={form.maxClaimsPerCustomer != null}
+                    onChange={(event) => setForm({
+                      ...form,
+                      maxClaimsPerCustomer: event.target.checked ? (form.maxClaimsPerCustomer ?? 1) : null,
+                    })}
+                  />
+                  <span>
+                    <strong>Limitar usos por cliente</strong>
+                    <small>Por ejemplo, 1 para una promo de primera visita</small>
+                  </span>
+                </label>
+
+                {form.maxClaimsPerCustomer != null ? (
+                  <div className={styles.formField}>
+                    <label htmlFor="promotion-per-customer">Veces que cada cliente puede usarla</label>
+                    <input
+                      id="promotion-per-customer"
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={form.maxClaimsPerCustomer}
+                      onChange={(event) => setForm({
+                        ...form,
+                        maxClaimsPerCustomer: Math.max(1, Math.floor(Number(event.target.value) || 1)),
+                      })}
+                    />
+                  </div>
+                ) : null}
+
+                <p className={`${styles.fieldHint} ${styles.formFieldWide}`}>
+                  {form.maxClaimsPerCustomer != null
+                    ? `Cada cliente podrá usarla ${form.maxClaimsPerCustomer === 1 ? 'una sola vez' : `${form.maxClaimsPerCustomer} veces`}. Verá cuántos usos le quedan y, al llegar al límite, le aparecerá con candado.`
+                    : 'Sin límite: cada cliente puede usarla todas las veces que vuelva.'}
+                </p>
+              </div>
 
               <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
                 <label className={`${styles.toggleCard} ${styles.formFieldWide} ${form.minimumSpendEnabled ? styles.toggleCardActive : ''}`}>
@@ -1081,6 +1202,19 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                     />
                   </div>
                 ) : null}
+              </div>
+
+              <div className={styles.rulesPreview} aria-live="polite">
+                <p className={styles.rulesPreviewTitle}>Así lo verá el cliente</p>
+                <div className={styles.ruleChips}>
+                  {describePromotionRules({ ...form, type: selectedType }).map((rule) => (
+                    <em key={rule}>{rule}</em>
+                  ))}
+                </div>
+                <p className={styles.rulesPreviewHint}>
+                  Si no puede usarla en ese momento (fuera de horario, sin plazas o sin usos), la verá con
+                  un candado y el motivo.
+                </p>
               </div>
             </section>
 

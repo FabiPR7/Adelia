@@ -1,84 +1,106 @@
+/* Mapa de premios: pantalla que entra desde la derecha, como en la app. */
 .overlay {
   position: fixed;
   inset: 0;
   z-index: 115;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(80, 40, 12, 0.28), transparent 60%),
-    rgba(16, 9, 6, 0.72);
-  backdrop-filter: blur(7px);
+  justify-content: flex-end;
+  background: rgba(16, 9, 6, 0.55);
   animation: overlayIn 0.25s ease-out;
 }
 
 .dialog {
   position: relative;
-  width: min(98vw, 720px);
-  max-width: min(98vw, 720px);
-  height: min(96vh, 920px);
-  max-height: 96vh;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 0.42rem;
-  background:
-    radial-gradient(120% 70% at 50% 0%, rgba(201, 162, 39, 0.22), transparent 46%),
-    linear-gradient(165deg, #5a351c 0%, #2c1810 52%, #160e0a 100%);
-  border-radius: 22px;
-  border: 1px solid rgba(201, 162, 39, 0.55);
-  box-shadow:
-    0 0 0 1px rgba(255, 224, 170, 0.16) inset,
-    0 28px 70px rgba(12, 6, 3, 0.55),
-    0 0 0 40px rgba(201, 162, 39, 0.08);
   overflow: hidden;
-  animation: dialogIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  background: #2a1c10;
+  box-shadow: -18px 0 48px rgba(12, 6, 3, 0.45);
+  animation: panelIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.leatherCorners {
-  pointer-events: none;
+.floatingBar {
   position: absolute;
-  inset: 0.28rem;
-  z-index: 13;
-}
-
-.leatherCorners span {
-  position: absolute;
-  width: 1.15rem;
-  height: 1.15rem;
-  border: 2px solid rgba(201, 162, 39, 0.7);
-}
-
-.leatherCorners span:nth-child(1) {
   top: 0;
   left: 0;
-  border-right: 0;
-  border-bottom: 0;
-  border-top-left-radius: 4px;
-}
-
-.leatherCorners span:nth-child(2) {
-  top: 0;
   right: 0;
-  border-left: 0;
-  border-bottom: 0;
-  border-top-right-radius: 4px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 12px;
+  background: linear-gradient(to bottom, rgba(24, 14, 8, 0.72) 0%, rgba(24, 14, 8, 0.32) 70%, transparent 100%);
 }
 
-.leatherCorners span:nth-child(3) {
-  bottom: 0;
-  left: 0;
-  border-right: 0;
-  border-top: 0;
-  border-bottom-left-radius: 4px;
+.backChip,
+.viewRestaurant {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(255, 248, 230, 0.35);
+  border-radius: 50%;
+  background: rgba(36, 22, 12, 0.55);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out, ease-out), background-color 0.15s var(--ease-out, ease-out);
 }
 
-.leatherCorners span:nth-child(4) {
-  bottom: 0;
-  right: 0;
-  border-left: 0;
-  border-top: 0;
-  border-bottom-right-radius: 4px;
+.backChip:hover,
+.viewRestaurant:hover {
+  background: rgba(36, 22, 12, 0.75);
+}
+
+.backChip:active,
+.viewRestaurant:active {
+  transform: scale(0.94);
+}
+
+.backChip:focus-visible,
+.viewRestaurant:focus-visible,
+.dockPrimary:focus-visible,
+.dockClaim:focus-visible,
+.dockClaimReady:focus-visible,
+.nodeCard:focus-visible {
+  outline: 2px solid #ffd0a8;
+  outline-offset: 2px;
+}
+
+.viewRestaurantIcon {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.topMeta {
+  flex: 1;
+  min-width: 0;
+}
+
+.topTitle {
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.05rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #f5efe3;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.topSub {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(245, 239, 227, 0.85);
 }
 
 .mapScroll {
@@ -86,94 +108,32 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0;
-  padding-bottom: 6.4rem;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  border-radius: 16px;
 }
 
-.mapHud {
-  position: sticky;
-  top: 0;
+.overlayHud {
+  position: relative;
   z-index: 9;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.55rem 0.55rem 0.7rem;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    rgba(18, 10, 6, 0.72) 0%,
-    rgba(18, 10, 6, 0.28) 62%,
-    transparent 100%
-  );
+  gap: 4px;
+  margin: calc(72px + env(safe-area-inset-top, 0px)) 12px 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 248, 230, 0.18);
+  border-radius: var(--radius-md);
+  background: rgba(36, 22, 12, 0.42);
+  backdrop-filter: blur(4px);
 }
 
-.mapHudTop,
-.mapHudBanner {
-  pointer-events: auto;
+.overlayHud .hookEyebrow {
+  color: rgba(255, 248, 230, 0.9);
 }
 
-.mapHudTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.viewRestaurant {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.38rem;
-  min-height: 2.15rem;
-  padding: 0.32rem 0.85rem 0.32rem 0.7rem;
-  border: 1px solid rgba(201, 162, 39, 0.45);
-  border-radius: 999px;
-  background:
-    linear-gradient(180deg, #fff8e7 0%, #f3e0b8 100%);
-  color: #4a2c0a;
-  font-family: 'Playfair Display', var(--font-display);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  box-shadow:
-    0 6px 16px rgba(20, 10, 5, 0.28),
-    0 0 0 1px rgba(255, 255, 255, 0.45) inset;
-}
-
-.viewRestaurantIcon {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-}
-
-.closeButton {
-  flex-shrink: 0;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 1px solid rgba(201, 162, 39, 0.4);
-  border-radius: 999px;
-  background: rgba(255, 248, 230, 0.94);
-  color: #5c3d2e;
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(20, 10, 5, 0.22);
-}
-
-.mapHudBanner {
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-  padding: 0.55rem 0.7rem 0.6rem;
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(255, 248, 230, 0.94) 0%, rgba(244, 226, 186, 0.9) 100%);
-  border: 1px solid rgba(201, 162, 39, 0.38);
-  box-shadow:
-    0 10px 22px rgba(20, 10, 5, 0.18),
-    0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+.overlayHud .hookTitle {
+  font-size: 1.1rem;
+  color: #f5efe3;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .hookEyebrow {
@@ -455,26 +415,6 @@
   color: #111827;
 }
 
-.mapNodeCard {
-  width: 11rem;
-  border-radius: 16px;
-  overflow: hidden;
-  transform: scale(0.72);
-  transform-origin: center center;
-  box-shadow:
-    0 0 0 3px rgba(255, 248, 230, 0.82),
-    0 0 0 4px rgba(139, 105, 20, 0.28),
-    0 12px 24px rgba(20, 10, 5, 0.32);
-}
-
-.mapNodeCardTiltLeft {
-  rotate: -1.4deg;
-}
-
-.mapNodeCardTiltRight {
-  rotate: 1.4deg;
-}
-
 .scaleBar {
   position: absolute;
   right: 0.7rem;
@@ -500,18 +440,6 @@
 
   to {
     opacity: 1;
-  }
-}
-
-@keyframes dialogIn {
-  from {
-    opacity: 0;
-    transform: scale(0.94) translateY(12px);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
   }
 }
 
@@ -554,100 +482,276 @@
   }
 }
 
-@keyframes fabPulse {
-  0%,
-  100% {
-    transform: translateY(0) scale(1);
-    box-shadow:
-      0 0 0 4px rgba(201, 162, 39, 0.22),
-      0 14px 30px rgba(161, 98, 7, 0.42),
-      inset 0 2px 0 rgba(255, 255, 255, 0.5);
-  }
-
-  50% {
-    transform: translateY(-2px) scale(1.03);
-    box-shadow:
-      0 0 0 7px rgba(201, 162, 39, 0.16),
-      0 18px 34px rgba(161, 98, 7, 0.5),
-      inset 0 2px 0 rgba(255, 255, 255, 0.55);
-  }
+/* El mapa ocupa todo el panel: sin marco doble. */
+.treasureMap {
+  min-height: 100%;
+  padding: 0 0 9.5rem;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-.completeFabWrap {
+.treasureMap::before {
+  display: none;
+}
+
+.mapNodeFocus {
+  z-index: 8;
+}
+
+.nodeCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 132px;
+  padding: 0;
+  overflow: hidden;
+  border: 1.5px solid var(--map-border, #c9a227);
+  border-radius: var(--radius-md);
+  background: rgba(255, 250, 238, 0.97);
+  box-shadow: 0 8px 18px rgba(20, 10, 5, 0.32);
+  font: inherit;
+  text-align: left;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: transform 0.18s var(--ease-out, ease-out);
+}
+
+.nodeTiltLeft {
+  rotate: -1.4deg;
+}
+
+.nodeTiltRight {
+  rotate: 1.4deg;
+}
+
+.nodeCard:hover {
+  transform: translateY(-2px);
+}
+
+.nodeFocus {
+  border: 2.5px solid var(--color-accent-strong);
+  box-shadow: 0 6px 20px rgba(194, 70, 31, 0.5);
+  transform: scale(1.04);
+}
+
+.nodeFocus:hover {
+  transform: scale(1.04) translateY(-2px);
+}
+
+.nodeClaimable {
+  border: 2.5px solid #2f6b3a;
+  box-shadow: 0 6px 20px rgba(47, 107, 58, 0.5);
+  transform: scale(1.04);
+}
+
+.nodeClaimed {
+  border: 2.5px solid #2f6b3a;
+}
+
+.nodeLocked {
+  opacity: 0.78;
+}
+
+.nodeMedia {
+  position: relative;
+  display: block;
+  height: 72px;
+  overflow: hidden;
+  background: var(--color-beige);
+}
+
+.nodeMedia img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.nodeClaimed .nodeMedia img {
+  opacity: 0.55;
+}
+
+.nodeFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--pin-bg, #c47b0a);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.nodeBadge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-strong);
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #fff;
+}
+
+.nodeTitle {
+  display: -webkit-box;
+  min-height: 2.6em;
+  overflow: hidden;
+  padding: 8px 8px 0;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.nodeVisits {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #7a5a3a;
+  font-variant-numeric: tabular-nums;
+}
+
+.nodeFocus .nodeVisits {
+  color: var(--color-accent-ink);
+}
+
+.nodeStamp {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  padding: 4px 9px;
+  border: 2px solid #fff;
+  border-radius: var(--radius-pill);
+  background: #2f6b3a;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #fff;
+  transform: translateX(-50%) rotate(-6deg);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Barra inferior: progreso + registrar/reservar + reclamar. */
+.dock {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 12;
+  z-index: 24;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.28rem;
-  padding: 0.7rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
-  pointer-events: none;
-  background: linear-gradient(
-    to top,
-    rgba(22, 12, 8, 0.94) 42%,
-    rgba(22, 12, 8, 0.45) 72%,
-    transparent
-  );
+  gap: 8px;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(255, 248, 230, 0.18);
+  background: rgba(24, 16, 10, 0.92);
+  backdrop-filter: blur(8px);
 }
 
-.completeFabHint {
-  margin: 0;
-  color: #f8ead0;
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+.dockMeta {
   text-align: center;
 }
 
-.completeFab {
-  pointer-events: auto;
+.dockHint {
+  margin: 0;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(245, 239, 227, 0.75);
+}
+
+.dockProgress {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--color-accent-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.dockRow {
+  display: flex;
+  gap: 10px;
+}
+
+.dockPrimary,
+.dockClaim,
+.dockClaimReady {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 10.5rem;
-  min-height: 3.05rem;
-  padding: 0.75rem 1.85rem;
-  border: 1px solid rgba(255, 236, 180, 0.55);
-  border-radius: 999px;
-  background: radial-gradient(circle at 50% 18%, #ffe08a 0%, #e0a106 48%, #a16207 100%);
-  color: #3b2410;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-decoration: none;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 800;
   cursor: pointer;
-  appearance: none;
-  box-shadow:
-    0 0 0 4px rgba(201, 162, 39, 0.22),
-    0 14px 30px rgba(161, 98, 7, 0.42),
-    inset 0 2px 0 rgba(255, 255, 255, 0.5);
-  animation: fabPulse 2.6s ease-in-out infinite;
+  transition: transform 0.15s var(--ease-out, ease-out), background-color 0.15s var(--ease-out, ease-out);
 }
 
-.completeFab:hover {
-  animation: none;
-  transform: translateY(-2px);
+.dockPrimary {
+  flex: 1.2;
+  border: none;
+  background: var(--color-accent-strong);
+  color: #fff;
 }
 
-.completeFab:active {
-  transform: translateY(0);
+.dockPrimary:hover {
+  background: var(--color-accent-ink);
 }
 
-@media (min-width: 640px) {
-  .mapNodeCard {
-    width: 12rem;
-    transform: scale(0.78);
+.dockClaim,
+.dockClaimReady {
+  flex: 1;
+  border: 1px solid rgba(255, 248, 230, 0.14);
+  background: rgba(255, 248, 230, 0.08);
+  color: rgba(245, 239, 227, 0.38);
+}
+
+.dockClaim:disabled {
+  cursor: not-allowed;
+}
+
+.dockClaimReady {
+  border-color: #8fd49a;
+  background: #2f6b3a;
+  color: #fff;
+}
+
+.dockPrimary:active,
+.dockClaimReady:active {
+  transform: scale(0.97);
+}
+
+@keyframes panelIn {
+  from {
+    transform: translateX(100%);
   }
 
-  .hookTitle {
-    font-size: 1.08rem;
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (min-width: 720px) {
+  .dialog {
+    width: min(560px, 100vw);
+    border-radius: 22px 0 0 22px;
   }
 }
 
@@ -657,13 +761,20 @@
   .themeArtImage,
   .mapPathDrawReady,
   .mapPathLine,
-  .waypointActive,
-  .completeFab {
+  .waypointActive {
     animation: none;
   }
 
   .mapPathDrawReady {
     opacity: 1;
     stroke-dashoffset: 0;
+  }
+
+  .nodeCard,
+  .backChip,
+  .viewRestaurant,
+  .dockPrimary,
+  .dockClaimReady {
+    transition: none;
   }
 }

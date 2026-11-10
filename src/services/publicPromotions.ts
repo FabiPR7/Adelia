@@ -25,6 +25,10 @@ export interface PublicPromotion {
   arrivalWindowMinutes?: number | null
   maxRedemptions: number | null
   currentRedemptions: number
+  /** Veces que cada cliente puede usarla (null = sin límite). */
+  maxClaimsPerCustomer?: number | null
+  /** Por reservas o consumos: el premio solo se canjea dentro de la franja. */
+  claimWindowEnabled?: boolean
   detail: string
   highlight: string
   reservationMode?: import('../data/companyReservationMode').CompanyReservationMode

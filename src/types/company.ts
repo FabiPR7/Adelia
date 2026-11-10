@@ -609,6 +609,10 @@ export interface CompanyPromotion {
   maxRedemptions: number | null
   currentRedemptions: number
   arrivalWindowMinutes: number | null
+  /** Veces que cada cliente puede usarla (null = sin límite). */
+  maxClaimsPerCustomer: number | null
+  /** Solo en "por reservas o consumos": el premio se canjea solo dentro de activeFromTime–activeToTime. */
+  claimWindowEnabled: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -629,17 +633,19 @@ export interface PromotionInput {
   activeToTime: string
   maxRedemptions: number | null
   arrivalWindowMinutes: number | null
+  maxClaimsPerCustomer: number | null
+  claimWindowEnabled: boolean
 }
 
 export const PROMOTION_TYPE_LABELS: Record<PromotionType, string> = {
-  reservation_ladder: 'Oferta',
-  time_limited: 'Tiempo limitado',
+  reservation_ladder: 'Por reservas o consumos',
+  time_limited: 'Franja horaria',
   attendance: 'Asistencia puntual',
 }
 
 export const PROMOTION_TYPE_HINTS: Record<PromotionType, string> = {
   reservation_ladder: 'Ofertas escalables: el cliente canjea primero la de menos reservas o consumos.',
-  time_limited: 'Activa solo en un tramo horario concreto.',
+  time_limited: 'Solo vale en una franja horaria: el cliente reserva dentro de ella.',
   attendance: 'El cliente debe presentarse en un plazo; si no viene, se libera el cupo.',
 }
 
@@ -689,6 +695,8 @@ export function defaultPromotionInput(type: PromotionType): PromotionInput {
     activeToTime: '16:00',
     maxRedemptions: type === 'attendance' ? 10 : null,
     arrivalWindowMinutes: type === 'attendance' ? 30 : null,
+    maxClaimsPerCustomer: null,
+    claimWindowEnabled: false,
   }
 }
 
@@ -746,7 +754,7 @@ export function validatePromotionInput(
     }
   }
 
-  if (input.type === 'time_limited' || input.type === 'attendance') {
+  if (input.type === 'time_limited' || input.type === 'attendance' || input.claimWindowEnabled) {
     if (!input.activeFromTime || !input.activeToTime) {
       return 'Indica la franja horaria activa.'
     }
@@ -754,7 +762,7 @@ export function validatePromotionInput(
 
   if (input.type === 'attendance') {
     if (!input.maxRedemptions || input.maxRedemptions < 1) {
-      return 'Indica el máximo de canjes permitidos (mínimo 1).'
+      return 'En asistencia puntual activa «Limitar plazas en total» e indica cuántas plazas hay (mínimo 1).'
     }
 
     if (!input.arrivalWindowMinutes || input.arrivalWindowMinutes < 1) {

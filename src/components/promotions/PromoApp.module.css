@@ -1,0 +1,1504 @@
+/* Diseño de la zona de promociones, igual que en la app móvil. */
+
+.avatar,
+.avatarLg {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: var(--color-beige-dark);
+}
+
+.avatarLg {
+  width: 48px;
+  height: 48px;
+}
+
+.avatarFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--color-brown);
+}
+
+/* ── Tarjeta de promo ─────────────────────────────────────────────── */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  box-shadow: var(--elev-1);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease-out, ease-out), box-shadow 0.18s var(--ease-out, ease-out);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elev-2);
+}
+
+.card:active {
+  transform: scale(0.985);
+}
+
+.card:focus-visible,
+.mapsCard:focus-visible,
+.rowHeader:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.cardTile {
+  border-radius: var(--radius-md);
+}
+
+/* Filas por restaurante: tarjeta baja para que quepan varios locales en pantalla. */
+.cardCompact {
+  border-radius: 16px;
+}
+
+.cardCompact .cardMedia {
+  height: 84px;
+}
+
+.cardCompact .cardBadge {
+  top: 7px;
+  left: 7px;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+}
+
+.cardCompact .cardBody {
+  gap: 2px;
+  padding: 8px 10px 10px;
+}
+
+.cardCompact .cardTitle {
+  min-height: 2.5em;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.cardCompact .cardMeta {
+  margin-top: 2px;
+}
+
+.cardCompact .cardDetail {
+  font-size: 0.7rem;
+}
+
+.cardCompact .cardMinSpend {
+  margin-top: 0;
+  font-size: 0.7rem;
+}
+
+.cardMedia {
+  position: relative;
+  display: block;
+  height: 110px;
+  background: var(--color-beige);
+}
+
+.cardTile .cardMedia {
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
+
+.cardMedia img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--color-accent-wash);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+}
+
+.cardBadge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  max-width: 78%;
+  overflow: hidden;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cardTile .cardBadge {
+  top: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  font-size: 0.66rem;
+}
+
+.cardStamp {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-ok);
+  color: var(--color-white);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cardStamped .cardMedia img {
+  filter: grayscale(0.45);
+}
+
+/* No se puede usar ahora: foto apagada y candado con el motivo. */
+.cardLocked .cardMedia img,
+.cardLocked .cardFallback {
+  filter: grayscale(0.7) brightness(0.72);
+}
+
+.cardLocked .cardBadge {
+  background: var(--color-brown-light);
+}
+
+.cardLock {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(36, 28, 21, 0.82);
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+  color: #f5efe3;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(4px);
+}
+
+.cardBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+}
+
+.cardTile .cardBody {
+  gap: 3px;
+  min-height: 72px;
+  padding: 8px 10px 10px;
+}
+
+.cardRestaurant {
+  overflow: hidden;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-accent-ink);
+}
+
+.cardTitle {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.cardTile .cardTitle {
+  min-height: 2.15em;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.cardDescription {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.typeChip {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-sand-wash);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.cardDetail {
+  overflow: hidden;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text-muted);
+}
+
+.cardMinSpend {
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+}
+
+/* ── Tarjeta "Mapas del tesoro" ───────────────────────────────────── */
+
+.mapsCard {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 116px;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid #c9a227;
+  border-radius: var(--radius-lg);
+  background: #3a2a18;
+  box-shadow: var(--elev-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease-out, ease-out);
+}
+
+.mapsCard:hover {
+  transform: translateY(-1px);
+}
+
+.mapsCard:active {
+  transform: scale(0.99);
+}
+
+.mapsTexture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mapsWash {
+  position: absolute;
+  inset: 0;
+  background: rgba(28, 18, 10, 0.48);
+}
+
+.ladderCard .mapsWash {
+  background: rgba(36, 22, 12, 0.42);
+}
+
+.mapsFrame {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(255, 244, 214, 0.28);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+}
+
+.mapsContent {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 116px;
+  padding: 14px;
+}
+
+.mapsLeft {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.livePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 248, 230, 0.94);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-ink);
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent-strong);
+}
+
+.mapsTitle {
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #f5efe3;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.mapsMeta {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(245, 239, 227, 0.9);
+}
+
+.mapsRight {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.compassWrap,
+.compassWrapLg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 244, 214, 0.4);
+  border-radius: 50%;
+  background: rgba(255, 248, 230, 0.16);
+}
+
+.compassWrapLg {
+  flex: 0 0 auto;
+  width: 60px;
+  height: 60px;
+}
+
+.ctaChip {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ladderContent {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 168px;
+  padding: 16px;
+}
+
+.ladderTop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stepsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.stepItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stepChip,
+.stepTreasure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #c9a227;
+  border-radius: 50%;
+  background: rgba(255, 248, 230, 0.95);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #5c3d1e;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepTreasure {
+  border-color: #fde68a;
+  background: var(--color-accent-strong);
+  color: #fff8e6;
+}
+
+.stepDash {
+  width: 14px;
+  height: 0;
+  border-top: 2px dashed rgba(255, 244, 214, 0.7);
+}
+
+.ladderCta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* ── Fila por restaurante: línea limpia + barra deslizable, sin caja ─ */
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.row:first-child {
+  padding-top: 4px;
+  border-top: none;
+}
+
+.rowHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rowCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rowName {
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+}
+
+.rowCount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.rowLink {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--color-accent-ink);
+}
+
+.rowHeader:hover .rowLink {
+  text-decoration: underline;
+}
+
+/* La barra llega hasta el borde de la pantalla para que se note que desliza. */
+.rail {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  margin-inline: calc(var(--promo-gutter, 12px) * -1);
+  padding: 2px var(--promo-gutter, 12px) 6px;
+  scroll-padding-inline: var(--promo-gutter, 12px);
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+.railItem {
+  flex: 0 0 148px;
+  scroll-snap-align: start;
+}
+
+.row .avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+
+@media (min-width: 900px) {
+  .railItem {
+    flex-basis: 176px;
+  }
+
+  .cardCompact .cardMedia {
+    height: 96px;
+  }
+}
+
+/* ── Panel lateral (entra desde la derecha) ───────────────────────── */
+
+.panelOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(36, 28, 21, 0.4);
+  animation: panelFade 0.25s ease-out;
+}
+
+.panel {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--color-cream);
+  box-shadow: -18px 0 48px rgba(36, 28, 21, 0.25);
+  outline: none;
+  animation: panelSlide 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.panelContent {
+  min-height: 100%;
+  animation: panelStep 0.24s var(--ease-out, ease-out);
+}
+
+@keyframes panelFade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes panelSlide {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes panelStep {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+@media (min-width: 720px) {
+  .panel {
+    width: min(560px, 100vw);
+    border-radius: 22px 0 0 22px;
+  }
+}
+
+/* ── Página de un restaurante y lista de mapas (dentro del panel) ─── */
+
+.panelPage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 14px 24px;
+}
+
+.panelTop {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -14px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-white);
+}
+
+.panelTopCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.panelEyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-ink);
+}
+
+.panelTitle {
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.05rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+}
+
+.panelSub {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.panelGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.panelEmpty {
+  margin: 24px 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.mapRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  box-shadow: var(--elev-1);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease-out, ease-out), box-shadow 0.18s var(--ease-out, ease-out);
+}
+
+.mapRow:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--elev-2);
+}
+
+.mapRow:active {
+  transform: scale(0.99);
+}
+
+.mapRow:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.mapRowCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mapRowName {
+  overflow: hidden;
+  font-size: 1.05rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+}
+
+.mapRowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.metaChip,
+.metaChipSoft {
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-wash);
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--color-accent-ink);
+}
+
+.metaChipSoft {
+  background: var(--color-sand-wash);
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.mapRowHint {
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text-muted);
+}
+
+.mapRowArrow {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #241c15;
+  font-weight: 800;
+  color: #f5efe3;
+}
+
+/* ── Ficha de una promo ───────────────────────────────────────────── */
+
+.detail {
+  position: relative;
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+.detailHero {
+  position: relative;
+  height: clamp(300px, 70vw, 420px);
+  overflow: hidden;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: var(--color-beige);
+}
+
+.detailHeroImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detailHeroFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--color-accent-wash);
+  font-size: 4rem;
+  font-weight: 800;
+  color: var(--color-accent-ink);
+}
+
+.detailScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(36, 28, 21, 0.78) 0%, rgba(36, 28, 21, 0.2) 45%, transparent 70%);
+}
+
+.detailHeroTop {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.backChipDark,
+.backChip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(36, 28, 21, 0.5);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-white);
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out, ease-out);
+}
+
+.backChip {
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-text);
+}
+
+.backChipDark:active,
+.backChip:active {
+  transform: scale(0.94);
+}
+
+.backChipDark:focus-visible,
+.backChip:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.highlightPill {
+  max-width: 62%;
+  overflow: hidden;
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.detailHeroBottom {
+  position: absolute;
+  right: 16px;
+  bottom: 30px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.heroType {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--color-white);
+  backdrop-filter: blur(6px);
+}
+
+.heroTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 6vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--color-white);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.detailBody {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: -14px;
+  padding: 0 16px;
+}
+
+.companyCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  box-shadow: var(--elev-1);
+  text-decoration: none;
+  color: inherit;
+}
+
+.companyCard:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.companyCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.companyEyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.companyName {
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+}
+
+.companyLink {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--color-accent-ink);
+}
+
+.statusBanner {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(74, 115, 80, 0.24);
+  border-radius: var(--radius-md);
+  background: var(--color-ok-bg);
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--color-ok);
+}
+
+.lockCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  box-shadow: var(--elev-1);
+}
+
+.lockIcon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #241c15;
+  color: #f5efe3;
+}
+
+.lockCopy strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.lockCopy p {
+  margin: 4px 0 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.noteList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.noteList li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--color-brown);
+}
+
+.noteList svg {
+  flex: 0 0 auto;
+  color: var(--color-accent-ink);
+}
+
+.statusCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(219, 90, 52, 0.28);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-wash);
+}
+
+.statusCard p {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+}
+
+.statusAction {
+  min-height: 40px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-strong);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--color-white);
+  cursor: pointer;
+}
+
+.storyCard,
+.howCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+}
+
+.storyText {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.storyDetail {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.factsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.factTile,
+.factTileAccent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+.factTileAccent {
+  border-color: rgba(219, 90, 52, 0.28);
+  background: var(--color-accent-wash);
+}
+
+.factTile dt,
+.factTileAccent dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.factTileAccent dt,
+.factTileAccent dd {
+  color: var(--color-accent-ink);
+}
+
+.factTile dd,
+.factTileAccent dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.visitsHero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+}
+
+.visitsBadge {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.visitsBadge strong {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.visitsCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.visitsCopy strong {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.visitsCopy span {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.mapEntry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: #241c15;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mapEntry:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.mapEntryCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mapEntryEyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-2);
+}
+
+.mapEntryTitle {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #f5efe3;
+}
+
+.mapEntrySub {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(245, 239, 227, 0.72);
+}
+
+.sectionTitle {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+.howCard .sectionTitle {
+  margin: 0;
+}
+
+.howList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.howList li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-text);
+}
+
+.howIndex {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-sand-wash);
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--color-brown);
+}
+
+.productsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.productCard {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+.productCard img,
+.productFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--color-beige);
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--color-brown);
+}
+
+.productName {
+  display: block;
+  min-height: 48px;
+  padding: 10px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.secondaryLink {
+  align-self: center;
+  padding: 8px 4px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+  text-decoration: none;
+}
+
+.secondaryLink:hover {
+  text-decoration: underline;
+}
+
+/* Queda pegada abajo del panel lateral. */
+.ctaBar {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  display: flex;
+  gap: 10px;
+  margin: 18px 12px 0;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  box-shadow: var(--elev-2);
+}
+
+
+.primaryButton,
+.saveButton,
+.saveButtonOn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out, ease-out), background-color 0.15s var(--ease-out, ease-out);
+}
+
+.primaryButton {
+  flex: 1;
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+}
+
+.primaryButton:hover {
+  background: var(--color-accent-ink);
+}
+
+.primaryButtonMuted {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: #241c15;
+  font-size: 0.9rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-decoration: none;
+  color: #f5efe3;
+}
+
+.primaryButtonMuted:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.saveButton,
+.saveButtonOn {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-text);
+}
+
+.saveButtonOn {
+  border-color: rgba(219, 90, 52, 0.4);
+  background: var(--color-accent-wash);
+  color: var(--color-accent-ink);
+}
+
+.primaryButton:active,
+.saveButton:active,
+.saveButtonOn:active {
+  transform: scale(0.97);
+}
+
+.primaryButton:focus-visible,
+.saveButton:focus-visible,
+.saveButtonOn:focus-visible,
+.statusAction:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .panelOverlay,
+  .panel,
+  .panelContent {
+    animation: none;
+  }
+
+  .mapRow,
+  .card,
+  .mapsCard,
+  .backChip,
+  .backChipDark,
+  .primaryButton,
+  .saveButton,
+  .saveButtonOn {
+    transition: none;
+  }
+
+  .card:hover,
+  .mapRow:hover,
+  .mapsCard:hover {
+    transform: none;
+  }
+
+  .rail {
+    scroll-behavior: auto;
+  }
+}

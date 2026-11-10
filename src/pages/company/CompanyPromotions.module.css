@@ -543,6 +543,50 @@
   color: var(--color-text-muted);
 }
 
+/* Reglas de la promo en chips: en la lista y en "Así lo verá el cliente". */
+.promotionCardBody .ruleChips,
+.ruleChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.ruleChips em {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-sand-wash);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--color-brown);
+}
+
+.rulesPreview {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+.rulesPreviewTitle {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-ink);
+}
+
+.rulesPreviewHint {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
 .statusBadge {
   display: inline-flex;
   padding: 0.15rem 0.45rem;

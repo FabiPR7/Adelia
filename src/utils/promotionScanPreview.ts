@@ -47,6 +47,8 @@ export function buildPromotionScanPreview(
     arrivalWindowMinutes: form.arrivalWindowMinutes,
     maxRedemptions: form.maxRedemptions,
     currentRedemptions: 0,
+    maxClaimsPerCustomer: form.maxClaimsPerCustomer,
+    claimWindowEnabled: form.claimWindowEnabled,
     detail: '',
     highlight: '',
     reservationMode: company.reservationMode,

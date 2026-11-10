@@ -45,6 +45,12 @@ import {
   resolveCompanyCardFields,
 } from '../utils/verifiedConsumption.ts'
 import { mergeAppendOnlyIds, mergeMonotonicIds } from '../gamification/syncMerge.ts'
+import {
+  claimWindowError,
+  countClaimsForPromotion,
+  customerLimitMessage,
+  readMaxClaimsPerCustomer,
+} from '../promotions/customerPromotionUses.ts'
 
 const router = Router()
 const MAX_REWARD_DELTA = 8000
@@ -565,6 +571,14 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
       const tokenCredits = numberRecord(current.tokenCreditsByCompany)[companyId] ?? 0
       const confirmedCount = reservationCount + tokenCredits
       const claims = Array.isArray(current.claimedPromotions) ? current.claimedPromotions : []
+      const ladderClaimLimit = readMaxClaimsPerCustomer(promotion ?? {})
+      if (ladderClaimLimit != null && countClaimsForPromotion(claims, promotionId) >= ladderClaimLimit) {
+        throw new Error(customerLimitMessage(ladderClaimLimit))
+      }
+      const windowError = claimWindowError(promotion ?? {})
+      if (windowError) {
+        throw new Error(windowError)
+      }
       const priorClaims = claims.filter((item) => (
         item && typeof item === 'object'
         && (item as Record<string, unknown>).promotionId === promotionId
@@ -738,6 +752,13 @@ router.post('/claim', async (req: Request, res: Response) => {
     await adminDb.runTransaction(async (transaction) => {
       const current = await readCurrentGamification(transaction, customer.uid)
       assertCustomerCanUsePromos(current)
+      const claimLimit = readMaxClaimsPerCustomer(promotion)
+      if (
+        claimLimit != null
+        && countClaimsForPromotion(current.claimedPromotions, promotionId, reservationId) >= claimLimit
+      ) {
+        throw new Error(customerLimitMessage(claimLimit))
+      }
       await writeClaimInTransaction(
         transaction,
         customer.uid,

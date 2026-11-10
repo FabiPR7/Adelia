@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { UtensilsCrossed } from 'lucide-react'
 import type { PublicPromotion } from '../../services/publicPromotions'
 import type { ClaimedPromotionRecord } from '../../types/gamification'
 import type { MenuNode } from '../../types/company'
@@ -19,7 +20,11 @@ import {
   pickRandomLadderMapTheme,
   type LadderMapTheme,
 } from '../../utils/promotionLadderMapThemes'
-import { getCompanyLadderCompletions, getLadderNodeStatus } from '../../utils/promotionLadderStatus'
+import {
+  getCompanyLadderCompletions,
+  getLadderNodeStatus,
+  type LadderNodeStatus,
+} from '../../utils/promotionLadderStatus'
 import {
   getLadderProgress,
   resolveActiveLadderPromotionId,
@@ -27,10 +32,12 @@ import {
   type CompanyLadderRuntime,
 } from '../../utils/promotionReservationProgress'
 import { buildPromotionBookingHref } from '../../utils/promotionBooking'
+import { resolvePromotionHighlight } from '../../utils/promotionOffer'
 import { promoVisitCompletePath } from '../../data/companyReservationMode'
+import { isWithinPromotionHours } from '../../utils/promotionAvailability'
 import PromotionLadderMapThemeArt, { LadderMapCompassRose } from './PromotionLadderMapThemeArt'
-import PromotionOfferCard from './PromotionOfferCard'
 import PromoVisitCompleteModal from './PromoVisitCompleteModal'
+import { getPromotionHeroUrl } from './promoAppDisplay'
 import styles from './PromotionLadderMapModal.module.css'
 
 export interface LadderRestaurantGroup {
@@ -55,18 +62,8 @@ interface PromotionLadderMapModalProps {
     payload: RegisterConsumptionInput,
     promotionId: string,
   ) => Promise<void>
-}
-
-function completeHintForPath(path: ReturnType<typeof promoVisitCompletePath>): string {
-  if (path === 'reserve') {
-    return 'Reserva y avanza en el mapa'
-  }
-
-  if (path === 'consume') {
-    return 'Consume y avanza en el mapa'
-  }
-
-  return 'Reserva o consume y gana premios'
+  /** Al tocar un premio del mapa: abre su ficha. */
+  onOpenPromotion?: (promotion: PublicPromotion) => void
 }
 
 function MapTreasureTrail({
@@ -122,7 +119,11 @@ function MapTreasureTrail({
   )
 }
 
-function waypointPinClass(status: ReturnType<typeof getLadderNodeStatus>): string {
+function isFocusStatus(status: LadderNodeStatus): boolean {
+  return status === 'awaiting' || status === 'in_progress' || status === 'active' || status === 'claimable'
+}
+
+function waypointPinClass(status: LadderNodeStatus): string {
   if (status === 'claimed') {
     return styles.waypointClaimed
   }
@@ -131,11 +132,63 @@ function waypointPinClass(status: ReturnType<typeof getLadderNodeStatus>): strin
     return styles.waypointClaimable
   }
 
-  if (status === 'awaiting' || status === 'in_progress' || status === 'active') {
+  if (isFocusStatus(status)) {
     return styles.waypointActive
   }
 
   return ''
+}
+
+function nodeCardClass(status: LadderNodeStatus, index: number): string {
+  const tilt = index % 2 === 0 ? styles.nodeTiltLeft : styles.nodeTiltRight
+  if (status === 'claimed') return `${styles.nodeCard} ${styles.nodeClaimed} ${tilt}`
+  if (status === 'claimable') return `${styles.nodeCard} ${styles.nodeClaimable} ${tilt}`
+  if (isFocusStatus(status)) return `${styles.nodeCard} ${styles.nodeFocus} ${tilt}`
+  if (status === 'locked') return `${styles.nodeCard} ${styles.nodeLocked} ${tilt}`
+  return `${styles.nodeCard} ${tilt}`
+}
+
+function MapNodeCard({
+  promotion,
+  index,
+  status,
+  current,
+  required,
+  onPress,
+}: {
+  promotion: PublicPromotion
+  index: number
+  status: LadderNodeStatus
+  current: number
+  required: number
+  onPress: () => void
+}) {
+  const hero = getPromotionHeroUrl(promotion, 'photoThumb')
+  const isClaimed = status === 'claimed'
+  const highlight = resolvePromotionHighlight(promotion, index)
+  const progressLabel = required > 0 ? `${current}/${required}` : `${promotion.requiredReservations ?? 0}`
+
+  return (
+    <button
+      type="button"
+      className={nodeCardClass(status, index)}
+      onClick={onPress}
+      aria-label={`${promotion.title}. ${isClaimed ? 'Reclamado' : `${progressLabel} visitas`}`}
+    >
+      <span className={styles.nodeMedia}>
+        {hero ? <img src={hero} alt="" loading="lazy" /> : <span className={styles.nodeFallback}>%</span>}
+        {highlight && !isClaimed && !isFocusStatus(status) ? (
+          <span className={styles.nodeBadge}>{highlight}</span>
+        ) : null}
+      </span>
+      <span className={styles.nodeTitle}>{promotion.title}</span>
+      <span className={styles.nodeVisits}>
+        <UtensilsCrossed size={12} strokeWidth={2.2} aria-hidden="true" />
+        {isClaimed ? 'Hecho' : progressLabel}
+      </span>
+      {isClaimed ? <span className={styles.nodeStamp}>✓ Reclamado</span> : null}
+    </button>
+  )
 }
 
 export default function PromotionLadderMapModal({
@@ -147,12 +200,14 @@ export default function PromotionLadderMapModal({
   onClose,
   onClaim,
   onRegisterConsumption,
+  onOpenPromotion,
 }: PromotionLadderMapModalProps) {
   const navigate = useNavigate()
   const [theme, setTheme] = useState<LadderMapTheme>(() => pickRandomLadderMapTheme())
   const [visitOpen, setVisitOpen] = useState(false)
   const [menuNodes, setMenuNodes] = useState<MenuNode[]>([])
   const [menuLoading, setMenuLoading] = useState(false)
+  const closeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (group) {
@@ -160,6 +215,29 @@ export default function PromotionLadderMapModal({
       setVisitOpen(false)
     }
   }, [group?.companyId])
+
+  // Panel a pantalla completa: sin scroll de fondo, foco en "volver" y Esc para cerrar.
+  useEffect(() => {
+    if (!group) {
+      return
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeRef.current?.focus()
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !visitOpen) {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [group, onClose, visitOpen])
 
   useEffect(() => {
     if (!visitOpen || !group) {
@@ -225,6 +303,36 @@ export default function PromotionLadderMapModal({
     ?? sortedLadder[0]
     ?? null
 
+  const nodeStatus = (promotion: PublicPromotion) =>
+    getLadderNodeStatus(
+      promotion,
+      sortedLadder,
+      claimedPromotions,
+      ladderRuntime,
+      confirmedCounts,
+      pendingCounts,
+    )
+  const nodeProgress = (promotion: PublicPromotion) =>
+    getLadderProgress(promotion, confirmedCounts, ladderRuntime.ladderBaselinesByCompany)
+
+  const activeStatus = activePromotion ? nodeStatus(activePromotion) : 'locked'
+  const activeProgress = activePromotion ? nodeProgress(activePromotion) : null
+  const activeClaimLimit = activePromotion?.maxClaimsPerCustomer ?? null
+  const claimLimitReached = Boolean(
+    activePromotion
+    && activeClaimLimit != null
+    && activeClaimLimit > 0
+    && claimedPromotions.filter((claim) => claim.promotionId === activePromotion.id).length >= activeClaimLimit,
+  )
+  const claimWindowClosed = Boolean(
+    activePromotion?.claimWindowEnabled
+    && isWithinPromotionHours(activePromotion, new Date()) === false,
+  )
+  const canClaim = activeStatus === 'claimable' && !claimLimitReached && !claimWindowClosed
+  const progressLabel = activeProgress && activeProgress.required > 0
+    ? `${activeProgress.current}/${activeProgress.required}`
+    : null
+
   const goReserve = () => {
     navigate(bookingHref)
     onClose()
@@ -235,12 +343,20 @@ export default function PromotionLadderMapModal({
     onClose()
   }
 
-  const handleCompletar = () => {
+  const handleVisit = () => {
     if (visitPath === 'reserve') {
       goReserve()
       return
     }
     setVisitOpen(true)
+  }
+
+  const handlePressStep = (promotion: PublicPromotion, status: LadderNodeStatus) => {
+    if (status === 'claimable' && !(promotion.id === activePromotion?.id && (claimLimitReached || claimWindowClosed))) {
+      onClaim(promotion)
+      return
+    }
+    onOpenPromotion?.(promotion)
   }
 
   return (
@@ -254,35 +370,39 @@ export default function PromotionLadderMapModal({
         aria-modal="true"
         aria-label={`Mapa de premios de ${group.companyName}`}
       >
-        <div className={styles.leatherCorners} aria-hidden="true">
-          <span />
-          <span />
-          <span />
-          <span />
+        <div className={styles.floatingBar}>
+          <button
+            ref={closeRef}
+            type="button"
+            className={styles.backChip}
+            onClick={onClose}
+            aria-label="Volver"
+          >
+            ←
+          </button>
+          <div className={styles.topMeta}>
+            <p className={styles.topTitle}>{group.companyName}</p>
+            <p className={styles.topSub}>
+              {progressLabel ? `Vas a por el premio · ${progressLabel} consumos` : 'Mapa de premios'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className={styles.viewRestaurant}
+            onClick={goRestaurant}
+            aria-label={`Ver la ficha de ${group.companyName}`}
+          >
+            <svg className={styles.viewRestaurantIcon} viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M4 17V8.2L10 3.5l6 4.7V17H12V12H8v5H4Z" fill="currentColor" />
+            </svg>
+          </button>
         </div>
 
         <div className={styles.mapScroll}>
-          <div className={styles.mapHud}>
-            <div className={styles.mapHudTop}>
-              <button
-                type="button"
-                className={styles.viewRestaurant}
-                onClick={goRestaurant}
-                title={group.companyName}
-              >
-                <svg className={styles.viewRestaurantIcon} viewBox="0 0 20 20" aria-hidden="true">
-                  <path
-                    d="M4 17V8.2L10 3.5l6 4.7V17H12V12H8v5H4Z"
-                    fill="currentColor"
-                  />
-                </svg>
-                Ver restaurante
-              </button>
-              <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Cerrar">
-                ×
-              </button>
-            </div>
-            <div className={styles.mapHudBanner}>
+          <div className={styles.treasureMap}>
+            <PromotionLadderMapThemeArt themeId={theme.id} />
+
+            <div className={styles.overlayHud}>
               <p className={styles.hookEyebrow}>{theme.eyebrow}</p>
               <p className={styles.hookTitle}>{LADDER_MAP_HOOK}</p>
               <div className={styles.mapHudMeta}>
@@ -298,10 +418,6 @@ export default function PromotionLadderMapModal({
                 ) : null}
               </div>
             </div>
-          </div>
-
-          <div className={styles.treasureMap}>
-            <PromotionLadderMapThemeArt themeId={theme.id} />
 
             <div className={styles.mapCanvas} style={{ minHeight: `${canvasHeight}px` }}>
               <MapTreasureTrail path={path} viewBoxHeight={viewBoxHeight} />
@@ -361,41 +477,26 @@ export default function PromotionLadderMapModal({
                   return null
                 }
 
-                const status = getLadderNodeStatus(
-                  promotion,
-                  sortedLadder,
-                  claimedPromotions,
-                  ladderRuntime,
-                  confirmedCounts,
-                  pendingCounts,
-                )
-                const { current, required } = getLadderProgress(
-                  promotion,
-                  confirmedCounts,
-                  ladderRuntime.ladderBaselinesByCompany,
-                )
+                const status = nodeStatus(promotion)
+                const { current, required } = nodeProgress(promotion)
 
                 return (
                   <div
                     key={promotion.id}
-                    className={styles.mapNode}
+                    className={`${styles.mapNode} ${isFocusStatus(status) ? styles.mapNodeFocus : ''}`}
                     style={{ left: `${position.x}%`, top: `${mapPercentY(position.y)}%` }}
                   >
                     <span className={`${styles.waypointPin} ${waypointPinClass(status)}`}>
                       {index + 1}
                     </span>
-                    <div
-                      className={`${styles.mapNodeCard} ${index % 2 === 0 ? styles.mapNodeCardTiltLeft : styles.mapNodeCardTiltRight}`}
-                    >
-                      <PromotionOfferCard
-                        promotion={promotion}
-                        index={index}
-                        mapMode
-                        ladderStatus={status}
-                        progress={required > 0 ? { current, required } : undefined}
-                        onClaim={() => onClaim(promotion)}
-                      />
-                    </div>
+                    <MapNodeCard
+                      promotion={promotion}
+                      index={index}
+                      status={status}
+                      current={current}
+                      required={required}
+                      onPress={() => handlePressStep(promotion, status)}
+                    />
                   </div>
                 )
               })}
@@ -405,15 +506,40 @@ export default function PromotionLadderMapModal({
           </div>
         </div>
 
-        <div className={styles.completeFabWrap}>
-          <p className={styles.completeFabHint}>{completeHintForPath(visitPath)}</p>
-          <button
-            type="button"
-            className={styles.completeFab}
-            onClick={handleCompletar}
-          >
-            Completar
-          </button>
+        <div className={styles.dock}>
+          {activePromotion ? (
+            <div className={styles.dockMeta}>
+              <p className={styles.dockHint}>{activePromotion.title}</p>
+              {claimLimitReached ? (
+                <p className={styles.dockProgress}>
+                  🔒 Ya has reclamado este premio {activeClaimLimit === 1 ? 'la única vez permitida' : `las ${activeClaimLimit} veces permitidas`}
+                </p>
+              ) : claimWindowClosed && activePromotion ? (
+                <p className={styles.dockProgress}>
+                  🔒 Este premio se canjea de {activePromotion.activeFromTime} a {activePromotion.activeToTime}
+                  {progressLabel ? ` · ${progressLabel}` : ''}
+                </p>
+              ) : progressLabel ? (
+                <p className={styles.dockProgress}>
+                  {canClaim ? `Listo para reclamar · ${progressLabel}` : `Progreso · ${progressLabel}`}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          <div className={styles.dockRow}>
+            <button type="button" className={styles.dockPrimary} onClick={handleVisit}>
+              {visitPath === 'reserve' ? 'Reservar' : 'Registrar consumo'}
+            </button>
+            <button
+              type="button"
+              className={canClaim ? styles.dockClaimReady : styles.dockClaim}
+              onClick={() => activePromotion && onClaim(activePromotion)}
+              disabled={!canClaim}
+              title={canClaim ? undefined : 'Completa las visitas para reclamar el premio'}
+            >
+              Reclamar
+            </button>
+          </div>
         </div>
       </div>
     </div>
