@@ -3,6 +3,7 @@ import type { Request, Response } from 'express'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { allowLemonSqueezyTestEvents, getLemonSqueezyWebhookSecret } from '../lemonsqueezy/config.ts'
+import { syncCompanyFromLemonOrder } from '../lemonsqueezy/lifetime.ts'
 import {
   syncCompanyFromLemonInvoice,
   syncCompanyFromLemonSubscription,
@@ -12,6 +13,9 @@ const EVENTS_COLLECTION = 'lemonSqueezyEvents'
 const EVENT_RETENTION_MS = 45 * 24 * 60 * 60 * 1000
 
 const HANDLED_EVENTS = new Set([
+  // Pago único "de por vida" (ver lemonsqueezy/lifetime.ts).
+  'order_created',
+  'order_refunded',
   'subscription_created',
   'subscription_updated',
   'subscription_resumed',
@@ -85,7 +89,7 @@ export async function handleLemonSqueezyWebhook(req: Request, res: Response): Pr
   }
 
   let payload: {
-    meta?: { event_name?: string; test_mode?: boolean }
+    meta?: { event_name?: string; test_mode?: boolean; custom_data?: { company_id?: unknown } | null }
     data?: { id?: string; attributes?: { updated_at?: string; test_mode?: boolean } }
   }
   try {
@@ -128,10 +132,16 @@ export async function handleLemonSqueezyWebhook(req: Request, res: Response): Pr
   }
 
   try {
-    if (INVOICE_EVENTS.has(eventName)) {
+    // La web mete el id del restaurante en el checkout cuando ha iniciado sesión.
+    const customCompanyId = typeof payload.meta?.custom_data?.company_id === 'string'
+      ? payload.meta.custom_data.company_id
+      : ''
+    if (eventName === 'order_created' || eventName === 'order_refunded') {
+      await syncCompanyFromLemonOrder(payload.data, eventName, customCompanyId)
+    } else if (INVOICE_EVENTS.has(eventName)) {
       await syncCompanyFromLemonInvoice(payload.data, eventName)
     } else {
-      await syncCompanyFromLemonSubscription(payload.data)
+      await syncCompanyFromLemonSubscription(payload.data, customCompanyId)
     }
   } catch (error) {
     console.error('Lemon Squeezy webhook handler error:', error)

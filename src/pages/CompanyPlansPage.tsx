@@ -1,7 +1,10 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import LegalLinks from '../components/LegalLinks'
+import LifetimeOfferHero from '../components/LifetimeOfferHero'
+import { useAuth } from '../context/AuthContext'
+import { isLifetimeOfferActive, withCompanyCheckoutData } from '../data/lifetimeOffer'
 import {
   COMPANY_PLANS,
   annualDiscountPercent,
@@ -38,6 +41,16 @@ function CompanyPlansPage() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [period, setPeriod] = useState<BillingPeriod>('monthly')
   const annualSave = annualDiscountPercent(getCompanyPlan('premium'))
+  const { profile } = useAuth()
+  // Si el restaurante ha iniciado sesión, su id viaja en el pago: así el plan no depende del correo.
+  const companyId = profile?.role === 'company' ? profile.companyId ?? null : null
+  const showLifetimeOffer = isLifetimeOfferActive()
+  const plansRef = useRef<HTMLDivElement | null>(null)
+
+  const scrollToPlans = () => {
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    plansRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+  }
 
   const startCheckout = (planId: string) => {
     const url = planId === 'basic' || planId === 'premium'
@@ -49,7 +62,7 @@ function CompanyPlansPage() {
     }
     setCheckoutError(null)
     setBusyPlanId(planId)
-    window.location.assign(url)
+    window.location.assign(withCompanyCheckoutData(url, companyId))
   }
 
   return (
@@ -73,6 +86,11 @@ function CompanyPlansPage() {
       </header>
 
       <main className={styles.main}>
+        {showLifetimeOffer ? (
+          <LifetimeOfferHero companyId={companyId} onSeePlans={scrollToPlans} />
+        ) : null}
+
+        <div ref={plansRef} id="planes" className={styles.plansAnchor} />
         <header className={styles.intro}>
           <p className={styles.eyebrow}>Planes para restaurantes</p>
           <h1>Tres planes. Sin comisión por reserva.</h1>

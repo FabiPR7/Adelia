@@ -798,3 +798,8 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* Destino de "Ahora no, ver planes": deja aire bajo la cabecera fija. */
+.plansAnchor {
+  scroll-margin-top: 4.5rem;
+}

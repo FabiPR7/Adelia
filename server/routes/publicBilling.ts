@@ -88,7 +88,7 @@ router.post('/complete-free-signup', async (req: Request, res: Response) => {
     }
     const message = error instanceof Error ? error.message : 'No se pudo crear la empresa.'
     console.error('Free company signup error:', error)
-    res.status(message.includes('robot') ? 400 : 500).json({ error: message })
+    res.status(message.includes('robot') || message.includes('aceptar') ? 400 : 500).json({ error: message })
   }
 })
 

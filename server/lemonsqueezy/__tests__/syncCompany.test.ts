@@ -4,12 +4,14 @@ type Doc = Record<string, unknown>
 
 const store = vi.hoisted(() => ({
   companies: new Map<string, Record<string, unknown>>(),
+  users: new Map<string, Record<string, unknown>>(),
   pending: new Map<string, Record<string, unknown>>(),
 }))
 
 vi.mock('../../firebase-admin.ts', () => {
   const companyDoc = (id: string) => ({
     id,
+    exists: store.companies.has(id),
     data: () => store.companies.get(id),
     ref: {
       set: async (data: Doc) => {
@@ -21,6 +23,21 @@ vi.mock('../../firebase-admin.ts', () => {
   return {
     adminDb: {
       collection: (name: string) => {
+        if (name === 'users') {
+          // Consultas con varios where encadenados (correo + rol).
+          const query = (filters: Array<[string, unknown]>) => ({
+            where: (field: string, _op: string, value: unknown) => query([...filters, [field, value]]),
+            limit: () => ({
+              get: async () => {
+                const docs = [...store.users.entries()]
+                  .filter(([, data]) => filters.every(([field, value]) => data[field] === value))
+                  .map(([id, data]) => ({ id, data: () => data }))
+                return { empty: docs.length === 0, size: docs.length, docs }
+              },
+            }),
+          })
+          return query([])
+        }
         if (name === 'companies') {
           return {
             where: (field: string, _op: string, value: unknown) => ({
@@ -33,7 +50,7 @@ vi.mock('../../firebase-admin.ts', () => {
                 },
               }),
             }),
-            doc: (id: string) => companyDoc(id),
+            doc: (id: string) => ({ ...companyDoc(id), get: async () => companyDoc(id) }),
           }
         }
         return {
@@ -91,6 +108,7 @@ function invoice(attributes: Doc = {}) {
 describe('Lemon Squeezy company sync', () => {
   beforeEach(() => {
     store.companies.clear()
+    store.users.clear()
     store.pending.clear()
   })
 
@@ -119,6 +137,7 @@ describe('Lemon Squeezy company sync', () => {
 
   it('sets the plan dates only when the subscription is first linked', async () => {
     store.companies.set('company-1', { contactEmail: EMAIL })
+    store.users.set('owner-1', { role: 'company', contactEmail: EMAIL, companyId: 'company-1' })
 
     await syncCompanyFromLemonSubscription(subscription({}))
     const linked = store.companies.get('company-1')!
@@ -139,6 +158,36 @@ describe('Lemon Squeezy company sync', () => {
     await syncCompanyFromLemonSubscription(subscription({}))
 
     expect(store.companies.get('impostor')?.planId).toBe('free')
+  })
+
+  it('does not give the plan to a company that only puts the email in its contact', async () => {
+    store.companies.set('impostor', { contactEmail: EMAIL, planId: 'free' })
+
+    await syncCompanyFromLemonSubscription(subscription({}))
+
+    expect(store.companies.get('impostor')?.planId).toBe('free')
+    expect(store.pending.get(lemonPendingKey(EMAIL))?.planId).toBe('premium')
+  })
+
+  it('links the payment to the company id sent from the checkout', async () => {
+    store.companies.set('logged-in', { planId: 'free' })
+
+    await syncCompanyFromLemonSubscription(subscription({ user_email: 'otro@correo.test' }), 'logged-in')
+
+    expect(store.companies.get('logged-in')?.planId).toBe('premium')
+  })
+
+  it('never downgrades a lifetime plan when an old subscription expires', async () => {
+    store.companies.set('lifetime', {
+      lemonSqueezySubscriptionId: 'sub-1',
+      planId: 'premium',
+      planBilling: 'perpetual',
+    })
+
+    await syncCompanyFromLemonSubscription(subscription({ status: 'expired' }))
+
+    expect(store.companies.get('lifetime')?.planId).toBe('premium')
+    expect(store.companies.get('lifetime')?.planBilling).toBe('perpetual')
   })
 
   it('marks the plan past due on a failed payment and clears it on recovery', async () => {

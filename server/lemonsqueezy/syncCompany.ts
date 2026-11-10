@@ -60,12 +60,26 @@ export function parseLemonSubscription(data: unknown): ParsedSubscription | null
 }
 
 /**
- * Busca la empresa de una suscripción. `contactEmail` lo edita el restaurante,
- * así que va lo último: una suscripción ya enlazada nunca cambia de empresa
- * porque otro local se ponga ese correo.
+ * Busca la empresa de un pago de Lemon Squeezy, de más a menos fiable:
+ * 1. `company_id` que la web mete en el checkout cuando el restaurante ha iniciado sesión.
+ * 2. La suscripción ya enlazada.
+ * 3. El correo con el que ya pagó antes.
+ * 4. El correo del dueño guardado en su usuario al darse de alta (el restaurante no puede cambiarlo).
+ * Nunca se usa `contactEmail`: lo edita el propio restaurante, y otro local podría
+ * ponerse el correo de quien va a pagar para quedarse con su plan.
  */
-async function findCompanyForSubscription(subscriptionId: string, email: string) {
+export async function findCompanyForLemonPayment(
+  subscriptionId: string,
+  email: string,
+  customCompanyId = '',
+) {
   const companies = adminDb.collection(COLLECTIONS.companies)
+  if (customCompanyId && /^[A-Za-z0-9_-]{1,128}$/.test(customCompanyId)) {
+    const byCustom = await companies.doc(customCompanyId).get()
+    if (byCustom.exists) {
+      return byCustom
+    }
+  }
   if (subscriptionId) {
     const bySubscription = await companies
       .where('lemonSqueezySubscriptionId', '==', subscriptionId)
@@ -85,11 +99,27 @@ async function findCompanyForSubscription(subscriptionId: string, email: string)
   if (!byLemonEmail.empty) {
     return byLemonEmail.docs[0]
   }
-  const byContactEmail = await companies
+  const owners = await adminDb
+    .collection(COLLECTIONS.users)
     .where('contactEmail', '==', email)
-    .limit(1)
+    .where('role', '==', 'company')
+    .limit(2)
     .get()
-  return byContactEmail.empty ? null : byContactEmail.docs[0]
+  // Si dos cuentas comparten correo no adivinamos: el plan queda pendiente para revisarlo.
+  if (owners.size !== 1) {
+    return null
+  }
+  const ownerCompanyId = owners.docs[0].data().companyId
+  if (typeof ownerCompanyId !== 'string' || !ownerCompanyId) {
+    return null
+  }
+  const byOwner = await companies.doc(ownerCompanyId).get()
+  return byOwner.exists ? byOwner : null
+}
+
+/** Plan de por vida (pago único): ningún aviso de suscripción puede quitarlo. */
+export function isPerpetualCompany(data: FirebaseFirestore.DocumentData | undefined): boolean {
+  return data?.planBilling === 'perpetual' && data?.planId !== 'free'
 }
 
 /** Campos base que fijan un plan de pago activo desde Lemon Squeezy. */
@@ -143,7 +173,7 @@ function freePlanWrites() {
  * del alta— guarda el estado en `lemonSqueezyPending/{email}` para que el alta
  * lo recoja.
  */
-export async function syncCompanyFromLemonSubscription(data: unknown): Promise<void> {
+export async function syncCompanyFromLemonSubscription(data: unknown, customCompanyId = ''): Promise<void> {
   const sub = parseLemonSubscription(data)
   if (!sub) {
     return
@@ -155,7 +185,13 @@ export async function syncCompanyFromLemonSubscription(data: unknown): Promise<v
     console.error('Lemon Squeezy: variante sin plan asociado', sub.subscriptionId)
   }
 
-  const company = await findCompanyForSubscription(sub.subscriptionId, sub.email)
+  const company = await findCompanyForLemonPayment(sub.subscriptionId, sub.email, customCompanyId)
+
+  if (company && isPerpetualCompany(company.data())) {
+    // Ya tiene el plan de por vida: una suscripción vieja que caduca no puede bajarle el plan.
+    console.warn('Lemon Squeezy: suscripción ignorada en empresa con plan de por vida', company.id, sub.subscriptionId)
+    return
+  }
 
   const cancelledOrGone = sub.status === 'expired'
   const stillPayingButAtRisk = sub.status === 'past_due'
@@ -211,7 +247,7 @@ export async function syncCompanyFromLemonSubscription(data: unknown): Promise<v
     return
   }
 
-  const isNewSubscription = company.data().lemonSqueezySubscriptionId !== sub.subscriptionId
+  const isNewSubscription = company.data()?.lemonSqueezySubscriptionId !== sub.subscriptionId
   await ref.set(activePlanWrites(sub, sub.planId, stillPayingButAtRisk, isNewSubscription), { merge: true })
   await applyPlanFeatureLimits(company.id, sub.planId)
 }
@@ -231,7 +267,7 @@ export async function syncCompanyFromLemonInvoice(data: unknown, eventName: stri
     return
   }
   const attrs = (data as { attributes?: LemonInvoiceAttributes }).attributes ?? {}
-  const company = await findCompanyForSubscription(
+  const company = await findCompanyForLemonPayment(
     String(attrs.subscription_id ?? ''),
     String(attrs.user_email ?? '').trim().toLowerCase(),
   )
@@ -283,7 +319,9 @@ export async function claimPendingLemonPlan(
     await pendingRef.delete().catch(() => undefined)
     return null
   }
-  const period: LemonBillingPeriod = data.period === 'annual' ? 'annual' : 'monthly'
+  const period: LemonBillingPeriod | 'perpetual' = data.period === 'perpetual'
+    ? 'perpetual'
+    : data.period === 'annual' ? 'annual' : 'monthly'
 
   await adminDb.collection(COLLECTIONS.companies).doc(companyId).set(
     {
@@ -295,6 +333,7 @@ export async function claimPendingLemonPlan(
       lemonSqueezyCustomerId: typeof data.customerId === 'string' && data.customerId ? data.customerId : FieldValue.delete(),
       lemonSqueezyPortalUrl: typeof data.portalUrl === 'string' && data.portalUrl ? data.portalUrl : FieldValue.delete(),
       lemonSqueezyEmail: contactEmail.trim().toLowerCase(),
+      ...(period === 'perpetual' && typeof data.orderId === 'string' ? { lifetimeOrderId: data.orderId } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
