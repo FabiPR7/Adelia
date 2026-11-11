@@ -13,6 +13,7 @@ import publicDiscoveryRouter from './routes/publicDiscovery.ts'
 import publicMenusRouter from './routes/publicMenus.ts'
 import citiesRouter from './routes/cities.ts'
 import geocodeRouter from './routes/geocode.ts'
+import uploadsRouter from './routes/uploads.ts'
 import reservationMinSpendRouter from './routes/reservationMinSpend.ts'
 import reservationDepositRouter from './routes/reservationDeposit.ts'
 import reservationEmailRouter from './routes/reservationEmail.ts'
@@ -76,7 +77,18 @@ export function createApp() {
   app.use(sanitizeRequest)
   app.use(apiRateLimit)
 
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', (req, res) => {
+    // Diagnóstico temporal de proxies (sin IPs): ¿req.ip es el visitante o un proxy?
+    if (req.query.diag === 'ip') {
+      const xff = String(req.headers['x-forwarded-for'] ?? '').split(',').map((part) => part.trim()).filter(Boolean)
+      res.json({
+        ok: true,
+        hops: xff.length,
+        ipIsFirst: xff.length > 0 && req.ip === xff[0],
+        ipIsLast: xff.length > 0 && req.ip === xff[xff.length - 1],
+      })
+      return
+    }
     res.json({ ok: true })
   })
 
@@ -97,6 +109,7 @@ export function createApp() {
   app.use('/api/public/reservations', reservationMinSpendRouter)
   app.use('/api/public/cities', citiesRouter)
   app.use('/api/public/geocode', geocodeRouter)
+  app.use('/api/uploads', uploadsRouter)
   app.use('/api/customer/notifications', customerNotificationsRouter)
   app.use('/api/customer/friends', customerFriendsRouter)
   app.use('/api/customer/favorites', customerFavoritesRouter)

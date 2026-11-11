@@ -34,6 +34,8 @@ import { isPromoLockedForBooking,
 } from '../gamification/cancellationPenalty.ts'
 import { InputError, asDateYmd, asId, asInt, asOptionalTrimmed, asPlainText, asSlug } from '../security/validate.ts'
 import { allowPublicCache } from '../security/httpCache.ts'
+import { getSecurityConfig } from '../security/securityConfig.ts'
+import { requireRecaptcha } from '../security/recaptcha.ts'
 import {
   countCustomerPromotionReservations,
   customerLimitMessage,
@@ -607,6 +609,19 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
     const company = record.public
 
     const customer = await resolveBookingCustomer(req)
+    const securityConfig = await getSecurityConfig()
+
+    // Sin cuenta, un bot podría llenar mesas o hacernos mandar correos a cualquiera.
+    if (!customer && securityConfig.guestBookingCaptcha) {
+      try {
+        await requireRecaptcha(req.body?.recaptchaToken, 'booking', securityConfig.guestBookingMinScore)
+      } catch (captchaError) {
+        res.status(400).json({
+          error: captchaError instanceof Error ? captchaError.message : 'No se pudo verificar que no eres un robot.',
+        })
+        return
+      }
+    }
 
     const {
       date: dateParam,
@@ -679,6 +694,12 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
 
     try {
       assertReservationStartInFuture(date, bookingTime)
+      if (
+        securityConfig.maxBookingDaysAhead > 0
+        && date.getTime() - Date.now() > securityConfig.maxBookingDaysAhead * 24 * 60 * 60 * 1000
+      ) {
+        throw new Error(`Solo se puede reservar con ${securityConfig.maxBookingDaysAhead} días de antelación como máximo.`)
+      }
       assertReservationSlotValid(
         table,
         bookingTime,

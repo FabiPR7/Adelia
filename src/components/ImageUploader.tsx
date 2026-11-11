@@ -9,10 +9,8 @@ import {
   formatFileSize,
 } from '../constants/fileUpload'
 import { useCompanyDemo } from '../context/CompanyDemoContext'
+import { uploadToCloudinary } from '../utils/cloudinaryUpload'
 import styles from './ImageUploader.module.css'
-
-const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
 
 interface ImageUploaderProps {
   onImageUploaded: (url: string) => void
@@ -22,35 +20,9 @@ interface ImageUploaderProps {
   hint?: string
 }
 
-async function uploadToCloudinary(file: File): Promise<string> {
-  if (!CLOUD_NAME || !UPLOAD_PRESET) {
-    throw new Error(
-      'Faltan VITE_CLOUDINARY_CLOUD_NAME o VITE_CLOUDINARY_UPLOAD_PRESET en .env.local',
-    )
-  }
-
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('upload_preset', UPLOAD_PRESET)
-
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-    {
-      method: 'POST',
-      body: formData,
-    },
-  )
-
-  const data = (await response.json()) as {
-    secure_url?: string
-    error?: { message?: string }
-  }
-
-  if (!response.ok || !data.secure_url) {
-    throw new Error(data.error?.message ?? 'No se pudo subir la imagen.')
-  }
-
-  return data.secure_url
+// Sube por el servidor de firmas si está activo; si no, con el preset de siempre.
+function uploadImage(file: File): Promise<string> {
+  return uploadToCloudinary(file, 'image')
 }
 
 function ImageUploader({
@@ -119,7 +91,7 @@ function ImageUploader({
     setIsUploading(true)
 
     try {
-      const secureUrl = await uploadToCloudinary(file)
+      const secureUrl = await uploadImage(file)
       setPreviewUrl(secureUrl)
       onImageUploaded(secureUrl)
     } catch (err) {

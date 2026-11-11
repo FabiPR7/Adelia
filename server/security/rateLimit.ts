@@ -153,6 +153,15 @@ function bucketFor(req: Request): {
     return { name: 'appEvents', max: 40, windowMs: 5 * 60_000, key: clientKey(req), distributed: true, failClosed: true }
   }
 
+  // Firmas de subida a Cloudinary: con sesión, por usuario; sin sesión (alta de
+  // restaurante), por IP y con tope bajo para que no sirva para subir en masa.
+  if (req.method === 'POST' && url.startsWith('/api/uploads/cloudinary-signature')) {
+    const signedIn = typeof req.headers.authorization === 'string' && req.headers.authorization.startsWith('Bearer ')
+    return signedIn
+      ? { name: 'uploadSign', max: 60, windowMs: 10 * 60_000, key: authKey(req), distributed: true, failClosed: true }
+      : { name: 'uploadSignAnon', max: 15, windowMs: 60 * 60_000, key: clientKey(req), distributed: true, failClosed: true }
+  }
+
   if (
     url.startsWith('/api/public/cities')
     || url.startsWith('/api/public/geocode')

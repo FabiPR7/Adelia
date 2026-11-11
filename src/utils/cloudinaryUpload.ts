@@ -1,5 +1,8 @@
+import { getIdToken } from '../services/auth'
+
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 export type CloudinaryResourceType = 'image' | 'video'
 
@@ -12,7 +15,7 @@ export interface CloudinaryUploadOptions {
 }
 
 function assertCloudinaryConfig() {
-  if (!CLOUD_NAME || !UPLOAD_PRESET) {
+  if (!CLOUD_NAME) {
     throw new Error(
       'Faltan VITE_CLOUDINARY_CLOUD_NAME o VITE_CLOUDINARY_UPLOAD_PRESET en .env.local',
     )
@@ -173,9 +176,78 @@ function postCloudinaryForm(
   })
 }
 
-function appendUploadFields(formData: FormData, file: Blob, fileName: string) {
+interface UploadTarget {
+  url: string
+  fields: Record<string, string>
+}
+
+const signatureCache = new Map<string, { target: UploadTarget; expiresAt: number }>()
+
+/**
+ * Pide al servidor una firma de subida (carpeta y formatos los decide Adelia).
+ * Si el servidor aún no tiene las claves de Cloudinary, se usa el preset sin firmar.
+ */
+async function resolveUploadTarget(
+  resourceType: CloudinaryResourceType | 'raw' | 'auto',
+): Promise<UploadTarget> {
+  const kind = resourceType === 'video' || resourceType === 'auto' ? 'video' : resourceType === 'raw' ? 'raw' : 'image'
+  const cached = signatureCache.get(kind)
+  if (cached && cached.expiresAt > Date.now()) {
+    return { ...cached.target, url: cloudinaryUploadEndpoint(resourceType, cached.target.fields.cloud_name) }
+  }
+
+  try {
+    const token = await getIdToken().catch(() => null)
+    const response = await fetch(`${API_BASE}/api/uploads/cloudinary-signature`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ resourceType: kind }),
+    })
+    const data = (await response.json().catch(() => ({}))) as {
+      enabled?: boolean
+      cloudName?: string
+      apiKey?: string
+      timestamp?: number
+      signature?: string
+      folder?: string
+      allowed_formats?: string
+    }
+    if (response.ok && data.enabled && data.cloudName && data.apiKey && data.signature && data.timestamp) {
+      const target: UploadTarget = {
+        url: cloudinaryUploadEndpoint(resourceType, data.cloudName),
+        fields: {
+          cloud_name: data.cloudName,
+          api_key: data.apiKey,
+          timestamp: String(data.timestamp),
+          signature: data.signature,
+          folder: data.folder ?? '',
+          allowed_formats: data.allowed_formats ?? '',
+        },
+      }
+      // Cloudinary acepta la firma una hora; se renueva antes.
+      signatureCache.set(kind, { target, expiresAt: Date.now() + 45 * 60_000 })
+      return target
+    }
+  } catch {
+    // Sin servidor de firmas disponible: preset sin firmar como hasta ahora.
+  }
+
+  if (!UPLOAD_PRESET) {
+    throw new Error('Faltan VITE_CLOUDINARY_CLOUD_NAME o VITE_CLOUDINARY_UPLOAD_PRESET en .env.local')
+  }
+  return { url: cloudinaryUploadEndpoint(resourceType), fields: { upload_preset: UPLOAD_PRESET } }
+}
+
+function appendUploadFields(formData: FormData, file: Blob, fileName: string, target: UploadTarget) {
   formData.append('file', file, fileName)
-  formData.append('upload_preset', UPLOAD_PRESET!)
+  for (const [key, value] of Object.entries(target.fields)) {
+    if (key !== 'cloud_name' && value) {
+      formData.append(key, value)
+    }
+  }
 }
 
 async function uploadCloudinarySingle(
@@ -183,11 +255,12 @@ async function uploadCloudinarySingle(
   resourceType: CloudinaryResourceType | 'raw' | 'auto',
   onProgress?: (percent: number) => void,
 ): Promise<CloudinaryUploadResult> {
+  const target = await resolveUploadTarget(resourceType)
   const formData = new FormData()
-  appendUploadFields(formData, file, file.name)
+  appendUploadFields(formData, file, file.name, target)
 
   return postCloudinaryForm(
-    cloudinaryUploadEndpoint(resourceType),
+    target.url,
     formData,
     {},
     (loaded, total) => {
@@ -211,16 +284,17 @@ async function uploadCloudinaryChunked(
   const ranges = cloudinaryByteRanges(file.size)
   const uniqueUploadId = `${Date.now()}-${Math.round(Math.random() * 1e9)}`
   let lastResult: CloudinaryUploadResult | null = null
+  const target = await resolveUploadTarget(resourceType)
 
   for (let index = 0; index < ranges.length; index += 1) {
     const range = ranges[index]
     const isLast = index === ranges.length - 1
     const chunk = file.slice(range.start, range.endExclusive)
     const formData = new FormData()
-    appendUploadFields(formData, chunk, file.name)
+    appendUploadFields(formData, chunk, file.name, target)
 
     const result = await postCloudinaryForm(
-      cloudinaryUploadEndpoint(resourceType),
+      target.url,
       formData,
       {
         'X-Unique-Upload-Id': uniqueUploadId,

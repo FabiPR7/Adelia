@@ -1,4 +1,5 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { freshLemonPortalUrl } from '../lemonsqueezy/overdueCancellations.ts'
 import type Stripe from 'stripe'
 import { adminAuth, adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from '../data/collections.ts'
@@ -249,7 +250,8 @@ export async function readCompanyBillingStatus(companyId: string) {
   const planStartedAt = readTimestamp(data.planStartedAt)
   const stripeSubscriptionId = typeof data.stripeSubscriptionId === 'string' ? data.stripeSubscriptionId : ''
   const lemonSubscriptionId = typeof data.lemonSqueezySubscriptionId === 'string' ? data.lemonSqueezySubscriptionId : ''
-  const lemonPortalUrl = typeof data.lemonSqueezyPortalUrl === 'string' ? data.lemonSqueezyPortalUrl : ''
+  // El enlace guardado del aviso caduca: se pide uno nuevo (o null → portal general).
+  const lemonPortalUrl = lemonSubscriptionId ? await freshLemonPortalUrl(lemonSubscriptionId) : null
   const hasSubscription = stripeSubscriptionId.length > 0 || lemonSubscriptionId.length > 0
   let currentPeriodEnd = pendingPlanAt
 

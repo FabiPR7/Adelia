@@ -233,7 +233,9 @@ function CompanyPlan() {
             <div className={styles.ladderHead}>
               <h3>Tu suscripción</h3>
               <p>
-                {isPaid
+                {isPaid && currentBilling === 'perpetual'
+                  ? 'Tienes el plan de por vida: no hay cuotas que renovar ni nada que cancelar.'
+                  : isPaid
                   ? savedPortalUrl
                     ? 'Se abre el portal de Lemon Squeezy en una pestaña nueva; los cambios se reflejan aquí en unos minutos.'
                     : 'Se abre Lemon Squeezy en una pestaña nueva — entra con el correo que usaste al pagar y desde ahí gestionas todo.'
@@ -241,7 +243,19 @@ function CompanyPlan() {
               </p>
             </div>
 
-            {isPaid ? (
+            {isPaid && currentBilling === 'perpetual' ? (
+              <div className={styles.actionGrid}>
+                <a className={styles.actionCard} href={LEMONSQUEEZY_CUSTOMER_PORTAL_URL} target="_blank" rel="noreferrer">
+                  <span className={styles.actionIcon}>
+                    <Icon name="check" />
+                  </span>
+                  <span>
+                    <strong>Factura del pago único</strong>
+                    <em>Entra con el correo con el que pagaste</em>
+                  </span>
+                </a>
+              </div>
+            ) : isPaid ? (
               <>
                 <div className={styles.actionGrid}>
                   <a className={styles.actionCard} href={manageUrl ?? undefined} target="_blank" rel="noreferrer">

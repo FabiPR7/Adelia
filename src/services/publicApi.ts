@@ -1,4 +1,5 @@
 import type { CompanySchedule, FloorPlan, Reservation } from '../types'
+import { executeRecaptcha, loadRecaptchaScript } from './recaptcha'
 import type {
   ReviewMediaItem,
   ReviewTaggedProduct,
@@ -188,6 +189,16 @@ export async function createPublicReservation(
   payload: PublicBookingPayload,
 ): Promise<{ id: string; message: string; inventory?: Record<string, number> }> {
   const token = await getIdToken().catch(() => null)
+  // Sin sesión, el servidor pide captcha (invisible) para frenar reservas falsas.
+  let recaptchaToken = ''
+  if (!token) {
+    try {
+      await loadRecaptchaScript()
+      recaptchaToken = await executeRecaptcha('booking')
+    } catch {
+      recaptchaToken = ''
+    }
+  }
 
   const response = await fetch(
     `${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/reservations`,
@@ -200,6 +211,7 @@ export async function createPublicReservation(
       body: JSON.stringify({
         ...payload,
         clientEmail: payload.clientEmail.trim().toLowerCase(),
+        ...(recaptchaToken ? { recaptchaToken } : {}),
       }),
     },
   )

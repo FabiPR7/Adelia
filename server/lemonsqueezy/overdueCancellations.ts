@@ -8,7 +8,7 @@ import { isPerpetualCompany, syncCompanyFromLemonSubscription } from './syncComp
 /** Margen tras el fin del periodo: Lemon Squeezy reintenta los avisos durante unos días. */
 export const OVERDUE_GRACE_MS = 3 * 24 * 60 * 60 * 1000
 
-async function fetchLemonSubscription(subscriptionId: string, apiKey: string): Promise<unknown | null> {
+export async function fetchLemonSubscription(subscriptionId: string, apiKey: string): Promise<unknown | null> {
   const response = await fetch(
     `https://api.lemonsqueezy.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
     {
@@ -87,4 +87,26 @@ export async function resolveOverdueLemonCancellations(now = new Date()): Promis
   }
 
   return resolved
+}
+
+/**
+ * Enlace al portal de cliente de Lemon Squeezy recién pedido: el que llega en los
+ * avisos va firmado y caduca (unas 24 h), así que guardarlo no sirve. Sin API key
+ * devuelve null y la web abre el portal general (entras con tu correo).
+ */
+export async function freshLemonPortalUrl(subscriptionId: string): Promise<string | null> {
+  const apiKey = getLemonSqueezyApiKey()
+  if (!apiKey || !subscriptionId) {
+    return null
+  }
+  try {
+    const subscription = await fetchLemonSubscription(subscriptionId, apiKey) as
+      | { attributes?: { urls?: { customer_portal?: unknown } } }
+      | null
+    const url = subscription?.attributes?.urls?.customer_portal
+    return typeof url === 'string' && url.startsWith('https://') ? url : null
+  } catch (error) {
+    console.error('Lemon Squeezy portal URL error:', error)
+    return null
+  }
 }
