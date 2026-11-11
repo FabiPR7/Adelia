@@ -26,9 +26,11 @@ const HANDLED_EVENTS = new Set([
   'subscription_payment_success',
   'subscription_payment_failed',
   'subscription_payment_recovered',
+  'subscription_payment_refunded',
 ])
 
 const INVOICE_EVENTS = new Set([
+  'subscription_payment_refunded',
   'subscription_payment_success',
   'subscription_payment_failed',
   'subscription_payment_recovered',

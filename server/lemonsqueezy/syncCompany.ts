@@ -255,6 +255,19 @@ export async function syncCompanyFromLemonSubscription(data: unknown, customComp
 interface LemonInvoiceAttributes {
   subscription_id?: unknown
   user_email?: unknown
+  total?: unknown
+  refunded?: unknown
+  refunded_amount?: unknown
+}
+
+/** Devolución total de una cuota (una parcial, p. ej. un descuento, no quita el plan). */
+export function isFullInvoiceRefund(attrs: LemonInvoiceAttributes): boolean {
+  const total = typeof attrs.total === 'number' ? attrs.total : null
+  const refunded = typeof attrs.refunded_amount === 'number' ? attrs.refunded_amount : null
+  if (total != null && refunded != null) {
+    return total > 0 && refunded >= total
+  }
+  return attrs.refunded === true
 }
 
 /**
@@ -272,6 +285,28 @@ export async function syncCompanyFromLemonInvoice(data: unknown, eventName: stri
     String(attrs.user_email ?? '').trim().toLowerCase(),
   )
   if (!company) {
+    return
+  }
+
+  if (eventName === 'subscription_payment_refunded') {
+    // Si se devuelve la cuota, ese periodo no está pagado: se quita el plan. La
+    // suscripción sigue enlazada, así que un cobro nuevo de Lemon lo devuelve.
+    if (isPerpetualCompany(company.data()) || !isFullInvoiceRefund(attrs)) {
+      return
+    }
+    await company.ref.set(
+      {
+        planId: 'free',
+        planBilling: null,
+        planPaymentState: 'refunded',
+        planRefundedAt: FieldValue.serverTimestamp(),
+        pendingPlanId: FieldValue.delete(),
+        pendingPlanAt: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+    await applyPlanFeatureLimits(company.id, 'free')
     return
   }
 

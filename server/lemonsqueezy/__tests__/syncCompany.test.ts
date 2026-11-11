@@ -72,6 +72,7 @@ vi.mock('../../company/enforcePlanLimits.ts', () => ({
   applyPlanFeatureLimits: vi.fn(async () => undefined),
 }))
 
+import { applyPlanFeatureLimits } from '../../company/enforcePlanLimits.ts'
 import {
   lemonPendingKey,
   syncCompanyFromLemonInvoice,
@@ -188,6 +189,86 @@ describe('Lemon Squeezy company sync', () => {
 
     expect(store.companies.get('lifetime')?.planId).toBe('premium')
     expect(store.companies.get('lifetime')?.planBilling).toBe('perpetual')
+  })
+
+  it('una cancelación mantiene el plan hasta fin de periodo y lo programa a gratis', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'premium' })
+
+    await syncCompanyFromLemonSubscription(subscription({ status: 'cancelled', ends_at: '2026-12-10T00:00:00Z' }))
+
+    expect(store.companies.get('c1')).toMatchObject({ planId: 'premium', pendingPlanId: 'free' })
+  })
+
+  it('al terminar el periodo (expired) pasa a gratis y recorta lo que sobra', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'premium' })
+
+    await syncCompanyFromLemonSubscription(subscription({ status: 'expired' }))
+
+    expect(store.companies.get('c1')?.planId).toBe('free')
+    expect(applyPlanFeatureLimits).toHaveBeenLastCalledWith('c1', 'free')
+  })
+
+  it('si reanuda una cancelación, recupera el plan y quita el cambio programado', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'premium', pendingPlanId: 'free' })
+
+    await syncCompanyFromLemonSubscription(subscription({ status: 'active' }))
+
+    expect(store.companies.get('c1')?.planId).toBe('premium')
+    expect(String(store.companies.get('c1')?.pendingPlanId ?? '')).not.toBe('free')
+  })
+
+  it('bajar de Local a Sala cambia el plan al momento y recorta los límites', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'premium' })
+
+    await syncCompanyFromLemonSubscription(subscription({ variant_id: 2088081 }))
+
+    expect(store.companies.get('c1')).toMatchObject({ planId: 'basic', planBilling: 'monthly' })
+    expect(applyPlanFeatureLimits).toHaveBeenLastCalledWith('c1', 'basic')
+  })
+
+  it('subir de Sala a Local anual cambia plan y periodo', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'basic' })
+
+    await syncCompanyFromLemonSubscription(subscription({ variant_id: 2089103 }))
+
+    expect(store.companies.get('c1')).toMatchObject({ planId: 'premium', planBilling: 'annual' })
+  })
+
+  it('un impago o una pausa quitan el plan; un cobro retrasado lo mantiene avisando', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'premium' })
+    await syncCompanyFromLemonSubscription(subscription({ status: 'past_due' }))
+    expect(store.companies.get('c1')).toMatchObject({ planId: 'premium', planPaymentState: 'past_due' })
+
+    await syncCompanyFromLemonSubscription(subscription({ status: 'unpaid' }))
+    expect(store.companies.get('c1')?.planId).toBe('free')
+  })
+
+  it('una devolución total de la cuota quita el plan pero deja la suscripción enlazada', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'premium' })
+
+    await syncCompanyFromLemonInvoice(invoice({ total: 5999, refunded_amount: 5999 }), 'subscription_payment_refunded')
+
+    expect(store.companies.get('c1')).toMatchObject({
+      planId: 'free',
+      planPaymentState: 'refunded',
+      lemonSqueezySubscriptionId: 'sub-1',
+    })
+  })
+
+  it('una devolución parcial no quita el plan', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'premium' })
+
+    await syncCompanyFromLemonInvoice(invoice({ total: 5999, refunded_amount: 1000 }), 'subscription_payment_refunded')
+
+    expect(store.companies.get('c1')?.planId).toBe('premium')
+  })
+
+  it('tras una devolución, la renovación de Lemon devuelve el plan', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'free', planPaymentState: 'refunded' })
+
+    await syncCompanyFromLemonSubscription(subscription({ status: 'active' }))
+
+    expect(store.companies.get('c1')?.planId).toBe('premium')
   })
 
   it('marks the plan past due on a failed payment and clears it on recovery', async () => {
