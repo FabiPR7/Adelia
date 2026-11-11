@@ -19,7 +19,12 @@ const LEVELS = [
   { level: 4, title: 'Crítico de la Casa', minXp: 1600, maxXp: 3199 },
   { level: 5, title: 'Maestro de Mesa', minXp: 3200, maxXp: 5999 },
   { level: 6, title: 'Embajador Adelia', minXp: 6000, maxXp: 9999 },
-  { level: 7, title: 'Leyenda', minXp: 10_000, maxXp: null as number | null },
+  { level: 7, title: 'Leyenda', minXp: 10_000, maxXp: 14_999 as number | null },
+  { level: 8, title: 'Gran Paladar', minXp: 15_000, maxXp: 21_999 },
+  { level: 9, title: 'Embajador Gourmet', minXp: 22_000, maxXp: 31_999 },
+  { level: 10, title: 'Titán del Menú', minXp: 32_000, maxXp: 44_999 },
+  { level: 11, title: 'Cliente Legendario', minXp: 45_000, maxXp: 64_999 },
+  { level: 12, title: 'Deidad Suprema', minXp: 65_000, maxXp: null },
 ]
 
 function levelForXp(xp: number) {

@@ -81,6 +81,15 @@ function RestaurantDiscoveryCard({
         )}
 
         <div className={styles.topOverlay}>
+          {restaurant.discoveryFeatured ? (
+            // Obligatorio indicar que el orden se ve influido por un pago (Ley de Competencia Desleal, art. 26.2).
+            <span
+              className={styles.sponsored}
+              title="Aparece antes porque el restaurante tiene un plan de pago. Más información en los Términos."
+            >
+              Patrocinado
+            </span>
+          ) : null}
           <h3>{restaurant.name}</h3>
         </div>
 

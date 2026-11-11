@@ -91,6 +91,26 @@ export async function listMissionCatalogEntries(): Promise<Map<string, MissionCa
   return new Map(missionCache)
 }
 
+/**
+ * Nivel según `levelCatalog` ya cargado en memoria (para escribirlo dentro de una
+ * transacción sin esperar). Si aún no se ha leído, lo pide y devuelve null.
+ */
+export function cachedLevelForXp(xp: number): number | null {
+  if (levelCache.length === 0 || Date.now() - cacheAt >= CACHE_MS) {
+    void refreshCatalog().catch(() => undefined)
+  }
+  if (levelCache.length === 0) {
+    return null
+  }
+  let current = levelCache[0].level
+  for (const entry of levelCache) {
+    if (xp >= entry.minXp) {
+      current = entry.level
+    }
+  }
+  return current
+}
+
 export async function getLevelForXpFromCatalog(xp: number): Promise<number> {
   try {
     await refreshCatalog()

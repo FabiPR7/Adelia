@@ -338,17 +338,6 @@ function CustomerMissionsTab() {
             : `${progressPercent}% del siguiente nivel`}
         </p>
 
-        <button
-          type="button"
-          className={styles.previewLevelButton}
-          onClick={gamification.previewLevelUpCelebration}
-        >
-          Ver animación de subida de nivel
-        </button>
-        <p className={styles.previewLevelHint}>
-          Abre tu nivel actual. Dentro puedes pasar los 12 rangos con ‹ ›
-        </p>
-
         <div className={styles.heroStats}>
           <div>
             <span className={styles.statEmoji} aria-hidden="true">⚡</span>

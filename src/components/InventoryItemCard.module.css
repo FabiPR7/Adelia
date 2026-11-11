@@ -136,14 +136,22 @@
   top: 0.28rem;
   right: 0.28rem;
   z-index: 4;
-  min-width: 0.82rem;
-  padding: 0.02rem 0.18rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.36rem;
+  border: 1px solid rgba(255, 248, 238, 0.35);
   border-radius: 999px;
-  background: rgba(20, 12, 10, 0.72);
+  background: rgba(20, 12, 10, 0.78);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
   color: #fff8ee;
-  font-size: 0.46rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .stage {
@@ -248,16 +256,19 @@
 .featured .qty {
   top: 0.55rem;
   right: 0.55rem;
-  min-width: 1.15rem;
-  padding: 0.08rem 0.32rem;
-  font-size: 0.62rem;
+  min-width: 1.85rem;
+  height: 1.85rem;
+  padding: 0 0.5rem;
+  font-size: 1.02rem;
 }
 
 .mini .qty {
   top: 0.18rem;
   right: 0.18rem;
-  font-size: 0.42rem;
-  padding: 0.02rem 0.16rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.28rem;
+  font-size: 0.68rem;
 }
 
 .featured .family {
@@ -317,11 +328,6 @@
 .card:not(.featured):not(.mini) .top {
   min-height: 0.7rem;
   justify-content: flex-end;
-}
-
-.mini .qty {
-  font-size: 0.42rem;
-  padding: 0.02rem 0.16rem;
 }
 
 .mini .emblem {

@@ -1,4 +1,3 @@
-import RankingNotice from '../components/RankingNotice'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import CityAutocomplete from '../components/CityAutocomplete'
@@ -403,7 +402,6 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
                     {filteredRestaurants.length === 1 ? 'restaurante' : 'restaurantes'}
                   </span>
                 </div>
-                <RankingNotice />
               </div>
               <RestaurantInfiniteCarousel
                 key={"primary-" + (venueKind || "all")}

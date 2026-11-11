@@ -190,3 +190,17 @@
     font-size: 1.1rem;
   }
 }
+
+/* Restaurantes que aparecen antes por su plan: etiqueta discreta pero visible. */
+.sponsored {
+  display: inline-block;
+  margin-bottom: 0.2rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(255, 249, 242, 0.88);
+  color: #3d2a1f;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

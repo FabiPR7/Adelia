@@ -1,6 +1,7 @@
 import { FieldValue, type Transaction } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from './collections.ts'
+import { cachedLevelForXp } from './gameCatalog.ts'
 
 const MAX_STORED_CLAIMS = 20
 const MAX_PENDING_TOKEN_SPEND = 10
@@ -46,6 +47,7 @@ export function writeGamification(
   state: Record<string, unknown>,
 ) {
   const xp = typeof state.xp === 'number' ? state.xp : 0
+  const level = cachedLevelForXp(xp)
   const adelinas = typeof state.adelinas === 'number' ? state.adelinas : 0
   const statsState = compactGamificationForStatsDoc(state)
   const statsRef = userGamificationRef(uid)
@@ -57,12 +59,14 @@ export function writeGamification(
     uid,
     xp,
     adelinas,
+    ...(level != null ? { level } : {}),
     state: statsState,
     updatedAt: new Date(),
-  }, { mergeFields: ['uid', 'xp', 'adelinas', 'state', 'updatedAt'] })
+  }, { mergeFields: ['uid', 'xp', 'adelinas', ...(level != null ? ['level'] : []), 'state', 'updatedAt'] })
   transaction.set(userRef, {
     xp,
     adelinas,
+    ...(level != null ? { level } : {}),
     gamification: FieldValue.delete(),
   }, { merge: true })
 }

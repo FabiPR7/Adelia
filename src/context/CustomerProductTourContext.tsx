@@ -10,7 +10,6 @@ import {
 } from 'react'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
 import CustomerProductTourOverlay from '../components/customerTour/CustomerProductTourOverlay'
-import CustomerTourFab from '../components/customerTour/CustomerTourFab'
 import ItemReceiveCelebration from '../components/ItemReceiveCelebration'
 import { TOUR_STEPS, type TourStepId } from '../customerTour/tourSteps'
 import {
@@ -73,11 +72,6 @@ export function CustomerProductTourProvider({ children }: { children: ReactNode 
 
   const stepIndex = stepId ? TOUR_STEPS.findIndex((step) => step.id === stepId) : -1
   const previewEntry = PREVIEW_ITEMS[previewIndex] ?? PREVIEW_ITEMS[0]
-
-  const showPreview = useCallback(() => {
-    setPreviewIndex(0)
-    setRewardOpen(true)
-  }, [])
 
   const cyclePreview = useCallback((delta: -1 | 1) => {
     setPreviewIndex((current) => (current + delta + PREVIEW_ITEMS.length) % PREVIEW_ITEMS.length)
@@ -204,12 +198,6 @@ export function CustomerProductTourProvider({ children }: { children: ReactNode 
     }
   }, [active, location.pathname, navigate, stepId])
 
-  const showFab =
-    Boolean(user && profile?.role === 'customer' && profile.onboardingCompleted)
-    && (isCustomerAppPath(location.pathname) || (active && isRestaurantLandingPath(location.pathname)))
-    && !active
-    && !rewardOpen
-
   const value = useMemo(
     () => ({
       active,
@@ -231,9 +219,6 @@ export function CustomerProductTourProvider({ children }: { children: ReactNode 
           onPrimary={goNext}
           onSkip={stopTour}
         />
-      ) : null}
-      {showFab ? (
-        <CustomerTourFab onClick={showPreview} />
       ) : null}
       <ItemReceiveCelebration
         open={rewardOpen}
