@@ -24,6 +24,7 @@ import {
 import SeasonPackModal from '../../components/SeasonPackModal'
 import InventoryItemCard from '../../components/InventoryItemCard'
 import type { SeasonPackKind } from '../../data/inventoryItems'
+import { isAlmostDone, missionAction, remainingLabel } from '../../utils/missionNudges'
 import styles from './CustomerMissionsTab.module.css'
 
 type MissionSection = 'weekly' | 'monthly' | 'historical'
@@ -45,7 +46,7 @@ function MissionCard({
   )
 
   return (
-    <article className={`${styles.missionCard} ${item.completed ? styles.missionDone : ''}`}>
+    <article className={`${styles.missionCard} ${item.completed ? styles.missionDone : ''} ${isAlmostDone(item) ? styles.missionHot : ''}`}>
       <div className={styles.missionGlow} aria-hidden="true" />
       <div className={styles.missionIconWrap}>
         <MissionIcon mission={item.mission} size="lg" />
@@ -64,6 +65,14 @@ function MissionCard({
                 <span>{prize.shortName}{quantity > 1 ? ` ×${quantity}` : ''}</span>
               </div>
             ))}
+          </div>
+        ) : null}
+        {!item.completed ? (
+          <div className={styles.missionNext}>
+            <span className={styles.missionLeft}>{isAlmostDone(item) ? `Casi: ${remainingLabel(item).toLowerCase()}` : remainingLabel(item)}</span>
+            <Link to={missionAction(item.mission).to} className={styles.missionAction}>
+              {missionAction(item.mission).label} →
+            </Link>
           </div>
         ) : null}
         {!item.completed ? (
@@ -121,12 +130,17 @@ function CustomerMissionsTab() {
   const nextLevel = GAMIFICATION_LEVELS.find((level) => level.level === gamification.level.level + 1)
 
   const activeMissions = useMemo(() => {
+    // Las pendientes primero y las más avanzadas arriba: lo siguiente por hacer se ve sin buscar.
+    const pendingFirst = (list: MissionProgress[]) => [...list].sort((left, right) => (
+      Number(left.completed) - Number(right.completed) || right.progress - left.progress
+    ))
+
     if (section === 'weekly') {
-      return gamification.weeklyProgress
+      return pendingFirst(gamification.weeklyProgress)
     }
 
     if (section === 'monthly') {
-      return gamification.monthlyProgress
+      return pendingFirst(gamification.monthlyProgress)
     }
 
     return gamification.historicalProgress

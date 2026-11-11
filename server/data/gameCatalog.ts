@@ -131,12 +131,68 @@ export async function getLevelForXpFromCatalog(xp: number): Promise<number> {
   return current
 }
 
+/** Respaldo de `levelCatalog` (mismos niveles que la web) para cuando la colección está vacía. */
+const FALLBACK_LEVELS: LevelCatalogEntry[] = [
+  { level: 1, name: 'Comensal Aficionado', minXp: 0 },
+  { level: 2, name: 'Explorador de Sabores', minXp: 300 },
+  { level: 3, name: 'Gourmet de Barrio', minXp: 800 },
+  { level: 4, name: 'Crítico de la Casa', minXp: 1600 },
+  { level: 5, name: 'Maestro de Mesa', minXp: 3200 },
+  { level: 6, name: 'Leyenda Gastronómica', minXp: 6000 },
+  { level: 7, name: 'Deidad del Paladar', minXp: 10000 },
+  { level: 8, name: 'Gran Paladar', minXp: 15000 },
+  { level: 9, name: 'Embajador Gourmet', minXp: 22000 },
+  { level: 10, name: 'Titán del Menú', minXp: 32000 },
+  { level: 11, name: 'Cliente Legendario', minXp: 45000 },
+  { level: 12, name: 'Deidad Suprema', minXp: 65000 },
+]
+
 export function fallbackLevelForXp(xp: number): number {
-  if (xp >= 10000) return 7
-  if (xp >= 6000) return 6
-  if (xp >= 3200) return 5
-  if (xp >= 1600) return 4
-  if (xp >= 800) return 3
-  if (xp >= 300) return 2
-  return 1
+  let current = FALLBACK_LEVELS[0].level
+  for (const entry of FALLBACK_LEVELS) {
+    if (xp >= entry.minXp) {
+      current = entry.level
+    }
+  }
+  return current
+}
+
+export interface LevelForXp {
+  level: number
+  title: string
+  minXp: number
+  maxXp: number | null
+  progress: number
+}
+
+/** Nivel de un jugador según `levelCatalog`: el mismo que ve en su perfil. */
+export async function getLevelDetailsForXp(xp: number): Promise<LevelForXp> {
+  let levels = FALLBACK_LEVELS
+  try {
+    await refreshCatalog()
+    if (levelCache.length > 0) {
+      levels = levelCache
+    }
+  } catch {
+    // Se usa el respaldo.
+  }
+
+  const safeXp = Math.max(0, xp)
+  let index = 0
+  levels.forEach((entry, at) => {
+    if (safeXp >= entry.minXp) {
+      index = at
+    }
+  })
+  const entry = levels[index]
+  const next = levels[index + 1]
+  const maxXp = next ? next.minXp - 1 : null
+  const span = maxXp == null ? 1 : maxXp - entry.minXp + 1
+  return {
+    level: entry.level,
+    title: entry.name,
+    minXp: entry.minXp,
+    maxXp,
+    progress: maxXp == null ? 1 : Math.min(1, Math.max(0, (safeXp - entry.minXp) / span)),
+  }
 }

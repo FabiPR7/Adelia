@@ -10,13 +10,23 @@ import type { CompanyPlanId } from './companyPlans'
  * toggle Mensual/Anual de la web es informativo (precio y descuento); lo que
  * cuenta es lo que marque en Lemon Squeezy, y el webhook nos dice qué eligió.
  */
-export const LEMONSQUEEZY_STORE_ID = '465870'
+/** Los valores de abajo son el respaldo: `appConfig/billing` en Firestore los sustituye. */
+export let LEMONSQUEEZY_STORE_ID = '465870'
 
 export type BillingPeriod = 'monthly' | 'annual'
 
 /** Checkout único del producto de planes (muestra las 4 variantes). */
-export const LEMONSQUEEZY_CHECKOUT_URL =
+export let LEMONSQUEEZY_CHECKOUT_URL =
   'https://adelia.lemonsqueezy.com/checkout/buy/07cd5eb1-e81d-405d-b677-2790751266e4'
+
+export function applyBillingConfig(config: { checkoutUrl?: string; storeId?: string }): void {
+  if (config.checkoutUrl) {
+    LEMONSQUEEZY_CHECKOUT_URL = config.checkoutUrl
+  }
+  if (config.storeId) {
+    LEMONSQUEEZY_STORE_ID = config.storeId
+  }
+}
 
 /**
  * Portal de cliente genérico de Lemon Squeezy: el restaurante entra con el

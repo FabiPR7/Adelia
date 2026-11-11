@@ -4,16 +4,7 @@ import { readGamificationFromDocs, userGamificationRef, writeGamification } from
 import { findCustomerUidByEmail, resolveCustomerUidForReservation } from '../notifications/service.ts'
 import { consumeInventoryItem, inventoryQty } from './inventory.ts'
 import { CANCEL_SHIELD_ITEM_ID } from './inventoryItems.ts'
-
-export const PROMO_LOCK_STRIKES = 5
-
-export const CANCELLATION_PENALTY_RATES = [
-  { strike: 1, percent: 12, minXp: 40 },
-  { strike: 2, percent: 30, minXp: 90 },
-  { strike: 3, percent: 50, minXp: 160 },
-  { strike: 4, percent: 70, minXp: 280 },
-  { strike: 5, percent: 85, minXp: 420 },
-] as const
+import { cancellationPenaltyRates, promoLockStrikes } from './penaltyConfig.ts'
 
 export const PROMO_LOCK_BOOKING_MESSAGE =
   'Tienes bloqueadas las reservas con promoción por cancelar demasiadas veces. Aún puedes reservar mesa sin promo.'
@@ -48,8 +39,9 @@ function stringArray(value: unknown): string[] {
 }
 
 export function penaltyForStrike(strike: number): { strike: number; percent: number; minXp: number } {
-  const last = CANCELLATION_PENALTY_RATES[CANCELLATION_PENALTY_RATES.length - 1]
-  return CANCELLATION_PENALTY_RATES.find((entry) => entry.strike === strike) ?? last
+  const rates = cancellationPenaltyRates()
+  const last = rates[rates.length - 1]
+  return rates.find((entry) => entry.strike === strike) ?? last
 }
 
 export function computeCancellationXpLoss(currentXp: number, strike: number): number {
@@ -68,7 +60,7 @@ export function isPromoLockedFromState(state: Record<string, unknown>): boolean 
     return true
   }
 
-  return numberValue(state.cancellationStrikeCount) >= PROMO_LOCK_STRIKES
+  return numberValue(state.cancellationStrikeCount) >= promoLockStrikes()
 }
 
 export function assertCustomerCanUsePromos(state: Record<string, unknown>): void {
@@ -78,8 +70,8 @@ export function assertCustomerCanUsePromos(state: Record<string, unknown>): void
 }
 
 export function buildCancelPenaltyWarning(strikeCount: number, promoLocked: boolean): string {
-  if (promoLocked && strikeCount >= PROMO_LOCK_STRIKES) {
-    if (strikeCount === PROMO_LOCK_STRIKES) {
+  if (promoLocked && strikeCount >= promoLockStrikes()) {
+    if (strikeCount === promoLockStrikes()) {
       return 'Has llegado al límite: ya no puedes reservar ni canjear promociones.'
     }
 
@@ -87,7 +79,7 @@ export function buildCancelPenaltyWarning(strikeCount: number, promoLocked: bool
   }
 
   const nextPercent = penaltyForStrike(strikeCount + 1).percent
-  if (strikeCount + 1 >= PROMO_LOCK_STRIKES) {
+  if (strikeCount + 1 >= promoLockStrikes()) {
     return `Cuidado: si cancelas otra reserva te quitaremos un ${nextPercent}% de tus puntos y se te bloquearán las promociones.`
   }
 
@@ -138,7 +130,7 @@ export function parseStoredPenalty(data: Record<string, unknown>): CancellationP
       strikeCount,
       percent: 0,
       nextPercent: penaltyForStrike(Math.max(1, strikeCount + 1)).percent,
-      promoLocked: penalty.promoLocked === true || strikeCount >= PROMO_LOCK_STRIKES,
+      promoLocked: penalty.promoLocked === true || strikeCount >= promoLockStrikes(),
       justLocked: false,
       warning: 'Has usado un Escudo de Mesa. Esta cancelación no te quita puntos ni cuenta como aviso.',
     }
@@ -147,7 +139,7 @@ export function parseStoredPenalty(data: Record<string, unknown>): CancellationP
   const xpLost = Math.max(0, Math.trunc(numberValue(penalty.xpLost)))
   const xpBefore = Math.max(0, Math.trunc(numberValue(penalty.xpBefore, xpLost)))
   const xpAfter = Math.max(0, Math.trunc(numberValue(penalty.xpAfter, xpBefore - xpLost)))
-  const promoLocked = penalty.promoLocked === true || strikeCount >= PROMO_LOCK_STRIKES
+  const promoLocked = penalty.promoLocked === true || strikeCount >= promoLockStrikes()
 
   return buildPenaltyResult({
     xpLost,
@@ -165,8 +157,8 @@ function computePendingPenalty(state: Record<string, unknown>): CancellationPena
   const strikeCount = previousStrikes + 1
   const xpLost = computeCancellationXpLoss(xpBefore, strikeCount)
   const xpAfter = xpBefore - xpLost
-  const promoLocked = strikeCount >= PROMO_LOCK_STRIKES
-  const justLocked = promoLocked && previousStrikes < PROMO_LOCK_STRIKES
+  const promoLocked = strikeCount >= promoLockStrikes()
+  const justLocked = promoLocked && previousStrikes < promoLockStrikes()
 
   return buildPenaltyResult({
     xpLost,

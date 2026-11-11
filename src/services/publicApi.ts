@@ -301,6 +301,9 @@ export interface PublicCancelPreview {
   startTime: string | null
   status: string
   alreadyCancelled: boolean
+  /** `false` si la reserva ya se atendió o ya pasó la hora. */
+  canCancel?: boolean
+  cancelBlockedReason?: string | null
   depositAmountCents: number | null
   depositCancellationHours: number | null
   hasAuthorizedDeposit: boolean

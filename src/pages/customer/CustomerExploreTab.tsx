@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DiscoverySearchBar from '../../components/DiscoverySearchBar'
+import DiscoveryQuickFilters, { type QuickFilterOption } from '../../components/DiscoveryQuickFilters'
+import MissionNudgeCard from '../../components/MissionNudgeCard'
+import { useMissionNudge } from '../../hooks/useMissionNudge'
+import { applyQuickFilters, missionFilterLabel, type QuickFilterId } from '../../utils/discoveryQuickFilters'
 import DiscoveryVenueKindFilter from '../../components/DiscoveryVenueKindFilter'
 import DiscoverySkeleton from '../../components/DiscoverySkeleton'
 import NearbyRestaurantsMap from '../../components/NearbyRestaurantsMap'
@@ -51,6 +55,8 @@ function CustomerExploreTab() {
   const [userCoords, setUserCoords] = useState<GeoCoordinates | null>(null)
   const [favoritesActive, setFavoritesActive] = useState(false)
   const promoCounts = usePromotionCounts()
+  const [quickFilters, setQuickFilters] = useState<ReadonlySet<QuickFilterId>>(new Set())
+  const nudge = useMissionNudge()
 
   useEffect(() => {
     let cancelled = false
@@ -115,12 +121,41 @@ function CustomerExploreTab() {
       )
     }
 
+    results = applyQuickFilters(
+      results,
+      quickFilters,
+      { promoCounts, visitedCompanyIds: nudge.visitedCompanyIds, mission: nudge.closest },
+      { keepOrder: nearbyActive && Boolean(userCoords) },
+    )
+
     if (nearbyActive && userCoords) {
       return sortRestaurantsByDistance(results, distancesKm)
     }
 
     return results
-  }, [restaurants, effectiveQuery, selectedCity, venueKind, favoritesActive, favoriteSlugs, nearbyActive, userCoords, distancesKm])
+  }, [restaurants, effectiveQuery, selectedCity, venueKind, favoritesActive, favoriteSlugs, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts, nudge.visitedCompanyIds, nudge.closest])
+
+  const quickFilterOptions = useMemo<QuickFilterOption[]>(() => [
+    ...(nudge.closest
+      ? [{ id: 'mission' as const, label: missionFilterLabel(nudge.closest.mission), highlight: true }]
+      : []),
+    { id: 'promo', label: 'Con promo' },
+    { id: 'reservable', label: 'Con reserva' },
+    { id: 'unvisited', label: 'Sin visitar' },
+    { id: 'topRated', label: 'Mejor valorados' },
+  ], [nudge.closest])
+
+  const toggleQuickFilter = useCallback((id: QuickFilterId) => {
+    setQuickFilters((current) => {
+      const next = new Set(current)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
 
   const { primary, secondary } = useMemo(
     () => splitRestaurantsForCarousels(filteredRestaurants),
@@ -271,6 +306,10 @@ function CustomerExploreTab() {
         <p className={styles.lead}>Busca, filtra y reserva tu próxima mesa.</p>
       </header>
 
+      <div className={styles.nudge}>
+        <MissionNudgeCard />
+      </div>
+
       <DiscoverySearchBar
         searchDraft={searchDraft}
         onSearchDraftChange={setSearchDraft}
@@ -288,6 +327,10 @@ function CustomerExploreTab() {
         onToggleFavorites={() => setFavoritesActive((current) => !current)}
       />
 
+      <div className={styles.quickFilters}>
+        <DiscoveryQuickFilters options={quickFilterOptions} active={quickFilters} onToggle={toggleQuickFilter} />
+      </div>
+
       <main className={styles.main}>
         {loading && <DiscoverySkeleton />}
 
@@ -303,7 +346,9 @@ function CustomerExploreTab() {
               ? 'Aún no tienes favoritos. Toca el corazón en un local para guardarlo.'
               : restaurants.length === 0
                 ? 'Aún no hay restaurantes publicados. Vuelve pronto para descubrir nuevos locales.'
-                : 'No encontramos restaurantes con esa búsqueda. Prueba otra ciudad o quita filtros.'}
+                : quickFilters.size > 0
+                  ? 'Ningún restaurante cumple todos los filtros rápidos. Quita alguno para ver más.'
+                  : 'No encontramos restaurantes con esa búsqueda. Prueba otra ciudad o quita filtros.'}
           </div>
         )}
 

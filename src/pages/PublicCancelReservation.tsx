@@ -14,6 +14,7 @@ import { companyAcceptsReservations } from '../data/companyReservationMode'
 import {
   formatCancelPenaltyPreview,
   formatCancelPenaltyResult,
+  PROMO_LOCK_STRIKES,
 } from '../data/cancellationPenalties'
 import styles from './PublicCancelReservation.module.css'
 
@@ -163,6 +164,15 @@ function PublicCancelReservation() {
                 Volver a reservar
               </Link>
             </>
+          ) : !resultMessage && cancelPreview && cancelPreview.canCancel === false ? (
+            <>
+              <p className={styles.error}>
+                {cancelPreview.cancelBlockedReason ?? 'Esta reserva ya no se puede cancelar.'}
+              </p>
+              <Link to={`/reservar/${slug}`} className={styles.primaryLink}>
+                Volver a reservar
+              </Link>
+            </>
           ) : resultMessage ? (
             <>
               <p className={styles.success}>{resultMessage}</p>
@@ -180,7 +190,7 @@ function PublicCancelReservation() {
                   </p>
                   <p>{formatCancelPenaltyResult(resultPenalty)}</p>
                   <p className={styles.xpPenaltyCount}>
-                    Cancelación {resultPenalty.strikeCount} de 5
+                    Cancelación {resultPenalty.strikeCount} de {PROMO_LOCK_STRIKES}
                   </p>
                 </div>
               ) : null}

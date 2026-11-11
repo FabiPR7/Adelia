@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express'
-import { Timestamp } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
 import { isValidClientEmail } from '../email/config.ts'
 import { adminAuth, adminDb } from '../firebase-admin.ts'
@@ -20,6 +20,7 @@ import {
   type DepositCancelOutcome,
 } from '../stripe/deposits.ts'
 import { notifyReservationCancelled } from '../notifications/reservationEvents.ts'
+import { evaluateClientCancellation } from '../reservations/cancellation.ts'
 import { cancelInvitesForReservation, createReservationInvites } from '../reservations/invites.ts'
 import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../reservations/bookReservation.ts'
 import { readCompanyOps } from '../data/companyOps.ts'
@@ -1017,10 +1018,11 @@ router.get('/cancel/preview', async (req: Request<Record<string, string>>, res: 
       reservation,
       depositCancellationHours,
     })
-    const xpPenalty = reservation.status === 'cancelled'
+    const cancelVerdict = evaluateClientCancellation(reservation)
+    const xpPenalty = !cancelVerdict.ok
       ? null
       : await previewCancellationPenalty(reservation as Record<string, unknown>, reservationRecord.id)
-    const cancelShieldCount = reservation.status === 'cancelled'
+    const cancelShieldCount = !cancelVerdict.ok
       ? 0
       : await previewCancelShieldCount(reservation as Record<string, unknown>)
 
@@ -1031,6 +1033,8 @@ router.get('/cancel/preview', async (req: Request<Record<string, string>>, res: 
       startTime,
       status: typeof reservation.status === 'string' ? reservation.status : 'completed',
       alreadyCancelled: reservation.status === 'cancelled',
+      canCancel: cancelVerdict.ok,
+      cancelBlockedReason: cancelVerdict.ok ? null : cancelVerdict.error,
       depositAmountCents: depositPreview.depositAmountCents,
       depositCancellationHours,
       hasAuthorizedDeposit: depositPreview.hasAuthorizedDeposit,
@@ -1057,7 +1061,10 @@ router.get('/cancel/preview', async (req: Request<Record<string, string>>, res: 
   }
 })
 
+const CANCEL_LOCK_MS = 2 * 60 * 1000
+
 router.post('/cancel', async (req: Request<Record<string, string>>, res: Response) => {
+  let releaseCancelLockSafely: (() => Promise<unknown>) | null = null
   try {
     const token = typeof req.body?.token === 'string' ? req.body.token.trim() : ''
 
@@ -1076,10 +1083,35 @@ router.post('/cancel', async (req: Request<Record<string, string>>, res: Respons
     const reservationRef = reservationRecord.ref
     const reservation = reservationRecord.data
 
-    if (reservation.status === 'cancelled') {
-      res.status(409).json({ error: 'Esta reserva ya estaba cancelada.' })
+    // Se reserva la cancelación en una transacción: dos clics o dos pestañas no
+    // pueden procesar la fianza ni restar XP dos veces.
+    const claim = await adminDb.runTransaction(async (transaction) => {
+      const snap = await transaction.get(reservationRef)
+      const current = snap.data() ?? {}
+      const verdict = evaluateClientCancellation(current)
+      if (!verdict.ok) {
+        return verdict
+      }
+      const lockedAt = (current.cancelLockAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0
+      if (Date.now() - lockedAt < CANCEL_LOCK_MS) {
+        return {
+          ok: false as const,
+          status: 409 as const,
+          error: 'Ya estamos procesando la cancelación de esta reserva.',
+        }
+      }
+      transaction.update(reservationRef, { cancelLockAt: Timestamp.now() })
+      return { ok: true as const }
+    })
+
+    if (!claim.ok) {
+      res.status(claim.status).json({ error: claim.error })
       return
     }
+
+    releaseCancelLockSafely = () => reservationRef
+      .update({ cancelLockAt: FieldValue.delete() })
+      .catch(() => undefined)
 
     let depositOutcome: DepositCancelOutcome = 'none'
     let depositAmountCents: number | null = typeof reservation.depositAmountCents === 'number'
@@ -1107,6 +1139,7 @@ router.post('/cancel', async (req: Request<Record<string, string>>, res: Respons
       status: 'cancelled',
       cancelledBy: 'client',
       cancelShieldRequested: useCancelShield,
+      cancelLockAt: FieldValue.delete(),
       updatedAt: Timestamp.now(),
     })
 
@@ -1153,6 +1186,7 @@ router.post('/cancel', async (req: Request<Record<string, string>>, res: Respons
         : null,
     })
   } catch (error) {
+    await releaseCancelLockSafely?.()
     console.error('Public reservation cancel error:', error)
     res.status(500).json({
       error: error instanceof Error

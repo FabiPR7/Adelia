@@ -10,6 +10,8 @@ interface AdminCustomersBoardProps {
   isSaving: boolean
   error: string | null
   onToggleBlocked: (customer: AdminCustomerRow) => Promise<void>
+  onOpen: (customerId: string) => void
+  onSearchEmail: (email: string) => Promise<boolean>
 }
 
 function AdminCustomersBoard({
@@ -19,8 +21,11 @@ function AdminCustomersBoard({
   isSaving,
   error,
   onToggleBlocked,
+  onOpen,
+  onSearchEmail,
 }: AdminCustomersBoardProps) {
   const [query, setQuery] = useState('')
+  const [emailSearch, setEmailSearch] = useState<'idle' | 'searching' | 'missing'>('idle')
   const [onlyBlocked, setOnlyBlocked] = useState(false)
 
   const rows = useMemo(() => {
@@ -74,7 +79,25 @@ function AdminCustomersBoard({
         {isLoading ? (
           <p className={styles.empty}>Cargando comensales…</p>
         ) : rows.length === 0 ? (
-          <p className={styles.empty}>Ningún comensal coincide.</p>
+          <div className={styles.empty}>
+            <p>Ningún comensal de esta lista coincide.</p>
+            {query.includes('@') ? (
+              <button
+                type="button"
+                className={styles.primary}
+                disabled={emailSearch === 'searching'}
+                onClick={() => {
+                  setEmailSearch('searching')
+                  void onSearchEmail(query.trim().toLowerCase()).then((found) => setEmailSearch(found ? 'idle' : 'missing'))
+                }}
+              >
+                {emailSearch === 'searching' ? 'Buscando…' : 'Buscar este correo en toda la base'}
+              </button>
+            ) : (
+              <p>La lista muestra los más recientes. Para encontrar a cualquiera, escribe su correo completo.</p>
+            )}
+            {emailSearch === 'missing' ? <p>No hay ningún cliente con ese correo.</p> : null}
+          </div>
         ) : (
           <table className={styles.table}>
             <thead>
@@ -90,8 +113,10 @@ function AdminCustomersBoard({
               {rows.map((customer) => (
                 <tr key={customer.id}>
                   <td>
-                    <strong>{customer.displayName}</strong>
-                    <em>{customer.email}{customer.phone ? ` · ${customer.phone}` : ''}</em>
+                    <button type="button" className={styles.linkButton} onClick={() => onOpen(customer.id)}>
+                      <strong>{customer.displayName}</strong>
+                      <em>{customer.email}{customer.phone ? ` · ${customer.phone}` : ''}</em>
+                    </button>
                   </td>
                   <td>
                     {customer.phoneVerified ? 'Teléfono sí' : 'Teléfono no'}
@@ -103,14 +128,19 @@ function AdminCustomersBoard({
                     <em>{customer.xp} XP</em>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className={customer.blocked ? styles.primary : styles.danger}
-                      disabled={isSaving}
-                      onClick={() => void onToggleBlocked(customer)}
-                    >
-                      {customer.blocked ? 'Desbloquear' : 'Bloquear'}
-                    </button>
+                    <div className={styles.actions}>
+                      <button type="button" className={styles.ghost} onClick={() => onOpen(customer.id)}>
+                        Ficha
+                      </button>
+                      <button
+                        type="button"
+                        className={customer.blocked ? styles.primary : styles.danger}
+                        disabled={isSaving}
+                        onClick={() => void onToggleBlocked(customer)}
+                      >
+                        {customer.blocked ? 'Desbloquear' : 'Bloquear'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

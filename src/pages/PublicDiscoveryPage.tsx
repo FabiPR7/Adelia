@@ -4,6 +4,9 @@ import CityAutocomplete from '../components/CityAutocomplete'
 import DiscoverySkeleton from '../components/DiscoverySkeleton'
 import DiscoveryTraitsFilter from '../components/DiscoveryTraitsFilter'
 import DiscoveryVenueKindFilter from '../components/DiscoveryVenueKindFilter'
+import DiscoveryQuickFilters, { type QuickFilterOption } from '../components/DiscoveryQuickFilters'
+import { usePromotionCounts } from '../hooks/usePromotionCounts'
+import { applyQuickFilters, type QuickFilterId } from '../utils/discoveryQuickFilters'
 import LandingBusinessBand from '../components/LandingBusinessBand'
 import LandingFaq from '../components/LandingFaq'
 import LandingFriends from '../components/LandingFriends'
@@ -56,6 +59,8 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   const [nearbyState, setNearbyState] = useState<NearbyState>('idle')
   const [nearbyMessage, setNearbyMessage] = useState<string | null>(null)
   const [userCoords, setUserCoords] = useState<GeoCoordinates | null>(null)
+  const promoCounts = usePromotionCounts()
+  const [quickFilters, setQuickFilters] = useState<ReadonlySet<QuickFilterId>>(new Set())
 
   // La portada trae los más valorados; los de tu zona o tu ciudad se piden aparte
   // para que salgan aunque haya miles de restaurantes en Adelia.
@@ -144,15 +149,38 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   }, [restaurants, userCoords])
 
   const filteredRestaurants = useMemo(() => {
-    const results = filterDiscoveryRestaurants(restaurants, effectiveQuery, selectedCity?.name ?? '')
-      .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind))
+    const results = applyQuickFilters(
+      filterDiscoveryRestaurants(restaurants, effectiveQuery, selectedCity?.name ?? '')
+        .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind)),
+      quickFilters,
+      { promoCounts },
+      { keepOrder: nearbyActive && Boolean(userCoords) },
+    )
 
     if (nearbyActive && userCoords) {
       return sortRestaurantsByDistance(results, distancesKm)
     }
 
     return results
-  }, [restaurants, effectiveQuery, selectedCity, venueKind, nearbyActive, userCoords, distancesKm])
+  }, [restaurants, effectiveQuery, selectedCity, venueKind, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts])
+
+  const quickFilterOptions: QuickFilterOption[] = [
+    { id: 'promo', label: 'Con promo' },
+    { id: 'reservable', label: 'Con reserva' },
+    { id: 'topRated', label: 'Mejor valorados' },
+  ]
+
+  const toggleQuickFilter = (id: QuickFilterId) => {
+    setQuickFilters((current) => {
+      const next = new Set(current)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
 
   const { primary, secondary } = useMemo(
     () => restaurantsForCarouselRows(filteredRestaurants),
@@ -350,6 +378,8 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
               </button>
             </div>
           </div>
+
+          <DiscoveryQuickFilters options={quickFilterOptions} active={quickFilters} onToggle={toggleQuickFilter} />
 
           {nearbyMessage && (
             <p

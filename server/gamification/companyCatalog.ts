@@ -1,10 +1,29 @@
-export const COMPANY_WEEKLY_SLOT_COUNT = 6
-export const COMPANY_MONTHLY_SLOT_COUNT = 5
-export const COMPANY_WEEKLY_BONUS_TARGET = 4
-export const COMPANY_WEEKLY_BONUS_XP = 120
-export const COMPANY_CONFIRMED_XP = 15
-export const COMPANY_REVIEW_XP = 10
-export const COMPANY_REPLY_XP = 8
+import { getRemoteCatalog } from '../data/remoteCatalog.ts'
+
+// Niveles, misiones y XP de los restaurantes viven en Firestore
+// (companyLevelCatalog, companyMissionCatalog y gameConfig/company); lo de abajo
+// es solo el respaldo para cuando la base de datos está vacía o no responde.
+const DEFAULT_COMPANY_CONFIG = {
+  weeklySlotCount: 6,
+  monthlySlotCount: 5,
+  weeklyBonusTarget: 4,
+  weeklyBonusXp: 120,
+  confirmedXp: 15,
+  reviewXp: 10,
+  replyXp: 8,
+}
+
+function companyConfigValue(key: keyof typeof DEFAULT_COMPANY_CONFIG): number {
+  return getRemoteCatalog().companyConfig[key] ?? DEFAULT_COMPANY_CONFIG[key]
+}
+
+export const companyWeeklySlotCount = () => companyConfigValue('weeklySlotCount')
+export const companyMonthlySlotCount = () => companyConfigValue('monthlySlotCount')
+export const companyWeeklyBonusTarget = () => companyConfigValue('weeklyBonusTarget')
+export const companyWeeklyBonusXp = () => companyConfigValue('weeklyBonusXp')
+export const companyConfirmedXp = () => companyConfigValue('confirmedXp')
+export const companyReviewXp = () => companyConfigValue('reviewXp')
+export const companyReplyXp = () => companyConfigValue('replyXp')
 
 export interface CompanyLevelDef {
   level: number
@@ -23,7 +42,7 @@ export interface CompanyMissionDef {
   description: string
 }
 
-export const COMPANY_LEVELS: CompanyLevelDef[] = [
+const DEFAULT_COMPANY_LEVELS: CompanyLevelDef[] = [
   { level: 1, title: 'Fogón Nuevo', minXp: 0, maxXp: 249 },
   { level: 2, title: 'Casa Abierta', minXp: 250, maxXp: 599 },
   { level: 3, title: 'Mesa de Barrio', minXp: 600, maxXp: 1099 },
@@ -36,7 +55,7 @@ export const COMPANY_LEVELS: CompanyLevelDef[] = [
   { level: 10, title: 'Emblema Adelia', minXp: 12500, maxXp: null },
 ]
 
-export const COMPANY_MISSIONS: CompanyMissionDef[] = [
+const DEFAULT_COMPANY_MISSIONS: CompanyMissionDef[] = [
   { id: 'servicio_semana', name: 'Servicio de la semana', xp: 70, cadence: 'weekly', icon: '🍽️', target: 3, description: 'Confirma 3 reservas esta semana.' },
   { id: 'valle_semana', name: 'Valle lleno', xp: 45, cadence: 'weekly', icon: '📅', target: 1, description: 'Confirma una reserva de lunes a jueves.' },
   { id: 'finde_semana', name: 'Finde en casa', xp: 45, cadence: 'weekly', icon: '🎉', target: 1, description: 'Confirma una reserva de viernes a domingo.' },
@@ -81,16 +100,23 @@ export const COMPANY_MISSIONS: CompanyMissionDef[] = [
   { id: 'emblema_fogon', name: 'Emblema del fogón', xp: 2500, cadence: 'historical', icon: '💠', target: 10, description: 'Alcanza el nivel 10.' },
 ]
 
-const MISSION_BY_ID = new Map(COMPANY_MISSIONS.map((mission) => [mission.id, mission]))
+export function companyLevels(): CompanyLevelDef[] {
+  return getRemoteCatalog().companyLevels ?? DEFAULT_COMPANY_LEVELS
+}
+
+export function companyMissions(): CompanyMissionDef[] {
+  return getRemoteCatalog().companyMissions ?? DEFAULT_COMPANY_MISSIONS
+}
 
 export function getCompanyMission(id: string): CompanyMissionDef | null {
-  return MISSION_BY_ID.get(id) ?? null
+  return companyMissions().find((mission) => mission.id === id) ?? null
 }
 
 export function getCompanyLevelForXp(xp: number): CompanyLevelDef {
+  const levels = companyLevels()
   const safeXp = Math.max(0, Math.trunc(xp))
-  let current = COMPANY_LEVELS[0]
-  for (const level of COMPANY_LEVELS) {
+  let current = levels[0]
+  for (const level of levels) {
     if (safeXp >= level.minXp) {
       current = level
     }

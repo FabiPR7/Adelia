@@ -5,6 +5,7 @@ export type CompanyNotificationType =
   | 'adelinas_changed'
   | 'rating_changed'
   | 'review_received'
+  | 'admin_message'
 
 export interface CompanyNotification {
   id: string

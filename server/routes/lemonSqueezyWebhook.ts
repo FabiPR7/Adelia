@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
+import { ensureRemoteCatalog } from '../data/remoteCatalog.ts'
 import { allowLemonSqueezyTestEvents, getLemonSqueezyWebhookSecret } from '../lemonsqueezy/config.ts'
 import { syncCompanyFromLemonOrder } from '../lemonsqueezy/lifetime.ts'
 import {
@@ -81,6 +82,8 @@ export async function handleLemonSqueezyWebhook(req: Request, res: Response): Pr
     res.status(503).send('Lemon Squeezy webhook no configurado.')
     return
   }
+
+  await ensureRemoteCatalog()
 
   const rawBody = req.body as Buffer
   const signature = req.header('X-Signature') ?? ''

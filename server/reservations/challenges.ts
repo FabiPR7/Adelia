@@ -1,3 +1,4 @@
+import { BUSINESS_TIME_ZONE } from '../utils/madridDateTime.ts'
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS, reservationInviteId } from '../data/collections.ts'
@@ -242,6 +243,7 @@ function profileFields(data: FirebaseFirestore.DocumentData | undefined) {
 
 function formatWhen(startTime: Date): string {
   return startTime.toLocaleString('es-ES', {
+    timeZone: BUSINESS_TIME_ZONE,
     weekday: 'short',
     day: 'numeric',
     month: 'short',

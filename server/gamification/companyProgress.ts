@@ -1,12 +1,12 @@
 import {
-  COMPANY_CONFIRMED_XP,
-  COMPANY_MISSIONS,
-  COMPANY_MONTHLY_SLOT_COUNT,
-  COMPANY_REPLY_XP,
-  COMPANY_REVIEW_XP,
-  COMPANY_WEEKLY_BONUS_TARGET,
-  COMPANY_WEEKLY_BONUS_XP,
-  COMPANY_WEEKLY_SLOT_COUNT,
+  companyConfirmedXp,
+  companyMissions,
+  companyMonthlySlotCount,
+  companyReplyXp,
+  companyReviewXp,
+  companyWeeklyBonusTarget,
+  companyWeeklyBonusXp,
+  companyWeeklySlotCount,
   getCompanyLevelForXp,
   type CompanyMissionDef,
 } from './companyCatalog.ts'
@@ -138,18 +138,18 @@ function firstVisitIds(reservations: CompanyVisit[]): Set<string> {
 
 export function rotateWeekly(date = new Date()): CompanyMissionDef[] {
   const seed = hashKey(getWeekKey(date))
-  return COMPANY_MISSIONS
+  return companyMissions()
     .filter((item) => item.cadence === 'weekly')
     .sort((left, right) => (left.id.charCodeAt(0) + seed) % 97 - (right.id.charCodeAt(0) + seed) % 97)
-    .slice(0, COMPANY_WEEKLY_SLOT_COUNT)
+    .slice(0, companyWeeklySlotCount())
 }
 
 export function rotateMonthly(date = new Date()): CompanyMissionDef[] {
   const seed = hashKey(getMonthKey(date))
-  return COMPANY_MISSIONS
+  return companyMissions()
     .filter((item) => item.cadence === 'monthly')
     .sort((left, right) => (left.id.charCodeAt(0) + seed) % 97 - (right.id.charCodeAt(0) + seed) % 97)
-    .slice(0, COMPANY_MONTHLY_SLOT_COUNT)
+    .slice(0, companyMonthlySlotCount())
 }
 
 function missionCurrent(mission: CompanyMissionDef, context: CompanyMissionContext, level: number): number {
@@ -319,13 +319,13 @@ export function processCompanyGamification(
     weeklyCompleted: next.weekKey === weekKey ? next.weeklyCompleted : [],
     monthlyCompleted: next.monthKey === monthKey ? next.monthlyCompleted : [],
   }
-  next = awardIds(next, confirmed(context.reservations).map((item) => item.id), 'awardedReservationXpIds', COMPANY_CONFIRMED_XP)
-  next = awardIds(next, context.reviews.map((item) => item.id), 'awardedReviewXpIds', COMPANY_REVIEW_XP)
+  next = awardIds(next, confirmed(context.reservations).map((item) => item.id), 'awardedReservationXpIds', companyConfirmedXp())
+  next = awardIds(next, context.reviews.map((item) => item.id), 'awardedReviewXpIds', companyReviewXp())
   next = awardIds(
     next,
     context.reviews.filter((item) => item.replyText.trim()).map((item) => item.id),
     'awardedReplyXpIds',
-    COMPANY_REPLY_XP,
+    companyReplyXp(),
   )
 
   const weeklyDone = new Set(next.weeklyCompleted)
@@ -345,9 +345,9 @@ export function processCompanyGamification(
     const current = missionCurrent(mission, context, levelNow())
     return weeklyDone.has(mission.id) || missionCompleted(mission, current, context, levelNow())
   }).length
-  if (weeklyCompleteCount >= COMPANY_WEEKLY_BONUS_TARGET && !weeklyDone.has('weekly_bonus')) {
+  if (weeklyCompleteCount >= companyWeeklyBonusTarget() && !weeklyDone.has('weekly_bonus')) {
     weeklyDone.add('weekly_bonus')
-    xpGain += COMPANY_WEEKLY_BONUS_XP
+    xpGain += companyWeeklyBonusXp()
   }
   for (const mission of rotateMonthly(now)) {
     const current = missionCurrent(mission, context, levelNow())
@@ -364,7 +364,7 @@ export function processCompanyGamification(
   }
 
   let historicalXp = 0
-  for (const mission of COMPANY_MISSIONS.filter((item) => item.cadence === 'historical')) {
+  for (const mission of companyMissions().filter((item) => item.cadence === 'historical')) {
     const current = missionCurrent(mission, context, getCompanyLevelForXp(next.xp).level)
     if (missionCompleted(mission, current, context, getCompanyLevelForXp(next.xp).level) && !historicalDone.has(mission.id)) {
       historicalDone.add(mission.id)

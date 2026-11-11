@@ -1,5 +1,7 @@
 import { NavLink, Link } from 'react-router-dom'
 import { ADELIA_LOGO_URL } from '../constants/brand'
+import { useMissionNudge } from '../hooks/useMissionNudge'
+import { formatPendingBadge } from '../utils/missionNudges'
 import styles from './CustomerBottomNav.module.css'
 
 const TABS = [
@@ -51,6 +53,8 @@ function NavIcon({ name }: { name: (typeof TABS)[number]['icon'] }) {
 }
 
 function CustomerBottomNav() {
+  const { pendingCount, hasAlmostDone, loading } = useMissionNudge()
+
   return (
     <nav className={styles.nav} aria-label="Navegación principal">
       <Link to="/" className={styles.sidebarBrand}>
@@ -68,6 +72,15 @@ function CustomerBottomNav() {
         >
           <span className={styles.icon}>
             <NavIcon name={tab.icon} />
+            {tab.icon === 'trophy' && !loading && pendingCount > 0 ? (
+              <span
+                className={`${styles.badge} ${hasAlmostDone ? styles.badgeHot : ''}`}
+                role="img"
+                aria-label={`${pendingCount} ${pendingCount === 1 ? 'misión pendiente' : 'misiones pendientes'}${hasAlmostDone ? ', alguna casi lista' : ''}`}
+              >
+                {formatPendingBadge(pendingCount)}
+              </span>
+            ) : null}
           </span>
           <span className={styles.label}>{tab.label}</span>
         </NavLink>

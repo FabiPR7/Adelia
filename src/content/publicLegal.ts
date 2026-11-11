@@ -13,7 +13,7 @@ export interface PublicLegalDocument {
 }
 
 export const LEGAL_CONTACT_EMAIL = 'contacto@adeliareservas.com'
-export const LEGAL_UPDATED_LABEL = '7 de noviembre de 2026'
+export const LEGAL_UPDATED_LABEL = '10 de noviembre de 2026'
 /** Versión estable que se guarda en el perfil al aceptar legales en el registro. */
 export const LEGAL_ACCEPTANCE_VERSION = '2026-11-07'
 export const LEGAL_SITE_URL = 'https://adeliareservas.com'
@@ -136,15 +136,16 @@ export const PUBLIC_LEGAL_DOCUMENTS: Record<PublicLegalDocId, PublicLegalDocumen
       {
         heading: '2. Ámbito de esta política',
         paragraphs: [
-          'Esta política se aplica al uso de Adelia como comensal (registro, inicio de sesión, exploración de restaurantes, reservas online, promociones, reseñas, Compite / gamificación, amigos y retos, notificaciones in-app y preferencias) y, en lo pertinente, a visitantes que reservan sin cuenta o navegan el sitio público.',
+          'Esta política se aplica al uso de Adelia como comensal, tanto en la web como en la aplicación móvil (registro, inicio de sesión, exploración de restaurantes, reservas online, promociones, reseñas, Compite / gamificación, amigos y retos, notificaciones in-app y preferencias) y, en lo pertinente, a visitantes que reservan sin cuenta o navegan el sitio público.',
           'No cubre sitios web o apps de terceros a los que puedas enlazar desde Adelia (por ejemplo, Google Maps para abrir direcciones), ni el tratamiento exclusivo que haga un restaurante fuera de nuestra plataforma.',
         ],
       },
       {
         heading: '3. Datos que recogemos',
         paragraphs: [
-          'Cuenta de comensal: nombre para mostrar, correo electrónico, número de teléfono, contraseña (gestionada de forma cifrada por Firebase Authentication; Adelia no almacena la contraseña en claro), foto de perfil si la subes o la que aporte Google si inicias sesión con Google, proveedor de autenticación (email/contraseña o Google), estado de verificación del correo, ciudad/municipio/país/código postal de referencia, coordenadas aproximadas de tu zona («casa») si las facilitas en el onboarding, preferencias alimentarias o de cocina (gustos de exploración, no historial clínico de alergias), restaurantes favoritos, flags de onboarding y del tutorial de producto, y datos de Compite descritos más abajo.',
+          'Cuenta de comensal: nombre para mostrar, correo electrónico, número de teléfono, contraseña (gestionada de forma cifrada por Firebase Authentication; Adelia no almacena la contraseña en claro), foto de perfil si la subes o la que aporte Google si inicias sesión con Google, proveedor de autenticación (email/contraseña, Google o Apple), estado de verificación del correo, ciudad/municipio/país/código postal de referencia, coordenadas aproximadas de tu zona («casa») si las facilitas en el onboarding, preferencias alimentarias o de cocina (gustos de exploración, no historial clínico de alergias), restaurantes favoritos, flags de onboarding y del tutorial de producto, y datos de Compite descritos más abajo.',
           'Inicio de sesión con Google: si eliges Google, recibimos de Google el identificador de cuenta, el email, el nombre y, en su caso, la foto de perfil, en la medida en que Google nos los facilite y tú lo autorices en el flujo de OAuth.',
+          'Inicio de sesión con Apple (en la app para iPhone y iPad): si eliges Apple, recibimos de Apple un identificador de cuenta y, según lo que decidas compartir, tu nombre y tu email o una dirección de correo de retransmisión privada que Apple genera para ti.',
           'Reserva (con o sin cuenta): nombre, email y/o teléfono, número de comensales (pax), fecha y franja horaria, mesa o preferencias de mesa, comentarios o notas, estado de la reserva (pendiente, confirmada, cancelada, etc.), identificador de usuario si estás logueado, y datos de promoción asociada si reservas con una promo (por ejemplo, gasto mínimo o visitas). Si tienes una cuenta con el mismo correo verificado, en «Mis reservas» verás también las reservas hechas con ese correo sin haber entrado.',
           'Fianzas y pagos: importe, estado del depósito e identificadores de la operación en Stripe (por ejemplo, PaymentIntent). El número completo de la tarjeta y los datos sensibles de pago los trata Stripe; Adelia no los almacena.',
           'Reseñas: puntuación, texto, fotos o vídeos que subas, productos o promociones etiquetados, nombre mostrado y Adelinas u otras recompensas asociadas a la reseña. **Las reseñas son públicas**: cualquiera puede ver el nombre que muestras, la fecha, el texto y las fotos en la ficha del local.',
@@ -156,8 +157,9 @@ export const PUBLIC_LEGAL_DOCUMENTS: Record<PublicLegalDocId, PublicLegalDocumen
           'CRM del restaurante: al reservar, el local puede conservar en su historial de clientes de Adelia tu nombre, email, teléfono y contadores de visitas asociados a esa relación comercial con el establecimiento.',
           'Datos técnicos y de seguridad: dirección IP, identificadores de sesión, tipo de dispositivo o navegador en la medida técnica habitual, intentos de acceso fallidos, eventos de seguridad, límites de uso (rate limiting) y, cuando está activo, resultados de reCAPTCHA para proteger el registro u otros formularios frente a abusos.',
           'Analítica (solo si aceptas cookies analíticas): Firebase Analytics y eventos first-party de uso (por ejemplo, ver ficha de restaurante, abrir carta, entrar en promociones, reclamar una promo, añadir favorito o iniciar reserva), asociados a tu cuenta o a un identificador aleatorio del navegador (`adelia_anon_id`). Los eventos individuales se conservan del orden de ~120 días; los restaurantes ven informes agregados, no tu identidad personal detrás de cada clic.',
-          'Ubicación: (a) si activas «cerca de mí», el navegador puede facilitar coordenadas temporales en tu dispositivo para ordenar locales cercanos; (b) en el onboarding puedes guardar una zona o coordenadas de referencia en tu perfil. No usamos tu ubicación para publicidad de terceros ni para vender perfiles.',
-          'Almacenamiento local del navegador (además de cookies): preferencias de cookies, favoritos previos al login, estados de UI de promociones, marcas del tutorial de producto, recibos de celebraciones de Compite y datos de sesión de Firebase Authentication. Detalle en la Política de cookies.',
+          'Ubicación: (a) si activas «cerca de mí» o el mapa, el navegador o la app (con el permiso de ubicación de tu móvil, solo mientras la usas) pueden facilitar coordenadas temporales para ordenar locales cercanos; esa posición se usa en el momento y no la guardamos ni la seguimos en segundo plano; (b) en el onboarding puedes guardar una zona o coordenadas de referencia en tu perfil. Puedes retirar el permiso en cualquier momento desde los ajustes de tu dispositivo. No usamos tu ubicación para publicidad de terceros ni para vender perfiles.',
+          'Fotos (app móvil): si eliges una foto de perfil o de reseña, la app pide permiso para acceder a tu biblioteca de fotos únicamente para que selecciones esa imagen; solo se sube la que elijas (a Cloudinary, como se indica más abajo). No accedemos al resto de tu galería.',
+          'Almacenamiento local del navegador o de la app (además de cookies): preferencias de cookies, favoritos previos al login, estados de UI de promociones, marcas del tutorial de producto, recibos de celebraciones de Compite y datos de sesión de Firebase Authentication. La app móvil no incluye herramientas de analítica ni publicidad de terceros. Detalle en la Política de cookies.',
           'No pedimos categorías especiales del art. 9 RGPD (salud, ideología, etc.), y las preferencias de cocina son gustos de descubrimiento. **No escribas alergias ni otros datos de salud** en reseñas o notas de reserva: comunícalas directamente al restaurante.',
         ],
       },
@@ -165,7 +167,7 @@ export const PUBLIC_LEGAL_DOCUMENTS: Record<PublicLegalDocId, PublicLegalDocumen
         heading: '4. Origen de los datos',
         paragraphs: [
           'Los facilitas tú en formularios (registro, onboarding, reserva, reseña, perfil).',
-          'Los aportan proveedores de identidad (Google) si eliges ese inicio de sesión.',
+          'Los aportan proveedores de identidad (Google o Apple) si eliges ese inicio de sesión.',
           'Los generan el uso del servicio (estado de reservas, progreso en Compite, eventos técnicos).',
           'Los generan el restaurante al gestionar tu reserva o verificar un consumo o asistencia cuando aplica.',
           'Los aportan proveedores de pago (Stripe) respecto al resultado de la fianza, sin darnos el PAN completo.',
@@ -229,7 +231,7 @@ export const PUBLIC_LEGAL_DOCUMENTS: Record<PublicLegalDocId, PublicLegalDocumen
           'Puedes ejercer los derechos de acceso, rectificación, supresión («derecho al olvido»), oposición, limitación del tratamiento, portabilidad y a no ser objeto de decisiones automatizadas con efectos jurídicos, en los términos del RGPD.',
           'Puedes retirar en cualquier momento el consentimiento de cookies analíticas sin que ello afecte a la licitud del tratamiento previo.',
           `Para ejercer derechos frente a Adelia como responsable de la plataforma, escribe a ${LEGAL_CONTACT_EMAIL} indicando el derecho que solicitas, un email de contacto y, si es preciso, datos que permitan verificar tu identidad. Responderemos en el plazo legal.`,
-          'Como comensal, también puedes eliminar tu cuenta desde Perfil → «Eliminar cuenta» en la app. Eso borra o anonimiza los datos de cuenta, Compite, social y reseñas asociadas a tu identidad, y tu ficha de cliente en los restaurantes con los que quede relación. Las reservas y consumos históricos se anonimizan: el local conserva el hueco y los importes, sin tu nombre, email ni teléfono. Si tu correo está verificado, también se anonimizan las reservas hechas solo con ese correo.',
+          `Como comensal, también puedes eliminar tu cuenta tú mismo desde la app (Perfil → Ajustes de cuenta → «Eliminar cuenta») o desde la web (pestaña Perfil → «Eliminar cuenta»). Si no puedes entrar en tu cuenta, escribe a ${LEGAL_CONTACT_EMAIL} desde el correo de la cuenta y la eliminaremos. Eso borra o anonimiza los datos de cuenta, Compite, social y reseñas asociadas a tu identidad, y tu ficha de cliente en los restaurantes con los que quede relación. Las reservas y consumos históricos se anonimizan: el local conserva el hueco y los importes, sin tu nombre, email ni teléfono. Si tu correo está verificado, también se anonimizan las reservas hechas solo con ese correo.`,
           'La portabilidad (copia de tus datos de cuenta en formato estructurado) se atiende bajo solicitud al email de contacto.',
           'Si el tratamiento lo realiza el restaurante como responsable de una reserva concreta, puedes dirigirte también a ese establecimiento; te ayudaremos a redirigir la petición cuando sea razonable.',
           'Tienes derecho a presentar una reclamación ante la Agencia Española de Protección de Datos ([www.aepd.es](https://www.aepd.es)).',

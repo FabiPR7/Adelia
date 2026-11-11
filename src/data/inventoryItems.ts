@@ -61,8 +61,11 @@ export interface InventoryItemDefinition {
 
 export const WEEKLY_MISSION_SLOT_COUNT = 6
 export const MONTHLY_MISSION_SLOT_COUNT = 5
-export const REVIEW_BOOST_XP = 40
-export const REVIEW_BOOST_ADELINAS = 5
+/** Se sobrescriben desde Firestore (`gameConfig/rewards`) con applyRewardsConfig. */
+export let REVIEW_BOOST_XP = 40
+export let REVIEW_BOOST_ADELINAS = 5
+/** Horas entre dos consumos sin reserva en el mismo restaurante que dan visita (lo aplica el servidor). */
+export let WALK_IN_COOLDOWN_HOURS = 8
 export const REVIEW_BOOST_ITEM_ID = 'nota_critico'
 export const EXTRA_PAX_ITEM_ID = 'invitacion_extra'
 export const DEPOSIT_PASS_ITEM_ID = 'salvoconducto'
@@ -144,6 +147,21 @@ export const INVENTORY_ITEMS: InventoryItemDefinition[] = [
 ]
 
 const ITEM_BY_ID = new Map(INVENTORY_ITEMS.map((item) => [item.id, item]))
+
+/**
+ * Sustituye el catálogo por los ítems de Firestore (`inventoryItems`). El array
+ * se modifica en sitio; lo escrito en el código es solo el respaldo.
+ */
+export function applyItemCatalog(items: InventoryItemDefinition[]): void {
+  if (items.length === 0) {
+    return
+  }
+  INVENTORY_ITEMS.splice(0, INVENTORY_ITEMS.length, ...items)
+  ITEM_BY_ID.clear()
+  for (const item of items) {
+    ITEM_BY_ID.set(item.id, item)
+  }
+}
 
 export function getInventoryItem(id: string): InventoryItemDefinition | null {
   return ITEM_BY_ID.get(id) ?? null
@@ -243,24 +261,35 @@ export function isPromoSpendItem(item: InventoryItemDefinition): boolean {
   return item.kind === 'reservation_token' || item.kind === 'ladder_boost'
 }
 
+export interface LootBand {
+  /** Límite superior exclusivo de XP; la última banda de cada cadencia no lo lleva. */
+  below?: number
+  difficulty: MissionLootDifficulty
+}
+
+export const LOOT_BANDS: Record<string, LootBand[]> = {
+  weekly: [{ below: 80, difficulty: 'none' }, { difficulty: 'easy' }],
+  monthly: [{ below: 280, difficulty: 'none' }, { below: 301, difficulty: 'easy' }, { difficulty: 'medium' }],
+  historical: [
+    { below: 300, difficulty: 'none' },
+    { below: 800, difficulty: 'easy' },
+    { below: 1500, difficulty: 'medium' },
+    { below: 2200, difficulty: 'hard' },
+    { difficulty: 'legendary' },
+  ],
+}
+
 export function missionLootDifficulty(
   cadence: string,
   xp = 0,
 ): MissionLootDifficulty {
-  if (cadence === 'weekly') {
-    if (xp < 80) return 'none'
-    return 'easy'
+  const bands = LOOT_BANDS[cadence] ?? LOOT_BANDS.historical
+  for (const band of bands) {
+    if (band.below === undefined || xp < band.below) {
+      return band.difficulty
+    }
   }
-  if (cadence === 'monthly') {
-    if (xp < 280) return 'none'
-    if (xp <= 300) return 'easy'
-    return 'medium'
-  }
-  if (xp < 300) return 'none'
-  if (xp < 800) return 'easy'
-  if (xp < 1500) return 'medium'
-  if (xp < 2200) return 'hard'
-  return 'legendary'
+  return bands[bands.length - 1]?.difficulty ?? 'none'
 }
 
 export function lootDifficultyLabel(difficulty: MissionLootDifficulty): string {
@@ -311,7 +340,7 @@ function pickFromPool(pool: string[], seed: string, count: number): InventoryGra
   return grants
 }
 
-const LOOT_POOLS: Record<Exclude<MissionLootDifficulty, 'none'>, string[]> = {
+export const LOOT_POOLS: Record<Exclude<MissionLootDifficulty, 'none'>, string[]> = {
   easy: [
     'mesa_1',
     'invitacion_extra',
@@ -350,7 +379,7 @@ export function rarityLabel(rarity: InventoryRarity): string {
   }
 }
 
-const LEVEL_REWARDS: Record<number, InventoryGrant[]> = {
+export const LEVEL_REWARDS: Record<number, InventoryGrant[]> = {
   2: [
     { itemId: 'mesa_1', quantity: 1 },
   ],
@@ -395,6 +424,40 @@ const LEVEL_REWARDS: Record<number, InventoryGrant[]> = {
     { itemId: 'llave_maestra', quantity: 1 },
     { itemId: 'perdon_promos', quantity: 1 },
   ],
+}
+
+export interface RewardsConfig {
+  levelRewards?: Record<number, InventoryGrant[]>
+  lootPools?: Partial<Record<Exclude<MissionLootDifficulty, 'none'>, string[]>>
+  lootBands?: Record<string, LootBand[]>
+  reviewBoostXp?: number
+  reviewBoostAdelinas?: number
+  walkInCooldownHours?: number
+}
+
+/** Recompensas por nivel, premios por dificultad y Nota del crítico desde `gameConfig/rewards`. */
+export function applyRewardsConfig(config: RewardsConfig): void {
+  if (config.levelRewards) {
+    for (const key of Object.keys(LEVEL_REWARDS)) {
+      delete LEVEL_REWARDS[Number(key)]
+    }
+    Object.assign(LEVEL_REWARDS, config.levelRewards)
+  }
+  if (config.lootPools) {
+    Object.assign(LOOT_POOLS, config.lootPools)
+  }
+  if (config.lootBands) {
+    Object.assign(LOOT_BANDS, config.lootBands)
+  }
+  if (typeof config.reviewBoostXp === 'number') {
+    REVIEW_BOOST_XP = config.reviewBoostXp
+  }
+  if (typeof config.reviewBoostAdelinas === 'number') {
+    REVIEW_BOOST_ADELINAS = config.reviewBoostAdelinas
+  }
+  if (typeof config.walkInCooldownHours === 'number') {
+    WALK_IN_COOLDOWN_HOURS = config.walkInCooldownHours
+  }
 }
 
 export function rewardsForLevel(level: number): InventoryGrant[] {

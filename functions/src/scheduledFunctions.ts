@@ -8,6 +8,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { adminDb } from '../server/firebase-admin.ts'
 import { cleanupRateLimits } from './middleware/rateLimiter'
 import { resolveOverdueLemonCancellations } from '../server/lemonsqueezy/overdueCancellations.ts'
+import { refreshRecentDailyStats } from '../server/admin/dailyStats.ts'
 
 async function deleteExpiredQuery(
   collectionName: string,
@@ -107,11 +108,12 @@ export const cleanupRateLimitsScheduled = onSchedule(
     schedule: '0 3 * * *',
     timeZone: 'Europe/Madrid',
     region: 'europe-west1',
+    timeoutSeconds: 540,
   },
   async () => {
     console.log('Starting Firestore junk cleanup...')
 
-    const [rateLimits, resetTokens, stripeEvents, lemonEvents, appEvents, uniqueCompanies, overduePlans] =
+    const [rateLimits, resetTokens, stripeEvents, lemonEvents, appEvents, uniqueCompanies, overduePlans, statsDays] =
       await Promise.all([
         cleanupRateLimits(),
         deleteExpiredQuery('passwordResetTokens', 'expiresAt', Timestamp.now()),
@@ -127,12 +129,17 @@ export const cleanupRateLimitsScheduled = onSchedule(
           console.error('Overdue Lemon cancellations failed:', error)
           return 0
         }),
+        // Resumen diario para el panel de administración (adminStats/{día}).
+        refreshRecentDailyStats().catch((error) => {
+          console.error('Admin daily stats failed:', error)
+          return 0
+        }),
       ])
 
     console.log(
       `Cleanup completed: rateLimits=${rateLimits.deleted} resetTokens=${resetTokens} ` +
         `stripeEvents=${stripeEvents} lemonEvents=${lemonEvents} appEvents=${appEvents} ` +
-        `uniquesRolledUp=${uniqueCompanies} overduePlans=${overduePlans}`,
+        `uniquesRolledUp=${uniqueCompanies} overduePlans=${overduePlans} statsDays=${statsDays}`,
     )
 
     return {

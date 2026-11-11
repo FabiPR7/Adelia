@@ -19,6 +19,7 @@ import {
 import { countCompanyMenuBoards } from '../../services/adminCompanies'
 import { companyHealthScore, companyProfileHealth } from '../../utils/companyHealth'
 import { IconPlus, IconSearch } from './AdminIcons'
+import AdminCompanyActivity from './AdminCompanyActivity'
 import styles from './AdminCompaniesWorkspace.module.css'
 
 export interface CompanyEditorState {
@@ -62,6 +63,7 @@ interface AdminCompaniesWorkspaceProps {
   focusCompanyId?: string | null
   onSubmit: (editing: AdminCompany | null, form: CompanyEditorState) => Promise<void>
   onRequestDelete: (company: AdminCompany) => void
+  onCompanyChanged?: () => void
 }
 
 function formFromCompany(company: AdminCompany): CompanyEditorState {
@@ -100,6 +102,7 @@ function AdminCompaniesWorkspace({
   focusCompanyId,
   onSubmit,
   onRequestDelete,
+  onCompanyChanged,
 }: AdminCompaniesWorkspaceProps) {
   const [query, setQuery] = useState('')
   const [planFilter, setPlanFilter] = useState<CompanyPlanId | 'all'>('all')
@@ -280,7 +283,7 @@ function AdminCompaniesWorkspace({
         </article>
         <article>
           <strong>{companies.length - paidCount}</strong>
-          <span>En Mesa</span>
+          <span>En Mesa (gratis)</span>
         </article>
       </div>
 
@@ -533,6 +536,10 @@ function AdminCompaniesWorkspace({
                   </label>
                 ) : null}
               </fieldset>
+
+              {selectedCompany ? (
+                <AdminCompanyActivity companyId={selectedCompany.id} onChanged={() => onCompanyChanged?.()} />
+              ) : null}
 
               {selectedCompany ? (
                 <section className={styles.health} aria-label="Salud del local">

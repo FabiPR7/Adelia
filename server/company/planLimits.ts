@@ -1,6 +1,26 @@
+import { getRemoteCatalog, type RemoteCapValue } from '../data/remoteCatalog.ts'
+
 export type StoredPlanId = 'free' | 'basic' | 'premium' | 'premium_plus'
 
 const PROMO_TYPES = ['reservation_ladder', 'time_limited', 'attendance'] as const
+
+const PROMO_TYPE_CAPABILITY: Record<string, string> = {
+  reservation_ladder: 'promos_offer',
+  time_limited: 'promos_limited',
+  attendance: 'promos_attendance',
+}
+
+/**
+ * Capacidades por plan. La fuente de verdad es `planCatalog/{plan}.caps` en
+ * Firestore (el mismo documento que pinta la web); esta tabla solo es el
+ * respaldo cuando la colección está vacía o no responde.
+ */
+const DEFAULT_CAPS: Record<StoredPlanId, Record<string, RemoteCapValue>> = {
+  free: { menus: 1, menu_photos: false, menu_pdf: false, active_maps: false, deposits: false, promos_offer: false, promos_limited: false, promos_attendance: false },
+  basic: { menus: 3, menu_photos: true, menu_pdf: false, active_maps: 1, deposits: true, promos_offer: 3, promos_limited: false, promos_attendance: false },
+  premium: { menus: 5, menu_photos: true, menu_pdf: true, active_maps: 5, deposits: true, promos_offer: 5, promos_limited: 5, promos_attendance: 5 },
+  premium_plus: { menus: 5, menu_photos: true, menu_pdf: true, active_maps: 5, deposits: true, promos_offer: 5, promos_limited: 5, promos_attendance: 5 },
+}
 
 export function parseStoredPlanId(value: unknown): StoredPlanId {
   if (value === 'basic' || value === 'premium' || value === 'premium_plus') {
@@ -9,8 +29,22 @@ export function parseStoredPlanId(value: unknown): StoredPlanId {
   return 'free'
 }
 
+function capability(planId: StoredPlanId, capabilityId: string): RemoteCapValue {
+  const remote = getRemoteCatalog().plans?.get(planId)?.caps[capabilityId]
+  return remote ?? DEFAULT_CAPS[planId][capabilityId] ?? false
+}
+
+/** Tope numérico de una capacidad: `null` = sin límite, `0` = no incluida. */
+function capabilityMax(planId: StoredPlanId, capabilityId: string): number | null {
+  const value = capability(planId, capabilityId)
+  if (value === true || value === 'unlimited' || value === 'list') {
+    return null
+  }
+  return typeof value === 'number' && value > 0 ? value : 0
+}
+
 export function planAllowsPromotions(planId: StoredPlanId): boolean {
-  return planId !== 'free'
+  return PROMO_TYPES.some((type) => planAllowsPromoType(planId, type))
 }
 
 export function planAllowsPromoType(planId: StoredPlanId, type: string): boolean {
@@ -19,19 +53,8 @@ export function planAllowsPromoType(planId: StoredPlanId, type: string): boolean
 }
 
 export function planMaxPromosOfType(planId: StoredPlanId, type: string): number | null {
-  if (planId === 'free') {
-    return 0
-  }
-
-  if (type === 'reservation_ladder') {
-    return planId === 'basic' ? 3 : 5
-  }
-
-  if (type === 'time_limited' || type === 'attendance') {
-    return planId === 'premium' || planId === 'premium_plus' ? 5 : 0
-  }
-
-  return 0
+  const capabilityId = PROMO_TYPE_CAPABILITY[type]
+  return capabilityId ? capabilityMax(planId, capabilityId) : 0
 }
 
 /** Deja solo las promociones que el plan permite publicar, por tipo y cantidad. */
@@ -55,35 +78,23 @@ export function planPromoTypes(): readonly string[] {
 }
 
 export function planMaxMenus(planId: StoredPlanId): number | null {
-  if (planId === 'free') {
-    return 1
-  }
-  if (planId === 'basic') {
-    return 3
-  }
-  return 5
+  return capabilityMax(planId, 'menus')
 }
 
 export function planAllowsMenuPdf(planId: StoredPlanId): boolean {
-  return planId === 'premium' || planId === 'premium_plus'
+  return capabilityMax(planId, 'menu_pdf') !== 0
 }
 
 export function planAllowsMenuGrid(planId: StoredPlanId): boolean {
-  return planId !== 'free'
+  return capabilityMax(planId, 'menu_photos') !== 0
 }
 
 export function planMaxActiveMaps(planId: StoredPlanId): number | null {
-  if (planId === 'free') {
-    return 0
-  }
-  if (planId === 'basic') {
-    return 1
-  }
-  return 5
+  return capabilityMax(planId, 'active_maps')
 }
 
 export function planAllowsDeposits(planId: StoredPlanId): boolean {
-  return planId !== 'free'
+  return capabilityMax(planId, 'deposits') !== 0
 }
 
 export function clampEnabledMaps<T extends { enabled?: unknown }>(plans: T[], planId: StoredPlanId): T[] {

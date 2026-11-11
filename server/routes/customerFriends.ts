@@ -9,30 +9,10 @@ import {
   friendshipId,
 } from '../data/collections.ts'
 import { createCustomerNotification } from '../notifications/service.ts'
+import { getLevelDetailsForXp } from '../data/gameCatalog.ts'
 
 const router = Router()
 
-const LEVELS = [
-  { level: 1, title: 'Comensal Aficionado', minXp: 0, maxXp: 299 },
-  { level: 2, title: 'Explorador de Sabores', minXp: 300, maxXp: 799 },
-  { level: 3, title: 'Gourmet de Barrio', minXp: 800, maxXp: 1599 },
-  { level: 4, title: 'Crítico de la Casa', minXp: 1600, maxXp: 3199 },
-  { level: 5, title: 'Maestro de Mesa', minXp: 3200, maxXp: 5999 },
-  { level: 6, title: 'Embajador Adelia', minXp: 6000, maxXp: 9999 },
-  { level: 7, title: 'Leyenda', minXp: 10_000, maxXp: 14_999 as number | null },
-  { level: 8, title: 'Gran Paladar', minXp: 15_000, maxXp: 21_999 },
-  { level: 9, title: 'Embajador Gourmet', minXp: 22_000, maxXp: 31_999 },
-  { level: 10, title: 'Titán del Menú', minXp: 32_000, maxXp: 44_999 },
-  { level: 11, title: 'Cliente Legendario', minXp: 45_000, maxXp: 64_999 },
-  { level: 12, title: 'Deidad Suprema', minXp: 65_000, maxXp: null },
-]
-
-function levelForXp(xp: number) {
-  const found = [...LEVELS].reverse().find((item) => xp >= item.minXp) ?? LEVELS[0]
-  const span = found.maxXp == null ? 1 : found.maxXp - found.minXp + 1
-  const progress = found.maxXp == null ? 1 : Math.min(1, Math.max(0, (xp - found.minXp) / span))
-  return { ...found, progress }
-}
 
 function gamificationOf(data: FirebaseFirestore.DocumentData | undefined) {
   if (data?.state && typeof data.state === 'object') {
@@ -61,7 +41,7 @@ async function mapFriendProfile(
   const user = knownUser ?? userSnap?.data() ?? {}
   const stats = gamificationOf(knownStats ?? statsSnap?.data() ?? user)
   const xp = typeof stats.xp === 'number' ? stats.xp : typeof user.xp === 'number' ? user.xp : 0
-  const level = levelForXp(xp)
+  const level = await getLevelDetailsForXp(xp)
   const completed = Array.isArray(stats.completedMissions) ? stats.completedMissions.length : 0
   const weekly = Array.isArray(stats.weeklyCompleted) ? stats.weeklyCompleted.length : 0
   const badges = Array.isArray(stats.completedMissions)

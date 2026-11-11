@@ -323,3 +323,16 @@ export async function listSaasSubscriptionLeads(): Promise<SaasSubscriptionLead[
     }
   })
 }
+
+/** Busca un cliente por su correo en toda la base (la lista solo trae los más recientes). */
+export async function findCustomerIdByEmail(email: string): Promise<string | null> {
+  const normalized = email.trim().toLowerCase()
+  if (!normalized.includes('@')) {
+    return null
+  }
+  const snapshot = await getDocs(
+    query(collection(db, 'users'), where('email', '==', normalized), limit(3)),
+  )
+  const match = snapshot.docs.find((item) => item.data().role === 'customer')
+  return match?.id ?? null
+}

@@ -4,6 +4,8 @@
  * Mantener alineado con `src/data/lemonSqueezyCheckout.ts`.
  */
 
+import { getRemoteCatalog } from '../data/remoteCatalog.ts'
+
 export type LemonPlanId = 'basic' | 'premium'
 export type LemonBillingPeriod = 'monthly' | 'annual'
 
@@ -12,16 +14,21 @@ interface LemonVariant {
   period: LemonBillingPeriod
 }
 
-/** variant_id de Lemon Squeezy → plan + periodo interno. */
-export const LEMONSQUEEZY_VARIANTS: Record<string, LemonVariant> = {
-  '2088081': { plan: 'basic', period: 'monthly' }, // Sala · 39,99 €/mes
-  '2088312': { plan: 'basic', period: 'annual' }, // Sala · 375 €/año
-  '2088306': { plan: 'premium', period: 'monthly' }, // Local · 59,99 €/mes (3 meses prueba)
-  '2089103': { plan: 'premium', period: 'annual' }, // Local · 565 €/año
+/**
+ * Respaldo de variant_id de Lemon Squeezy → plan + periodo. La fuente de verdad es
+ * `appConfig/billing.variants` en Firestore: así pasar de modo test a live (IDs
+ * distintos) no exige desplegar.
+ */
+const DEFAULT_LEMONSQUEEZY_VARIANTS: Record<string, LemonVariant> = {
+  '2088081': { plan: 'basic', period: 'monthly' },
+  '2088312': { plan: 'basic', period: 'annual' },
+  '2088306': { plan: 'premium', period: 'monthly' },
+  '2089103': { plan: 'premium', period: 'annual' },
 }
 
 export function lemonVariant(variantId: unknown): LemonVariant | null {
-  return LEMONSQUEEZY_VARIANTS[String(variantId ?? '')] ?? null
+  const variants = getRemoteCatalog().billing.variants ?? DEFAULT_LEMONSQUEEZY_VARIANTS
+  return variants[String(variantId ?? '')] ?? null
 }
 
 export function planFromLemonVariant(variantId: unknown): LemonPlanId | null {

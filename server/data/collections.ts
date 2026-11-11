@@ -23,6 +23,11 @@ export const COLLECTIONS = {
   missionCatalog: 'missionCatalog',
   levelCatalog: 'levelCatalog',
   gameConfig: 'gameConfig',
+  inventoryItems: 'inventoryItems',
+  planCatalog: 'planCatalog',
+  appConfig: 'appConfig',
+  companyLevelCatalog: 'companyLevelCatalog',
+  companyMissionCatalog: 'companyMissionCatalog',
   saasSubscriptions: 'saasSubscriptions',
 } as const
 

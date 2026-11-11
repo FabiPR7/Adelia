@@ -7,8 +7,19 @@ import { AuthProvider } from './context/AuthContext'
 import { FavoriteRestaurantsProvider } from './context/FavoriteRestaurantsContext'
 import { CustomerGamificationProvider } from './context/CustomerGamificationContext'
 import { CustomerProductTourProvider } from './context/CustomerProductTourContext'
+import { loadRemoteCatalog } from './services/remoteCatalog'
 import './styles/fonts.css'
 import './styles/global.css'
+
+// Planes, ítems y reglas viven en Firestore. Se esperan unos instantes antes de
+// pintar para que la primera pantalla ya use los datos reales; si la base de
+// datos tarda, se arranca con el respaldo del código y no se bloquea la web.
+const CATALOG_WAIT_MS = 2500
+
+await Promise.race([
+  loadRemoteCatalog(),
+  new Promise<void>((resolve) => setTimeout(resolve, CATALOG_WAIT_MS)),
+])
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

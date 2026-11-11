@@ -3,7 +3,8 @@ import { adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from './collections.ts'
 import { cachedLevelForXp } from './gameCatalog.ts'
 
-const MAX_STORED_CLAIMS = 20
+// Los canjes del mapa se leen del perfil para pintar qué premios del ciclo ya se cobraron.
+const MAX_STORED_CLAIMS = 100
 const MAX_PENDING_TOKEN_SPEND = 10
 
 export function userGamificationRef(uid: string) {

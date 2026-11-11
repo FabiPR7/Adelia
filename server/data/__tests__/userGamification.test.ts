@@ -6,7 +6,7 @@ import {
 
 describe('gamification document size', () => {
   it('keeps claim history and pending spends capped', () => {
-    const claims = Array.from({ length: 40 }, (_, index) => ({ id: `p${index}` }))
+    const claims = Array.from({ length: 140 }, (_, index) => ({ id: `p${index}` }))
     const pending = Array.from({ length: 25 }, (_, index) => ({ id: `t${index}` }))
     const compacted = compactGamificationForStatsDoc({
       xp: 12,
@@ -15,7 +15,8 @@ describe('gamification document size', () => {
       awardedReservationXpIds: ['keep-all'],
     })
 
-    expect(compacted.claimedPromotions).toHaveLength(20)
+    expect(compacted.claimedPromotions).toHaveLength(100)
+    expect((compacted.claimedPromotions as Array<{ id: string }>)[99].id).toBe('p139')
     expect(compacted.pendingTokenSpend).toHaveLength(10)
     expect(compacted.awardedReservationXpIds).toEqual(['keep-all'])
   })

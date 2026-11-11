@@ -1,3 +1,4 @@
+import { BUSINESS_TIME_ZONE } from '../utils/madridDateTime.ts'
 import { Timestamp, type Firestore } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 
@@ -299,6 +300,7 @@ export async function processDueNotificationJobs(
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString('es-ES', {
+    timeZone: BUSINESS_TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit',
   })

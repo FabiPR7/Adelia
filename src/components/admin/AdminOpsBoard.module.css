@@ -256,3 +256,45 @@
     font-size: 0.8rem;
   }
 }
+
+.note {
+  margin: 0;
+  padding: 0.75rem 0.95rem;
+  border-radius: 12px;
+  background: rgba(196, 154, 58, 0.1);
+  color: #5a4632;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.linkButton {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.linkButton:hover strong {
+  text-decoration: underline;
+}
+
+.linkButton:focus-visible {
+  outline: 2px solid #c4472f;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Segunda línea de cada celda, siempre debajo del dato principal. */
+.table td em {
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.table td .actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}

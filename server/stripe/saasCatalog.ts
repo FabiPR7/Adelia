@@ -1,5 +1,8 @@
+import { getRemoteCatalog } from '../data/remoteCatalog.ts'
+
 /** Precios SaaS de Adelia. Cobro a la cuenta plataforma (no Connect).
- *  Mantener alineado con `src/data/companyPlans.ts` (Sala 39 €, Local 59 €). */
+ *  Nombre y precio salen de `planCatalog` en Firestore (los mismos que ve la web);
+ *  los valores del código solo son el respaldo si la colección está vacía. */
 export const SAAS_CHECKOUT_META = 'adelia_saas_plan'
 
 export const SAAS_CHECKOUT_PLAN_IDS = ['basic', 'premium'] as const
@@ -14,21 +17,35 @@ export interface SaasCheckoutPlan {
   lookupKey: string
 }
 
+const DEFAULT_PLAN_SPECS: Record<SaasCheckoutPlanId, { name: string; amountCents: number }> = {
+  basic: { name: 'Sala', amountCents: 3999 },
+  premium: { name: 'Local', amountCents: 5999 },
+}
+
+function remoteAmountCents(planId: SaasCheckoutPlanId): number {
+  const price = getRemoteCatalog().plans?.get(planId)?.priceMonthly
+  return typeof price === 'number' && price > 0
+    ? Math.round(price * 100)
+    : DEFAULT_PLAN_SPECS[planId].amountCents
+}
+
+function remoteName(planId: SaasCheckoutPlanId): string {
+  return getRemoteCatalog().plans?.get(planId)?.name ?? DEFAULT_PLAN_SPECS[planId].name
+}
+
+function planSpec(planId: SaasCheckoutPlanId, lookupKey: string): SaasCheckoutPlan {
+  return {
+    planId,
+    get name() { return remoteName(planId) },
+    get productName() { return `Adelia ${remoteName(planId)}` },
+    get amountCents() { return remoteAmountCents(planId) },
+    lookupKey,
+  }
+}
+
 export const SAAS_CHECKOUT_PLANS: Record<SaasCheckoutPlanId, SaasCheckoutPlan> = {
-  basic: {
-    planId: 'basic',
-    name: 'Sala',
-    productName: 'Adelia Sala',
-    amountCents: 3900,
-    lookupKey: 'adelia_plan_sala_monthly',
-  },
-  premium: {
-    planId: 'premium',
-    name: 'Local',
-    productName: 'Adelia Local',
-    amountCents: 5900,
-    lookupKey: 'adelia_plan_local_monthly',
-  },
+  basic: planSpec('basic', 'adelia_plan_sala_monthly'),
+  premium: planSpec('premium', 'adelia_plan_local_monthly'),
 }
 
 export const SAAS_PLAN_HIGHLIGHTS: Record<SaasCheckoutPlanId, string[]> = {

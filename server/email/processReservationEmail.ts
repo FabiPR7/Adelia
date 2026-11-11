@@ -5,6 +5,7 @@ import { isValidClientEmail } from './config.ts'
 import type { ReservationEmailBuildData } from './buildReservationEmail.ts'
 import { sendReservationConfirmationEmail } from './reservationConfirmation.ts'
 import { sendReservationReceivedEmail } from './reservationReceived.ts'
+import { sendReservationCancelledEmail } from './reservationCancelled.ts'
 import { readCompanyOps } from '../data/companyOps.ts'
 
 async function loadReservationEmailPayload(
@@ -95,6 +96,49 @@ export async function processReservationReceivedEmail(
 
   await adminDb.collection('reservations').doc(reservationId).update({
     receivedEmailSentAt: FieldValue.serverTimestamp(),
+  })
+
+  return true
+}
+
+/** Avisa al cliente de que su reserva se ha cancelado (por él o por el restaurante). Una sola vez. */
+export async function processReservationCancelledEmail(
+  reservationId: string,
+  data: FirebaseFirestore.DocumentData,
+  apiKey?: string,
+): Promise<boolean> {
+  if (data.cancelledEmailSentAt || data.status !== 'cancelled') {
+    return false
+  }
+
+  const payload = await loadReservationEmailPayload(reservationId, data)
+
+  if (!payload || !payload.to) {
+    return false
+  }
+
+  const depositStatus = data.depositStatus === 'captured' || data.depositStatus === 'released'
+    ? data.depositStatus
+    : null
+
+  await sendReservationCancelledEmail(
+    {
+      to: payload.to,
+      clientName: payload.clientName,
+      restaurantName: payload.restaurantName,
+      restaurantSlug: payload.restaurantSlug,
+      restaurantPhone: payload.restaurantPhone,
+      date: payload.date,
+      pax: payload.pax,
+      cancelledBy: data.cancelledBy === 'client' ? 'client' : 'restaurant',
+      depositOutcome: depositStatus,
+      depositAmountCents: payload.depositAmountCents ?? null,
+    },
+    apiKey,
+  )
+
+  await adminDb.collection('reservations').doc(reservationId).update({
+    cancelledEmailSentAt: FieldValue.serverTimestamp(),
   })
 
   return true

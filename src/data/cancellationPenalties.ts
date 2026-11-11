@@ -1,12 +1,25 @@
-export const PROMO_LOCK_STRIKES = 5
+/** Se sobrescriben desde Firestore (`gameConfig/penalties`) con applyPenaltyConfig. */
+export let PROMO_LOCK_STRIKES = 5
 
-export const CANCELLATION_PENALTY_RATES = [
+export const CANCELLATION_PENALTY_RATES: Array<{ strike: number; percent: number; minXp: number }> = [
   { strike: 1, percent: 12, minXp: 40 },
   { strike: 2, percent: 30, minXp: 90 },
   { strike: 3, percent: 50, minXp: 160 },
   { strike: 4, percent: 70, minXp: 280 },
   { strike: 5, percent: 85, minXp: 420 },
-] as const
+]
+
+export function applyPenaltyConfig(config: {
+  rates?: Array<{ strike: number; percent: number; minXp: number }>
+  lockStrikes?: number
+}): void {
+  if (config.rates && config.rates.length > 0) {
+    CANCELLATION_PENALTY_RATES.splice(0, CANCELLATION_PENALTY_RATES.length, ...config.rates)
+  }
+  if (typeof config.lockStrikes === 'number' && config.lockStrikes > 0) {
+    PROMO_LOCK_STRIKES = config.lockStrikes
+  }
+}
 
 export interface CancellationPenaltyView {
   xpLost: number

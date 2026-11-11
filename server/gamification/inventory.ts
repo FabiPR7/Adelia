@@ -10,13 +10,14 @@ import {
   rewardsForSeasonPack,
   seasonPackGrantKey,
   spendBandFromMinimumCents,
-  REVIEW_BOOST_ADELINAS,
-  REVIEW_BOOST_XP,
+  reviewBoostAdelinas,
+  reviewBoostXp,
   PRODUCT_TOUR_GRANT_KEY,
   PRODUCT_TOUR_REWARD_ITEM_ID,
   type InventoryGrant,
   type SeasonPackKind,
 } from './inventoryItems.ts'
+import { promoLockStrikes } from './penaltyConfig.ts'
 
 const MAX_GRANT_KEYS = 2500
 const MAX_USE_XP = 80
@@ -334,7 +335,6 @@ export function settlePendingTokenSpend(
   }
 }
 
-const PROMO_LOCK_STRIKES = 5
 
 export interface UseInventoryResult {
   state: Record<string, unknown>
@@ -359,7 +359,7 @@ export function useInventoryConsumable(
     throw new Error('No tienes avisos de cancelación.')
   }
 
-  if (item.kind === 'unlock' && strikes < PROMO_LOCK_STRIKES && state.promoLocked !== true) {
+  if (item.kind === 'unlock' && strikes < promoLockStrikes() && state.promoLocked !== true) {
     throw new Error('No tienes las promociones bloqueadas.')
   }
 
@@ -391,7 +391,7 @@ export function useInventoryConsumable(
 
   if (item.kind === 'pardon') {
     const nextStrikes = Math.max(0, strikes - 1)
-    const promoLocked = nextStrikes >= PROMO_LOCK_STRIKES
+    const promoLocked = nextStrikes >= promoLockStrikes()
     return {
       state: {
         ...consumed,
@@ -401,7 +401,7 @@ export function useInventoryConsumable(
       xpGained: 0,
       adelinasGained: 0,
       message: promoLocked
-        ? `Has quitado un aviso. Te quedan ${nextStrikes}. Sigue bloqueado hasta bajar de ${PROMO_LOCK_STRIKES}.`
+        ? `Has quitado un aviso. Te quedan ${nextStrikes}. Sigue bloqueado hasta bajar de ${promoLockStrikes()}.`
         : nextStrikes === 0
           ? 'Has quitado el último aviso de cancelación.'
           : `Has quitado un aviso. Te quedan ${nextStrikes}.`,
@@ -409,7 +409,7 @@ export function useInventoryConsumable(
   }
 
   if (item.kind === 'unlock') {
-    const nextStrikes = Math.min(strikes, PROMO_LOCK_STRIKES - 1)
+    const nextStrikes = Math.min(strikes, promoLockStrikes() - 1)
     return {
       state: {
         ...consumed,
@@ -438,8 +438,8 @@ export function applyReviewBoostIfOwned(state: Record<string, unknown>, itemId: 
   const consumed = consumeInventoryItem(state, itemId, 1)
   return {
     state: consumed,
-    xpGained: REVIEW_BOOST_XP,
-    adelinasGained: REVIEW_BOOST_ADELINAS,
+    xpGained: reviewBoostXp(),
+    adelinasGained: reviewBoostAdelinas(),
   }
 }
 

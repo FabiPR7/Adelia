@@ -1,12 +1,15 @@
 import type { GamificationLevel, MissionDefinition } from '../types/gamification'
 
-export const COMPANY_WEEKLY_SLOT_COUNT = 6
-export const COMPANY_MONTHLY_SLOT_COUNT = 5
-export const COMPANY_WEEKLY_BONUS_TARGET = 4
-export const COMPANY_WEEKLY_BONUS_XP = 120
-export const COMPANY_CONFIRMED_XP = 15
-export const COMPANY_REVIEW_XP = 10
-export const COMPANY_REPLY_XP = 8
+// Niveles, misiones y XP de los restaurantes viven en Firestore (companyLevelCatalog,
+// companyMissionCatalog y gameConfig/company); lo escrito aquí es el respaldo y
+// applyCompanyCatalog lo sustituye al cargar.
+export let COMPANY_WEEKLY_SLOT_COUNT = 6
+export let COMPANY_MONTHLY_SLOT_COUNT = 5
+export let COMPANY_WEEKLY_BONUS_TARGET = 4
+export let COMPANY_WEEKLY_BONUS_XP = 120
+export let COMPANY_CONFIRMED_XP = 15
+export let COMPANY_REVIEW_XP = 10
+export let COMPANY_REPLY_XP = 8
 
 export const COMPANY_LEVELS: GamificationLevel[] = [
   {
@@ -536,6 +539,78 @@ const MISSION_BY_ID = new Map(
   [...COMPANY_WEEKLY_MISSIONS, ...COMPANY_MONTHLY_MISSIONS, ...COMPANY_HISTORICAL_MISSIONS]
     .map((mission) => [mission.id, mission]),
 )
+
+export interface CompanyCatalogData {
+  levels?: Array<GamificationLevel & { perk?: string }>
+  missions?: MissionDefinition[]
+  config?: {
+    weeklySlotCount?: number
+    monthlySlotCount?: number
+    weeklyBonusTarget?: number
+    weeklyBonusXp?: number
+    confirmedXp?: number
+    reviewXp?: number
+    replyXp?: number
+  }
+}
+
+/**
+ * Sustituye niveles, misiones y XP de restaurante por los de Firestore. Los
+ * arrays se modifican en sitio y una cadencia sin misiones en la base de datos
+ * conserva las del código, para que una colección a medias nunca la vacíe.
+ */
+export function applyCompanyCatalog(data: CompanyCatalogData): void {
+  if (data.levels && data.levels.length > 0) {
+    const levels = [...data.levels].sort((left, right) => left.minXp - right.minXp)
+    COMPANY_LEVELS.splice(
+      0,
+      COMPANY_LEVELS.length,
+      ...levels.map(({ perk: _perk, ...level }, index) => ({
+        ...level,
+        maxXp: levels[index + 1] ? levels[index + 1].minXp - 1 : null,
+      })),
+    )
+    for (const key of Object.keys(COMPANY_LEVEL_PERKS)) {
+      delete COMPANY_LEVEL_PERKS[Number(key)]
+    }
+    for (const level of levels) {
+      if (level.perk) {
+        COMPANY_LEVEL_PERKS[level.level] = level.perk
+      }
+    }
+  }
+
+  if (data.missions && data.missions.length > 0) {
+    const byCadence: Array<[MissionDefinition['cadence'], MissionDefinition[]]> = [
+      ['weekly', COMPANY_WEEKLY_MISSIONS],
+      ['monthly', COMPANY_MONTHLY_MISSIONS],
+      ['historical', COMPANY_HISTORICAL_MISSIONS],
+    ]
+    for (const [cadence, target] of byCadence) {
+      const next = data.missions.filter((mission) => mission.cadence === cadence)
+      if (next.length > 0) {
+        target.splice(0, target.length, ...next)
+      }
+    }
+    MISSION_BY_ID.clear()
+    for (const mission of [...COMPANY_WEEKLY_MISSIONS, ...COMPANY_MONTHLY_MISSIONS, ...COMPANY_HISTORICAL_MISSIONS]) {
+      MISSION_BY_ID.set(mission.id, mission)
+    }
+  }
+
+  const { config } = data
+  if (config) {
+    const pick = (value: number | undefined, current: number) =>
+      typeof value === 'number' && Number.isFinite(value) ? value : current
+    COMPANY_WEEKLY_SLOT_COUNT = pick(config.weeklySlotCount, COMPANY_WEEKLY_SLOT_COUNT)
+    COMPANY_MONTHLY_SLOT_COUNT = pick(config.monthlySlotCount, COMPANY_MONTHLY_SLOT_COUNT)
+    COMPANY_WEEKLY_BONUS_TARGET = pick(config.weeklyBonusTarget, COMPANY_WEEKLY_BONUS_TARGET)
+    COMPANY_WEEKLY_BONUS_XP = pick(config.weeklyBonusXp, COMPANY_WEEKLY_BONUS_XP)
+    COMPANY_CONFIRMED_XP = pick(config.confirmedXp, COMPANY_CONFIRMED_XP)
+    COMPANY_REVIEW_XP = pick(config.reviewXp, COMPANY_REVIEW_XP)
+    COMPANY_REPLY_XP = pick(config.replyXp, COMPANY_REPLY_XP)
+  }
+}
 
 export function getCompanyMission(id: string): MissionDefinition | null {
   return MISSION_BY_ID.get(id) ?? null

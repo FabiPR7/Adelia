@@ -4,6 +4,7 @@ import { applyMissionCatalog } from '../data/gamificationMissions'
 import { applyLevelCatalog } from '../data/gamificationLevels'
 import { applyGameConfig } from '../types/gamification'
 import type { GamificationLevel, MissionCadence, MissionCategory, MissionDefinition } from '../types/gamification'
+import { bundleDoc, bundleQuery, fetchCatalogBundle } from './catalogBundle'
 
 const CADENCES: MissionCadence[] = ['weekly', 'monthly', 'historical']
 const CATEGORIES: MissionCategory[] = ['loyalty', 'reviews', 'rewards', 'exploration']
@@ -91,11 +92,15 @@ export function loadGameCatalog(): Promise<void> {
 }
 
 async function hydrateGameCatalog(): Promise<void> {
-  const [missionsSnap, levelsSnap, configSnap] = await Promise.all([
-    getDocs(query(collection(db, 'missionCatalog'), limit(80))),
-    getDocs(query(collection(db, 'levelCatalog'), limit(40))),
-    getDoc(doc(db, 'gameConfig', 'adelia')),
-  ])
+  // Primero el JSON del servidor (en caché de la CDN); si falla, Firestore.
+  const bundle = await fetchCatalogBundle()
+  const [missionsSnap, levelsSnap, configSnap] = bundle
+    ? [bundleQuery(bundle, 'missionCatalog'), bundleQuery(bundle, 'levelCatalog'), bundleDoc(bundle, 'gameConfig/adelia')] as const
+    : await Promise.all([
+        getDocs(query(collection(db, 'missionCatalog'), limit(80))),
+        getDocs(query(collection(db, 'levelCatalog'), limit(40))),
+        getDoc(doc(db, 'gameConfig', 'adelia')),
+      ])
 
   const missions = missionsSnap.docs
     .map((item) => parseMission(item.id, item.data() as Record<string, unknown>))

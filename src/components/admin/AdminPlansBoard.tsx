@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { AdminCompany } from '../../types'
-import type { SaasSubscriptionLead } from '../../types/adminOps'
 import {
   formatCompanyPlanBilling,
   formatCompanyPlanStartedAt,
@@ -11,7 +10,6 @@ import {
   parseCompanyPlanId,
   type MonthlyChargeState,
 } from '../../data/companyPlans'
-import { listSaasSubscriptionLeads } from '../../services/adminOps'
 import { IconSearch } from './AdminIcons'
 import styles from './AdminOpsBoard.module.css'
 
@@ -35,26 +33,6 @@ function stateClass(state: MonthlyChargeState) {
 function AdminPlansBoard({ companies, isSaving, onOpenCompany, onMarkPaid }: AdminPlansBoardProps) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<PlanFilter>('all')
-  const [leads, setLeads] = useState<SaasSubscriptionLead[]>([])
-
-  useEffect(() => {
-    let cancelled = false
-    void listSaasSubscriptionLeads()
-      .then((items) => {
-        if (!cancelled) {
-          setLeads(items)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLeads([])
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return companies
@@ -107,7 +85,7 @@ function AdminPlansBoard({ companies, isSaving, onOpenCompany, onMarkPaid }: Adm
         </article>
         <article>
           <strong>{actionCount}</strong>
-          <span>A cobrar ahora</span>
+          <span>A cobrar a mano</span>
         </article>
         <article>
           <strong>{companies.filter((company) => parseCompanyPlanId(company.planId) !== 'free').length}</strong>
@@ -115,44 +93,10 @@ function AdminPlansBoard({ companies, isSaving, onOpenCompany, onMarkPaid }: Adm
         </article>
       </div>
 
-      {leads.length > 0 ? (
-        <div className={styles.panel}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Pagos Stripe (cuenta Adelia)</th>
-                <th>Plan</th>
-                <th>Contacto</th>
-                <th>Modo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map((lead) => (
-                <tr key={lead.id}>
-                  <td>
-                    <strong>{lead.restaurantName || 'Sin nombre de local'}</strong>
-                    <em>{lead.city || lead.status}</em>
-                  </td>
-                  <td>
-                    {lead.planName}
-                    <em>
-                      {lead.amountTotal
-                        ? `${(lead.amountTotal / 100).toFixed(2)} ${lead.currency.toUpperCase()}`
-                        : ''}
-                    </em>
-                  </td>
-                  <td>{lead.customerEmail || '—'}</td>
-                  <td>
-                    <span className={`${styles.chip} ${lead.livemode ? styles.due : styles.future}`}>
-                      {lead.livemode ? 'Live' : 'Test'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      <p className={styles.note}>
+        Las suscripciones pagadas con Lemon Squeezy se renuevan solas y su estado aparece en la ficha de cada
+        local. «Marcar cobrado a mano» es solo para locales que te pagan por otra vía.
+      </p>
 
       <div className={styles.toolbar}>
         <label className={styles.search}>
@@ -168,7 +112,7 @@ function AdminPlansBoard({ companies, isSaving, onOpenCompany, onMarkPaid }: Adm
 
       <div className={styles.panel}>
         {rows.length === 0 ? (
-          <p className={styles.empty}>Nadie en este filtro. Los de Mesa no salen aquí.</p>
+          <p className={styles.empty}>Nadie en este filtro. Los locales del plan gratuito (Mesa) no salen aquí.</p>
         ) : (
           <table className={styles.table}>
             <thead>
@@ -216,7 +160,7 @@ function AdminPlansBoard({ companies, isSaving, onOpenCompany, onMarkPaid }: Adm
                           disabled={isSaving}
                           onClick={() => void onMarkPaid(company)}
                         >
-                          Marcar cobrado
+                          Marcar cobrado a mano
                         </button>
                       ) : null}
                     </div>

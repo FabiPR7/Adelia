@@ -6,6 +6,7 @@ import { computeCustomerXpCeiling } from '../gamification/customerXpCeiling.ts'
 import {
   appendClaimToState,
   ladderClaimDocId,
+  promotionClaimRef,
   readCurrentGamification,
   timeLimitedClaimDocId,
   writeClaimInTransaction,
@@ -15,6 +16,8 @@ import {
   assertCustomerCanUsePromos,
   PROMO_LOCK_CLAIM_MESSAGE,
 } from '../gamification/cancellationPenalty.ts'
+import { promoLockStrikes } from '../gamification/penaltyConfig.ts'
+import { checkLadderClaim } from '../data/ladderRules.ts'
 import {
   applyInventoryGrants,
   claimProductTourReward,
@@ -29,6 +32,7 @@ import {
   getInventoryItem,
   isPromoSpendItem,
   spendCoverForItem,
+  walkInCooldownHours,
   type SeasonPackKind,
 } from '../gamification/inventoryItems.ts'
 import { getLevelForXpFromCatalog, listMissionCatalogEntries } from '../data/gameCatalog.ts'
@@ -53,6 +57,14 @@ import {
 } from '../promotions/customerPromotionUses.ts'
 
 const router = Router()
+
+/** Error con el código HTTP que debe recibir el cliente. */
+class ClaimError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message)
+  }
+}
+
 const MAX_REWARD_DELTA = 8000
 // Tope de XP que se puede ganar a través de /sync en un mismo día (UTC).
 // El navegador propone la XP de misiones; sin este tope, repetir la llamada
@@ -192,7 +204,7 @@ export async function validateMonotonicGamification(
   const currentClaims = Array.isArray(current.claimedPromotions) ? current.claimedPromotions : []
 
   const strikeCount = numberValue(current.cancellationStrikeCount)
-  const promoLocked = current.promoLocked === true || strikeCount >= 5
+  const promoLocked = current.promoLocked === true || strikeCount >= promoLockStrikes()
 
   const adjustments: SyncAdjustments = {
     deferredMissions,
@@ -543,13 +555,6 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
       return
     }
 
-    const maxRedemptions = typeof promotion.maxRedemptions === 'number' ? promotion.maxRedemptions : null
-    const currentRedemptions = typeof promotion.currentRedemptions === 'number' ? promotion.currentRedemptions : 0
-    if (maxRedemptions != null && maxRedemptions > 0 && currentRedemptions >= maxRedemptions) {
-      res.status(409).json({ error: 'Esta promoción ya no tiene plazas.' })
-      return
-    }
-
     const reservationCount = reservationsSnap.docs.filter((docSnap) => {
       const reservation = docSnap.data()
       return reservation.companyId === companyId && reservation.status === 'confirmed'
@@ -562,29 +567,32 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
     let claimId = ''
     let claimTitle = String(promotion.title ?? 'tu premio')
     await adminDb.runTransaction(async (transaction) => {
-      const [userSnap, statsSnap] = await Promise.all([
+      const [userSnap, statsSnap, freshPromotionSnap] = await Promise.all([
         transaction.get(userRef),
         transaction.get(statsRef),
+        transaction.get(promotionSnap.ref),
       ])
       const current = readGamificationFromDocs(statsSnap.data(), userSnap.data())
       assertCustomerCanUsePromos(current)
+
+      // Las plazas se comprueban dentro de la transacción: dos canjes a la vez no pueden pasarse del máximo.
+      const freshPromotion = freshPromotionSnap.data() ?? {}
+      const maxRedemptions = typeof freshPromotion.maxRedemptions === 'number' ? freshPromotion.maxRedemptions : null
+      const currentRedemptions = typeof freshPromotion.currentRedemptions === 'number' ? freshPromotion.currentRedemptions : 0
+      if (maxRedemptions != null && maxRedemptions > 0 && currentRedemptions >= maxRedemptions) {
+        throw new ClaimError(409, 'Esta promoción ya no tiene plazas.')
+      }
+
       const tokenCredits = numberRecord(current.tokenCreditsByCompany)[companyId] ?? 0
       const confirmedCount = reservationCount + tokenCredits
       const claims = Array.isArray(current.claimedPromotions) ? current.claimedPromotions : []
-      const ladderClaimLimit = readMaxClaimsPerCustomer(promotion ?? {})
+      const ladderClaimLimit = readMaxClaimsPerCustomer(freshPromotion)
       if (ladderClaimLimit != null && countClaimsForPromotion(claims, promotionId) >= ladderClaimLimit) {
-        throw new Error(customerLimitMessage(ladderClaimLimit))
+        throw new ClaimError(409, customerLimitMessage(ladderClaimLimit))
       }
-      const windowError = claimWindowError(promotion ?? {})
+      const windowError = claimWindowError(freshPromotion)
       if (windowError) {
-        throw new Error(windowError)
-      }
-      const priorClaims = claims.filter((item) => (
-        item && typeof item === 'object'
-        && (item as Record<string, unknown>).promotionId === promotionId
-      )).length
-      if (confirmedCount < required * (priorClaims + 1)) {
-        throw new Error('Aún no has completado las reservas o consumos necesarios.')
+        throw new ClaimError(409, windowError)
       }
       const ladderIds = ladderPromotionsSnap.docs
         .filter((docSnap) => docSnap.data().type === 'reservation_ladder')
@@ -593,10 +601,6 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
           - numberValue(right.data().requiredReservations)
         ))
         .map((docSnap) => docSnap.id)
-      const promotionIndex = ladderIds.indexOf(promotionId)
-      const nextPromotionId = ladderIds.length > 0
-        ? ladderIds[(promotionIndex + 1) % ladderIds.length]
-        : promotionId
       const baselines = current.ladderBaselinesByCompany
         && typeof current.ladderBaselinesByCompany === 'object'
         ? current.ladderBaselinesByCompany as Record<string, number>
@@ -609,6 +613,21 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
         && typeof current.ladderCompletionsByCompany === 'object'
         ? current.ladderCompletionsByCompany as Record<string, number>
         : {}
+
+      // Mismas reglas que el mapa que ve el cliente (ver data/ladderRules.ts).
+      const baseline = numberValue(baselines[companyId])
+      const check = checkLadderClaim({
+        promotionId,
+        ladderIds,
+        activePromotionId: activePromotions[companyId],
+        required,
+        confirmedCount,
+        baseline,
+      })
+      if (!check.ok) {
+        throw new ClaimError(check.status, check.error)
+      }
+      const nextPromotionId = check.nextPromotionId
 
       const claim = {
         promotionId,
@@ -624,7 +643,7 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
         promotionType: 'reservation_ladder',
       }
       claimTitle = claim.title || claimTitle
-      claimId = ladderClaimDocId(customer.uid, promotionId, priorClaims + 1)
+      claimId = ladderClaimDocId(customer.uid, promotionId, baseline)
       const wrote = await writeClaimInTransaction(
         transaction,
         customer.uid,
@@ -644,14 +663,13 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
           },
           ladderCompletionsByCompany: {
             ...completions,
-            [companyId]: ladderIds.length > 0
-              ? Math.floor((priorClaims + 1) / ladderIds.length)
-              : 0,
+            // El mapa se completa al canjear su último escalón: ahí vuelve a empezar de cero.
+            [companyId]: numberValue(completions[companyId]) + (check.completesMap ? 1 : 0),
           },
         },
       )
       if (!wrote) {
-        throw new Error('Este premio ya fue canjeado para tus visitas actuales.')
+        throw new ClaimError(409, 'Este premio ya fue canjeado para tus visitas actuales.')
       }
       transaction.update(promotionSnap.ref, {
         currentRedemptions: FieldValue.increment(1),
@@ -672,12 +690,12 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
     res.json({ success: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo registrar el canje.'
-    const status = message.includes('cliente')
-      ? 401
-      : message === PROMO_LOCK_CLAIM_MESSAGE
-        ? 403
-        : message.includes('ya fue')
-          ? 409
+    const status = error instanceof ClaimError
+      ? error.status
+      : message.includes('cliente')
+        ? 401
+        : message === PROMO_LOCK_CLAIM_MESSAGE
+          ? 403
           : 500
     res.status(status).json({ error: message })
   }
@@ -749,42 +767,67 @@ router.post('/claim', async (req: Request, res: Response) => {
     }
 
     const claimId = timeLimitedClaimDocId(customer.uid, reservationId, promotionId)
-    await adminDb.runTransaction(async (transaction) => {
-      const current = await readCurrentGamification(transaction, customer.uid)
+    const claimed = await adminDb.runTransaction(async (transaction) => {
+      const [current, freshPromotionSnap, existingClaim] = await Promise.all([
+        readCurrentGamification(transaction, customer.uid),
+        transaction.get(promotionRef),
+        transaction.get(promotionClaimRef(claimId)),
+      ])
       assertCustomerCanUsePromos(current)
-      const claimLimit = readMaxClaimsPerCustomer(promotion)
+
+      // Repetir el canje de la misma reserva no hace nada: ya está reclamado.
+      if (existingClaim.exists) {
+        return false
+      }
+
+      const freshPromotion = freshPromotionSnap.data() ?? {}
+      const maxRedemptions = typeof freshPromotion.maxRedemptions === 'number' ? freshPromotion.maxRedemptions : null
+      const currentRedemptions = typeof freshPromotion.currentRedemptions === 'number' ? freshPromotion.currentRedemptions : 0
+      if (maxRedemptions != null && maxRedemptions > 0 && currentRedemptions >= maxRedemptions) {
+        throw new ClaimError(409, 'Esta promoción ya no tiene plazas.')
+      }
+      const claimLimit = readMaxClaimsPerCustomer(freshPromotion)
       if (
         claimLimit != null
         && countClaimsForPromotion(current.claimedPromotions, promotionId, reservationId) >= claimLimit
       ) {
-        throw new Error(customerLimitMessage(claimLimit))
+        throw new ClaimError(409, customerLimitMessage(claimLimit))
       }
-      await writeClaimInTransaction(
+
+      const wrote = await writeClaimInTransaction(
         transaction,
         customer.uid,
         claimId,
         claim,
         appendClaimToState(current, claim),
       )
+      if (wrote) {
+        transaction.update(promotionRef, { currentRedemptions: FieldValue.increment(1) })
+      }
+      return wrote
     })
 
-    await notifyPromotionClaimed(
-      customer.uid,
-      promotionId,
-      companyId,
-      String(promotion.title ?? 'tu premio'),
-      reservationId,
-      claimId,
-    ).catch(() => undefined)
+    if (claimed) {
+      await notifyPromotionClaimed(
+        customer.uid,
+        promotionId,
+        companyId,
+        String(promotion.title ?? 'tu premio'),
+        reservationId,
+        claimId,
+      ).catch(() => undefined)
+    }
 
     res.json({ success: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo registrar el canje.'
-    const status = message.includes('cliente')
-      ? 401
-      : message === PROMO_LOCK_CLAIM_MESSAGE
-        ? 403
-        : 500
+    const status = error instanceof ClaimError
+      ? error.status
+      : message.includes('cliente')
+        ? 401
+        : message === PROMO_LOCK_CLAIM_MESSAGE
+          ? 403
+          : 500
     res.status(status).json({ error: message })
   }
 })
@@ -1052,11 +1095,26 @@ router.post('/promotions/register-consumption', registerConsumptionRateLimit, as
         ])
         const current = readGamificationFromDocs(statsSnap.data(), userSnap.data())
         assertCustomerCanUsePromos(current)
+        // Sin este tope, quien tenga el PIN podría sumar visitas sin parar y completar el mapa.
+        const lastCredits = current.walkInCreditAtByCompany
+          && typeof current.walkInCreditAtByCompany === 'object'
+          ? current.walkInCreditAtByCompany as Record<string, string>
+          : {}
+        const lastAt = Date.parse(String(lastCredits[companyId] ?? ''))
+        const cooldownMs = walkInCooldownHours() * 60 * 60 * 1000
+        if (Number.isFinite(lastAt) && Date.now() - lastAt < cooldownMs) {
+          const hoursLeft = Math.max(1, Math.ceil((cooldownMs - (Date.now() - lastAt)) / (60 * 60 * 1000)))
+          throw new ClaimError(
+            429,
+            `Ya registraste un consumo en este restaurante hace poco. Podrás registrar otro en unas ${hoursLeft} h.`,
+          )
+        }
         const credits = numberRecord(current.tokenCreditsByCompany)
         credits[companyId] = (credits[companyId] ?? 0) + 1
         const next = {
           ...current,
           tokenCreditsByCompany: credits,
+          walkInCreditAtByCompany: { ...lastCredits, [companyId]: new Date().toISOString() },
         }
         writeGamification(transaction, customer.uid, next)
         return {
@@ -1103,11 +1161,13 @@ router.post('/promotions/register-consumption', registerConsumptionRateLimit, as
     res.json(registered)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo registrar el consumo.'
-    const status = message.includes('cliente')
-      ? 401
-      : message === PROMO_LOCK_CLAIM_MESSAGE
-        ? 403
-        : 500
+    const status = error instanceof ClaimError
+      ? error.status
+      : message.includes('cliente')
+        ? 401
+        : message === PROMO_LOCK_CLAIM_MESSAGE
+          ? 403
+          : 500
     res.status(status).json({ error: message })
   }
 })

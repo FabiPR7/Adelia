@@ -425,3 +425,20 @@
     text-align: left;
   }
 }
+
+/* Los <fieldset> no se encogen por defecto y desbordaban la ficha. */
+.fieldset,
+.editor {
+  min-width: 0;
+}
+
+.row2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.row3 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 1fr); }
+
+.row2 input,
+.row3 input,
+.row2 select,
+.row3 select {
+  min-width: 0;
+  width: 100%;
+}

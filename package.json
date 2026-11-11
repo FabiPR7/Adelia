@@ -28,6 +28,7 @@
     "migrate-promotion-pins": "node scripts/migrate-promotion-pins.mjs",
     "backfill-collections": "node scripts/backfill-collections.mjs",
     "seed-game-catalog": "tsx scripts/seed-game-catalog.ts",
+    "seed-remote-catalog": "tsx scripts/seed-remote-catalog.ts",
     "convert-assets": "node scripts/convert-to-webp.mjs",
     "optimize-levels": "node scripts/optimize-level-assets.mjs"
   },

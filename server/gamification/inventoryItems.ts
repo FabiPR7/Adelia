@@ -1,10 +1,26 @@
+import { getRemoteCatalog, type RemoteLootDifficulty } from '../data/remoteCatalog.ts'
+
 export const CANCEL_SHIELD_ITEM_ID = 'escudo_mesa'
 export const WEEKLY_MISSION_SLOT_COUNT = 6
 export const MONTHLY_MISSION_SLOT_COUNT = 5
 export const WEEKLY_BONUS_TARGET = 5
 export const REVIEW_BOOST_ITEM_ID = 'nota_critico'
-export const REVIEW_BOOST_XP = 40
-export const REVIEW_BOOST_ADELINAS = 5
+const DEFAULT_REVIEW_BOOST_XP = 40
+const DEFAULT_REVIEW_BOOST_ADELINAS = 5
+
+/** XP y Adelinas de la Nota del crítico: se editan en `gameConfig/rewards`. */
+export function reviewBoostXp(): number {
+  return getRemoteCatalog().rewards.reviewBoostXp ?? DEFAULT_REVIEW_BOOST_XP
+}
+
+/** Horas entre dos consumos sin reserva en el mismo restaurante que dan visita. */
+export function walkInCooldownHours(): number {
+  return getRemoteCatalog().rewards.walkInCooldownHours ?? 8
+}
+
+export function reviewBoostAdelinas(): number {
+  return getRemoteCatalog().rewards.reviewBoostAdelinas ?? DEFAULT_REVIEW_BOOST_ADELINAS
+}
 export const EXTRA_PAX_ITEM_ID = 'invitacion_extra'
 export const DEPOSIT_PASS_ITEM_ID = 'salvoconducto'
 /** Cubierto Blanca — recompensa del tutorial de producto. */
@@ -68,10 +84,15 @@ const ITEMS: InventoryItemDefinition[] = [
   ...EXTRA_ITEMS,
 ]
 
-const ITEM_BY_ID = new Map(ITEMS.map((item) => [item.id, item]))
+const DEFAULT_ITEM_BY_ID = new Map(ITEMS.map((item) => [item.id, item]))
 
+/** Ítem de `inventoryItems` en Firestore; el código solo es el respaldo si la colección está vacía. */
 export function getInventoryItem(id: string): InventoryItemDefinition | null {
-  return ITEM_BY_ID.get(id) ?? null
+  const remote = getRemoteCatalog().items
+  if (remote) {
+    return (remote.get(id) as InventoryItemDefinition | undefined) ?? null
+  }
+  return DEFAULT_ITEM_BY_ID.get(id) ?? null
 }
 
 export function isPromoSpendItem(item: InventoryItemDefinition): boolean {
@@ -126,26 +147,34 @@ const LEVEL_REWARDS: Record<number, InventoryGrant[]> = {
 }
 
 export function rewardsForLevel(level: number): InventoryGrant[] {
-  return LEVEL_REWARDS[level] ?? []
+  const remote = getRemoteCatalog().rewards.levelRewards
+  return (remote ?? LEVEL_REWARDS)[level] ?? []
 }
 
 type MissionLootDifficulty = 'none' | 'easy' | 'medium' | 'hard' | 'legendary'
 
+const DEFAULT_LOOT_BANDS: Record<string, Array<{ below?: number; difficulty: MissionLootDifficulty }>> = {
+  weekly: [{ below: 80, difficulty: 'none' }, { difficulty: 'easy' }],
+  monthly: [{ below: 280, difficulty: 'none' }, { below: 301, difficulty: 'easy' }, { difficulty: 'medium' }],
+  historical: [
+    { below: 300, difficulty: 'none' },
+    { below: 800, difficulty: 'easy' },
+    { below: 1500, difficulty: 'medium' },
+    { below: 2200, difficulty: 'hard' },
+    { difficulty: 'legendary' },
+  ],
+}
+
+/** Bandas de XP por cadencia, editables en `gameConfig/rewards.lootBands`. */
 export function missionLootDifficulty(cadence: string, xp = 0): MissionLootDifficulty {
-  if (cadence === 'weekly') {
-    if (xp < 80) return 'none'
-    return 'easy'
+  const bands = getRemoteCatalog().rewards.lootBands ?? DEFAULT_LOOT_BANDS
+  const list = bands[cadence] ?? bands.historical ?? DEFAULT_LOOT_BANDS.historical
+  for (const band of list) {
+    if (band.below === undefined || xp < band.below) {
+      return band.difficulty
+    }
   }
-  if (cadence === 'monthly') {
-    if (xp < 280) return 'none'
-    if (xp <= 300) return 'easy'
-    return 'medium'
-  }
-  if (xp < 300) return 'none'
-  if (xp < 800) return 'easy'
-  if (xp < 1500) return 'medium'
-  if (xp < 2200) return 'hard'
-  return 'legendary'
+  return list[list.length - 1]?.difficulty ?? 'none'
 }
 
 function hashSeed(seed: string): number {
@@ -178,7 +207,7 @@ function pickFromPool(pool: string[], seed: string, count: number): InventoryGra
   return grants
 }
 
-const LOOT_POOLS: Record<Exclude<MissionLootDifficulty, 'none'>, string[]> = {
+const DEFAULT_LOOT_POOLS: Record<Exclude<MissionLootDifficulty, 'none'>, string[]> = {
   easy: [
     'mesa_1',
     'invitacion_extra',
@@ -200,6 +229,10 @@ const LOOT_POOLS: Record<Exclude<MissionLootDifficulty, 'none'>, string[]> = {
   ],
 }
 
+function lootPool(difficulty: RemoteLootDifficulty): string[] {
+  return getRemoteCatalog().rewards.lootPools?.[difficulty] ?? DEFAULT_LOOT_POOLS[difficulty]
+}
+
 export type SeasonPackKind = 'weekly_bonus' | 'weekly_clear' | 'monthly_clear'
 
 export function seasonPackGrantKey(kind: SeasonPackKind, weekKey: string, monthKey: string): string {
@@ -210,15 +243,15 @@ export function seasonPackGrantKey(kind: SeasonPackKind, weekKey: string, monthK
 }
 
 export function rewardsForWeeklyBonus(weekKey = ''): InventoryGrant[] {
-  return pickFromPool(LOOT_POOLS.easy, `weekly_bonus:${weekKey}`, 1)
+  return pickFromPool(lootPool('easy'), `weekly_bonus:${weekKey}`, 1)
 }
 
 export function rewardsForWeeklyClear(weekKey = ''): InventoryGrant[] {
-  return pickFromPool(LOOT_POOLS.medium, `weekly_clear:${weekKey}`, 1)
+  return pickFromPool(lootPool('medium'), `weekly_clear:${weekKey}`, 1)
 }
 
 export function rewardsForMonthlyClear(monthKey = ''): InventoryGrant[] {
-  return pickFromPool(LOOT_POOLS.hard, `monthly_clear:${monthKey}`, 1)
+  return pickFromPool(lootPool('hard'), `monthly_clear:${monthKey}`, 1)
 }
 
 export function rewardsForSeasonPack(
@@ -245,7 +278,7 @@ export function rewardsForMission(
     return []
   }
   const seed = `${cadence}:${missionId}:${xp}`
-  return pickFromPool(LOOT_POOLS[difficulty], seed, 1)
+  return pickFromPool(lootPool(difficulty), seed, 1)
 }
 
 export function promoMinimumCents(

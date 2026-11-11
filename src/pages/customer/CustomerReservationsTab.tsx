@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import CustomerReservationCard from '../../components/CustomerReservationCard'
+import MissionNudgeCard from '../../components/MissionNudgeCard'
 import CustomerConsumptionCard from '../../components/CustomerConsumptionCard'
 import CustomerReviewModal, { type CustomerReviewSubmitInput } from '../../components/CustomerReviewModal'
 import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
@@ -559,6 +560,10 @@ function CustomerReservationsTab() {
           </div>
         </div>
       </header>
+
+      <div className={styles.nudge}>
+        <MissionNudgeCard upcomingReservations={upcoming.length} />
+      </div>
 
       <div className={styles.tabs} role="tablist" aria-label="Reservas o consumo" data-tour="tour-reservas-tabs">
         <button

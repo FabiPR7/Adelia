@@ -1,3 +1,4 @@
+import { BUSINESS_TIME_ZONE } from '../utils/madridDateTime.ts'
 import type { DocumentData } from 'firebase-admin/firestore'
 import {
   cancelNotificationJobsForReservation,
@@ -254,6 +255,7 @@ export async function notifyPromotionClaimed(
 
 function formatDateTime(date: Date): string {
   return date.toLocaleString('es-ES', {
+    timeZone: BUSINESS_TIME_ZONE,
     day: 'numeric',
     month: 'long',
     hour: '2-digit',

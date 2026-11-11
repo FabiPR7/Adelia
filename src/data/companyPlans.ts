@@ -298,6 +298,65 @@ export const COMPANY_PLAN_CAPABILITIES: CompanyPlanCapability[] = [
   },
 ]
 
+/** Documento de `planCatalog/{planId}`: los campos del plan más sus capacidades. */
+export type CompanyPlanCatalogDoc = Partial<Omit<CompanyPlan, 'id'>> & {
+  id: CompanyPlanId
+  order?: number
+  caps?: Partial<Record<string, CompanyPlanCapValue>>
+}
+
+/**
+ * Sustituye planes y capacidades por los de Firestore (`planCatalog` y
+ * `appConfig/planCapabilities`). Los arrays se modifican en sitio para que
+ * cualquier módulo que ya los importó vea los datos nuevos. Lo que el documento
+ * no trae se queda con el valor de respaldo del código.
+ */
+export function applyPlanCatalog(
+  docs: CompanyPlanCatalogDoc[],
+  capabilityLabels: Array<{ id: string; label: string }> = [],
+): void {
+  const known = docs.filter((doc) => COMPANY_PLAN_IDS.includes(doc.id) && doc.id !== 'premium_plus')
+  if (known.length > 0) {
+    const merged = COMPANY_PLANS.map((plan) => {
+      const doc = known.find((entry) => entry.id === plan.id)
+      if (!doc) {
+        return { plan, order: COMPANY_PLAN_IDS.indexOf(plan.id) }
+      }
+      const { order, caps: _caps, ...fields } = doc
+      return {
+        plan: { ...plan, ...stripUndefined(fields), id: plan.id } as CompanyPlan,
+        order: order ?? COMPANY_PLAN_IDS.indexOf(plan.id),
+      }
+    })
+    merged.sort((left, right) => left.order - right.order)
+    COMPANY_PLANS.splice(0, COMPANY_PLANS.length, ...merged.map((entry) => entry.plan))
+  }
+
+  const capsByPlan = new Map(docs.map((doc) => [doc.id, doc.caps ?? {}]))
+  const labels = new Map(capabilityLabels.map((entry) => [entry.id, entry.label]))
+  const ids = capabilityLabels.length > 0
+    ? capabilityLabels.map((entry) => entry.id)
+    : COMPANY_PLAN_CAPABILITIES.map((entry) => entry.id)
+  const previous = new Map(COMPANY_PLAN_CAPABILITIES.map((entry) => [entry.id, entry]))
+
+  const rebuilt = ids.map((capabilityId) => {
+    const base = previous.get(capabilityId)
+    const values = { ...(base?.values ?? { free: false, basic: false, premium: false, premium_plus: false }) }
+    for (const planId of COMPANY_PLAN_IDS) {
+      const value = capsByPlan.get(planId)?.[capabilityId]
+      if (value !== undefined) {
+        values[planId] = value
+      }
+    }
+    return { id: capabilityId, label: labels.get(capabilityId) ?? base?.label ?? capabilityId, values }
+  })
+  COMPANY_PLAN_CAPABILITIES.splice(0, COMPANY_PLAN_CAPABILITIES.length, ...rebuilt)
+}
+
+function stripUndefined<T extends object>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Partial<T>
+}
+
 export interface PlanCapabilityChange {
   id: string
   label: string

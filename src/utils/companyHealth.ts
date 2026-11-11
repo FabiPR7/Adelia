@@ -19,7 +19,7 @@ export function companyProfileHealth(
     { id: 'logo', label: company.logoUrl ? 'Logo listo' : 'Sin logo', ok: Boolean(company.logoUrl) },
     { id: 'description', label: company.description ? 'Texto de ficha' : 'Ficha sin texto', ok: Boolean(company.description?.trim()) },
     { id: 'address', label: hasAddress ? 'Ubicación completa' : 'Falta pueblo o CP', ok: hasAddress },
-    { id: 'stripe', label: stripeReady ? 'Stripe conectado' : 'Stripe pendiente', ok: stripeReady },
+    { id: 'stripe', label: stripeReady ? 'Cobro de señales activo' : 'Sin cobro de señales (Stripe)', ok: stripeReady },
     {
       id: 'reviews',
       label: company.reviewCount > 0 ? `${company.reviewCount} reseñas` : 'Sin reseñas',

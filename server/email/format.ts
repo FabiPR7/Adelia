@@ -1,5 +1,8 @@
+import { BUSINESS_TIME_ZONE } from '../utils/madridDateTime.ts'
+
 export function formatDateSpanish(date: Date): string {
   return new Intl.DateTimeFormat('es-ES', {
+    timeZone: BUSINESS_TIME_ZONE,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -9,6 +12,7 @@ export function formatDateSpanish(date: Date): string {
 
 export function formatTimeSpanish(date: Date): string {
   return new Intl.DateTimeFormat('es-ES', {
+    timeZone: BUSINESS_TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)

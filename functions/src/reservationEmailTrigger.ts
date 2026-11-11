@@ -4,6 +4,7 @@ import {
 } from 'firebase-functions/v2/firestore'
 import { getResendApiKey } from '../server/email/config.ts'
 import {
+  processReservationCancelledEmail,
   processReservationConfirmationEmail,
   processReservationReceivedEmail,
   shouldSendConfirmationOnUpdate,
@@ -83,6 +84,14 @@ export const onReservationUpdatedSendEmail = onDocumentUpdated(
         }
       } catch (notificationError) {
         console.error(`Notification side-effects failed for reservation ${reservationId}:`, notificationError)
+      }
+    }
+
+    if (before && after && before.status !== 'cancelled' && after.status === 'cancelled') {
+      try {
+        await processReservationCancelledEmail(reservationId, after, resolveResendApiKey())
+      } catch (error) {
+        console.error(`Failed to send cancellation email for reservation ${reservationId}:`, error)
       }
     }
 

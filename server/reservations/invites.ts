@@ -1,3 +1,4 @@
+import { BUSINESS_TIME_ZONE } from '../utils/madridDateTime.ts'
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import {
@@ -146,6 +147,7 @@ async function areFriends(uidA: string, uidB: string): Promise<boolean> {
 
 function formatInviteWhen(startTime: Date): string {
   return startTime.toLocaleString('es-ES', {
+    timeZone: BUSINESS_TIME_ZONE,
     weekday: 'short',
     day: 'numeric',
     month: 'short',

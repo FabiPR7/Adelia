@@ -671,6 +671,44 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Catálogos editables (ítems, planes, facturación): lectura pública porque
+    // la web los pinta sin sesión; escritura solo para administración.
+    match /inventoryItems/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /planCatalog/{planId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /companyLevelCatalog/{levelId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /companyMissionCatalog/{missionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /appConfig/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Resúmenes y registro del panel de administración: solo los escribe el servidor.
+    match /adminStats/{dayId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /adminAuditLog/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /securityEvents/{eventId} {
       allow read: if isAdmin();
       allow create, update, delete: if false;

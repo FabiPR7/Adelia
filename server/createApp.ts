@@ -32,11 +32,14 @@ import companyNotificationsRouter from './routes/companyNotifications.ts'
 import { handleStripeWebhook } from './routes/stripeWebhook.ts'
 import { handleLemonSqueezyWebhook } from './routes/lemonSqueezyWebhook.ts'
 import appEventsRouter from './routes/appEvents.ts'
+import adminRouter from './routes/admin.ts'
+import publicCatalogRouter from './routes/publicCatalog.ts'
 import { verifyAdmin } from './auth/verifyRequest.ts'
 import { isAllowedOrigin } from './security/origins.ts'
 import { securityHeaders } from './security/headers.ts'
 import { sanitizeRequest } from './security/sanitize.ts'
 import { apiRateLimit } from './security/rateLimit.ts'
+import { remoteCatalogMiddleware } from './data/remoteCatalog.ts'
 import { InputError } from './security/validate.ts'
 
 export function createApp() {
@@ -80,6 +83,7 @@ export function createApp() {
   app.use(express.urlencoded({ extended: false, limit: '32kb' }))
   app.use(sanitizeRequest)
   app.use(apiRateLimit)
+  app.use(remoteCatalogMiddleware)
 
   app.get('/api/health', (req, res) => {
     // Diagnóstico temporal de proxies (sin IPs): ¿req.ip es el visitante o un proxy?
@@ -97,6 +101,8 @@ export function createApp() {
   })
 
   app.use('/api/companies', verifyAdmin, companiesRouter)
+  app.use('/api/admin', verifyAdmin, adminRouter)
+  app.use('/api/public/catalog', publicCatalogRouter)
   app.use('/api/auth', authRouter)
   app.use('/api/company', companyReservationsRouter)
   app.use('/api/company', companyEmailRouter)

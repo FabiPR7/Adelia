@@ -20,6 +20,7 @@ export type NotificationType =
   | 'mission_completed'
   | 'badge_unlocked'
   | 'level_up'
+  | 'admin_message'
 
 export interface NotificationData {
   actorUid?: string

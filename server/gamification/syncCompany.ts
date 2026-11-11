@@ -51,8 +51,8 @@ export function companyGamificationPayload(state: ReturnType<typeof processCompa
     state,
     level: {
       ...level,
-      colors: COMPANY_LEVEL_COLORS[level.level] ?? COMPANY_LEVEL_COLORS[1],
-      styleClass: `companyLevel${level.level}`,
+      colors: (level as { colors?: [string, string] }).colors ?? COMPANY_LEVEL_COLORS[level.level] ?? COMPANY_LEVEL_COLORS[1],
+      styleClass: (level as { styleClass?: string }).styleClass ?? `companyLevel${level.level}`,
     },
     xpToNext: getCompanyXpToNext(state.xp, level),
   }

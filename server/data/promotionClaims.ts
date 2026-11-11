@@ -15,8 +15,13 @@ export function timeLimitedClaimDocId(
   return `${uid}_${reservationId}_${promotionId}`
 }
 
-export function ladderClaimDocId(uid: string, promotionId: string, cycle: number): string {
-  return `${uid}_${promotionId}_${cycle}`
+/**
+ * Un canje del mapa se identifica por las visitas acumuladas en el canje anterior
+ * (`baseline`): repetir la misma petición da el mismo id y se rechaza; el siguiente
+ * canje parte de un baseline mayor. No depende de cuántos canjes guarde el perfil.
+ */
+export function ladderClaimDocId(uid: string, promotionId: string, baseline: number): string {
+  return `${uid}_${promotionId}_b${baseline}`
 }
 
 export function promotionClaimRef(claimId: string) {
