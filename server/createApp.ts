@@ -42,7 +42,9 @@ import { InputError } from './security/validate.ts'
 export function createApp() {
   const app = express()
   app.disable('x-powered-by')
-  app.set('trust proxy', 1)
+  // La web llega por Firebase Hosting y luego por Google (2 saltos): con 1 se tomaba
+  // la IP de Hosting y todos los usuarios compartían el mismo límite anti-abuso.
+  app.set('trust proxy', 2)
 
   app.use(securityHeaders)
   app.use(cors({
