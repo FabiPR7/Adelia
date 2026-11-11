@@ -11,6 +11,29 @@ import { loadRemoteCatalog } from './services/remoteCatalog'
 import './styles/fonts.css'
 import './styles/global.css'
 
+// Si alguien tenía la web abierta antes de publicar una versión nueva, al abrir
+// una sección pide archivos que ya no existen. En vez de romperse, se recarga
+// una vez para traer la versión nueva (como mucho una vez por minuto).
+const RELOAD_KEY = 'adelia:chunk-reload-at'
+window.addEventListener('vite:preloadError', (event) => {
+  let last = 0
+  try {
+    last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0)
+  } catch {
+    last = 0
+  }
+  if (Date.now() - last < 60_000) {
+    return
+  }
+  event.preventDefault()
+  try {
+    sessionStorage.setItem(RELOAD_KEY, String(Date.now()))
+  } catch {
+    // Sin almacenamiento se recarga igualmente.
+  }
+  window.location.reload()
+})
+
 // Planes, ítems y reglas viven en Firestore. Se esperan unos instantes antes de
 // pintar para que la primera pantalla ya use los datos reales; si la base de
 // datos tarda, se arranca con el respaldo del código y no se bloquea la web.

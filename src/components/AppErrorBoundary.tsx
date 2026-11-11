@@ -31,6 +31,20 @@ export default class AppErrorBoundary extends Component<AppErrorBoundaryProps, A
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
+    // Una pantalla abierta antes de publicar pide archivos que ya no existen:
+    // se recarga una vez para traer la versión nueva en vez de mostrar el error.
+    if (/dynamically imported module|Importing a module script failed|error loading dynamically|Expected a JavaScript/i.test(error.message)) {
+      try {
+        const last = Number(sessionStorage.getItem('adelia:chunk-reload-at') ?? 0)
+        if (Date.now() - last > 60_000) {
+          sessionStorage.setItem('adelia:chunk-reload-at', String(Date.now()))
+          window.location.reload()
+          return
+        }
+      } catch {
+        // Sin almacenamiento se muestra la pantalla de error normal.
+      }
+    }
     console.error('AppErrorBoundary:', error, info.componentStack)
     reportClientError(error, 'react')
   }
