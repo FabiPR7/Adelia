@@ -14,6 +14,13 @@ function PublicMenuPage() {
   const reserveHref = `/reservar/${slug}`
 
   const [company, setCompany] = useState<PublicBookingCompany | null>(null)
+
+  // Título con el nombre del local (el genérico de RouteTitle no lo sabe).
+  useEffect(() => {
+    if (company?.name) {
+      document.title = `Carta de ${company.name} · Adelia Reservas`
+    }
+  }, [company?.name, company?.municipality])
   const [boards, setBoards] = useState<MenuBoard[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

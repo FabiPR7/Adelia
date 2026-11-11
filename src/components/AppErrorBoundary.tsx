@@ -1,5 +1,9 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import SomethingWentWrongPage from './SomethingWentWrongPage'
+import { installClientErrorReporter, reportClientError } from '../utils/clientErrorReporter'
+
+// Fallos fuera de React (promesas sin capturar, scripts) también se informan.
+installClientErrorReporter()
 
 type AppErrorBoundaryProps = {
   children: ReactNode
@@ -28,6 +32,7 @@ export default class AppErrorBoundary extends Component<AppErrorBoundaryProps, A
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('AppErrorBoundary:', error, info.componentStack)
+    reportClientError(error, 'react')
   }
 
   private handleRetry = (): void => {

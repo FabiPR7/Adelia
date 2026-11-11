@@ -360,7 +360,8 @@ function CustomerPromotionsTab() {
 
   useEffect(() => {
     const handleFocus = () => {
-      void refreshGamificationData({ silent: true })
+      // Volver a la pestaña no recarga todo si se cargó hace menos de 3 minutos.
+      void refreshGamificationData({ silent: true, maxAgeMs: 3 * 60_000 })
     }
 
     window.addEventListener('focus', handleFocus)

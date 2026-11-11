@@ -1,4 +1,4 @@
-import { doc, getDoc } from 'firebase/firestore'
+import { collection, getDocs, limit, query, where } from 'firebase/firestore'
 import { db } from '../config/firebase'
 
 export interface CompanyMonthMetrics {
@@ -96,14 +96,46 @@ export function monthKeysInRange(from: Date, to: Date): string[] {
   return keys
 }
 
+/** Suma dos árboles de contadores (números en las hojas). */
+function sumCounterTrees(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+  for (const [key, value] of Object.entries(source)) {
+    if (typeof value === 'number') {
+      target[key] = (typeof target[key] === 'number' ? target[key] as number : 0) + value
+    } else if (value && typeof value === 'object' && !Array.isArray(value) && !('toDate' in value)) {
+      const current = target[key] && typeof target[key] === 'object' ? target[key] as Record<string, unknown> : {}
+      target[key] = sumCounterTrees(current, value as Record<string, unknown>)
+    } else if (!(key in target)) {
+      target[key] = value
+    }
+  }
+  return target
+}
+
+/**
+ * Cada mes son el documento `yyyy-mm` (visitantes únicos y datos antiguos) más
+ * los repartidos `yyyy-mm_0..9` (contadores). Se piden todos en una consulta y
+ * se suman por mes.
+ */
 export async function fetchCompanyMonthMetrics(
   companyId: string,
   months: string[],
 ): Promise<CompanyMonthMetrics[]> {
-  const snaps = await Promise.all(
-    months.map((month) => getDoc(doc(db, 'companies', companyId, 'metrics', month))),
-  )
-  return snaps
-    .filter((snap) => snap.exists())
-    .map((snap) => normalize(snap.id, snap.data() as Record<string, unknown>))
+  if (months.length === 0) {
+    return []
+  }
+  const metricsRef = collection(db, 'companies', companyId, 'metrics')
+  const byMonth = new Map<string, Record<string, unknown>>()
+  // `in` admite hasta 30 valores: se trocea por si el rango es muy largo.
+  for (let index = 0; index < months.length; index += 30) {
+    const chunk = months.slice(index, index + 30)
+    const snap = await getDocs(query(metricsRef, where('month', 'in', chunk), limit(chunk.length * 12)))
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data() as Record<string, unknown>
+      const month = typeof data.month === 'string' ? data.month : docSnap.id.split('_')[0]
+      byMonth.set(month, sumCounterTrees(byMonth.get(month) ?? {}, data))
+    }
+  }
+  return months
+    .filter((month) => byMonth.has(month))
+    .map((month) => normalize(month, byMonth.get(month)!))
 }

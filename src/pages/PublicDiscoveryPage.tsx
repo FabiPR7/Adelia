@@ -18,7 +18,7 @@ import { ADELIA_LOGO_URL } from '../constants/brand'
 import { PROMO_HERO_IMAGE } from '../data/featuredPromotions'
 import { LEGAL_CONTACT_EMAIL } from '../content/publicLegal'
 import { useFavoriteRestaurants } from '../hooks/useFavoriteRestaurants'
-import { fetchPublicDiscoveryRestaurants } from '../services/publicDiscovery'
+import { fetchPublicDiscoveryRestaurants, mergeDiscoveryRestaurants } from '../services/publicDiscovery'
 import type { CitySuggestion } from '../services/citySearch'
 import { haversineDistanceKm, type GeoCoordinates } from '../utils/geo'
 import { getPostLoginPath } from '../utils/authProfile'
@@ -57,6 +57,31 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   const [nearbyState, setNearbyState] = useState<NearbyState>('idle')
   const [nearbyMessage, setNearbyMessage] = useState<string | null>(null)
   const [userCoords, setUserCoords] = useState<GeoCoordinates | null>(null)
+
+  // La portada trae los más valorados; los de tu zona o tu ciudad se piden aparte
+  // para que salgan aunque haya miles de restaurantes en Adelia.
+  const selectedCityName = selectedCity?.name ?? ''
+  useEffect(() => {
+    const options = nearbyActive && userCoords
+      ? { near: userCoords }
+      : selectedCityName
+        ? { city: selectedCityName }
+        : null
+    if (!options) {
+      return
+    }
+    let cancelled = false
+    void fetchPublicDiscoveryRestaurants(options)
+      .then((items) => {
+        if (!cancelled && items.length > 0) {
+          setRestaurants((previous) => mergeDiscoveryRestaurants(previous, items))
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [nearbyActive, userCoords, selectedCityName])
 
   useEffect(() => {
     let cancelled = false

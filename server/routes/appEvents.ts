@@ -3,6 +3,9 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { verifyCustomerUid } from '../auth/verifyRequest.ts'
 
+/** Documentos por mes en los que se reparten los contadores de analítica. */
+export const METRIC_SHARDS = 10
+
 const router = Router()
 
 const RAW_EVENT_TTL_MS = 120 * 24 * 60 * 60 * 1000
@@ -162,8 +165,12 @@ router.post('/', async (req: Request, res: Response) => {
 
     for (const [key, counters] of companyCounters) {
       const [companyId, month] = key.split('/')
+      // Contador repartido: Firestore aguanta ~1 escritura/s por documento, así
+      // que cada lote suma en uno de METRIC_SHARDS documentos del mes al azar.
+      // El panel los suma al leer (src/services/companyMetrics.ts).
+      const shard = Math.floor(Math.random() * METRIC_SHARDS)
       batch.set(
-        adminDb.collection('companies').doc(companyId).collection('metrics').doc(month),
+        adminDb.collection('companies').doc(companyId).collection('metrics').doc(`${month}_${shard}`),
         { companyId, month, updatedAt: now, ...toIncrementPatch(counters) },
         { merge: true },
       )

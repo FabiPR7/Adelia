@@ -13,7 +13,7 @@ import AdelinaCoin from '../../components/AdelinaCoin'
 import { useAuth } from '../../context/AuthContext'
 import { useFavoriteRestaurants } from '../../hooks/useFavoriteRestaurants'
 import { usePromotionCounts } from '../../hooks/usePromotionCounts'
-import { fetchPublicDiscoveryRestaurants } from '../../services/publicDiscovery'
+import { fetchPublicDiscoveryRestaurants, mergeDiscoveryRestaurants } from '../../services/publicDiscovery'
 import type { CitySuggestion } from '../../services/citySearch'
 import { haversineDistanceKm, type GeoCoordinates } from '../../utils/geo'
 import { toGeoCoordinates } from '../../utils/mapCoordinates'
@@ -144,6 +144,31 @@ function CustomerExploreTab() {
   )
 
   const feedOrigin = userCoords ?? homeCoords
+
+  // El listado general trae los más valorados; los de tu zona o ciudad se piden
+  // aparte para que salgan aunque haya miles de restaurantes.
+  const selectedCityName = selectedCity?.name ?? ''
+  useEffect(() => {
+    const options = selectedCityName
+      ? { city: selectedCityName }
+      : feedOrigin
+        ? { near: feedOrigin }
+        : null
+    if (!options) {
+      return
+    }
+    let cancelled = false
+    void fetchPublicDiscoveryRestaurants(options)
+      .then((items) => {
+        if (!cancelled && items.length > 0) {
+          setRestaurants((previous) => mergeDiscoveryRestaurants(previous, items))
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [feedOrigin, selectedCityName])
 
   const feedDistancesKm = useMemo(() => {
     if (!feedOrigin) {

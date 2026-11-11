@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { LocateFixed, MapPin, Search, X } from 'lucide-react'
 import { usePromotionCounts } from '../hooks/usePromotionCounts'
 import { geocodePlace, suggestAddresses, type AddressSuggestion } from '../services/geocoding'
+import { fetchPublicDiscoveryRestaurants, mergeDiscoveryRestaurants } from '../services/publicDiscovery'
 import type { GeoCoordinates } from '../utils/geo'
 import { restaurantHasMapPin, type PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import { getLocationErrorMessage, requestUserLocation } from '../utils/requestUserLocation'
@@ -35,6 +36,30 @@ function LandingNearbyMap({ restaurants, onOpenRestaurant }: LandingNearbyMapPro
   const [activeIndex, setActiveIndex] = useState(-1)
   const skipNextSuggestRef = useRef(false)
   const promoCounts = usePromotionCounts()
+  // Restaurantes de la zona elegida, pedidos al servidor: así salen los cercanos
+  // aunque no estén entre los que trajo la portada.
+  const [zoneRestaurants, setZoneRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
+
+  useEffect(() => {
+    if (!origin) {
+      setZoneRestaurants([])
+      return
+    }
+    let cancelled = false
+    void fetchPublicDiscoveryRestaurants({ near: { lat: origin.coords.lat, lng: origin.coords.lng } })
+      .then((items) => {
+        if (!cancelled) setZoneRestaurants(items)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [origin])
+
+  const mapRestaurants = useMemo(
+    () => mergeDiscoveryRestaurants(zoneRestaurants, restaurants),
+    [zoneRestaurants, restaurants],
+  )
 
   // Las sugerencias priorizan la zona donde están los restaurantes de Adelia.
   const restaurantsCenter = useMemo<GeoCoordinates | null>(() => {
@@ -256,7 +281,7 @@ function LandingNearbyMap({ restaurants, onOpenRestaurant }: LandingNearbyMapPro
       <div className={styles.mapSlot}>
         <NearbyRestaurantsMap
           bare
-          restaurants={restaurants}
+          restaurants={mapRestaurants}
           userCoords={origin?.source === 'gps' ? origin.coords : null}
           homeCoords={origin?.source === 'zone' ? origin.coords : null}
           locating={status === 'locating'}

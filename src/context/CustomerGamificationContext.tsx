@@ -98,7 +98,7 @@ interface CustomerGamificationContextValue extends CustomerGamificationView {
   useOwnedInventoryItem: (itemId: string) => Promise<string>
   claimSeasonPack: (pack: 'weekly_bonus' | 'weekly_clear' | 'monthly_clear') => Promise<void>
   enqueueItemGrants: (grants: InventoryGrant[], grantKey: string) => void
-  refreshGamificationData: (options?: { silent?: boolean }) => Promise<void>
+  refreshGamificationData: (options?: { silent?: boolean; maxAgeMs?: number }) => Promise<void>
 }
 
 const CustomerGamificationContext = createContext<CustomerGamificationContextValue | null>(null)
@@ -124,11 +124,23 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     ((batches: Array<{ grantKey: string; grants: InventoryGrant[] }>) => void) | null
   >(null)
 
-  const refreshGamificationData = useCallback(async (options?: { silent?: boolean }) => {
+  // Momento de la última carga completa (reservas, consumos, premios, promos).
+  const lastGamificationFetchRef = useRef(0)
+
+  const refreshGamificationData = useCallback(async (options?: {
+    silent?: boolean
+    /** Si los datos tienen menos de esto (ms), no se vuelven a pedir (ahorra lecturas). */
+    maxAgeMs?: number
+  }) => {
     if (!isCustomer || !inCustomerApp || !profile?.email) {
       setLoading(false)
       return
     }
+
+    if (options?.maxAgeMs && Date.now() - lastGamificationFetchRef.current < options.maxAgeMs) {
+      return
+    }
+    lastGamificationFetchRef.current = Date.now()
 
     if (!options?.silent) {
       setLoading(true)

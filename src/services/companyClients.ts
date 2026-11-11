@@ -8,7 +8,9 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  startAfter,
   Timestamp,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import type { CompanyClient } from '../types'
@@ -35,17 +37,37 @@ function mapCompanyClient(id: string, data: Record<string, unknown>): CompanyCli
   }
 }
 
-export async function getCompanyClients(companyId: string): Promise<CompanyClient[]> {
+export const COMPANY_CLIENTS_PAGE_SIZE = 100
+
+export interface CompanyClientsPage {
+  clients: CompanyClient[]
+  /** Último documento de la página: se pasa para pedir la siguiente (null = no hay más). */
+  cursor: QueryDocumentSnapshot | null
+}
+
+/** Clientes del restaurante por páginas, del más reciente al más antiguo. */
+export async function getCompanyClientsPage(
+  companyId: string,
+  after: QueryDocumentSnapshot | null = null,
+): Promise<CompanyClientsPage> {
   if (isDemoCompanyId(companyId)) {
-    return getDemoClients()
+    return { clients: after ? [] : getDemoClients(), cursor: null }
   }
 
   const clientsRef = collection(db, 'companies', companyId, 'clients')
-  const snapshot = await getDocs(query(clientsRef, orderBy('lastReservationDate', 'desc'), limit(200)))
+  const constraints = [orderBy('lastReservationDate', 'desc'), ...(after ? [startAfter(after)] : []), limit(COMPANY_CLIENTS_PAGE_SIZE)]
+  const snapshot = await getDocs(query(clientsRef, ...constraints))
 
-  return snapshot.docs.map((clientDoc) =>
-    mapCompanyClient(clientDoc.id, clientDoc.data() as Record<string, unknown>),
-  )
+  return {
+    clients: snapshot.docs.map((clientDoc) =>
+      mapCompanyClient(clientDoc.id, clientDoc.data() as Record<string, unknown>),
+    ),
+    cursor: snapshot.size === COMPANY_CLIENTS_PAGE_SIZE ? snapshot.docs[snapshot.docs.length - 1] : null,
+  }
+}
+
+export async function getCompanyClients(companyId: string): Promise<CompanyClient[]> {
+  return (await getCompanyClientsPage(companyId)).clients
 }
 
 export function filterReservationsByClientEmail(

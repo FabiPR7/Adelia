@@ -1,4 +1,4 @@
-import { collection, limit, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, limit, onSnapshot, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { getIdToken } from './auth'
 import type { ReservationChallenge } from '../types/reservationChallenges'
@@ -126,11 +126,15 @@ export function subscribeReservationChallenges(
   const challengedQuery = query(
     collection(db, 'reservationChallenges'),
     where('challengedUid', '==', userId),
+    // Los más recientes primero: sin orden, pasados 20 se perdían los nuevos.
+    orderBy('updatedAt', 'desc'),
     limit(20),
   )
   const challengerQuery = query(
     collection(db, 'reservationChallenges'),
     where('challengerUid', '==', userId),
+    // Los más recientes primero: sin orden, pasados 20 se perdían los nuevos.
+    orderBy('updatedAt', 'desc'),
     limit(20),
   )
 

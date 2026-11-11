@@ -9,8 +9,38 @@ import {
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 const DISCOVERY_CACHE_MS = 120_000
 
-let cached: { at: number; items: PublicDiscoveryRestaurant[] } | null = null
-let inflight: Promise<PublicDiscoveryRestaurant[]> | null = null
+export interface DiscoveryOptions {
+  /** Restaurantes cerca de este punto (radio en km; por defecto 25). */
+  near?: { lat: number; lng: number; radiusKm?: number }
+  /** Restaurantes de esta ciudad. */
+  city?: string
+  /** Siguiente página del listado general (lo devuelve la página anterior). */
+  cursor?: string
+}
+
+export interface DiscoveryResult {
+  restaurants: PublicDiscoveryRestaurant[]
+  nextCursor: string | null
+}
+
+const cache = new Map<string, { at: number; result: DiscoveryResult }>()
+const inflight = new Map<string, Promise<DiscoveryResult>>()
+
+function discoveryQueryString(options: DiscoveryOptions): string {
+  const params = new URLSearchParams()
+  if (options.near) {
+    // ~1 km de precisión: misma URL para vecinos cercanos (caché del CDN).
+    params.set('lat', options.near.lat.toFixed(2))
+    params.set('lng', options.near.lng.toFixed(2))
+    if (options.near.radiusKm) params.set('radiusKm', String(Math.round(options.near.radiusKm)))
+  } else if (options.city?.trim()) {
+    params.set('city', options.city.trim())
+  } else if (options.cursor) {
+    params.set('cursor', options.cursor)
+  }
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
 
 function mapApiRestaurant(raw: Record<string, unknown>): PublicDiscoveryRestaurant | null {
   const id = typeof raw.id === 'string' ? raw.id : ''
@@ -50,32 +80,56 @@ function mapApiRestaurant(raw: Record<string, unknown>): PublicDiscoveryRestaura
   }
 }
 
-export async function fetchPublicDiscoveryRestaurants(): Promise<PublicDiscoveryRestaurant[]> {
-  if (cached && Date.now() - cached.at < DISCOVERY_CACHE_MS) {
-    return cached.items
+/**
+ * Listado público de restaurantes. Sin opciones: los más valorados (primera
+ * página). Con `near` o `city`: los de esa zona, aunque haya miles en total.
+ */
+export async function fetchPublicDiscoveryPage(options: DiscoveryOptions = {}): Promise<DiscoveryResult> {
+  const key = discoveryQueryString(options)
+  const hit = cache.get(key)
+  if (hit && Date.now() - hit.at < DISCOVERY_CACHE_MS) {
+    return hit.result
   }
-  if (inflight) {
-    return inflight
+  const running = inflight.get(key)
+  if (running) {
+    return running
   }
 
-  inflight = (async () => {
+  const request = (async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/public/discovery`)
+      const response = await fetch(`${API_BASE}/api/public/discovery${key}`)
       if (!response.ok) {
         throw new Error('No se pudo cargar el listado de restaurantes.')
       }
-      const payload = await response.json() as { restaurants?: unknown }
+      const payload = await response.json() as { restaurants?: unknown; nextCursor?: unknown }
       const rawList = Array.isArray(payload.restaurants) ? payload.restaurants : []
-      const items = rawList
-        .filter((item): item is Record<string, unknown> => item != null && typeof item === 'object')
-        .map(mapApiRestaurant)
-        .filter((item): item is PublicDiscoveryRestaurant => item !== null)
-      cached = { at: Date.now(), items }
-      return items
+      const result: DiscoveryResult = {
+        restaurants: rawList
+          .filter((item): item is Record<string, unknown> => item != null && typeof item === 'object')
+          .map(mapApiRestaurant)
+          .filter((item): item is PublicDiscoveryRestaurant => item !== null),
+        nextCursor: typeof payload.nextCursor === 'string' ? payload.nextCursor : null,
+      }
+      cache.set(key, { at: Date.now(), result })
+      return result
     } finally {
-      inflight = null
+      inflight.delete(key)
     }
   })()
+  inflight.set(key, request)
+  return request
+}
 
-  return inflight
+/** Atajo para quien solo quiere la lista (sin paginación). */
+export async function fetchPublicDiscoveryRestaurants(options: DiscoveryOptions = {}): Promise<PublicDiscoveryRestaurant[]> {
+  return (await fetchPublicDiscoveryPage(options)).restaurants
+}
+
+/** Junta listas sin repetir restaurantes (la primera manda en el orden). */
+export function mergeDiscoveryRestaurants(
+  base: PublicDiscoveryRestaurant[],
+  extra: PublicDiscoveryRestaurant[],
+): PublicDiscoveryRestaurant[] {
+  const seen = new Set(base.map((item) => item.id))
+  return [...base, ...extra.filter((item) => !seen.has(item.id))]
 }

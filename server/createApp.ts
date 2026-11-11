@@ -14,6 +14,8 @@ import publicMenusRouter from './routes/publicMenus.ts'
 import citiesRouter from './routes/cities.ts'
 import geocodeRouter from './routes/geocode.ts'
 import uploadsRouter from './routes/uploads.ts'
+import clientErrorsRouter from './routes/clientErrors.ts'
+import seoRouter from './routes/seo.ts'
 import reservationMinSpendRouter from './routes/reservationMinSpend.ts'
 import reservationDepositRouter from './routes/reservationDeposit.ts'
 import reservationEmailRouter from './routes/reservationEmail.ts'
@@ -110,6 +112,8 @@ export function createApp() {
   app.use('/api/public/cities', citiesRouter)
   app.use('/api/public/geocode', geocodeRouter)
   app.use('/api/uploads', uploadsRouter)
+  app.use('/api/public/client-errors', clientErrorsRouter)
+  app.use(seoRouter)
   app.use('/api/customer/notifications', customerNotificationsRouter)
   app.use('/api/customer/friends', customerFriendsRouter)
   app.use('/api/customer/favorites', customerFavoritesRouter)

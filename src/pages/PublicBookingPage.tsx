@@ -94,6 +94,13 @@ function PublicBookingPage() {
   )
   const [searchParams] = useSearchParams()
   const [company, setCompany] = useState<PublicBookingCompany | null>(null)
+
+  // Título con el nombre del local (el genérico de RouteTitle no lo sabe).
+  useEffect(() => {
+    if (company?.name) {
+      document.title = `${company.name}${company.municipality ? ` en ${company.municipality}` : ''} · Reserva mesa · Adelia`
+    }
+  }, [company?.name, company?.municipality])
   const [tables, setTables] = useState<PublicBookingTable[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [dayReservations, setDayReservations] = useState<Reservation[]>([])

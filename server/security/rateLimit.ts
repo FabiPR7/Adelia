@@ -153,6 +153,11 @@ function bucketFor(req: Request): {
     return { name: 'appEvents', max: 40, windowMs: 5 * 60_000, key: clientKey(req), distributed: true, failClosed: true }
   }
 
+  // Fallos de la web: tope por IP para que no sirva para llenar los registros.
+  if (req.method === 'POST' && url.startsWith('/api/public/client-errors')) {
+    return { name: 'clientErrors', max: 20, windowMs: 10 * 60_000, key: clientKey(req) }
+  }
+
   // Firmas de subida a Cloudinary: con sesión, por usuario; sin sesión (alta de
   // restaurante), por IP y con tope bajo para que no sirva para subir en masa.
   if (req.method === 'POST' && url.startsWith('/api/uploads/cloudinary-signature')) {

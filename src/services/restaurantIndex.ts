@@ -1,4 +1,5 @@
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { cityKey, encodeGeohash } from '../utils/geohash'
 import { db } from '../config/firebase'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import { companyFacilitySearchTerms, parseCompanyProfileFacilities, sanitizeCompanyPriceRange, sanitizeCompanyVenueTypes, type CompanyPriceRange } from '../data/companyProfileFacilities'
@@ -46,6 +47,10 @@ export function restaurantIndexPayload(company: {
     country: company.country ?? '',
     postalCode: company.postalCode ?? '',
     latitude: company.latitude ?? null,
+    ...(company.latitude != null && company.longitude != null
+      ? { geohash: encodeGeohash(company.latitude, company.longitude) }
+      : {}),
+    municipalityKey: cityKey(company.municipality ?? ''),
     longitude: company.longitude ?? null,
     photoUrl,
     logoUrl: company.logoUrl ?? '',

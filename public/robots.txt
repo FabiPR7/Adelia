@@ -13,3 +13,4 @@ Disallow: /empresa/planes/exito
 Disallow: /reservar/*/cancelar
 
 Sitemap: https://adeliareservas.com/sitemap.xml
+Sitemap: https://adeliareservas.com/sitemap-restaurantes.xml

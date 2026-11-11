@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ClientReservationDatePicker from '../../components/ClientReservationDatePicker'
 import {
-  getCompanyClients,
+  getCompanyClientsPage,
   isNewCompanyClient,
+  type CompanyClientsPage,
 } from '../../services/companyClients'
 import { getFirestoreErrorMessage, getReservationsByCompany, getTablesByCompany, tablesToMeta } from '../../services/firestore'
 import { COMPANY_CLIENT_RESERVATION_LIMIT } from '../../services/firestoreQuery'
@@ -38,6 +39,8 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [clientsCursor, setClientsCursor] = useState<CompanyClientsPage['cursor']>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const loadData = useCallback(async (refresh = false) => {
     if (refresh) {
@@ -49,12 +52,14 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
     setError(null)
 
     try {
-      const [clientRows, tableRows] = await Promise.all([
-        getCompanyClients(companyId),
+      const [clientPage, tableRows] = await Promise.all([
+        getCompanyClientsPage(companyId),
         getTablesByCompany(companyId),
       ])
+      const clientRows = clientPage.clients
 
       setClients(clientRows)
+      setClientsCursor(clientPage.cursor)
       setTableMeta(tablesToMeta(tableRows))
 
       setSelectedClientId((current) => {
@@ -78,6 +83,22 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  const loadMoreClients = async () => {
+    if (!clientsCursor || loadingMore) {
+      return
+    }
+    setLoadingMore(true)
+    try {
+      const next = await getCompanyClientsPage(companyId, clientsCursor)
+      setClients((current) => [...current, ...next.clients.filter((client) => !current.some((item) => item.id === client.id))])
+      setClientsCursor(next.cursor)
+    } catch (err) {
+      setError(getFirestoreErrorMessage(err))
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     setReservationDateFilter('')
@@ -282,6 +303,16 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
                 ))}
               </ul>
             )}
+            {clientsCursor ? (
+              <button
+                type="button"
+                className={styles.loadMoreButton}
+                onClick={() => void loadMoreClients()}
+                disabled={loadingMore}
+              >
+                {loadingMore ? 'Cargando…' : 'Cargar más clientes'}
+              </button>
+            ) : null}
           </div>
         </section>
 
