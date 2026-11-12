@@ -9,7 +9,7 @@ import { InputError, asEmail, asOptionalTrimmed, asPlainText } from '../security
 import { requireSpanishPhone } from '../security/phone.ts'
 import { createStripeClient, isStripeConfigured } from '../stripe/config.ts'
 import { parseSaasCheckoutPlanId, SAAS_CHECKOUT_META } from '../stripe/saasCatalog.ts'
-import { claimPendingLemonPlan } from '../lemonsqueezy/syncCompany.ts'
+import { offerPendingPlanClaim } from '../lemonsqueezy/pendingClaim.ts'
 import { defaultSchedule, slugToAuthEmail, slugify } from '../utils.ts'
 
 function requirePassword(value: unknown): string {
@@ -323,8 +323,8 @@ export async function completePaidCompanySignup(input: CompanySignupProfile & {
  *
  * El plan siempre se crea como `free`. El plan de pago (Sala / Local) solo lo
  * concede el webhook de Lemon Squeezy: si el pago llegó antes del alta, quedó
- * en `lemonSqueezyPending/{email}` y aquí se reclama; si llega después, el
- * webhook actualiza la empresa por correo. El `input.plan` del formulario es
+ * en `lemonSqueezyPending/{email}` y aquí se manda un enlace a ese correo para
+ * activarlo (el correo del alta nadie lo ha comprobado todavía). El `input.plan` del formulario es
  * solo cosmético (copys del asistente), nunca concede plan.
  */
 export async function completeFreeCompanySignup(
@@ -349,7 +349,7 @@ export async function completeFreeCompanySignup(
     { merge: true },
   )
 
-  await claimPendingLemonPlan(created.companyId, profile.contactEmail).catch((error) => {
+  await offerPendingPlanClaim(profile.contactEmail, created.companyId).catch((error) => {
     console.error('Lemon Squeezy pending plan claim error:', error)
   })
 

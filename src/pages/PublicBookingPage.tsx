@@ -191,7 +191,10 @@ function PublicBookingPage() {
       setDepositPaymentError(null)
 
       try {
-        const intent = await createPublicDepositIntent(slug, pax)
+        const intent = await createPublicDepositIntent(slug, pax, {
+          date: dateToIsoDate(selectedDate),
+          time: selectedTime,
+        })
         if (!cancelled) {
           setDepositIntent(intent)
           setDepositPaymentReady(false)
@@ -215,7 +218,7 @@ function PublicBookingPage() {
     return () => {
       cancelled = true
     }
-  }, [step, company, slug, pax, useDepositPass])
+  }, [step, company, slug, pax, useDepositPass, selectedDate, selectedTime])
 
   useEffect(() => {
     let cancelled = false

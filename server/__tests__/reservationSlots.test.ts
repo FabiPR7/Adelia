@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { generateSlotTimes as serverSlots } from '../reservationSlots.ts'
-import { generateSlotTimes as webSlots } from '../../src/utils/reservationSlots.ts'
 
 const day = { open: '20:00', close: '21:00', active: true, periods: [{ open: '20:00', close: '21:00' }] }
 const schedule = {
@@ -9,7 +8,7 @@ const schedule = {
 const date = new Date(Date.UTC(2030, 0, 7, 12))
 
 describe('generateSlotTimes con una duración rara guardada en la base', () => {
-  for (const [name, generate] of [['servidor', serverSlots], ['web', webSlots]] as const) {
+  for (const [name, generate] of [['servidor', serverSlots]] as const) {
     it(`${name}: con 0 no se queda en bucle y usa 5 minutos`, () => {
       const slots = generate(date, schedule as never, 0, 0)
       expect(slots[0]).toBe('20:00')

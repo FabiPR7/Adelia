@@ -140,7 +140,7 @@ describe('Lemon Squeezy company sync', () => {
     store.companies.set('company-1', { contactEmail: EMAIL })
     store.users.set('owner-1', { role: 'company', contactEmail: EMAIL, companyId: 'company-1' })
 
-    await syncCompanyFromLemonSubscription(subscription({}))
+    await syncCompanyFromLemonSubscription(subscription({}), 'company-1')
     const linked = store.companies.get('company-1')!
     expect(linked.planId).toBe('premium')
     expect(linked.planStartedAt).toBeDefined()
@@ -150,6 +150,17 @@ describe('Lemon Squeezy company sync', () => {
 
     expect(store.companies.get('company-1')?.planStartedAt).toBe('original')
     expect(store.companies.get('company-1')?.planLastPaidAt).toBe('original')
+  })
+
+  it('leaves the plan pending when it only matches the email the owner signed up with', async () => {
+    // Ese correo nadie lo ha comprobado: se activa con el enlace que llega al correo.
+    store.companies.set('company-1', { contactEmail: EMAIL, planId: 'free' })
+    store.users.set('owner-1', { role: 'company', contactEmail: EMAIL, companyId: 'company-1' })
+
+    await syncCompanyFromLemonSubscription(subscription({}))
+
+    expect(store.companies.get('company-1')?.planId).toBe('free')
+    expect(store.pending.get(lemonPendingKey(EMAIL))?.planId).toBe('premium')
   })
 
   it('does not move a linked subscription to a company that copies the email', async () => {

@@ -55,8 +55,8 @@ function CompanyPlanCheckoutSuccessPage() {
               <h1>¡Gracias por tu compra!</h1>
               <p>
                 Si aún no tienes cuenta, créala con <strong>el mismo correo</strong> con el que has
-                pagado y tu plan se activará solo. Si ya la tienes, el plan aparecerá en tu panel en
-                unos minutos.
+                pagado. Te enviaremos a ese correo un enlace para activar el plan en tu restaurante.
+                Si pagaste desde tu panel con la sesión iniciada, el plan aparecerá allí en unos minutos.
               </p>
               <p>
                 <Link to="/empresa/alta" className={`${styles.ctaGhost} ${styles.successBack}`}>

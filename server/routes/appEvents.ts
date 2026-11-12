@@ -73,6 +73,54 @@ function parseEvent(raw: unknown): ParsedEvent | null {
   }
 }
 
+/** Eventos cuyo entityId es una promoción o una carta del propio restaurante. */
+const PROMO_ENTITY_TYPES = new Set(['promo_view', 'promo_claim', 'promo_reserve_click', 'reservation_from_promo'])
+const MAX_COMPANIES_PER_BATCH = 5
+
+/**
+ * Solo cuenta eventos de restaurantes que existen, y solo guarda el id de una
+ * promoción o carta si es de ese restaurante. Si no, cualquiera podía llenar
+ * las métricas de un local (o crear locales fantasma) con ids inventados.
+ */
+async function keepRealEntities(events: ParsedEvent[]): Promise<ParsedEvent[]> {
+  const companyIds = [...new Set(events.map((event) => event.companyId))].slice(0, MAX_COMPANIES_PER_BATCH)
+  if (companyIds.length === 0) {
+    return []
+  }
+  const companySnaps = await adminDb.getAll(...companyIds.map((id) => adminDb.collection('companies').doc(id)))
+  const realCompanies = new Set(companySnaps.filter((snap) => snap.exists).map((snap) => snap.id))
+
+  const kept = events.filter((event) => realCompanies.has(event.companyId))
+  const entityRefs = new Map<string, FirebaseFirestore.DocumentReference>()
+  for (const event of kept) {
+    if (!event.entityId) {
+      continue
+    }
+    const collection = PROMO_ENTITY_TYPES.has(event.type)
+      ? 'promotions'
+      : event.type === 'menu_board_view'
+        ? 'menuBoards'
+        : null
+    if (collection) {
+      entityRefs.set(`${event.companyId}/${collection}/${event.entityId}`, adminDb.collection('companies').doc(event.companyId).collection(collection).doc(event.entityId))
+    }
+  }
+  const entitySnaps = entityRefs.size > 0 ? await adminDb.getAll(...entityRefs.values()) : []
+  const realEntities = new Set([...entityRefs.keys()].filter((_key, index) => entitySnaps[index]?.exists))
+
+  return kept.map((event) => {
+    if (!event.entityId) {
+      return event
+    }
+    const collection = PROMO_ENTITY_TYPES.has(event.type) ? 'promotions' : event.type === 'menu_board_view' ? 'menuBoards' : null
+    if (!collection) {
+      // Estos eventos no usan el id: no se guarda.
+      return { ...event, entityId: '' }
+    }
+    return realEntities.has(`${event.companyId}/${collection}/${event.entityId}`) ? event : { ...event, entityId: '' }
+  })
+}
+
 type CounterTree = { [key: string]: number | CounterTree }
 
 /** Suma `amount` al contador en la ruta con puntos `path` (números planos). */
@@ -116,18 +164,24 @@ router.post('/', async (req: Request, res: Response) => {
     const anonIdRaw = typeof body.anonId === 'string' ? body.anonId : ''
     const anonId = /^[A-Za-z0-9_-]{8,64}$/.test(anonIdRaw) ? anonIdRaw : ''
 
-    const events = rawList.map(parseEvent).filter((event): event is ParsedEvent => event !== null)
-    if (events.length === 0) {
+    const parsed = rawList.map(parseEvent).filter((event): event is ParsedEvent => event !== null)
+    if (parsed.length === 0) {
       res.json({ received: true, stored: 0 })
       return
     }
 
-    const uid = await softUid(req)
     const analyticsConsent = body.analyticsConsent === true
     if (!analyticsConsent) {
       res.status(403).json({ error: 'Se requiere consentimiento de analítica.' })
       return
     }
+
+    const events = await keepRealEntities(parsed)
+    if (events.length === 0) {
+      res.json({ received: true, stored: 0 })
+      return
+    }
+    const uid = await softUid(req)
 
     const now = FieldValue.serverTimestamp()
     const expireAt = Timestamp.fromMillis(Date.now() + RAW_EVENT_TTL_MS)

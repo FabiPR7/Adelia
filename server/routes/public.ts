@@ -360,6 +360,17 @@ function mapPublicReview(id: string, data: FirebaseFirestore.DocumentData) {
   }
 }
 
+/**
+ * Stripe solo retiene una fianza unos 7 días: si la reserva es más tarde, la
+ * retención caduca antes y no se podría cobrar si el cliente no viene.
+ */
+const DEPOSIT_MAX_DAYS_AHEAD = 6
+const DEPOSIT_TOO_FAR_MESSAGE = `Este restaurante pide fianza: solo se puede reservar con hasta ${DEPOSIT_MAX_DAYS_AHEAD} días de antelación.`
+
+function depositStartTooFar(startTime: Date): boolean {
+  return startTime.getTime() - Date.now() > DEPOSIT_MAX_DAYS_AHEAD * 24 * 60 * 60 * 1000
+}
+
 router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>, res: Response) => {
   try {
     const record = await getCompanyRecordBySlug(req.params.slug)
@@ -407,6 +418,15 @@ router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>
       res.status(409).json({
         error: 'Este restaurante aún no puede cobrar fianzas. Contacta con el local.',
       })
+      return
+    }
+
+    // La web manda la fecha: así no se retiene la tarjeta para una reserva que luego se rechazaría.
+    const intentDate = typeof req.body?.date === 'string' ? req.body.date.trim() : ''
+    const intentTime = typeof req.body?.time === 'string' ? req.body.time.trim() : ''
+    if (/^\d{4}-\d{2}-\d{2}$/.test(intentDate) && /^\d{2}:\d{2}$/.test(intentTime)
+      && depositStartTooFar(combineDateAndTime(parseBookingDate(intentDate), intentTime))) {
+      res.status(409).json({ error: DEPOSIT_TOO_FAR_MESSAGE })
       return
     }
 
@@ -843,6 +863,11 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
 
     if ((skipDeposit || useExtraPax) && !customer) {
       res.status(401).json({ error: 'Inicia sesión para usar este ítem.' })
+      return
+    }
+
+    if (depositAmountCents > 0 && !skipDeposit && depositStartTooFar(startTime)) {
+      res.status(409).json({ error: DEPOSIT_TOO_FAR_MESSAGE })
       return
     }
 

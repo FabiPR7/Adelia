@@ -64,7 +64,6 @@ export function parseLemonSubscription(data: unknown): ParsedSubscription | null
  * 1. `company_id` que la web mete en el checkout cuando el restaurante ha iniciado sesión.
  * 2. La suscripción ya enlazada.
  * 3. El correo con el que ya pagó antes.
- * 4. El correo del dueño guardado en su usuario al darse de alta (el restaurante no puede cambiarlo).
  * Nunca se usa `contactEmail`: lo edita el propio restaurante, y otro local podría
  * ponerse el correo de quien va a pagar para quedarse con su plan.
  */
@@ -99,22 +98,9 @@ export async function findCompanyForLemonPayment(
   if (!byLemonEmail.empty) {
     return byLemonEmail.docs[0]
   }
-  const owners = await adminDb
-    .collection(COLLECTIONS.users)
-    .where('contactEmail', '==', email)
-    .where('role', '==', 'company')
-    .limit(2)
-    .get()
-  // Si dos cuentas comparten correo no adivinamos: el plan queda pendiente para revisarlo.
-  if (owners.size !== 1) {
-    return null
-  }
-  const ownerCompanyId = owners.docs[0].data().companyId
-  if (typeof ownerCompanyId !== 'string' || !ownerCompanyId) {
-    return null
-  }
-  const byOwner = await companies.doc(ownerCompanyId).get()
-  return byOwner.exists ? byOwner : null
+  // El correo con el que se dio de alta un restaurante nadie lo ha comprobado:
+  // el plan queda pendiente y se manda un enlace a ese correo (pendingClaim.ts).
+  return null
 }
 
 /** Plan de por vida (pago único): ningún aviso de suscripción puede quitarlo. */
@@ -216,6 +202,10 @@ export async function syncCompanyFromLemonSubscription(data: unknown, customComp
         status: sub.status,
         updatedAt: FieldValue.serverTimestamp(),
         expireAt: Timestamp.fromMillis(Date.now() + PENDING_TTL_MS),
+      }, { merge: true })
+      const { offerPendingPlanClaim } = await import('./pendingClaim.ts')
+      await offerPendingPlanClaim(sub.email).catch((error) => {
+        console.error('Lemon Squeezy: no se pudo enviar el enlace del plan', error)
       })
     }
     return

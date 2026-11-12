@@ -3,6 +3,8 @@ import { InputError, asTrimmed } from '../security/validate.ts'
 import { readPublicSaasCheckoutSession, saasBillingStatus } from '../stripe/saasBilling.ts'
 import { completeFreeCompanySignup } from '../data/createCompanyFromCheckout.ts'
 import { requireRecaptcha } from '../security/recaptcha.ts'
+import { claimPendingPlanByToken } from '../lemonsqueezy/pendingClaim.ts'
+import { APP_URL } from '../email/config.ts'
 
 function asCheckoutSessionId(value: unknown): string {
   const id = asTrimmed(value, 200, 'La sesión de pago')
@@ -35,6 +37,33 @@ function signupProfileFromBody(body: Record<string, unknown>) {
 }
 
 const router = Router()
+
+function claimPage(title: string, body: string): string {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Adelia</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f7f2ec;font-family:system-ui,sans-serif;color:#2a1c14;padding:16px}main{max-width:420px;background:#fff;border-radius:16px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}h1{font-size:1.4rem;margin:0 0 .6rem}p{line-height:1.5}a{display:inline-block;margin-top:.6rem;padding:.7rem 1.2rem;border-radius:999px;background:#5b4636;color:#fff;text-decoration:none;font-weight:600}</style></head>
+<body><main><h1>${title}</h1><p>${body}</p><a href="${APP_URL}/login">Ir a mi panel</a></main></body></html>`
+}
+
+// Enlace del correo «Activa tu plan»: solo quien tiene acceso a ese correo puede abrirlo.
+router.get('/claim-plan', async (req: Request, res: Response) => {
+  try {
+    const result = await claimPendingPlanByToken(String(req.query.token ?? ''))
+    res.set('Cache-Control', 'no-store')
+    if (result === 'activated') {
+      res.send(claimPage('Plan activado', 'Tu plan ya está activo en tu restaurante. Entra en tu panel para empezar a usarlo.'))
+      return
+    }
+    res.status(result === 'expired' ? 410 : 404).send(claimPage(
+      'Enlace no válido',
+      result === 'expired'
+        ? 'Este enlace ha caducado. Escríbenos y te mandamos otro.'
+        : 'Este enlace no es válido o ya se usó. Si tu plan no aparece en el panel, escríbenos.',
+    ))
+  } catch (error) {
+    console.error('Claim plan link error:', error)
+    res.status(500).send(claimPage('Algo ha fallado', 'No pudimos activar el plan. Prueba otra vez en unos minutos.'))
+  }
+})
 
 router.get('/status', (_req: Request, res: Response) => {
   res.json(saasBillingStatus())

@@ -13,13 +13,14 @@ export interface PublicDepositIntentResponse {
 export async function createPublicDepositIntent(
   slug: string,
   pax: number,
+  when?: { date: string; time: string },
 ): Promise<PublicDepositIntentResponse> {
   const response = await fetch(
     `${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/deposit-intent`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pax }),
+      body: JSON.stringify({ pax, ...(when ?? {}) }),
     },
   )
 

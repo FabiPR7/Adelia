@@ -108,6 +108,10 @@ export async function syncCompanyFromLemonOrder(
       status: 'paid',
       updatedAt: FieldValue.serverTimestamp(),
       expireAt: Timestamp.fromMillis(Date.now() + PENDING_TTL_MS),
+    }, { merge: true })
+    const { offerPendingPlanClaim } = await import('./pendingClaim.ts')
+    await offerPendingPlanClaim(order.email).catch((error) => {
+      console.error('Lemon Squeezy: no se pudo enviar el enlace del plan', error)
     })
     return
   }
