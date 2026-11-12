@@ -5,6 +5,7 @@ import { verifySignedInUser } from '../auth/verifyRequest.ts'
 import { ensureRemoteCatalog, getRemoteCatalog } from '../data/remoteCatalog.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { loadDailyStats } from '../admin/dailyStats.ts'
+import { computeAdminAnalytics, computeAdminGeography, parseAnalyticsRange } from '../admin/analytics.ts'
 
 /**
  * Panel de administración (todas las rutas pasan antes por verifyAdmin).
@@ -148,6 +149,9 @@ router.get('/stats', async (req: Request, res: Response) => {
     })
 
     const paidCompanies = plans.filter((plan) => plan.planId !== 'free').reduce((sum, plan) => sum + plan.total, 0)
+    // Un local sin planId guardado también es de plan gratuito: así «Mesa» cuadra con el total.
+    const freePlan = plans.find((plan) => plan.planId === 'free')
+    if (freePlan) freePlan.total = Math.max(freePlan.total, companyCount - paidCompanies)
     const body = {
       generatedAt: new Date().toISOString(),
       totals: {
@@ -182,6 +186,51 @@ router.get('/stats', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('admin stats error:', error)
     res.status(500).json({ error: 'No se pudieron calcular las estadísticas.' })
+  }
+})
+
+/* ───────────── Informes entre fechas ───────────── */
+
+const analyticsCache = new Map<string, { at: number; body: unknown }>()
+
+router.get('/analytics', async (req: Request, res: Response) => {
+  const range = parseAnalyticsRange(req.query.from, req.query.to)
+  if (!range) {
+    res.status(400).json({ error: 'Elige unas fechas válidas (como mucho dos años).' })
+    return
+  }
+  const includeTest = req.query.test === '1'
+  const key = `${range.from}|${range.to}|${includeTest}`
+  const cached = analyticsCache.get(key)
+  if (cached && Date.now() - cached.at < STATS_CACHE_MS) {
+    res.json(cached.body)
+    return
+  }
+  try {
+    const body = await computeAdminAnalytics(range, includeTest)
+    if (analyticsCache.size > 50) analyticsCache.clear()
+    analyticsCache.set(key, { at: Date.now(), body })
+    res.json(body)
+  } catch (error) {
+    console.error('admin analytics error:', error)
+    res.status(500).json({ error: 'No se pudieron calcular los informes.' })
+  }
+})
+
+let geoCache: { at: number; body: unknown } | null = null
+
+router.get('/geography', async (_req: Request, res: Response) => {
+  if (geoCache && Date.now() - geoCache.at < 5 * 60_000) {
+    res.json(geoCache.body)
+    return
+  }
+  try {
+    const body = await computeAdminGeography()
+    geoCache = { at: Date.now(), body }
+    res.json(body)
+  } catch (error) {
+    console.error('admin geography error:', error)
+    res.status(500).json({ error: 'No se pudo calcular el mapa de usuarios.' })
   }
 })
 

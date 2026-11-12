@@ -1,3 +1,4 @@
+import { recordLemonPayment } from '../lemonsqueezy/ledger.ts'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
@@ -148,6 +149,8 @@ export async function handleLemonSqueezyWebhook(req: Request, res: Response): Pr
     } else {
       await syncCompanyFromLemonSubscription(payload.data, customCompanyId)
     }
+    // Cada cobro o devolución queda en el libro que lee el panel de administración.
+    await recordLemonPayment(payload.data as never, eventName, customCompanyId)
   } catch (error) {
     console.error('Lemon Squeezy webhook handler error:', error)
     await releaseEvent(eventId)

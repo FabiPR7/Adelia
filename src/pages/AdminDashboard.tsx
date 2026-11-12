@@ -53,15 +53,18 @@ import {
   IconPlus,
   IconRefresh,
   IconShield,
+  IconTrend,
   IconUsers,
 } from '../components/admin/AdminIcons'
+import AdminReportsBoard from '../components/admin/AdminReportsBoard'
 import { isAllowedMonthlyBillingDate, parseDateInput } from '../data/companyPlans'
 import styles from './AdminDashboard.module.css'
 
-type AdminView = 'home' | 'companies' | 'plans' | 'customers' | 'game' | 'notify' | 'moderation' | 'security'
+type AdminView = 'home' | 'reports' | 'companies' | 'plans' | 'customers' | 'game' | 'notify' | 'moderation' | 'security'
 
 const VIEW_TITLE: Record<AdminView, string> = {
   home: 'El pulso de Adelia',
+  reports: 'Informes',
   companies: 'Restaurantes',
   plans: 'Planes y cobro',
   customers: 'Clientes',
@@ -73,6 +76,7 @@ const VIEW_TITLE: Record<AdminView, string> = {
 
 const VIEW_HINT: Record<AdminView, string> = {
   home: 'Ingresos, crecimiento y actividad de toda la plataforma.',
+  reports: 'Ingresos, facturas, reservas, clientes y restaurantes entre las fechas que elijas, con mapa por país y ciudad.',
   companies: 'Altas, fichas, planes, actividad y desactivación de locales.',
   plans: 'Suscripciones, precios, límites de cada plan y cobro con Lemon Squeezy.',
   customers: 'Fichas de clientes: nivel, XP, Adelinás, objetos, reservas y bloqueos.',
@@ -83,7 +87,13 @@ const VIEW_HINT: Record<AdminView, string> = {
 }
 
 const NAV: Array<{ group: string; items: Array<{ view: AdminView; label: string; icon: ReactNode }> }> = [
-  { group: 'General', items: [{ view: 'home', label: 'Inicio', icon: <IconOverview /> }] },
+  {
+    group: 'General',
+    items: [
+      { view: 'home', label: 'Inicio', icon: <IconOverview /> },
+      { view: 'reports', label: 'Informes', icon: <IconTrend /> },
+    ],
+  },
   {
     group: 'Negocio',
     items: [
@@ -389,6 +399,8 @@ function AdminDashboard() {
         <main className={styles.main}>
           {success ? <div className={styles.success}>{success}</div> : null}
           {opsError && currentView !== 'companies' ? <div className={styles.errorBanner}>{opsError}</div> : null}
+
+          {currentView === 'reports' ? <AdminReportsBoard /> : null}
 
           {currentView === 'home' ? (
             <AdminHomeBoard

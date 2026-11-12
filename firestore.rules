@@ -109,6 +109,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /billingLedger/{entryId} {
+      // Libro de cobros (facturas y pagos únicos). Solo backend; el admin lo lee por la API.
+      allow read, write: if false;
+    }
+
     match /lemonSqueezyPending/{emailKey} {
       // Plan pagado en Lemon Squeezy antes de existir la empresa. Solo backend.
       allow read, write: if false;

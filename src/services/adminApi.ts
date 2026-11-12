@@ -127,8 +127,95 @@ export interface AdminAuditEntry {
 
 export type BroadcastTarget = 'customer' | 'company' | 'allCustomers' | 'allCompanies'
 
+export interface AdminAnalyticsBucket {
+  key: string
+  reservations: number
+  cancelled: number
+  noShows: number
+  pax: number
+  newCustomers: number
+  newCompanies: number
+  revenueCents: number
+  claims: number
+}
+
+export interface AdminInvoiceRow {
+  id: string
+  paidAt: string | null
+  companyId: string
+  companyName: string
+  customerEmail: string
+  planId: string
+  kind: string
+  status: string
+  currency: string
+  totalCents: number
+  taxCents: number
+  refundedCents: number
+  netCents: number
+  invoiceUrl: string
+  testMode: boolean
+}
+
+export interface AdminAnalytics {
+  generatedAt: string
+  range: { from: string; to: string; days: number; granularity: 'day' | 'month' }
+  previous: { from: string; to: string }
+  includeTest: boolean
+  truncated: boolean
+  kpis: {
+    revenueNetCents: number
+    revenueGrossCents: number
+    taxCents: number
+    refundsCents: number
+    invoices: number
+    failedPayments: number
+    avgTicketCents: number
+    newCustomers: number
+    newCompanies: number
+    reservations: number
+    pax: number
+    attended: number
+    pending: number
+    cancelledByClient: number
+    cancelledByRestaurant: number
+    noShows: number
+    withPromotion: number
+    withAccount: number
+    claims: number
+    reviews: number
+    avgRating: number | null
+    prev: { revenueNetCents: number; newCustomers: number; reservations: number }
+  }
+  series: AdminAnalyticsBucket[]
+  byHour: number[]
+  byWeekday: number[]
+  revenueByMonth: Array<{ month: string; invoices: number; grossCents: number; taxCents: number; refundsCents: number; netCents: number }>
+  revenueByPlan: Array<{ planId: string; invoices: number; netCents: number }>
+  invoices: AdminInvoiceRow[]
+  topCompanies: Array<{
+    id: string; name: string; municipality: string; planId: string
+    reservations: number; pax: number; cancelled: number; noShows: number; attended: number
+    claims: number; reviews: number; avgRating: number | null; revenueCents: number
+  }>
+  reservationsByCity: Array<{ city: string; reservations: number; pax: number }>
+  newCustomersByCountry: Array<{ name: string; count: number }>
+  newCustomersByCity: Array<{ name: string; count: number }>
+}
+
+export interface AdminGeography {
+  generatedAt: string
+  totalCustomers: number
+  totalCompanies: number
+  customersByCountry: Array<{ country: string; customers: number; cities: Array<{ city: string; customers: number }> }>
+  companiesByCity: Array<{ city: string; companies: number; paid: number; active: number; country: string }>
+}
+
 export const adminApi = {
   stats: (days: number) => request<AdminStats>(`/stats?days=${days}`),
+  analytics: (from: string, to: string, includeTest = false) =>
+    request<AdminAnalytics>(`/analytics?from=${from}&to=${to}${includeTest ? '&test=1' : ''}`),
+  geography: () => request<AdminGeography>('/geography'),
   customer: (uid: string) => request<AdminCustomerDetail>(`/customers/${encodeURIComponent(uid)}`),
   adjustCustomer: (uid: string, body: {
     xpDelta?: number
