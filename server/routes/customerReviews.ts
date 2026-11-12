@@ -9,6 +9,16 @@ import { notifyCompanyReviewScoreChange } from '../notifications/companyNotifica
 import { syncCompanyGamificationDoc } from '../gamification/syncCompany.ts'
 
 const router = Router()
+
+/** Quita las marcas de platos y premios ([[p|…|Nombre]], [[r|…|Nombre]]) y deja solo el nombre. */
+export function reviewExcerpt(comment: string): string {
+  return comment
+    .replace(/\[\[[pr]\|(?:[^|\]]*\|)*([^|\]]*)\]\]/g, '$1')
+    .replace(/\[\[[^\]]*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180)
+}
 const PRODUCT_TAG = /\[\[p\|([^|]+)\|([^|]+)\|([^\]]+)\]\]/g
 const PROMOTION_TAG = /\[\[r\|([^|]+)\|([^\]]+)\]\]/g
 
@@ -205,7 +215,7 @@ router.post('/', async (req: Request, res: Response) => {
         reservationId: input.reservationId,
         rating: input.rating,
         hasPhoto: input.hasPhoto,
-        commentExcerpt: input.comment.slice(0, 180),
+        commentExcerpt: reviewExcerpt(input.comment),
         createdAt: FieldValue.serverTimestamp(),
       })
       return {
@@ -366,7 +376,7 @@ router.put('/:companyId', async (req: Request, res: Response) => {
         reservationId: input.reservationId,
         rating: input.rating,
         hasPhoto: input.hasPhoto,
-        commentExcerpt: input.comment.slice(0, 180),
+        commentExcerpt: reviewExcerpt(input.comment),
         createdAt: previous.createdAt ?? FieldValue.serverTimestamp(),
       }, { merge: true })
       return { previousScore, nextScore, rating: input.rating }

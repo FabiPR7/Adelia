@@ -66,6 +66,13 @@ export function getReviewCommentPlainLength(comment: string): number {
   return plain.trim().length
 }
 
+/** Extracto para listas: sin marcas, y sin una marca cortada a medias al final. */
+export function cleanReviewExcerpt(excerpt: string): string {
+  return getReviewCommentPlainText(
+    excerpt.replace(/\[\[[pr]\|(?:[^|\]]*\|)*([^|\]]*)\]\]/g, '$1').replace(/\[\[[^\]]*$/, ''),
+  )
+}
+
 export function getReviewCommentPlainText(comment: string): string {
   return comment
     .replace(new RegExp(REVIEW_PRODUCT_TAG_PATTERN.source, 'g'), (_full, _b, _n, name: string) => name)

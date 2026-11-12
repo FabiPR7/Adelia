@@ -133,8 +133,8 @@ function CustomerOnboardingPageContent() {
         <div className={styles.brandRow}>
           <img src={ADELIA_LOGO_URL} alt="" className={styles.logo} />
           <div>
-            <p className={styles.eyebrow}>Último paso</p>
-            <h1>Personaliza tu perfil</h1>
+            <p className={styles.eyebrow}>{isEditing ? 'Tu perfil' : 'Último paso'}</p>
+            <h1>{isEditing ? 'Editar perfil' : 'Personaliza tu perfil'}</h1>
           </div>
         </div>
 

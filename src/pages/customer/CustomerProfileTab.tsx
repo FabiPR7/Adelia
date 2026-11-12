@@ -13,6 +13,7 @@ import { getLevelProfileBodyTheme } from '../../utils/levelProfileBodyThemes'
 import { getLevelRankingStripTheme } from '../../utils/levelRankingStripThemes'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
 import LegalLinks from '../../components/LegalLinks'
+import { cleanReviewExcerpt } from '../../utils/reviewCommentTags'
 import styles from './CustomerProfileTab.module.css'
 
 const QUICK_ACCENTS = ['coral', 'gold', 'magenta', 'sunset'] as const
@@ -180,7 +181,7 @@ function CustomerProfileTab() {
           <Link to="/app/reservas" className={`${styles.quickCard} ${styles.quick_gold}`}>
             <span className={styles.quickIcon} aria-hidden="true">📅</span>
             <strong>Reservas y consumo</strong>
-            <span>Por ir, hechas y visitas</span>
+            <span>Por ir, pasadas y visitas</span>
           </Link>
           <Link to="/app/promociones" className={`${styles.quickCard} ${styles.quick_magenta}`}>
             <span className={styles.quickIcon} aria-hidden="true">🎁</span>
@@ -230,7 +231,7 @@ function CustomerProfileTab() {
                   <strong>{review.companyName}</strong>
                   <span>
                     {review.rating} Adelinas
-                    {review.commentExcerpt ? ` · ${review.commentExcerpt}` : ''}
+                    {review.commentExcerpt ? ` · ${cleanReviewExcerpt(review.commentExcerpt)}` : ''}
                   </span>
                 </li>
               ))}

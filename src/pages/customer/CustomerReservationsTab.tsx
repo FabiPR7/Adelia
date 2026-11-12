@@ -541,7 +541,7 @@ function CustomerReservationsTab() {
         <p className={styles.eyebrow}>Tus planes</p>
         <h1>Reservas y consumo</h1>
         <p className={styles.lead}>
-          Reservas por ir o hechas, y el consumo que el restaurante ya validó con PIN.
+          Reservas por ir y pasadas, y el consumo que el restaurante ya validó con PIN.
         </p>
         {challengeError ? <p className={styles.inviteError}>{challengeError}</p> : null}
 

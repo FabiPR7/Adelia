@@ -603,3 +603,10 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* En móvil la campana flotante va arriba a la derecha: el botón «Editar» no puede quedar debajo. */
+@media (max-width: 767px) {
+  .topBar {
+    padding-right: 3.4rem;
+  }
+}

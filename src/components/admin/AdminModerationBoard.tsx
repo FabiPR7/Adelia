@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { IndexedReview } from '../../types/adminOps'
 import { IconSearch } from './AdminIcons'
+import { cleanReviewExcerpt } from '../../utils/reviewCommentTags'
 import styles from './AdminOpsBoard.module.css'
 
 interface AdminModerationBoardProps {
@@ -84,7 +85,7 @@ function AdminModerationBoard({
                     {review.rating}/5
                     {review.hasPhoto ? <em>Con foto</em> : null}
                   </td>
-                  <td>{review.commentExcerpt || '—'}</td>
+                  <td>{cleanReviewExcerpt(review.commentExcerpt) || '—'}</td>
                   <td>
                     <button type="button" className={styles.danger} disabled={isSaving} onClick={() => void onDelete(review)}>
                       Quitar

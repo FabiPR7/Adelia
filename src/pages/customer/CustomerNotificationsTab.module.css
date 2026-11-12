@@ -112,6 +112,11 @@
   border-color: rgba(255, 107, 74, 0.18);
 }
 
+/* El punto de «sin leer» va en la esquina: la fecha se aparta para no quedar debajo. */
+.itemUnread .itemHeader {
+  padding-right: 1.6rem;
+}
+
 .itemRead {
   opacity: 0.82;
 }
@@ -218,4 +223,11 @@
   background: rgba(185, 28, 28, 0.08);
   color: #b91c1c;
   font-size: 0.82rem;
+}
+
+/* En móvil la campana flotante va arriba a la derecha: «Marcar todo leído» no puede quedar debajo. */
+@media (max-width: 767px) {
+  .header {
+    padding-right: 3.4rem;
+  }
 }
