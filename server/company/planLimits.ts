@@ -18,8 +18,8 @@ const PROMO_TYPE_CAPABILITY: Record<string, string> = {
 const DEFAULT_CAPS: Record<StoredPlanId, Record<string, RemoteCapValue>> = {
   free: { menus: 1, menu_photos: false, menu_pdf: false, active_maps: false, deposits: false, promos_offer: false, promos_limited: false, promos_attendance: false },
   basic: { menus: 3, menu_photos: true, menu_pdf: false, active_maps: 1, deposits: true, promos_offer: 3, promos_limited: false, promos_attendance: false },
-  premium: { menus: 5, menu_photos: true, menu_pdf: true, active_maps: 5, deposits: true, promos_offer: 5, promos_limited: 5, promos_attendance: 5 },
-  premium_plus: { menus: 5, menu_photos: true, menu_pdf: true, active_maps: 5, deposits: true, promos_offer: 5, promos_limited: 5, promos_attendance: 5 },
+  premium: { menus: 5, menu_photos: true, menu_pdf: true, active_maps: 5, deposits: true, promos_offer: 10, promos_limited: 10, promos_attendance: 10 },
+  premium_plus: { menus: 5, menu_photos: true, menu_pdf: true, active_maps: 5, deposits: true, promos_offer: 10, promos_limited: 10, promos_attendance: 10 },
 }
 
 export function parseStoredPlanId(value: unknown): StoredPlanId {

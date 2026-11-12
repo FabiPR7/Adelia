@@ -19,9 +19,9 @@ describe('clampPromotionsToPlan', () => {
     expect(result.every((item) => item.type === 'reservation_ladder')).toBe(true)
   })
 
-  it('limits Local to 5 of each type', () => {
-    const result = clamp([...promos('reservation_ladder', 7), ...promos('attendance', 7)], 'premium')
+  it('limits Local to 10 of each type', () => {
+    const result = clamp([...promos('reservation_ladder', 12), ...promos('attendance', 12)], 'premium')
 
-    expect(result).toHaveLength(10)
+    expect(result).toHaveLength(20)
   })
 })

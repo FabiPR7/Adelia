@@ -38,7 +38,7 @@ describe('with the code fallback (empty database)', () => {
   it('keeps the previous behaviour', () => {
     expect(planMaxMenus('basic')).toBe(3)
     expect(planMaxActiveMaps('free')).toBe(0)
-    expect(planMaxPromosOfType('premium', 'attendance')).toBe(5)
+    expect(planMaxPromosOfType('premium', 'attendance')).toBe(10)
     expect(planMaxPromosOfType('basic', 'attendance')).toBe(0)
     expect(promoLockStrikes()).toBe(5)
     expect(cancellationPenaltyRates()).toHaveLength(5)

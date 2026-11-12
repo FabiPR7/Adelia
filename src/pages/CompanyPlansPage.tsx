@@ -267,7 +267,7 @@ function CompanyPlansPage() {
                   ['Carta PDF', '—', '—', 'Incluido'],
                   ['Mesas', '8', '15', '50'],
                   ['Mapas activos', '—', '1', '5'],
-                  ['Promociones', '—', '3 Oferta', '5 de cada tipo'],
+                  ['Promociones', '—', '3 Oferta', '10 de cada tipo'],
                   ['Informes', '—', 'Reservas y clientes', 'Todos'],
                   ['Compite', '—', '—', 'Premios y descuentos'],
                   ['Fianzas', '—', 'Incluido', 'Incluido'],

@@ -133,6 +133,7 @@ function sectionCardClass(section: SettingsSection, activeSection: SettingsSecti
   }`
 }
 
+const MIN_TIME_SLOT_MINUTES = 15
 const MAX_TIME_SLOT_MINUTES = 240
 
 function sanitizeTimeSlotMinutesInput(raw: string): string {
@@ -148,7 +149,7 @@ function parseTimeSlotMinutesForSave(input: string): number | null {
 
   const value = Number(digits)
 
-  if (!Number.isFinite(value) || value <= 0 || value > MAX_TIME_SLOT_MINUTES) {
+  if (!Number.isFinite(value) || value < MIN_TIME_SLOT_MINUTES || value > MAX_TIME_SLOT_MINUTES) {
     return null
   }
 
@@ -515,7 +516,7 @@ const CompanySettings = forwardRef(function CompanySettings(
       : parseTimeSlotMinutesForSave(timeSlotMinutesInput)
 
     if (timeSlotMinutes === null) {
-      setError('La duración debe ser un número entre 1 y 240 minutos.')
+      setError(`La duración debe ser un número entre ${MIN_TIME_SLOT_MINUTES} y ${MAX_TIME_SLOT_MINUTES} minutos.`)
       return false
     }
 

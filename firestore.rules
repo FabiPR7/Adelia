@@ -325,6 +325,11 @@ service cloud.firestore {
       return changedKeys.hasOnly(companyOwnerUpdatableKeys())
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
+        // Duración de reserva razonable: con 0 el cálculo de horas no avanza.
+        && (!changedKeys.hasAny(['timeSlotMinutes'])
+          || (request.resource.data.timeSlotMinutes is int
+            && request.resource.data.timeSlotMinutes >= 15
+            && request.resource.data.timeSlotMinutes <= 240))
         // Si lo desactivó el administrador, el dueño no puede volver a activarlo.
         && !(resource.data.get('deactivatedByAdmin', false) == true
           && request.resource.data.get('deactivated', false) != true);

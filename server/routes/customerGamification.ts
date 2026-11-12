@@ -305,7 +305,10 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
     const userSnaps = userRefs.length > 0
       ? await adminDb.getAll(...userRefs)
       : []
-    const selfSnap = await adminDb.collection('users').doc(customer.uid).get()
+    const [selfSnap, selfStatsSnap] = await Promise.all([
+      adminDb.collection('users').doc(customer.uid).get(),
+      adminDb.collection('userGamification').doc(customer.uid).get(),
+    ])
     const selfCountry = String(selfSnap.data()?.homeCountry ?? selfSnap.data()?.country ?? 'España')
 
     const entries = statsSnap.docs.flatMap((docSnap, index) => {
@@ -331,7 +334,8 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
     })
 
     if (!entries.some((entry) => entry.isYou)) {
-      const selfXp = numberValue(selfSnap.data()?.xp)
+      // El mismo XP que usa el ranking (userGamification), no el copiado en users.
+      const selfXp = numberValue(selfStatsSnap.exists ? selfStatsSnap.data()?.xp : selfSnap.data()?.xp)
       entries.push({
         uid: customer.uid,
         displayName: String(selfSnap.data()?.displayName ?? 'Tú'),

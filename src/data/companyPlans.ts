@@ -103,13 +103,13 @@ export const COMPANY_PLANS: CompanyPlan[] = [
       { label: 'Cartas', value: '5' },
       { label: 'Mesas', value: '50' },
       { label: 'Mapas', value: '5' },
-      { label: 'Promos', value: '5 de cada tipo' },
+      { label: 'Promos', value: '10 de cada tipo' },
     ],
     features: [
       'Hasta 50 mesas y 5 mapas activos: el cliente elige mesa al reservar',
       'Hasta 5 cartas, digitales o en PDF, con fotos y todas las plantillas',
       'Importación Excel de productos y carta en PDF',
-      'Hasta 5 promociones de cada tipo: Oferta, tiempo limitado y asistencia',
+      'Hasta 10 promociones de cada tipo: Oferta, tiempo limitado y asistencia',
       'Todos los informes: reservas, clientes, productos y reseñas',
       'Compite: visibilidad, descuentos de la app y premios para el restaurante',
       'Mayor visibilidad en el descubrimiento de Adelia',
@@ -229,12 +229,12 @@ export const COMPANY_PLAN_CAPABILITIES: CompanyPlanCapability[] = [
   {
     id: 'promos_offer',
     label: 'Promos Oferta (premio por número de reservas)',
-    values: { free: false, basic: 3, premium: 5, premium_plus: 5 },
+    values: { free: false, basic: 3, premium: 10, premium_plus: 10 },
   },
   {
     id: 'promos_limited',
     label: 'Promos de tiempo limitado',
-    values: { free: false, basic: false, premium: 5, premium_plus: 5 },
+    values: { free: false, basic: false, premium: 10, premium_plus: 10 },
   },
   {
     id: 'clients',
@@ -254,7 +254,7 @@ export const COMPANY_PLAN_CAPABILITIES: CompanyPlanCapability[] = [
   {
     id: 'promos_attendance',
     label: 'Promos de asistencia puntual',
-    values: { free: false, basic: false, premium: 5, premium_plus: 5 },
+    values: { free: false, basic: false, premium: 10, premium_plus: 10 },
   },
   {
     id: 'reports_advanced',

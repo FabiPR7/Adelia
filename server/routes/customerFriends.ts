@@ -377,7 +377,8 @@ router.get('/search', async (req: Request, res: Response) => {
     const customerDocs = await listCustomerUserDocs(queryText, rawLower)
 
     const ranked = customerDocs
-      .filter((docSnap) => docSnap.id !== user.uid)
+      // Una cuenta bloqueada no sale en la búsqueda.
+      .filter((docSnap) => docSnap.id !== user.uid && docSnap.data().blocked !== true)
       .map((docSnap) => ({
         id: docSnap.id,
         data: docSnap.data(),

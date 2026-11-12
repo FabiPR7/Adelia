@@ -69,6 +69,9 @@ export function generateSlotTimes(
     return []
   }
 
+  // Un 0 o un dato raro en la base dejaba este bucle sin avanzar.
+  const step = Math.max(5, Math.trunc(Number(slotIntervalMinutes)) || 0)
+  const duration = Math.max(5, Math.trunc(Number(reservationDurationMinutes)) || 0)
   const slots: string[] = []
 
   for (const period of schedulePeriods(day)) {
@@ -77,8 +80,8 @@ export function generateSlotTimes(
 
     for (
       let cursor = openMinutes;
-      cursor + reservationDurationMinutes <= closeMinutes;
-      cursor += slotIntervalMinutes
+      cursor + duration <= closeMinutes;
+      cursor += step
     ) {
       const time = minutesToTime(cursor)
       if (!slots.includes(time)) {

@@ -1390,11 +1390,13 @@ export async function updateReservation(
   )
 
   const { startTime, endTime } = reservationFormToTimes(date, form, durationMinutes)
+  // En minúsculas, como al crearla: el cliente la ve si coincide con el correo de su cuenta.
+  const clientEmail = form.clientEmail.trim().toLowerCase()
 
   await updateDoc(doc(db, 'reservations', reservationId), {
     tableId: form.tableId,
     clientName: form.clientName.trim(),
-    clientEmail: form.clientEmail.trim(),
+    clientEmail,
     clientPhone: form.clientPhone.trim(),
     pax: form.pax,
     startTime: Timestamp.fromDate(startTime),
@@ -1410,7 +1412,7 @@ export async function updateReservation(
     companyId,
     tableId: form.tableId,
     clientName: form.clientName.trim(),
-    clientEmail: form.clientEmail.trim(),
+    clientEmail,
     clientPhone: form.clientPhone.trim(),
     pax: form.pax,
     startTime,

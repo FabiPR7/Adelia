@@ -52,6 +52,11 @@
   pointer-events: none;
 }
 
+/* Con contador o distancia arriba a la derecha, el nombre no se mete debajo. */
+.topOverlayWithBadge {
+  padding-right: 3rem;
+}
+
 .topOverlay h3 {
   margin: 0;
   font-family: var(--font-display);
@@ -85,10 +90,13 @@
   pointer-events: none;
 }
 
+/* Una sola fila: con dos, en móvil las etiquetas tapaban el nombre. */
 .tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
+  max-height: 1.3rem;
+  overflow: hidden;
 }
 
 .tag {
@@ -100,6 +108,7 @@
   backdrop-filter: blur(4px);
   font-size: 0.625rem;
   font-weight: 600;
+  line-height: 1.2;
   color: #fff;
   white-space: nowrap;
 }
@@ -194,9 +203,9 @@
 /* Restaurantes que aparecen antes por su plan: etiqueta discreta pero visible. */
 .sponsored {
   display: inline-flex;
+  align-self: flex-start;
   align-items: center;
   gap: 0.3rem;
-  margin-bottom: 0.3rem;
   padding: 0.22rem 0.6rem 0.22rem 0.45rem;
   border: 1px solid rgba(255, 236, 190, 0.55);
   border-radius: 999px;

@@ -80,7 +80,11 @@ function RestaurantDiscoveryCard({
           <span className={styles.distanceBadge}>{formatDistanceKm(distanceKm)}</span>
         )}
 
-        <div className={styles.topOverlay}>
+        <div className={`${styles.topOverlay} ${ratingBadge || typeof distanceKm === 'number' ? styles.topOverlayWithBadge : ''}`.trim()}>
+          <h3>{restaurant.name}</h3>
+        </div>
+
+        <div className={styles.footerOverlay}>
           {restaurant.discoveryFeatured ? (
             // Obligatorio indicar que el orden se ve influido por un pago (Ley de Competencia Desleal, art. 26.2).
             <span
@@ -90,10 +94,6 @@ function RestaurantDiscoveryCard({
               Patrocinado
             </span>
           ) : null}
-          <h3>{restaurant.name}</h3>
-        </div>
-
-        <div className={styles.footerOverlay}>
           {visibleTags.length > 0 ? (
             <div className={styles.tags}>
               {visibleTags.map((tag) => (
