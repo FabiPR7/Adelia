@@ -1640,7 +1640,7 @@ const CompanySettings = forwardRef(function CompanySettings(
             <div className={styles.tablesGrid} role="table" aria-label="Listado de mesas">
               <div className={`${styles.tablesGridHeader} ${styles.tablesGridRowWithMap}`} role="row">
                 <span role="columnheader">Nombre</span>
-                <span role="columnheader">Capacidad</span>
+                <span role="columnheader" title="Capacidad (personas)">Plazas</span>
                 <span role="columnheader">Mapa</span>
                 <span className={styles.tablesGridHeaderAction} aria-hidden="true" />
               </div>
