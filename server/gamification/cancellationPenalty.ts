@@ -260,6 +260,20 @@ export async function applyReservationCancellationPenalty(
     ])
 
     const reservationData = (reservationSnap.data() ?? reservation) as Record<string, unknown>
+    // Solo se penaliza si cancela el cliente o si el restaurante marca que no se
+    // presentó. Si el restaurante cancela por su cuenta, el cliente no tiene la
+    // culpa: ni pierde XP, ni gasta su Escudo de Mesa, ni le cuenta como aviso.
+    if (reservationData.status !== 'cancelled') {
+      return null
+    }
+    if (reservationData.cancelledBy !== 'client' && reservationData.noShow !== true) {
+      return null
+    }
+    // Solo se castiga en la cuenta que hizo la reserva. Una reserva de invitado
+    // con el mismo correo podría hacerla otra persona para perjudicarle.
+    if (reservationData.customerUid !== userId) {
+      return null
+    }
     const stored = parseStoredPenalty(reservationData)
     if (stored) {
       return stored
@@ -281,7 +295,6 @@ export async function applyReservationCancellationPenalty(
 
     const wantShield = options?.consumeShield === true
       || reservationData.cancelShieldRequested === true
-      || reservationData.cancelledBy === 'restaurant'
     const canShield = wantShield && inventoryQty(state, CANCEL_SHIELD_ITEM_ID) > 0
     const xpBefore = Math.max(0, Math.trunc(numberValue(state.xp)))
     const previousStrikes = Math.max(0, Math.trunc(numberValue(state.cancellationStrikeCount)))

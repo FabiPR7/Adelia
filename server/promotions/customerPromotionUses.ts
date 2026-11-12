@@ -18,6 +18,7 @@ export async function countCustomerPromotionReservations(
     .collection('reservations')
     .where('clientEmail', '==', email)
     .where('promotionId', '==', promotionId)
+    .limit(500)
     .get()
 
   return snapshot.docs.filter((doc) => {

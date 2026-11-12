@@ -1,3 +1,4 @@
+import { PIN_ATTEMPTS_MESSAGE, takePromotionPinAttempt } from '../security/rateLimit.ts'
 import { Router, type Request, type Response } from 'express'
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
@@ -23,7 +24,7 @@ router.post(
   verifySpendRateLimit,
   async (req: Request, res: Response) => {
   try {
-    const { uid: customerUid, email: customerEmail } = await verifyCustomerUid(req)
+    const { uid: customerUid, email: customerEmail, emailVerified } = await verifyCustomerUid(req)
 
     const reservationId = String(req.params.reservationId ?? '').trim()
     if (!reservationId) {
@@ -71,7 +72,8 @@ router.post(
       : ''
 
     const ownedByUid = reservationUid === customerUid
-    const ownedByUnlinkedEmail = !reservationUid && reservationEmail === customerEmail.toLowerCase()
+    // Una reserva sin cuenta solo es suya si ha verificado ese correo.
+    const ownedByUnlinkedEmail = !reservationUid && emailVerified && reservationEmail === customerEmail.toLowerCase()
     if (!ownedByUid && !ownedByUnlinkedEmail) {
       res.status(403).json({ error: 'Esta reserva no pertenece a tu cuenta.' })
       return
@@ -116,6 +118,10 @@ router.post(
       return
     }
 
+    if (!(await takePromotionPinAttempt(customerUid, companyId))) {
+      res.status(429).json({ error: PIN_ATTEMPTS_MESSAGE })
+      return
+    }
     const currentPin = await resolveCompanyPromotionPin(companyRef, companySnap.data()!)
     if (currentPin !== normalizedPin) {
       res.status(403).json({ error: 'Código PIN incorrecto. Pídeselo de nuevo al empleado.' })

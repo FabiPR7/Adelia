@@ -12,11 +12,7 @@ import {
 } from '../server/email/processReservationEmail.ts'
 import { upsertCompanyClientFromReservation } from '../server/clients/upsertCompanyClient.ts'
 import { adminDb } from '../server/firebase-admin.ts'
-import {
-  notifyReservationCancelled,
-  notifyReservationConfirmed,
-  notifyReservationReceived,
-} from '../server/notifications/reservationEvents.ts'
+import { notifyReservationReceived } from '../server/notifications/reservationEvents.ts'
 import { resendApiKey } from './secrets.ts'
 
 const triggerOptions = {
@@ -72,20 +68,8 @@ export const onReservationUpdatedSendEmail = onDocumentUpdated(
     const after = event.data?.after.data()
     const reservationId = event.params.reservationId
 
-    if (before && after) {
-      try {
-        if (before.status !== 'confirmed' && after.status === 'confirmed') {
-          await notifyReservationConfirmed(reservationId, after)
-        }
-
-        if (before.status !== 'cancelled' && after.status === 'cancelled') {
-          const cancelledBy = after.cancelledBy === 'client' ? 'client' : 'restaurant'
-          await notifyReservationCancelled(reservationId, after, cancelledBy)
-        }
-      } catch (notificationError) {
-        console.error(`Notification side-effects failed for reservation ${reservationId}:`, notificationError)
-      }
-    }
+    // Los avisos dentro de la app (y la penalización) los hace
+    // onReservationUpdatedNotifications: hacerlo también aquí lo duplicaba.
 
     if (before && after && before.status !== 'cancelled' && after.status === 'cancelled') {
       try {

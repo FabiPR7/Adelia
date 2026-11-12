@@ -1180,7 +1180,9 @@ const CompanySettings = forwardRef(function CompanySettings(
                 </InfoHint>
               </h3>
               <p>
-                {company.deactivated
+                {company.deactivatedByAdmin
+                  ? 'Adelia ha desactivado tu restaurante. Escríbenos a soporte para volver a activarlo.'
+                  : company.deactivated
                   ? 'Desactivado: los clientes no pueden encontrarte, ver tu carta ni reservar.'
                   : 'Activo: los clientes pueden encontrarte, ver tu carta y reservar.'}
               </p>
@@ -1198,7 +1200,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                   type="checkbox"
                   className={styles.visibilitySwitchInput}
                   checked={!company.deactivated}
-                  disabled={visibilitySaving}
+                  disabled={visibilitySaving || company.deactivatedByAdmin === true}
                   onChange={(event) => {
                     if (event.target.checked) {
                       void applyVisibility(false)

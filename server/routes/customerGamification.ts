@@ -1,3 +1,4 @@
+import { PIN_ATTEMPTS_MESSAGE, takePromotionPinAttempt } from '../security/rateLimit.ts'
 import { Router, type Request, type Response } from 'express'
 import { verifyCustomerUid } from '../auth/verifyRequest.ts'
 import { adminDb } from '../firebase-admin.ts'
@@ -266,6 +267,31 @@ export async function validateMonotonicGamification(
   }
 }
 
+/**
+ * Reservas del cliente en un local. Con el correo verificado cuentan también las
+ * que hizo como invitado con ese correo; sin verificar, solo las de su cuenta
+ * (si no, cualquiera podría registrarse con el correo de otra persona).
+ */
+function customerReservationsQuery(
+  customer: { uid: string; email: string; emailVerified: boolean },
+  companyId: string,
+) {
+  const base = adminDb.collection('reservations').where('companyId', '==', companyId)
+  return customer.emailVerified
+    ? base.where('clientEmail', '==', customer.email)
+    : base.where('customerUid', '==', customer.uid)
+}
+
+function reservationBelongsToCustomer(
+  reservation: FirebaseFirestore.DocumentData | undefined,
+  customer: { uid: string; email: string; emailVerified: boolean },
+): boolean {
+  if (!reservation) return false
+  if (reservation.customerUid === customer.uid) return true
+  return customer.emailVerified
+    && String(reservation.clientEmail ?? '').trim().toLowerCase() === customer.email
+}
+
 router.get('/leaderboard', async (req: Request, res: Response) => {
   try {
     const customer = await verifyCustomerUid(req)
@@ -348,7 +374,8 @@ router.post('/sync', async (req: Request, res: Response) => {
     // Techo de XP calculado fuera de la transacción (solo lecturas agregadas).
     const xpCeiling = await computeCustomerXpCeiling({
       uid: customer.uid,
-      email: customer.email,
+      // Las reservas de invitado con su correo solo cuentan si lo ha verificado.
+      email: customer.emailVerified ? customer.email : '',
       createdAt: customer.data.createdAt,
     }).catch(() => null)
 
@@ -463,9 +490,7 @@ router.get('/ladder-progress', async (req: Request, res: Response) => {
     const [userSnap, statsSnap, reservationsSnap] = await Promise.all([
       adminDb.collection('users').doc(customer.uid).get(),
       userGamificationRef(customer.uid).get(),
-      adminDb.collection('reservations')
-        .where('companyId', '==', companyId)
-        .where('clientEmail', '==', customer.email)
+      customerReservationsQuery(customer, companyId)
         .limit(200)
         .get(),
     ])
@@ -532,15 +557,11 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
         .where('active', '==', true)
         .limit(40)
         .get(),
-      adminDb.collection('reservations')
-        .where('companyId', '==', companyId)
-        .where('clientEmail', '==', customer.email)
+      customerReservationsQuery(customer, companyId)
         .orderBy('startTime', 'desc')
         .limit(200)
         .get()
-        .catch(() => adminDb.collection('reservations')
-          .where('companyId', '==', companyId)
-          .where('clientEmail', '==', customer.email)
+        .catch(() => customerReservationsQuery(customer, companyId)
           .limit(200)
           .get()),
     ])
@@ -724,7 +745,7 @@ router.post('/claim', async (req: Request, res: Response) => {
     if (
       !reservationSnap.exists
       || reservation?.companyId !== companyId
-      || String(reservation?.clientEmail ?? '').trim().toLowerCase() !== customer.email
+      || !reservationBelongsToCustomer(reservation, customer)
       || reservation?.status !== 'confirmed'
     ) {
       res.status(403).json({ error: 'La reserva no permite este canje.' })
@@ -1055,6 +1076,10 @@ router.post('/promotions/register-consumption', registerConsumptionRateLimit, as
       productSelections: req.body?.productSelections,
       requireDetails: requiredCents > 0,
     })
+    if (!(await takePromotionPinAttempt(customer.uid, companyId))) {
+      res.status(429).json({ error: PIN_ATTEMPTS_MESSAGE })
+      return
+    }
     const currentPin = await resolveCompanyPromotionPin(companyRef, companyData)
     const decision = evaluateWalkInConsumption({
       pinMatches: currentPin === pin,

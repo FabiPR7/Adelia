@@ -153,6 +153,12 @@ router.post('/:reservationId/notify-cancelled', async (req: Request<Record<strin
       return
     }
 
+    // Solo una reserva cancelada de verdad puede avisar (y aplicar la penalización).
+    if (reservationData.status !== 'cancelled') {
+      res.status(409).json({ error: 'La reserva no está cancelada.' })
+      return
+    }
+
     try {
       await notifyReservationCancelled(reservationId, reservationData, cancelledBy)
     } catch (notificationError) {

@@ -84,7 +84,7 @@ router.get('/search', async (req, res) => {
     url.searchParams.set('limit', '10')
     url.searchParams.set('layer', 'city')
 
-    const response = await fetch(url.toString())
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(6000) })
 
     if (!response.ok) {
       res.status(502).json({ error: 'No se pudieron cargar ciudades.' })

@@ -223,6 +223,18 @@ export async function syncCompanyFromLemonSubscription(data: unknown, customComp
 
   const ref = company.ref
 
+  // Si el restaurante ya paga con otra suscripción (se dio de baja y volvió a
+  // contratar, o cambió de plan con un pago nuevo), que la vieja se cancele o
+  // caduque no puede quitarle el plan que está pagando ahora.
+  const currentSubscriptionId = company.data()?.lemonSqueezySubscriptionId
+  const isOtherSubscription = typeof currentSubscriptionId === 'string'
+    && currentSubscriptionId !== ''
+    && currentSubscriptionId !== sub.subscriptionId
+  if (isOtherSubscription && (cancelledOrGone || lostAccess || scheduledToEnd)) {
+    console.warn('Lemon Squeezy: baja de una suscripción que ya no es la actual', company.id, sub.subscriptionId)
+    return
+  }
+
   if (cancelledOrGone || lostAccess) {
     await ref.set(freePlanWrites(), { merge: true })
     await applyPlanFeatureLimits(company.id, 'free')
@@ -285,6 +297,18 @@ export async function syncCompanyFromLemonInvoice(data: unknown, eventName: stri
     String(attrs.user_email ?? '').trim().toLowerCase(),
   )
   if (!company) {
+    return
+  }
+
+  // Un cobro, impago o devolución de una suscripción antigua no afecta al plan actual.
+  const invoiceSubscriptionId = String(attrs.subscription_id ?? '')
+  const currentSubscriptionId = company.data()?.lemonSqueezySubscriptionId
+  if (
+    invoiceSubscriptionId
+    && typeof currentSubscriptionId === 'string'
+    && currentSubscriptionId !== ''
+    && currentSubscriptionId !== invoiceSubscriptionId
+  ) {
     return
   }
 

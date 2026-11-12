@@ -5,7 +5,6 @@ import { isValidClientEmail } from '../email/config.ts'
 import { adminAuth, adminDb } from '../firebase-admin.ts'
 import {
   assertReservationSlotValid,
-  isSameDay,
   parseBookingDate,
   combineDateAndTime,
   assertReservationStartInFuture,
@@ -24,6 +23,7 @@ import { evaluateClientCancellation } from '../reservations/cancellation.ts'
 import { cancelInvitesForReservation, createReservationInvites } from '../reservations/invites.ts'
 import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../reservations/bookReservation.ts'
 import { readCompanyOps } from '../data/companyOps.ts'
+import { madridDayRange } from '../utils/madridDateTime.ts'
 import { clampEnabledMaps, parseStoredPlanId, planAllowsDeposits } from '../company/planLimits.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { consumeInventoryItem, numberRecord } from '../gamification/inventory.ts'
@@ -439,13 +439,20 @@ router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>
 
 router.get('/:slug/reviews', async (req: Request<Record<string, string>>, res: Response) => {
   try {
+    let slug: string
+    try {
+      slug = asSlug(req.params.slug)
+    } catch {
+      res.status(404).json({ error: 'Restaurante no encontrado.' })
+      return
+    }
     const companySnap = await adminDb
       .collection('companies')
-      .where('slug', '==', req.params.slug)
+      .where('slug', '==', slug)
       .limit(1)
       .get()
 
-    if (companySnap.empty) {
+    if (companySnap.empty || companySnap.docs[0].data()?.deactivated === true) {
       res.status(404).json({ error: 'Restaurante no encontrado.' })
       return
     }
@@ -461,6 +468,7 @@ router.get('/:slug/reviews', async (req: Request<Record<string, string>>, res: R
       .collection('companies')
       .doc(companyDoc.id)
       .collection('reviews')
+      .orderBy('createdAt', 'desc')
       .limit(80)
       .get()
 
@@ -469,8 +477,11 @@ router.get('/:slug/reviews', async (req: Request<Record<string, string>>, res: R
       .filter((review): review is NonNullable<typeof review> => review !== null)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 
-    const count = reviews.length > 0 ? reviews.length : reviewCount
-    const ratingSum = reviews.length > 0
+    // Con menos de 80 reseñas se cuentan todas; con más, solo llegan las 80
+    // últimas y la media sale de los contadores del restaurante.
+    const allLoaded = reviewsSnapshot.size < 80
+    const count = allLoaded && reviews.length > 0 ? reviews.length : reviewCount
+    const ratingSum = allLoaded && reviews.length > 0
       ? reviews.reduce((sum, review) => sum + review.rating, 0)
       : reviewRatingSum
     const averageRating = count > 0 ? Math.round((ratingSum / count) * 10) / 10 : 0
@@ -548,17 +559,16 @@ router.get('/:slug/availability', async (req: Request<Record<string, string>>, r
       return
     }
 
-    const dayStart = new Date(date)
-    dayStart.setHours(0, 0, 0, 0)
-    const dayEnd = new Date(dayStart)
-    dayEnd.setDate(dayEnd.getDate() + 1)
+    // El día es el de Madrid, no el del servidor (UTC): si no, las reservas de
+    // después de medianoche caían en el día anterior.
+    const { start: dayStart, end: dayEnd } = madridDayRange(date)
 
     const reservationsSnapshot = await adminDb
       .collection('reservations')
       .where('companyId', '==', company.id)
       .where('startTime', '>=', Timestamp.fromDate(dayStart))
       .where('startTime', '<', Timestamp.fromDate(dayEnd))
-      .limit(200)
+      .limit(600)
       .get()
 
     const reservations = reservationsSnapshot.docs
@@ -567,7 +577,7 @@ router.get('/:slug/availability', async (req: Request<Record<string, string>>, r
         const startTime = data.startTime?.toDate?.() as Date | undefined
         const endTime = data.endTime?.toDate?.() as Date | undefined
 
-        if (!startTime || !endTime) {
+        if (!startTime || !endTime || data.status === 'cancelled') {
           return null
         }
 
@@ -580,7 +590,6 @@ router.get('/:slug/availability', async (req: Request<Record<string, string>>, r
         }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
-      .filter((item) => isSameDay(new Date(item.startTime), date))
 
     // Cache corta: la disponibilidad cambia según entran reservas, pero la
     // reserva final está protegida por transacción (devuelve 409 si el hueco

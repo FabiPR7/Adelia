@@ -10,6 +10,5 @@ export {
 } from './notificationTriggers.ts'
 
 export {
-  processScheduledNotifications,
   processDueNotifications,
 } from './scheduledNotifications.ts'

@@ -24,6 +24,7 @@ import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import { signInWithPasswordRest } from '../rest-firebase.ts'
 import { isLoginLocked, recordLoginFailure, recordLoginSuccess } from '../security/loginLockout.ts'
 import { requireRecaptcha } from '../security/recaptcha.ts'
+import { takeEmailSend } from '../security/rateLimit.ts'
 import { requireSpanishPhone } from '../security/phone.ts'
 import { buildCustomerProfileDoc } from '../data/customerProfile.ts'
 import { requireAcceptedLegalVersion } from '../data/legalAcceptance.ts'
@@ -610,17 +611,25 @@ router.post('/customer/register', async (req: Request, res: Response) => {
       throw writeError
     }
 
-    const verifyUrl = await adminAuth.generateEmailVerificationLink(email, {
-      url: `${APP_URL}/cuenta/entrar?verified=1`,
-      handleCodeInApp: false,
-    })
-    await sendCustomerVerificationEmail({
-      to: email,
-      displayName,
-      verifyUrl,
-    })
+    // La cuenta ya existe: si el correo falla, no devolvemos error (al reintentar
+    // diría «ya existe»). Puede pedir otro enlace desde su perfil al entrar.
+    let verificationEmailSent = true
+    try {
+      const verifyUrl = await adminAuth.generateEmailVerificationLink(email, {
+        url: `${APP_URL}/cuenta/entrar?verified=1`,
+        handleCodeInApp: false,
+      })
+      await sendCustomerVerificationEmail({
+        to: email,
+        displayName,
+        verifyUrl,
+      })
+    } catch (mailError) {
+      verificationEmailSent = false
+      console.error('customer register verification email error:', mailError)
+    }
 
-    res.json({ ok: true })
+    res.json({ ok: true, verificationEmailSent })
   } catch (error) {
     if (error instanceof InputError) {
       res.status(400).json({ error: error.message })
@@ -761,6 +770,11 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       return
     }
 
+    if (!await takeEmailSend('reset-company', email)) {
+      await respondOk()
+      return
+    }
+
     const token = await createPasswordResetToken(companyId, ownerUid, email)
 
     try {
@@ -813,7 +827,7 @@ router.post('/customer/forgot-password', async (req: Request, res: Response) => 
     const email = emailRaw.trim().toLowerCase()
     const customer = await findCustomerForPasswordReset(email)
 
-    if (!customer) {
+    if (!customer || !await takeEmailSend('reset-customer', customer.email)) {
       await respondOk()
       return
     }
@@ -922,7 +936,10 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       return
     }
 
-    await adminAuth.updateUser(record.ownerUid, { password })
+    // Abrir el enlace del correo demuestra que el correo es suyo.
+    await adminAuth.updateUser(record.ownerUid, record.audience === 'customer'
+      ? { password, emailVerified: true }
+      : { password })
     await adminAuth.revokeRefreshTokens(record.ownerUid)
 
     if (record.audience === 'company') {

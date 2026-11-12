@@ -701,6 +701,21 @@ export async function deleteCompanyAccount(companyId: string): Promise<void> {
   }
   const companyData = companySnap.data()!
 
+  // Con reservas por venir, borrar la cuenta las haría desaparecer sin avisar a
+  // nadie (y las fianzas quedarían retenidas). Primero hay que cancelarlas.
+  const upcomingSnap = await adminDb
+    .collection(COLLECTIONS.reservations)
+    .where('companyId', '==', companyId)
+    .where('startTime', '>=', Timestamp.now())
+    .limit(300)
+    .get()
+  const upcoming = upcomingSnap.docs.filter((docSnap) => docSnap.data().status === 'completed').length
+  if (upcoming > 0) {
+    throw new CompanyDeletionBlockedError(
+      `Tienes ${upcoming} ${upcoming === 1 ? 'reserva pendiente' : 'reservas pendientes'}. Cancélalas desde Reservas para que los clientes reciban el aviso y vuelve a intentarlo. No se ha borrado nada.`,
+    )
+  }
+
   // Primero los cobros: si fallan, no se borra nada y se puede reintentar.
   await cancelCompanyLemonSubscription(companyData)
   await cancelCompanyStripeSubscription(companyId)

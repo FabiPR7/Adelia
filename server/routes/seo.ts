@@ -18,7 +18,7 @@ async function loadTemplate(): Promise<string> {
   if (templateCache && Date.now() - templateCache.at < TEMPLATE_CACHE_MS) {
     return templateCache.html
   }
-  const response = await fetch(`${APP_URL}/index.html`, { headers: { 'Cache-Control': 'no-cache' } })
+  const response = await fetch(`${APP_URL}/index.html`, { headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(6000) })
   if (!response.ok) {
     throw new Error(`index.html respondió ${response.status}`)
   }

@@ -42,6 +42,7 @@ export async function verifyRecaptchaToken(
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `secret=${encodeURIComponent(secretKey)}&response=${encodeURIComponent(token)}`,
+      signal: AbortSignal.timeout(6000),
     })
 
     if (!response.ok) {

@@ -85,18 +85,7 @@ export function createApp() {
   app.use(apiRateLimit)
   app.use(remoteCatalogMiddleware)
 
-  app.get('/api/health', (req, res) => {
-    // Diagnóstico temporal de proxies (sin IPs): ¿req.ip es el visitante o un proxy?
-    if (req.query.diag === 'ip') {
-      const xff = String(req.headers['x-forwarded-for'] ?? '').split(',').map((part) => part.trim()).filter(Boolean)
-      res.json({
-        ok: true,
-        hops: xff.length,
-        ipIsFirst: xff.length > 0 && req.ip === xff[0],
-        ipIsLast: xff.length > 0 && req.ip === xff[xff.length - 1],
-      })
-      return
-    }
+  app.get('/api/health', (_req, res) => {
     res.json({ ok: true })
   })
 
@@ -135,7 +124,7 @@ export function createApp() {
 
   app.use('/api', (req, res) => {
     res.status(404).json({
-      error: `No existe ${req.method} ${req.originalUrl}. Reinicia npm run dev.`,
+      error: 'No existe esta dirección de la API.',
     })
   })
 

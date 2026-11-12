@@ -104,6 +104,8 @@ export interface Company {
   discoveryFeatured: boolean
   /** El dueño ha ocultado el restaurante: no aparece en descubrir ni acepta reservas. */
   deactivated: boolean
+  /** Lo ha ocultado Adelia: el dueño no puede reactivarlo desde su panel. */
+  deactivatedByAdmin?: boolean
   deactivatedAt: Date | null
   createdAt: Date
 }

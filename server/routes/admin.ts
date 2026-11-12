@@ -389,7 +389,12 @@ router.post('/companies/:id/status', async (req: Request, res: Response) => {
       res.status(404).json({ error: 'Restaurante no encontrado.' })
       return
     }
-    const patch = { deactivated, deactivatedAt: deactivated ? FieldValue.serverTimestamp() : null }
+    // deactivatedByAdmin impide que el propio restaurante se reactive desde su panel.
+    const patch = {
+      deactivated,
+      deactivatedByAdmin: deactivated,
+      deactivatedAt: deactivated ? FieldValue.serverTimestamp() : null,
+    }
     await ref.set(patch, { merge: true })
     // El listado público lee restaurantIndex: se oculta o se vuelve a mostrar.
     await adminDb.collection('restaurantIndex').doc(id).set({ deactivated }, { merge: true }).catch(() => undefined)

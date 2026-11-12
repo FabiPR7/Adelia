@@ -53,6 +53,22 @@ export async function notifyReservationReceived(
       reservationId,
     },
   })
+
+  // El recordatorio se programa al reservar: antes solo se hacía al marcar la
+  // asistencia, que llega después de la visita, y casi nunca salía.
+  const reminderAt = new Date(startTime.getTime() - 60 * 60 * 1000)
+  if (reminderAt.getTime() > Date.now()) {
+    await scheduleNotificationJob({
+      type: 'reservation_reminder_1h',
+      userId,
+      reservationId,
+      scheduledAt: reminderAt,
+      companyId,
+      companyName,
+      companySlug,
+      reservationStartTime: startTime,
+    })
+  }
 }
 
 export async function notifyReservationConfirmed(
@@ -86,20 +102,6 @@ export async function notifyReservationConfirmed(
       reservationId,
     },
   })
-
-  const reminderAt = new Date(startTime.getTime() - 60 * 60 * 1000)
-  if (reminderAt.getTime() > Date.now()) {
-    await scheduleNotificationJob({
-      type: 'reservation_reminder_1h',
-      userId,
-      reservationId,
-      scheduledAt: reminderAt,
-      companyId,
-      companyName,
-      companySlug,
-      reservationStartTime: startTime,
-    })
-  }
 
   const reviewPromptAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
   await scheduleNotificationJob({
@@ -174,7 +176,9 @@ export async function notifyReservationCancelled(
 
   const intro = cancelledBy === 'client'
     ? `Has cancelado tu reserva en ${companyName} del ${formatDateTime(startTime)}.`
-    : `${companyName} ha cancelado tu reserva del ${formatDateTime(startTime)}.`
+    : reservation.noShow === true
+      ? `${companyName} ha marcado que no acudiste a tu reserva del ${formatDateTime(startTime)}.`
+      : `${companyName} ha cancelado tu reserva del ${formatDateTime(startTime)}.`
 
   let body = intro
   if (penalty?.shielded) {

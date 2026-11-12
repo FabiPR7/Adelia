@@ -33,7 +33,7 @@ router.get('/suggest', suggestRateLimit, async (req, res) => {
     url.searchParams.set('lat', hasBias ? biasLat.toFixed(4) : BIAS_LAT)
     url.searchParams.set('lon', hasBias ? biasLng.toFixed(4) : BIAS_LNG)
 
-    const response = await fetch(url.toString())
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(6000) })
 
     if (!response.ok) {
       res.status(502).json({ error: 'No se pudieron cargar direcciones.' })
@@ -68,7 +68,7 @@ router.get('/', async (req, res) => {
     url.searchParams.set('q', query)
     url.searchParams.set('limit', '1')
 
-    const response = await fetch(url.toString())
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(6000) })
 
     if (!response.ok) {
       res.status(502).json({ error: 'No se pudo geolocalizar la dirección.' })

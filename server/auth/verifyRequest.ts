@@ -5,6 +5,8 @@ import { getUserRoleWithRest, verifyIdTokenWithRest } from '../rest-firebase.ts'
 export interface VerifiedRequestUser {
   uid: string
   email: string
+  /** El correo está verificado: solo así cuentan las reservas hechas como invitado con ese correo. */
+  emailVerified: boolean
   data: FirebaseFirestore.DocumentData
 }
 
@@ -34,7 +36,7 @@ async function verifyRequestUser(req: Request): Promise<VerifiedRequestUser> {
     ? data.email.trim().toLowerCase()
     : decoded.email?.trim().toLowerCase() ?? ''
 
-  return { uid: decoded.uid, email, data }
+  return { uid: decoded.uid, email, emailVerified: decoded.email_verified === true, data }
 }
 
 export async function verifyCustomerUid(req: Request): Promise<VerifiedRequestUser> {

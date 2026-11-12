@@ -356,7 +356,17 @@ export async function syncReservationDepositForStatus(input: {
     throw new Error('El restaurante no tiene Stripe conectado.')
   }
 
-  if (input.status === 'confirmed') {
+  // El estado lo manda la reserva guardada, no la petición: si no, se podría
+  // cobrar la fianza de una reserva que sigue en pie.
+  if (reservation.status !== input.status) {
+    throw new Error('El estado de la reserva no coincide. Recarga la página.')
+  }
+
+  // Asistió, o canceló el propio restaurante: la fianza vuelve al cliente.
+  if (
+    input.status === 'confirmed'
+    || (reservation.noShow !== true && reservation.cancelledBy !== 'client')
+  ) {
     await releaseReservationDeposit({
       paymentIntentId,
       connectedAccountId: stripeAccountId,

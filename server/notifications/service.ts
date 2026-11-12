@@ -1,6 +1,6 @@
 import { BUSINESS_TIME_ZONE } from '../utils/madridDateTime.ts'
-import { Timestamp, type Firestore } from 'firebase-admin/firestore'
-import { adminDb } from '../firebase-admin.ts'
+import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore'
+import { adminAuth, adminDb } from '../firebase-admin.ts'
 
 export type NotificationType =
   | 'reservation_received'
@@ -74,9 +74,21 @@ export async function findCustomerUidByEmail(email: string): Promise<string | nu
       .limit(5)
       .get()
 
-    const customer = snapshot.docs.find((doc) => doc.data().role === 'customer')
-    if (customer) {
-      return customer.id
+    for (const doc of snapshot.docs) {
+      if (doc.data().role !== 'customer') {
+        continue
+      }
+      // Solo vale una cuenta que ha demostrado ser dueña de ese correo: si no,
+      // cualquiera podría registrarse con el correo de otra persona y recibir
+      // los avisos de sus reservas como invitado.
+      try {
+        const authUser = await adminAuth.getUser(doc.id)
+        if (authUser.emailVerified && authUser.email?.trim().toLowerCase() === trimmed.toLowerCase()) {
+          return doc.id
+        }
+      } catch {
+        // Cuenta borrada en Auth: no cuenta.
+      }
     }
   }
 
@@ -119,33 +131,32 @@ export async function createCustomerNotification(
     .collection(NOTIFICATIONS_SUBCOLLECTION)
     .doc(notificationId)
 
-  const existing = await notificationRef.get()
-  if (existing.exists) {
-    return false
+  // create() falla si ya existe: dos disparadores a la vez no duplican el aviso
+  // ni suman dos veces al contador de no leídos.
+  const now = Timestamp.now()
+  try {
+    await notificationRef.create({
+      type: payload.type,
+      title: payload.title,
+      body: payload.body,
+      icon: payload.icon ?? '🔔',
+      read: false,
+      readAt: null,
+      createdAt: now,
+      actionUrl: payload.actionUrl ?? null,
+      actionLabel: payload.actionLabel ?? null,
+      data: payload.data ?? {},
+      dedupeKey: payload.dedupeKey,
+    })
+  } catch (error) {
+    if ((error as { code?: number | string }).code === 6 || (error as { code?: string }).code === 'already-exists') {
+      return false
+    }
+    throw error
   }
 
-  const now = Timestamp.now()
-  await notificationRef.set({
-    type: payload.type,
-    title: payload.title,
-    body: payload.body,
-    icon: payload.icon ?? '🔔',
-    read: false,
-    readAt: null,
-    createdAt: now,
-    actionUrl: payload.actionUrl ?? null,
-    actionLabel: payload.actionLabel ?? null,
-    data: payload.data ?? {},
-    dedupeKey: payload.dedupeKey,
-  })
-
-  const userSnap = await adminDb.collection('users').doc(userId).get()
-  const currentUnread = typeof userSnap.data()?.notificationUnreadCount === 'number'
-    ? userSnap.data()?.notificationUnreadCount as number
-    : 0
-
   await adminDb.collection('users').doc(userId).set({
-    notificationUnreadCount: currentUnread + 1,
+    notificationUnreadCount: FieldValue.increment(1),
   }, { merge: true })
 
   return true
@@ -204,98 +215,136 @@ export async function processDueNotificationJobs(
   db: Firestore = adminDb,
   now = new Date(),
 ): Promise<number> {
-  const snapshot = await db.collection(JOBS_COLLECTION)
-    .where('status', '==', 'pending')
-    .where('scheduledAt', '<=', Timestamp.fromDate(now))
-    .limit(50)
-    .get()
-
   let processed = 0
-
-  for (const docSnap of snapshot.docs) {
-    const job = docSnap.data()
-    const reservationSnap = await db.collection('reservations').doc(job.reservationId as string).get()
-    const reservation = reservationSnap.data()
-
-    if (!reservation || reservation.status === 'cancelled') {
-      await docSnap.ref.update({ status: 'cancelled', updatedAt: Timestamp.now() })
-      continue
+  // Varias tandas por ejecución: con 50 cada 5 minutos se acumulaban avisos.
+  for (let page = 0; page < 10; page += 1) {
+    const snapshot = await db.collection(JOBS_COLLECTION)
+      .where('status', '==', 'pending')
+      .where('scheduledAt', '<=', Timestamp.fromDate(now))
+      .limit(50)
+      .get()
+    if (snapshot.empty) {
+      break
     }
-
-    const userId = job.userId as string
-    const companyName = (job.companyName as string) || 'el restaurante'
-    const companySlug = (job.companySlug as string) || ''
-    const reservationId = job.reservationId as string
-
-    if (job.type === 'reservation_reminder_1h') {
-      if (reservation.status !== 'confirmed' && reservation.status !== 'completed') {
-        await docSnap.ref.update({ status: 'cancelled', updatedAt: Timestamp.now() })
-        continue
+    for (const docSnap of snapshot.docs) {
+      try {
+        if (await processNotificationJob(db, docSnap, now)) {
+          processed += 1
+        }
+      } catch (error) {
+        // Un aviso que falla no frena al resto; se marca para no reintentarlo sin fin.
+        console.error('Notification job failed:', docSnap.id, error)
+        await docSnap.ref.update({ status: 'failed', updatedAt: Timestamp.now() }).catch(() => undefined)
       }
-
-      const startTime = job.reservationStartTime instanceof Timestamp
-        ? job.reservationStartTime.toDate()
-        : new Date()
-
-      await createCustomerNotification(userId, {
-        type: 'reservation_reminder_1h',
-        title: 'Tu reserva es pronto',
-        body: `Recuerda que tienes reserva en ${companyName} hoy a las ${formatTime(startTime)}.`,
-        icon: '⏰',
-        actionUrl: '/app/reservas',
-        actionLabel: 'Ver reserva',
-        dedupeKey: `reservation_reminder_1h:${reservationId}`,
-        data: {
-          companyId: job.companyId,
-          companyName,
-          companySlug,
-          reservationId,
-        },
-      })
     }
-
-    if (job.type === 'reservation_review_prompt') {
-      if (reservation.status !== 'confirmed') {
-        await docSnap.ref.update({ status: 'cancelled', updatedAt: Timestamp.now() })
-        continue
-      }
-
-      const companyId = job.companyId as string
-      const reviewExists = companyId
-        ? await db.collection('companies').doc(companyId).collection('reviews').doc(userId).get()
-        : null
-
-      if (reviewExists?.exists) {
-        await docSnap.ref.update({ status: 'cancelled', updatedAt: Timestamp.now() })
-        continue
-      }
-
-      await createCustomerNotification(userId, {
-        type: 'reservation_review_prompt',
-        title: `¿Qué te pareció ${companyName}?`,
-        body: 'Cuéntanos tu experiencia y ayuda a otros comensales con una reseña.',
-        icon: '⭐',
-        actionUrl: companySlug ? `/app/reservas` : '/app/reservas',
-        actionLabel: 'Dejar reseña',
-        dedupeKey: `reservation_review_prompt:${reservationId}`,
-        data: {
-          companyId,
-          companyName,
-          companySlug,
-          reservationId,
-        },
-      })
+    if (snapshot.size < 50) {
+      break
     }
+  }
+  return processed
+}
 
-    await docSnap.ref.update({
-      status: 'sent',
-      sentAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    })
-    processed += 1
+async function processNotificationJob(
+  db: Firestore,
+  docSnap: FirebaseFirestore.QueryDocumentSnapshot,
+  now: Date,
+): Promise<boolean> {
+  const job = docSnap.data()
+  const reservationSnap = await db.collection('reservations').doc(job.reservationId as string).get()
+  const reservation = reservationSnap.data()
+
+  if (!reservation || reservation.status === 'cancelled') {
+    await docSnap.ref.update({ status: 'cancelled', updatedAt: Timestamp.now() })
+    return false
   }
 
-  return processed
+  const userId = job.userId as string
+  const companyName = (job.companyName as string) || 'el restaurante'
+  const companySlug = (job.companySlug as string) || ''
+  const reservationId = job.reservationId as string
+
+  if (job.type === 'reservation_reminder_1h') {
+    if (reservation.status !== 'confirmed' && reservation.status !== 'completed') {
+      await docSnap.ref.update({ status: 'cancelled', updatedAt: Timestamp.now() })
+      return false
+    }
+
+    // Hora actual de la reserva (el restaurante puede haberla cambiado).
+    const startTime = reservation.startTime instanceof Timestamp
+      ? reservation.startTime.toDate()
+      : job.reservationStartTime instanceof Timestamp
+        ? job.reservationStartTime.toDate()
+        : new Date()
+    if (startTime.getTime() <= now.getTime()) {
+      await docSnap.ref.update({ status: 'cancelled', updatedAt: Timestamp.now() })
+      return false
+    }
+    if (startTime.getTime() - now.getTime() > 75 * 60 * 1000) {
+      // La movieron a más tarde: se reprograma para una hora antes de la nueva hora.
+      await docSnap.ref.update({
+        scheduledAt: Timestamp.fromMillis(startTime.getTime() - 60 * 60 * 1000),
+        reservationStartTime: Timestamp.fromDate(startTime),
+        updatedAt: Timestamp.now(),
+      })
+      return false
+    }
+
+    await createCustomerNotification(userId, {
+      type: 'reservation_reminder_1h',
+      title: 'Tu reserva es pronto',
+      body: `Recuerda que tienes reserva en ${companyName} hoy a las ${formatTime(startTime)}.`,
+      icon: '⏰',
+      actionUrl: '/app/reservas',
+      actionLabel: 'Ver reserva',
+      dedupeKey: `reservation_reminder_1h:${reservationId}`,
+      data: {
+        companyId: job.companyId,
+        companyName,
+        companySlug,
+        reservationId,
+      },
+    })
+  }
+
+  if (job.type === 'reservation_review_prompt') {
+    if (reservation.status !== 'confirmed') {
+      await docSnap.ref.update({ status: 'cancelled', updatedAt: Timestamp.now() })
+      return false
+    }
+
+    const companyId = job.companyId as string
+    const reviewExists = companyId
+      ? await db.collection('companies').doc(companyId).collection('reviews').doc(userId).get()
+      : null
+
+    if (reviewExists?.exists) {
+      await docSnap.ref.update({ status: 'cancelled', updatedAt: Timestamp.now() })
+      return false
+    }
+
+    await createCustomerNotification(userId, {
+      type: 'reservation_review_prompt',
+      title: `¿Qué te pareció ${companyName}?`,
+      body: 'Cuéntanos tu experiencia y ayuda a otros comensales con una reseña.',
+      icon: '⭐',
+      actionUrl: companySlug ? `/app/reservas` : '/app/reservas',
+      actionLabel: 'Dejar reseña',
+      dedupeKey: `reservation_review_prompt:${reservationId}`,
+      data: {
+        companyId,
+        companyName,
+        companySlug,
+        reservationId,
+      },
+    })
+  }
+
+  await docSnap.ref.update({
+    status: 'sent',
+    sentAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  })
+  return true
 }
 
 function formatTime(date: Date): string {

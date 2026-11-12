@@ -5,7 +5,6 @@ export {
   onReservationUpdatedNotifications,
   onUserGamificationUpdatedNotifications,
   onPromotionClaimCreatedNotifications,
-  processScheduledNotifications,
   processDueNotifications,
 } from './triggers.ts'
 export { adminCreateCompany } from './adminCompanyManagement.ts'

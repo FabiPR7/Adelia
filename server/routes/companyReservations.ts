@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express'
 import { Timestamp } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
 import { adminDb } from '../firebase-admin.ts'
+import { isValidClientEmail } from '../email/config.ts'
 import {
   assertReservationSlotValid,
   assertReservationStartInFuture,
@@ -113,8 +114,13 @@ router.post('/:companyId/reservations', async (req: Request<Record<string, strin
     const endTime = new Date(startTime.getTime() + timeSlotMinutes * 60000)
 
     const reservationStatus = status === 'cancelled' ? 'cancelled' : 'completed'
-    const email = typeof clientEmail === 'string' ? clientEmail.trim().toLowerCase() : ''
-    const phone = typeof clientPhone === 'string' ? clientPhone.trim() : ''
+    const email = typeof clientEmail === 'string' ? clientEmail.trim().toLowerCase().slice(0, 120) : ''
+    const phone = typeof clientPhone === 'string' ? clientPhone.trim().slice(0, 30) : ''
+
+    if (email && !isValidClientEmail(email)) {
+      res.status(400).json({ error: 'El correo del cliente no es válido.' })
+      return
+    }
 
     const stripTags = (input: string) => input.replace(/<[^>]*>/g, '').replace(/[<>]/g, '').trim()
 

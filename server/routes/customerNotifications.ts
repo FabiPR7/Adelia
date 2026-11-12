@@ -64,7 +64,7 @@ router.get('/', async (req: Request, res: Response) => {
       return
     }
 
-    const limit = Math.min(Number(req.query.limit) || 40, 100)
+    const limit = Math.max(1, Math.min(Math.trunc(Number(req.query.limit)) || 40, 100))
     const snapshot = await adminDb.collection('users').doc(uid)
       .collection('notifications')
       .orderBy('createdAt', 'desc')
@@ -94,33 +94,31 @@ router.patch('/:notificationId/read', async (req: Request, res: Response) => {
     }
 
     const notificationId = String(req.params.notificationId ?? '').trim()
-    if (!notificationId) {
+    if (!/^[A-Za-z0-9_-]{1,240}$/.test(notificationId)) {
       res.status(400).json({ error: 'Notificación no válida.' })
       return
     }
 
-    const ref = adminDb.collection('users').doc(uid).collection('notifications').doc(notificationId)
-    const snap = await ref.get()
-    if (!snap.exists) {
+    const userRef = adminDb.collection('users').doc(uid)
+    const ref = userRef.collection('notifications').doc(notificationId)
+    // En una transacción: dos clics a la vez no restan dos veces del contador.
+    const found = await adminDb.runTransaction(async (transaction) => {
+      const [snap, userSnap] = await Promise.all([transaction.get(ref), transaction.get(userRef)])
+      if (!snap.exists) {
+        return false
+      }
+      if (snap.data()?.read !== true) {
+        const currentUnread = typeof userSnap.data()?.notificationUnreadCount === 'number'
+          ? userSnap.data()?.notificationUnreadCount as number
+          : 0
+        transaction.update(ref, { read: true, readAt: Timestamp.now() })
+        transaction.set(userRef, { notificationUnreadCount: Math.max(0, currentUnread - 1) }, { merge: true })
+      }
+      return true
+    })
+    if (!found) {
       res.status(404).json({ error: 'Notificación no encontrada.' })
       return
-    }
-
-    if (snap.data()?.read !== true) {
-      await ref.update({
-        read: true,
-        readAt: Timestamp.now(),
-      })
-
-      const userRef = adminDb.collection('users').doc(uid)
-      const userSnap = await userRef.get()
-      const currentUnread = typeof userSnap.data()?.notificationUnreadCount === 'number'
-        ? userSnap.data()?.notificationUnreadCount as number
-        : 0
-
-      await userRef.set({
-        notificationUnreadCount: Math.max(0, currentUnread - 1),
-      }, { merge: true })
     }
 
     res.json({ ok: true })

@@ -191,6 +191,19 @@ describe('Lemon Squeezy company sync', () => {
     expect(store.companies.get('lifetime')?.planBilling).toBe('perpetual')
   })
 
+  it('una suscripción vieja que caduca no quita el plan de la suscripción nueva', async () => {
+    store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-2', lemonSqueezyEmail: EMAIL, planId: 'premium' })
+
+    await syncCompanyFromLemonSubscription(subscription({ status: 'expired' }, 'sub-1'), 'c1')
+    await syncCompanyFromLemonSubscription(subscription({ status: 'cancelled' }, 'sub-1'), 'c1')
+    await syncCompanyFromLemonInvoice(invoice({ total: 3999, refunded_amount: 3999 }), 'subscription_payment_refunded')
+    await syncCompanyFromLemonInvoice(invoice(), 'subscription_payment_failed')
+
+    expect(store.companies.get('c1')).toMatchObject({ planId: 'premium', lemonSqueezySubscriptionId: 'sub-2' })
+    expect(store.companies.get('c1')?.pendingPlanId).toBeUndefined()
+    expect(store.companies.get('c1')?.planPaymentState).toBeUndefined()
+  })
+
   it('una cancelación mantiene el plan hasta fin de periodo y lo programa a gratis', async () => {
     store.companies.set('c1', { lemonSqueezySubscriptionId: 'sub-1', planId: 'premium' })
 

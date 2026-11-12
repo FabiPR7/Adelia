@@ -46,7 +46,12 @@ export async function recordLoginFailure(identifier: string): Promise<void> {
   const now = Timestamp.now()
   await adminDb.runTransaction(async (transaction) => {
     const snap = await transaction.get(ref)
-    const current = snap.exists ? (snap.data()?.attemptCount as number | undefined) ?? 0 : 0
+    // Los fallos cuentan solo dentro de la ventana: si el último fue hace más de
+    // 15 minutos se empieza de cero (antes se sumaban fallos de hace semanas).
+    const lastAttemptAt = snap.data()?.lastAttemptAt
+    const recent = lastAttemptAt instanceof Timestamp
+      && Date.now() - lastAttemptAt.toMillis() < LOCKOUT_DURATION_MS
+    const current = snap.exists && recent ? (snap.data()?.attemptCount as number | undefined) ?? 0 : 0
     const nextCount = current + 1
     const locked = nextCount >= MAX_LOGIN_ATTEMPTS
     transaction.set(ref, {

@@ -122,6 +122,9 @@ export async function deleteCustomerAccount(uid: string): Promise<void> {
               comment: '',
               photoUrl: '',
               photoUrls: [],
+              // Las fotos y vídeos de la reseña también son suyos.
+              mediaItems: [],
+              hasPhoto: false,
               anonymizedAt: Timestamp.now(),
               updatedAt: Timestamp.now(),
             },

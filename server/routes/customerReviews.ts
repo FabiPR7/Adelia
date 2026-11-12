@@ -118,6 +118,7 @@ async function assertReservationOwnership(
   const data = snap.data()
   const ownedByUid = typeof data?.customerUid === 'string' && data.customerUid === uid
   const ownedByUnlinkedEmail = !data?.customerUid
+    && email !== ''
     && String(data?.clientEmail ?? '').trim().toLowerCase() === email
   if (
     !snap.exists
@@ -137,7 +138,8 @@ router.post('/', async (req: Request, res: Response) => {
       input.reservationId,
       input.companyId,
       customer.uid,
-      customer.email,
+      // Una reserva hecha sin cuenta solo cuenta si ha verificado ese correo.
+      customer.emailVerified ? customer.email : '',
     )
 
     const companyRef = adminDb.collection('companies').doc(input.companyId)
@@ -295,7 +297,8 @@ router.put('/:companyId', async (req: Request, res: Response) => {
       input.reservationId,
       input.companyId,
       customer.uid,
-      customer.email,
+      // Una reserva hecha sin cuenta solo cuenta si ha verificado ese correo.
+      customer.emailVerified ? customer.email : '',
     )
     const companyRef = adminDb.collection('companies').doc(input.companyId)
     const reviewRef = companyRef.collection('reviews').doc(customer.uid)

@@ -10,26 +10,41 @@ import { cleanupRateLimits } from './middleware/rateLimiter'
 import { resolveOverdueLemonCancellations } from '../server/lemonsqueezy/overdueCancellations.ts'
 import { refreshRecentDailyStats } from '../server/admin/dailyStats.ts'
 
+/**
+ * Borra los documentos caducados en tandas de 400 (hasta 50 tandas por noche).
+ * Antes solo borraba 400 al día y colecciones como appEvents crecían sin parar.
+ */
 async function deleteExpiredQuery(
   collectionName: string,
   field: string,
   before: Timestamp,
-  max = 400,
+  pageSize = 400,
+  maxPages = 50,
 ): Promise<number> {
-  const snapshot = await adminDb
-    .collection(collectionName)
-    .where(field, '<', before)
-    .limit(max)
-    .get()
-
-  if (snapshot.empty) {
-    return 0
+  let deleted = 0
+  try {
+    for (let page = 0; page < maxPages; page += 1) {
+      const snapshot = await adminDb
+        .collection(collectionName)
+        .where(field, '<', before)
+        .limit(pageSize)
+        .get()
+      if (snapshot.empty) {
+        break
+      }
+      const batch = adminDb.batch()
+      snapshot.docs.forEach((item) => batch.delete(item.ref))
+      await batch.commit()
+      deleted += snapshot.size
+      if (snapshot.size < pageSize) {
+        break
+      }
+    }
+  } catch (error) {
+    // Un fallo en una colección no debe parar el resto de la limpieza.
+    console.error(`Cleanup of ${collectionName} failed:`, error)
   }
-
-  const batch = adminDb.batch()
-  snapshot.docs.forEach((item) => batch.delete(item.ref))
-  await batch.commit()
-  return snapshot.size
+  return deleted
 }
 
 /**
@@ -113,9 +128,13 @@ export const cleanupRateLimitsScheduled = onSchedule(
   async () => {
     console.log('Starting Firestore junk cleanup...')
 
-    const [rateLimits, resetTokens, stripeEvents, lemonEvents, appEvents, uniqueCompanies, overduePlans, statsDays] =
+    const monthAgo = Timestamp.fromMillis(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const [rateLimits, resetTokens, stripeEvents, lemonEvents, appEvents, uniqueCompanies, overduePlans, statsDays, oldLogins, oldJobs] =
       await Promise.all([
-        cleanupRateLimits(),
+        cleanupRateLimits().catch((error) => {
+          console.error('Rate limit cleanup failed:', error)
+          return { deleted: 0 }
+        }),
         deleteExpiredQuery('passwordResetTokens', 'expiresAt', Timestamp.now()),
         deleteExpiredQuery('stripeEvents', 'expireAt', Timestamp.now()),
         deleteExpiredQuery('lemonSqueezyEvents', 'expireAt', Timestamp.now()),
@@ -134,17 +153,21 @@ export const cleanupRateLimitsScheduled = onSchedule(
           console.error('Admin daily stats failed:', error)
           return 0
         }),
+        // Intentos de login y avisos programados de hace más de un mes.
+        deleteExpiredQuery('loginAttempts', 'lastAttemptAt', monthAgo),
+        deleteExpiredQuery('notificationJobs', 'scheduledAt', monthAgo),
       ])
 
     console.log(
       `Cleanup completed: rateLimits=${rateLimits.deleted} resetTokens=${resetTokens} ` +
         `stripeEvents=${stripeEvents} lemonEvents=${lemonEvents} appEvents=${appEvents} ` +
-        `uniquesRolledUp=${uniqueCompanies} overduePlans=${overduePlans} statsDays=${statsDays}`,
+        `uniquesRolledUp=${uniqueCompanies} overduePlans=${overduePlans} statsDays=${statsDays} ` +
+        `oldLogins=${oldLogins} oldJobs=${oldJobs}`,
     )
 
     return {
       success: true,
-      deleted: rateLimits.deleted + resetTokens + stripeEvents + lemonEvents + appEvents,
+      deleted: rateLimits.deleted + resetTokens + stripeEvents + lemonEvents + appEvents + oldLogins + oldJobs,
       timestamp: new Date().toISOString(),
     }
   },

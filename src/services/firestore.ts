@@ -1431,7 +1431,9 @@ export async function updateReservationStatus(
   const update: Record<string, unknown> = { status }
 
   if (status === 'cancelled') {
+    // Se usa al pasar lista: «no asistió». Cuenta como ausencia del cliente.
     update.cancelledBy = 'restaurant'
+    update.noShow = true
     update.cancelShieldRequested = true
   }
 
@@ -1773,6 +1775,7 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
       }
     })(),
     deactivated: data.deactivated === true,
+    deactivatedByAdmin: data.deactivatedByAdmin === true,
     deactivatedAt: (data.deactivatedAt as { toDate?: () => Date })?.toDate?.() ?? null,
     createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
   }

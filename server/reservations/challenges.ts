@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { BUSINESS_TIME_ZONE } from '../utils/madridDateTime.ts'
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
@@ -328,6 +329,11 @@ export async function createReservationChallenge(
   if (reservation.status === 'cancelled') {
     throw new Error('Esta reserva está cancelada.')
   }
+  // La fianza está en la tarjeta de quien reservó: si cambiara de titular y el
+  // nuevo no fuera, se cobraría a quien perdió el reto.
+  if (typeof reservation.depositPaymentIntentId === 'string' && reservation.depositPaymentIntentId) {
+    throw new Error('Las reservas con fianza no se pueden retar.')
+  }
 
   const startTime = reservation.startTime?.toDate?.() instanceof Date
     ? reservation.startTime.toDate() as Date
@@ -617,11 +623,20 @@ async function transferReservationToWinner(
     throw new Error('El ganador no tiene un correo válido.')
   }
 
+  if (reservation.status === 'cancelled') {
+    throw new Error('Esta reserva está cancelada.')
+  }
+  if (typeof reservation.depositPaymentIntentId === 'string' && reservation.depositPaymentIntentId) {
+    throw new Error('Las reservas con fianza no se pueden retar.')
+  }
+
   await reservationRef.update({
     customerUid: winnerUid,
     clientName: winner.displayName,
     clientEmail: winner.email,
     clientPhone: winner.phone || asString(reservation.clientPhone),
+    // Enlace de cancelación nuevo: el del correo de quien perdió ya no sirve.
+    cancelToken: randomUUID(),
   })
 
   const invitesSnap = await adminDb.collection(COLLECTIONS.reservationInvites)
@@ -696,21 +711,28 @@ export async function settleReservationChallenge(
   winnerUid: string,
 ): Promise<ReservationChallengeRecord> {
   const { ref, challenge } = await loadChallenge(challengeId)
-  if (challenge.status !== 'active') {
-    throw new Error('Este reto no está en juego.')
-  }
   if (winnerUid !== challenge.challengerUid && winnerUid !== challenge.challengedUid) {
     throw new Error('El ganador tiene que ser uno de los dos jugadores.')
   }
 
-  await transferReservationToWinner(challenge, winnerUid)
-
+  // Se cierra el reto en una transacción antes de mover la reserva: dos jugadas
+  // a la vez no pueden resolverlo dos veces.
   const now = Timestamp.now()
-  await ref.update({
-    status: 'resolved',
-    winnerUid,
-    updatedAt: now,
+  await adminDb.runTransaction(async (tx) => {
+    const fresh = await tx.get(ref)
+    if (fresh.data()?.status !== 'active') {
+      throw new Error('Este reto no está en juego.')
+    }
+    tx.update(ref, { status: 'resolved', winnerUid, updatedAt: now })
   })
+
+  try {
+    await transferReservationToWinner(challenge, winnerUid)
+  } catch (error) {
+    // Si no se pudo mover la reserva, el reto vuelve a estar en juego.
+    await ref.update({ status: 'active', winnerUid: null, updatedAt: Timestamp.now() }).catch(() => undefined)
+    throw error
+  }
 
   const winnerName = winnerUid === challenge.challengerUid
     ? challenge.challengerDisplayName

@@ -132,17 +132,26 @@ export class FirestoreRateLimiter {
    */
   async cleanup(olderThanDays: number = 7): Promise<number> {
     const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000
-    const snapshot = await this.db
-      .collection(this.collectionName)
-      .where('resetAt', '<', cutoff)
-      .limit(500)
-      .get()
-
-    const batch = this.db.batch()
-    snapshot.docs.forEach(doc => batch.delete(doc.ref))
-    await batch.commit()
-
-    return snapshot.size
+    // En tandas: con una sola de 500 al día los contadores se acumulaban.
+    let deleted = 0
+    for (let page = 0; page < 50; page += 1) {
+      const snapshot = await this.db
+        .collection(this.collectionName)
+        .where('resetAt', '<', cutoff)
+        .limit(500)
+        .get()
+      if (snapshot.empty) {
+        break
+      }
+      const batch = this.db.batch()
+      snapshot.docs.forEach(doc => batch.delete(doc.ref))
+      await batch.commit()
+      deleted += snapshot.size
+      if (snapshot.size < 500) {
+        break
+      }
+    }
+    return deleted
   }
 }
 

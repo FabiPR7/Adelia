@@ -12,15 +12,6 @@ async function runDueNotificationJobs() {
   }
 }
 
-export const processScheduledNotifications = onSchedule(
-  {
-    schedule: 'every 5 minutes',
-    region: 'europe-west1',
-    timeZone: 'Europe/Madrid',
-  },
-  runDueNotificationJobs,
-)
-
 export const processDueNotifications = onSchedule(
   {
     schedule: 'every 5 minutes',

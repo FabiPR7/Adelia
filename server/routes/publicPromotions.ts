@@ -1,3 +1,4 @@
+import { PIN_ATTEMPTS_MESSAGE, takePromotionPinAttempt } from '../security/rateLimit.ts'
 import { Router, type Request, type Response } from 'express'
 import { adminDb } from '../firebase-admin.ts'
 import { verifyCustomerUid } from '../auth/verifyRequest.ts'
@@ -259,7 +260,7 @@ async function loadPromotionsForCompany(
 
 router.post('/validate-pin', validatePinRateLimit, async (req: Request, res: Response) => {
   try {
-    await verifyCustomerUid(req)
+    const customer = await verifyCustomerUid(req)
 
     const { companyId, pin } = req.body as { companyId?: string; pin?: string }
     const normalizedCompanyId = String(companyId ?? '').trim()
@@ -283,6 +284,10 @@ router.post('/validate-pin', validatePinRateLimit, async (req: Request, res: Res
       return
     }
 
+    if (!(await takePromotionPinAttempt(customer.uid, normalizedCompanyId))) {
+      res.status(429).json({ error: PIN_ATTEMPTS_MESSAGE })
+      return
+    }
     const currentPin = await resolveCompanyPromotionPin(companyRef, companySnap.data()!)
     res.json({ valid: currentPin === normalizedPin })
   } catch (error) {

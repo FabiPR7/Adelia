@@ -1,7 +1,33 @@
 import type { NextFunction, Request, Response } from 'express'
 import { FieldValue } from 'firebase-admin/firestore'
-import { adminDb, canUseAdminSdk } from '../firebase-admin.ts'
+import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import { authKey, clientKey, hashRateKey } from './requestIdentity.ts'
+
+// Cada sesión puede pedir un token nuevo cuando quiera: si el límite fuera por
+// token, bastaría con renovarlo para saltárselo. Se cuenta por usuario.
+const tokenUidCache = new Map<string, string>()
+
+async function stableAuthKey(req: Request, fallback: string): Promise<string> {
+  const header = req.headers.authorization
+  if (!canUseAdminSdk || typeof header !== 'string' || !header.startsWith('Bearer ')) {
+    return fallback
+  }
+  const cached = tokenUidCache.get(fallback)
+  if (cached) {
+    return cached
+  }
+  try {
+    const decoded = await adminAuth.verifyIdToken(header.slice(7))
+    const key = `uid:${decoded.uid}`
+    if (tokenUidCache.size > 5000) {
+      tokenUidCache.clear()
+    }
+    tokenUidCache.set(fallback, key)
+    return key
+  } catch {
+    return fallback
+  }
+}
 
 interface RateEntry {
   count: number
@@ -90,6 +116,26 @@ async function takeDistributed(
   }
 }
 
+/**
+ * Intentos de PIN de promociones por cliente y restaurante, compartidos entre
+ * todas las copias del servidor. El PIN tiene 4 cifras: sin este tope se podía
+ * adivinar probando combinaciones.
+ */
+export const PIN_ATTEMPTS_MESSAGE = 'Demasiados intentos con el PIN. Espera un rato o pide ayuda al personal.'
+
+export async function takePromotionPinAttempt(uid: string, companyId: string): Promise<boolean> {
+  return takeDistributed('promo-pin', `${uid}:${companyId}`, 12, 60 * 60_000)
+}
+
+/**
+ * Correos que se mandan a una dirección concreta (recuperar contraseña): tope
+ * por dirección y no solo por IP, para que no se pueda inundar un buzón desde
+ * muchas IPs.
+ */
+export async function takeEmailSend(kind: string, email: string): Promise<boolean> {
+  return takeDistributed(`mail-${kind}`, email.trim().toLowerCase(), 3, 60 * 60_000)
+}
+
 export function createRateLimit(maxRequests: number, windowMs: number, name = 'default') {
   const store = storeFor(`${name}:${maxRequests}:${windowMs}`)
   return (req: Request, res: Response, next: NextFunction) => {
@@ -127,6 +173,11 @@ function bucketFor(req: Request): {
     || url.startsWith('/api/auth/complete-initial-password-change')
   ) {
     return { name: 'auth', max: 20, windowMs: 15 * 60_000, key: clientKey(req), distributed: true, failClosed: true }
+  }
+
+  // Cada llamada manda un correo: sin tope propio servía para inundar un buzón.
+  if (url.startsWith('/api/auth/customer/send-verification-email')) {
+    return { name: 'verifyEmail', max: 4, windowMs: 30 * 60_000, key: authKey(req), distributed: true, failClosed: true }
   }
 
   if (url.startsWith('/api/auth/customer/bootstrap')) {
@@ -230,6 +281,9 @@ export async function apiRateLimit(req: Request, res: Response, next: NextFuncti
   if (bucket.name === 'skip') {
     next()
     return
+  }
+  if (bucket.key.startsWith('tok:')) {
+    bucket.key = await stableAuthKey(req, bucket.key)
   }
 
   const store = storeFor(bucket.name)

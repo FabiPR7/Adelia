@@ -476,15 +476,21 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
             <div className={styles.deactivatedBanner} role="status">
               <div className={styles.deactivatedBannerText}>
                 <strong>Tu restaurante está desactivado</strong>
-                <span>Los clientes no pueden encontrarte, ver tu carta ni reservar.</span>
+                <span>
+                  {company.deactivatedByAdmin
+                    ? 'Lo ha desactivado Adelia. Escríbenos a soporte para volver a activarlo.'
+                    : 'Los clientes no pueden encontrarte, ver tu carta ni reservar.'}
+                </span>
               </div>
-              <button
-                type="button"
-                className={styles.deactivatedBannerButton}
-                onClick={() => attemptNavigate('profile')}
-              >
-                Reactivar
-              </button>
+              {company.deactivatedByAdmin ? null : (
+                <button
+                  type="button"
+                  className={styles.deactivatedBannerButton}
+                  onClick={() => attemptNavigate('profile')}
+                >
+                  Reactivar
+                </button>
+              )}
             </div>
           ) : null}
           <Suspense

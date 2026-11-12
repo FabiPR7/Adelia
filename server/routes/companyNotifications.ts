@@ -36,7 +36,7 @@ function mapNotificationDoc(id: string, data: FirebaseFirestore.DocumentData) {
 router.get('/notifications', async (req: Request, res: Response) => {
   try {
     const account = await verifyCompanyAccount(req)
-    const limit = Math.min(Number(req.query.limit) || 50, 100)
+    const limit = Math.max(1, Math.min(Math.trunc(Number(req.query.limit)) || 50, 100))
     const snapshot = await companyNotificationsRef(account.companyId)
       .orderBy('createdAt', 'desc')
       .limit(limit)
