@@ -92,13 +92,14 @@ function CustomerAuthShell({ variant, children }: CustomerAuthShellProps) {
             </ul>
 
             <div className={styles.heroStats}>
+              {/* Solo datos ciertos: cifras inventadas serían publicidad engañosa. */}
               <div>
-                <strong>+500</strong>
-                <span>Restaurantes</span>
+                <strong>Premios</strong>
+                <span>En cada local</span>
               </div>
               <div>
-                <strong>4.8★</strong>
-                <span>Valoración</span>
+                <strong>Retos</strong>
+                <span>Con amigos</span>
               </div>
               <div>
                 <strong>Gratis</strong>

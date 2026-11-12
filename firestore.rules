@@ -454,7 +454,15 @@ service cloud.firestore {
         // El doc lleva customerUid y reservationId: no debe ser mundo-legible.
         // El público lee las reseñas por la API (/api/public/booking/:slug/reviews),
         // que las sanea con mapPublicReview.
-        allow get, list: if isCompanyOwner(companyId) || isAdmin();
+        // El autor puede leer la suya (la app comprueba si ya opinó).
+        // La reseña de un cliente se guarda con su uid como id: si no existe aún, puede comprobarlo.
+        allow get: if isCompanyOwner(companyId) || isAdmin()
+          || (isSignedIn() && (
+            (resource == null && reviewId == request.auth.uid)
+            || resource.data.customerUid == request.auth.uid
+          ));
+        allow list: if isCompanyOwner(companyId) || isAdmin()
+          || (isSignedIn() && resource.data.customerUid == request.auth.uid);
         allow create: if false;
         allow update: if isAdmin() || (
           isCompanyOwner(companyId)

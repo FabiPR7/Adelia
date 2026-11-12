@@ -391,11 +391,11 @@ function CustomerFriendsBoard({
           type="search"
           value={friendQuery}
           onChange={(event) => setFriendQuery(event.target.value)}
-          placeholder="Nombre o email de cualquier usuario…"
+          placeholder="Nombre de la persona…"
           className={styles.friendSearchInput}
           aria-label="Buscar personas en Adelia"
         />
-        <button type="submit" className={styles.friendSearchBtn} disabled={friendQuery.trim().length < 2}>
+        <button type="submit" className={styles.friendSearchBtn} disabled={friendQuery.trim().length < 3}>
           Buscar
         </button>
       </form>
@@ -404,14 +404,14 @@ function CustomerFriendsBoard({
           ? 'Buscando cuentas reales…'
           : peopleError
             ? peopleError
-            : peopleQuery.trim().length >= 2
+            : peopleQuery.trim().length >= 3
               ? `${peopleResults.length} resultado${peopleResults.length === 1 ? '' : 's'} en Adelia`
-              : 'Escribe al menos 2 letras: Stan, Georgiana, el nombre completo o el email.'}
+              : 'Escribe al menos 3 letras del nombre con el que aparece en Adelia.'}
       </p>
 
-      {peopleQuery.trim().length >= 2 && !peopleLoading && !peopleError && peopleResults.length === 0 ? (
+      {peopleQuery.trim().length >= 3 && !peopleLoading && !peopleError && peopleResults.length === 0 ? (
         <p className={styles.emptyHint}>
-          Nadie coincide con «{peopleQuery}». Prueba otra parte del nombre o el email.
+          Nadie coincide con «{peopleQuery}». Prueba con el principio de su nombre.
         </p>
       ) : null}
 
@@ -507,7 +507,7 @@ function CustomerFriendsBoard({
                 type="search"
                 value={addQuery}
                 onChange={(event) => setAddQuery(event.target.value)}
-                placeholder="Nombre o email…"
+                placeholder="Nombre…"
                 className={styles.modalSearchInput}
               />
               <button type="submit" className={styles.modalSearchBtn} disabled={!addQuery.trim()}>
@@ -519,11 +519,11 @@ function CustomerFriendsBoard({
                 ? 'Buscando cuentas reales de Adelia…'
                 : addSearchError
                   ? addSearchError
-                  : addSubmittedQuery.length >= 2
+                  : addSubmittedQuery.length >= 3
                     ? `${addSearchResults.length} resultado${addSearchResults.length === 1 ? '' : 's'}`
-                    : 'Escribe al menos 2 letras. Cualquier cuenta de cliente puede aparecer.'}
+                    : 'Escribe al menos 3 letras del nombre.'}
             </p>
-            {addSubmittedQuery.length >= 2 && !addSearchLoading && !addSearchError && addSearchResults.length === 0 ? (
+            {addSubmittedQuery.length >= 3 && !addSearchLoading && !addSearchError && addSearchResults.length === 0 ? (
               <p className={styles.emptyHint}>
                 Nadie coincide con «{addSubmittedQuery}». Prueba nombre, apellido o el email.
               </p>

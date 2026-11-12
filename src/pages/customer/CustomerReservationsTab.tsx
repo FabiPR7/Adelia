@@ -552,7 +552,7 @@ function CustomerReservationsTab() {
           </div>
           <div>
             <strong>{past.length}</strong>
-            <span>Hechas</span>
+            <span>Pasadas</span>
           </div>
           <div>
             <strong>{consumptions.length}</strong>
@@ -607,7 +607,7 @@ function CustomerReservationsTab() {
           className={tab === 'past' ? styles.tabActive : styles.tab}
           onClick={() => setTab('past')}
         >
-          Hechas
+          Pasadas
           <span>{past.length}</span>
         </button>
       </div>
