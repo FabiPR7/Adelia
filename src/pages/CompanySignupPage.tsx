@@ -32,6 +32,7 @@ import {
   isPasswordValid,
 } from '../utils/passwordValidation'
 import { loadRecaptchaScript, executeRecaptcha } from '../services/recaptcha'
+import RecaptchaNotice from '../components/RecaptchaNotice'
 import styles from './CompanySignupPage.module.css'
 
 const STEPS = [
@@ -408,6 +409,7 @@ function CompanySignupPage() {
               </label>
               {error ? <p className={styles.error}>{error}</p> : null}
               <button type="button" className={styles.primary} onClick={goAccountNext}>Continuar</button>
+              <RecaptchaNotice />
             </motion.section>
           ) : null}
 

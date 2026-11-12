@@ -18,7 +18,7 @@ interface ReservationListProps {
 const STATUS_LABELS: Record<Reservation['status'], string> = {
   confirmed: 'Confirmada',
   cancelled: 'Cancelada',
-  completed: 'Completada',
+  completed: 'Pendiente',
 }
 
 function ReservationList({

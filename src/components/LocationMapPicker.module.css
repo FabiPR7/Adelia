@@ -73,7 +73,8 @@
 .rootSquare .coords {
   position: absolute;
   right: 0.5rem;
-  bottom: 0.5rem;
+  /* Por encima del crédito «Leaflet | OpenStreetMap» de la esquina, no encima de él. */
+  bottom: 1.6rem;
   z-index: 1100;
   padding: 0.18rem 0.4rem;
   border-radius: 8px;

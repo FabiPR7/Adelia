@@ -8,7 +8,7 @@ interface ReservationStatusDonutProps {
 
 const SLICES = [
   { key: 'confirmed' as const, label: 'Confirmadas', color: '#2e7d6b' },
-  { key: 'completed' as const, label: 'Completadas', color: '#8b6914' },
+  { key: 'completed' as const, label: 'Pendientes', color: '#8b6914' },
   { key: 'cancelled' as const, label: 'Canceladas', color: '#c0392b' },
 ]
 

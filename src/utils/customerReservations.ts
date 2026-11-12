@@ -28,8 +28,9 @@ export function getReservationStatusLabel(status: Reservation['status'], isUpcom
     return 'Cancelada'
   }
 
+  // 'completed' es una reserva hecha a la que aún no se ha pasado lista.
   if (status === 'completed') {
-    return 'Completada'
+    return isUpcoming ? 'Reservada' : 'Pendiente'
   }
 
   return isUpcoming ? 'Confirmada' : 'Realizada'

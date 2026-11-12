@@ -37,7 +37,11 @@ function buildAreaPath(
 
   const topPoints = topValues.map((value, index) => `${xAt(index)},${yAt(value)}`).join(' L ')
   const bottomPoints = bottomValues
-    .map((value, index) => `${xAt(bottomValues.length - 1 - index)},${yAt(value)}`)
+    // x y valor del mismo punto (antes cada pico salía repetido en espejo).
+    .map((_value, index) => {
+      const point = bottomValues.length - 1 - index
+      return `${xAt(point)},${yAt(bottomValues[point])}`
+    })
     .join(' L ')
 
   return `M ${xAt(0)},${yAt(topValues[0])} L ${topPoints} L ${bottomPoints} Z`

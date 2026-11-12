@@ -28,7 +28,7 @@
 .date {
   color: var(--color-text-muted);
   font-size: 0.8125rem;
-  text-transform: capitalize;
+  text-transform: none;
 }
 
 .headerActions {
@@ -201,7 +201,7 @@
 
 .tableHeader {
   display: grid;
-  grid-template-columns: 72px 1.2fr 1fr 40px 1fr 88px 64px;
+  grid-template-columns: 72px 1.2fr 1fr 40px 1fr 92px 104px;
   gap: 0.5rem;
   padding: 0.45rem 1.125rem;
   font-size: 0.6875rem;
@@ -234,7 +234,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 72px 1.2fr 1fr 40px 1fr 88px 64px;
+  grid-template-columns: 72px 1.2fr 1fr 40px 1fr 92px 104px;
   gap: 0.5rem;
   align-items: center;
   padding: 0.45rem 1.125rem;
@@ -272,6 +272,18 @@
 
 .cellActions {
   grid-column: 7;
+}
+
+/* Todas en la misma línea: el estado va antes que la mesa en el HTML y la
+   cuadrícula saltaba a una segunda línea. (En móvil se reinicia más abajo.) */
+.cellTime,
+.cellClient,
+.cellTable,
+.cellPax,
+.cellContact,
+.status,
+.cellActions {
+  grid-row: 1;
 }
 
 .lockedHint {
@@ -669,4 +681,9 @@
   .consumptionDetail {
     margin: 0 0.7rem 0.5rem 3.4rem;
   }
+}
+
+/* Solo la primera letra: con capitalize salía «12 De Noviembre De 2026». */
+.date::first-letter {
+  text-transform: uppercase;
 }

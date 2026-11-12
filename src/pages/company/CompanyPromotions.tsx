@@ -97,7 +97,7 @@ function promotionSummary(promotion: CompanyPromotion): string {
   const offerSummary = formatPromotionOfferSummary(promotion.offer)
   const productCount = promotion.productRefs.length
   const minSpendLabel = promotion.minimumSpendEnabled && promotion.minimumSpendCents != null && promotion.minimumSpendCents > 0
-    ? `mín. ${(promotion.minimumSpendCents / 100).toFixed(2).replace('.', ',')} €`
+    ? `mín. ${(promotion.minimumSpendCents / 100).toFixed(2).replace('.', ',')} €`
     : null
 
   if (promotion.type === 'reservation_ladder') {

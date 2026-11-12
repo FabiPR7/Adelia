@@ -37,7 +37,7 @@
 .subtitle {
   font-size: 0.8125rem;
   color: var(--color-text-muted);
-  text-transform: capitalize;
+  text-transform: none;
   margin-top: 0.15rem;
 }
 
@@ -89,7 +89,7 @@
   gap: 0.85rem;
 }
 
-label {
+:where(.modal) label {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -98,8 +98,8 @@ label {
   color: var(--color-brown-light);
 }
 
-input,
-select {
+:where(.modal) input,
+:where(.modal) select {
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -277,4 +277,9 @@ select {
   .pickerSection {
     grid-template-columns: 1fr;
   }
+}
+
+/* Solo la primera letra: con capitalize salía «12 De Noviembre De 2026». */
+.subtitle::first-letter {
+  text-transform: uppercase;
 }

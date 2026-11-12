@@ -12,11 +12,11 @@ const PADDING = { top: 14, right: 12, bottom: 28, left: 32 }
 
 const SERIES = [
   { key: 'confirmed' as const, label: 'Confirmadas', color: '#2e7d6b', fill: 'rgba(46, 125, 107, 0.35)' },
-  { key: 'completed' as const, label: 'Completadas', color: '#8b6914', fill: 'rgba(139, 105, 20, 0.28)' },
+  { key: 'completed' as const, label: 'Pendientes', color: '#8b6914', fill: 'rgba(139, 105, 20, 0.28)' },
   { key: 'cancelled' as const, label: 'Canceladas', color: '#c0392b', fill: 'rgba(192, 57, 43, 0.22)' },
 ]
 
-function buildAreaPath(
+export function buildAreaPath(
   bottomValues: number[],
   topValues: number[],
   maxValue: number,
@@ -37,8 +37,13 @@ function buildAreaPath(
   const yAt = (value: number) => PADDING.top + plotHeight - (value / maxValue) * plotHeight
 
   const topPoints = topValues.map((value, index) => `${xAt(index)},${yAt(value)}`).join(' L ')
+  // El borde de abajo se recorre de derecha a izquierda: x y valor del mismo día.
+  // (Antes se tomaba el valor del día opuesto y cada pico salía repetido en espejo.)
   const bottomPoints = bottomValues
-    .map((value, index) => `${xAt(bottomValues.length - 1 - index)},${yAt(value)}`)
+    .map((_value, index) => {
+      const day = bottomValues.length - 1 - index
+      return `${xAt(day)},${yAt(bottomValues[day])}`
+    })
     .join(' L ')
 
   return `M ${xAt(0)},${yAt(topValues[0])} L ${topPoints} L ${bottomPoints} Z`
@@ -58,11 +63,13 @@ function ReservationTrendChart({ data }: ReservationTrendChartProps) {
   const hasData = data.total.some((value) => value > 0)
   const yTicks = [0, Math.ceil(maxValue / 2), maxValue]
 
+  // Una capa sin datos no se dibuja: su borde pintaba encima de la de abajo
+  // (picos rojos de «canceladas» con 0 canceladas).
   const stacks = [
-    { bottom: data.confirmed.map(() => 0), top: stackedConfirmed, ...SERIES[0] },
-    { bottom: stackedConfirmed, top: stackedCompleted, ...SERIES[1] },
-    { bottom: stackedCompleted, top: stackedCancelled, ...SERIES[2] },
-  ]
+    { bottom: data.confirmed.map(() => 0), top: stackedConfirmed, values: data.confirmed, ...SERIES[0] },
+    { bottom: stackedConfirmed, top: stackedCompleted, values: data.completed, ...SERIES[1] },
+    { bottom: stackedCompleted, top: stackedCancelled, values: data.cancelled, ...SERIES[2] },
+  ].filter((stack) => stack.values.some((value) => value > 0))
 
   return (
     <div className={shared.chartBody}>

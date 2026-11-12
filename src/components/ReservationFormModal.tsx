@@ -50,7 +50,7 @@ const EMPTY_FORM: ReservationFormData = {
 
 const STATUS_OPTIONS: { value: ReservationStatus; label: string }[] = [
   { value: 'confirmed', label: 'Confirmada' },
-  { value: 'completed', label: 'Completada' },
+  { value: 'completed', label: 'Pendiente' },
   { value: 'cancelled', label: 'Cancelada' },
 ]
 

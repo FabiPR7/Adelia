@@ -14,6 +14,7 @@ import {
   PASSWORD_REQUIREMENTS,
 } from '../utils/passwordValidation'
 import { loadRecaptchaScript, executeRecaptcha } from '../services/recaptcha'
+import RecaptchaNotice from '../components/RecaptchaNotice'
 import { LEGAL_ACCEPTANCE_VERSION } from '../content/publicLegal'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
@@ -275,6 +276,7 @@ function UserRegisterPage() {
             {isLoading ? 'Creando cuenta…' : 'Registrarme'}
           </button>
         </form>
+        <RecaptchaNotice />
 
         <div className={styles.divider}>o</div>
 

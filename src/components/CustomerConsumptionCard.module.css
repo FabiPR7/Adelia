@@ -83,7 +83,7 @@
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-brown-light);
-  text-transform: capitalize;
+  text-transform: none;
 }
 
 .time {
@@ -133,4 +133,9 @@
     height: 112px;
     border-radius: 20px;
   }
+}
+
+/* Solo la primera letra: con capitalize salía «12 De Noviembre De 2026». */
+.date::first-letter {
+  text-transform: uppercase;
 }

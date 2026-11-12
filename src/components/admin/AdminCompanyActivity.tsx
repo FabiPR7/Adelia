@@ -4,7 +4,7 @@ import styles from './AdminPanel.module.css'
 
 const STATUS_LABEL: Record<string, string> = {
   confirmed: 'Confirmada',
-  completed: 'Completada',
+  completed: 'Pendiente',
   cancelled: 'Cancelada',
 }
 

@@ -135,3 +135,9 @@ a:hover {
     scroll-behavior: auto !important;
   }
 }
+
+/* El sello flotante de reCAPTCHA tapaba contenido (sobre todo en móvil).
+   En su lugar, cada formulario que lo usa muestra <RecaptchaNotice />. */
+.grecaptcha-badge {
+  visibility: hidden !important;
+}

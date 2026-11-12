@@ -184,7 +184,7 @@
   color: #a87458;
 }
 
-h1 {
+:where(.page) h1 {
   margin: 0.35rem 0 0;
   font-family: 'Playfair Display', Georgia, serif;
   font-size: clamp(1.8rem, 4vw, 2.5rem);

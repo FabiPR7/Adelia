@@ -11,6 +11,7 @@ import { useCustomerProductTourOptional } from '../context/CustomerProductTourCo
 import { useCustomerGamificationContext } from '../context/CustomerGamificationContext'
 import { useCustomerFriends } from '../hooks/useCustomerFriends'
 import { createPublicDepositIntent, type PublicDepositIntentResponse } from '../services/publicDepositApi'
+import RecaptchaNotice from '../components/RecaptchaNotice'
 import {
   availabilityToReservations,
   createPublicReservation,
@@ -1194,6 +1195,7 @@ function PublicBookingPage() {
                       Al reservar aceptas los{' '}
                       <a href="/legal/terminos" target="_blank" rel="noreferrer">términos de uso</a>.
                     </p>
+                    <RecaptchaNotice />
 
                     <button
                       type="submit"

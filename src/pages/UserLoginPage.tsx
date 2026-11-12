@@ -8,6 +8,7 @@ import { getUserProfile } from '../services/firestore'
 import { getAuthErrorMessage } from '../services/auth'
 import { getPostLoginPath, resolveSafeRedirect } from '../utils/authProfile'
 import { executeRecaptcha, loadRecaptchaScript } from '../services/recaptcha'
+import RecaptchaNotice from '../components/RecaptchaNotice'
 import { LEGAL_ACCEPTANCE_VERSION } from '../content/publicLegal'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
@@ -174,6 +175,7 @@ function UserLoginPage() {
             {isLoading ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
+        <RecaptchaNotice />
 
         <p className={styles.forgotRow}>
           <Link to="/cuenta/olvide-contrasena" className={styles.forgotLink}>

@@ -1,0 +1,12 @@
+.notice {
+  margin: 0.6rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.notice a {
+  color: inherit;
+  text-decoration: underline;
+}
