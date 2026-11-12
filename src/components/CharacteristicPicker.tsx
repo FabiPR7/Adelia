@@ -7,6 +7,7 @@ interface CharacteristicPickerProps {
   selected: string[]
   maxSelected: number
   onChange: (selected: string[]) => void
+  hint?: string
 }
 
 function CharacteristicPicker({
@@ -15,6 +16,7 @@ function CharacteristicPicker({
   selected,
   maxSelected,
   onChange,
+  hint,
 }: CharacteristicPickerProps) {
   const [query, setQuery] = useState('')
   const atLimit = selected.length >= maxSelected
@@ -97,7 +99,7 @@ function CharacteristicPicker({
         )}
       </div>
 
-      <p className={styles.hint}>Elige hasta {maxSelected} características que describan tu local.</p>
+      <p className={styles.hint}>{hint ?? `Elige hasta ${maxSelected} características que describan tu local.`}</p>
     </div>
   )
 }

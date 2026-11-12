@@ -186,6 +186,7 @@ function CustomerOnboardingPageContent() {
               value={coordinates}
               onChange={setCoordinates}
               geocodeQuery={city?.label ?? city?.name ?? ''}
+              pinHint="Toca el mapa o arrastra el pin hasta tu zona: solo sirve para enseñarte sitios cerca."
             />
           </div>
 
@@ -195,6 +196,7 @@ function CustomerOnboardingPageContent() {
             selected={foodPreferences}
             maxSelected={5}
             onChange={setFoodPreferences}
+            hint="Elige hasta 5 cosas que te gusten."
           />
 
           {error && (
@@ -204,7 +206,7 @@ function CustomerOnboardingPageContent() {
           )}
 
           <button type="submit" className={styles.submitButton} disabled={isSaving}>
-            {isSaving ? 'Guardando…' : 'Entrar a Adelia'}
+            {isSaving ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Entrar a Adelia'}
           </button>
         </form>
 

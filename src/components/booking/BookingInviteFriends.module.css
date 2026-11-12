@@ -49,6 +49,12 @@
   cursor: pointer;
 }
 
+/* Dentro del formulario de reserva las etiquetas van en columna; aquí, en fila. */
+.list .row {
+  flex-direction: row;
+  margin-bottom: 0;
+}
+
 .rowDisabled {
   opacity: 0.5;
   cursor: not-allowed;

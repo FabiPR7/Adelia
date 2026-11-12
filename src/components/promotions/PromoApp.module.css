@@ -172,6 +172,11 @@
   text-transform: uppercase;
 }
 
+/* Con sello «Reclamada» a la derecha, la etiqueta no puede llegar hasta él. */
+.cardStamped .cardBadge {
+  max-width: calc(100% - 104px);
+}
+
 .cardStamped .cardMedia img {
   filter: grayscale(0.45);
 }

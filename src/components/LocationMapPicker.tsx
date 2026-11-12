@@ -31,6 +31,7 @@ interface LocationMapPickerProps {
   disabled?: boolean
   compact?: boolean
   square?: boolean
+  pinHint?: string
 }
 
 function LocationMapPicker({
@@ -40,6 +41,7 @@ function LocationMapPicker({
   disabled = false,
   compact = false,
   square = false,
+  pinHint = 'Toca el mapa o arrastra el pin para indicar la entrada exacta de tu local.',
 }: LocationMapPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -246,7 +248,7 @@ function LocationMapPicker({
 
       {square ? null : (
         <p className={styles.hint}>
-          Toca el mapa o arrastra el pin para indicar la entrada exacta de tu local.
+          {pinHint}
         </p>
       )}
 

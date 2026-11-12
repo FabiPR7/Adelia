@@ -655,7 +655,8 @@
   min-width: 0;
 }
 
-.formCard input,
+/* Las casillas no: con 48 px de alto quedaban descolgadas de su texto. */
+.formCard input:not([type='checkbox']):not([type='radio']),
 .formCard textarea {
   min-height: 48px;
   padding: 0.65rem 0.85rem;
