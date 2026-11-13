@@ -1091,7 +1091,7 @@ function PublicBookingPage() {
                         max={extraPaxCapacity}
                         value={pax}
                         onChange={(e) => {
-                          const next = Math.max(1, Number(e.target.value) || 1)
+                          const next = Math.max(1, Math.trunc(Number(e.target.value)) || 1)
                           const clamped = Math.min(next, extraPaxCapacity)
                           setPax(clamped)
                           if (selectedTable && clamped <= selectedTable.capacity) {
@@ -1218,7 +1218,18 @@ function PublicBookingPage() {
                     {!selectedTime ? (
                       <>
                         <h3>Elige una hora</h3>
-                        {hourSlotGroups.length === 0 ? (
+                        {hourSlotGroups.length === 0 && tables.length === 0 ? (
+                          // Sin mesas no hay ningún día con horas: no mandar al cliente a probar días.
+                          <p className={styles.emptySlots}>
+                            {company?.name ?? 'Este restaurante'} todavía no admite reservas por Adelia.
+                            {company?.phone ? (
+                              <>
+                                {' '}Puedes llamar al{' '}
+                                <a href={`tel:${company.phone.replace(/\s+/g, '')}`}>{company.phone}</a>.
+                              </>
+                            ) : null}
+                          </p>
+                        ) : hourSlotGroups.length === 0 ? (
                           <p className={styles.emptySlots}>
                             No quedan horas libres este día. Prueba con otro día en el calendario.
                           </p>

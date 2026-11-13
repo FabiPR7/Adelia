@@ -148,6 +148,10 @@ export function assertReservationSlotValid(
 
   const slots = generateSlotTimes(date, schedule, slotIntervalMinutes, durationMinutes)
 
+  if (slots.length === 0) {
+    throw new Error('El restaurante no abre ese día. Elige otro día.')
+  }
+
   if (!slots.includes(time)) {
     throw new Error('La hora seleccionada no está dentro del horario del restaurante.')
   }

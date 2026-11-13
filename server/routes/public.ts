@@ -687,7 +687,16 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
       return
     }
 
-    const table = asId(tableId, 'La mesa')
+    // El restaurante tiene que poder llamar: «hola» o «123» no son un teléfono.
+    if (!customer) {
+      const digits = phone.replace(/\D/g, '')
+      if (!/^\+?[\d\s().-]+$/.test(phone) || digits.length < 7 || digits.length > 15) {
+        res.status(400).json({ error: 'Indica un teléfono válido (solo números, con prefijo si es de fuera).' })
+        return
+      }
+    }
+
+    const table = asId(tableId, 'El dato de la mesa')
     const bookingTime = asOptionalTrimmed(time, 8)
     if (!/^\d{2}:\d{2}$/.test(bookingTime)) {
       res.status(400).json({ error: 'Selecciona una hora.' })
