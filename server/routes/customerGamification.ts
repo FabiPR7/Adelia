@@ -548,12 +548,29 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
     const customer = await verifyCustomerUid(req)
     const companyId = String(req.body?.companyId ?? '').trim()
     const promotionId = String(req.body?.promotionId ?? '').trim()
+    const pin = normalizePromotionPinCode(String(req.body?.pin ?? ''))
     if (!companyId || !promotionId) {
       res.status(400).json({ error: 'Canje no válido.' })
       return
     }
+    if (pin.length !== 4) {
+      res.status(400).json({ error: 'Pide el código PIN al empleado del restaurante.' })
+      return
+    }
 
     const companyRef = adminDb.collection('companies').doc(companyId)
+    // Sin el PIN del local no hay premio: antes se comprobaba en otra llamada y
+    // esta se podía pedir directamente sin estar en el restaurante.
+    if (!(await takePromotionPinAttempt(customer.uid, companyId))) {
+      res.status(429).json({ error: PIN_ATTEMPTS_MESSAGE })
+      return
+    }
+    const pinCompanySnap = await companyRef.get()
+    if (!pinCompanySnap.exists || (await resolveCompanyPromotionPin(companyRef, pinCompanySnap.data() ?? {})) !== pin) {
+      res.status(403).json({ error: 'Código PIN incorrecto. Pídeselo de nuevo al empleado.' })
+      return
+    }
+
     const [companySnap, promotionSnap, ladderPromotionsSnap, reservationsSnap] = await Promise.all([
       companyRef.get(),
       companyRef.collection('promotions').doc(promotionId).get(),

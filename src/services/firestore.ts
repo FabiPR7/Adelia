@@ -483,6 +483,7 @@ export async function recordPromotionClaim(
   current: CustomerGamificationState,
   confirmedCountAtCompany: number,
   companyLadderPromotions: PublicPromotion[],
+  pin: string,
 ): Promise<CustomerGamificationState> {
   const nextActiveId = getNextLadderPromotionId(companyLadderPromotions, claim.promotionId)
   const sortedLadder = sortCompanyLadderPromotions(companyLadderPromotions)
@@ -515,6 +516,7 @@ export async function recordPromotionClaim(
   await callCustomerGamificationApi('/claim-ladder', {
     companyId: claim.companyId,
     promotionId: claim.promotionId,
+    pin,
   })
   return next
 }

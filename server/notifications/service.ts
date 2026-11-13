@@ -145,7 +145,9 @@ export async function createCustomerNotification(
       createdAt: now,
       actionUrl: payload.actionUrl ?? null,
       actionLabel: payload.actionLabel ?? null,
-      data: payload.data ?? {},
+      // Sin campos undefined: la base los rechaza y el aviso no se guardaba
+      // (p. ej. «premio conseguido» de un mapa, que no tiene reserva).
+      data: Object.fromEntries(Object.entries(payload.data ?? {}).filter(([, value]) => value !== undefined)),
       dedupeKey: payload.dedupeKey,
     })
   } catch (error) {

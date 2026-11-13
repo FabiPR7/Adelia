@@ -577,7 +577,7 @@ function CustomerPromotionsTab() {
     setClaimFlowPromotion(promotion)
   }
 
-  const handleClaimConfirmed = async (promotion: PublicPromotion) => {
+  const handleClaimConfirmed = async (promotion: PublicPromotion, pin: string) => {
     if (userClaimKey) {
       persistClaimedPromotionId(userClaimKey, promotion.id)
     }
@@ -591,7 +591,7 @@ function CustomerPromotionsTab() {
     }
 
     const companyLadder = companyLadderMap.get(promotion.companyId) ?? [promotion]
-    await claimPromotion(promotion, companyLadder)
+    await claimPromotion(promotion, companyLadder, pin)
     setLadderMapGroup(null)
     setView('reclamadas')
   }

@@ -79,6 +79,7 @@ interface CustomerGamificationContextValue extends CustomerGamificationView {
   claimPromotion: (
     promotion: PublicPromotion,
     companyLadderPromotions: PublicPromotion[],
+    pin: string,
   ) => Promise<void>
   claimTimeLimitedPromotion: (
     promotion: PublicPromotion,
@@ -476,6 +477,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
   const claimPromotion = useCallback(async (
     promotion: PublicPromotion,
     companyLadderPromotions: PublicPromotion[],
+    pin: string,
   ) => {
     if (!user || !profile) {
       return
@@ -508,6 +510,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       profile.gamification,
       confirmedCountAtCompany,
       companyLadderPromotions,
+      pin,
     )
     await refreshProfile()
     void refreshGamificationData({ silent: true })

@@ -9,7 +9,7 @@ type FlowStep = 'location' | 'not_at_restaurant' | 'pin' | 'success'
 interface PromotionClaimFlowModalProps {
   promotion: PublicPromotion | null
   onClose: () => void
-  onClaimed: (promotion: PublicPromotion) => Promise<void>
+  onClaimed: (promotion: PublicPromotion, pin: string) => Promise<void>
 }
 
 export default function PromotionClaimFlowModal({
@@ -69,7 +69,8 @@ export default function PromotionClaimFlowModal({
         return
       }
 
-      await onClaimed(promotion)
+      // El servidor vuelve a comprobar el PIN al dar el premio (no basta con este paso).
+      await onClaimed(promotion, normalizePromotionPinCode(pin))
       setStep('success')
     } catch (submitError) {
       const message = submitError instanceof Error

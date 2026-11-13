@@ -32,6 +32,8 @@ export async function notifyGamificationChanges(
   const afterMissions = allCompletedMissionIds(afterGamification)
   const newMissionIds = afterMissions.filter((missionId) => !beforeMissions.has(missionId))
   const beforeWeekKey = typeof beforeGamification.weekKey === 'string' ? beforeGamification.weekKey : ''
+  const afterWeekKey = typeof afterGamification.weekKey === 'string' ? afterGamification.weekKey : ''
+  const afterMonthKey = typeof afterGamification.monthKey === 'string' ? afterGamification.monthKey : ''
   const beforeHasProgress = beforeMissions.size > 0 || beforeXp > 0 || beforeWeekKey.length > 0
 
   if (!beforeHasProgress) {
@@ -84,7 +86,15 @@ export async function notifyGamificationChanges(
       icon: mission.icon,
       actionUrl: '/app/misiones',
       actionLabel: isHistoricalBadge ? 'Ver logros' : 'Ver misiones',
-      dedupeKey: isHistoricalBadge ? `badge_unlocked:${missionId}` : `mission_completed:${missionId}`,
+      // Las semanales y mensuales se repiten: la clave lleva su semana o mes,
+      // si no solo avisaba la primera vez que se completaban.
+      dedupeKey: isHistoricalBadge
+        ? `badge_unlocked:${missionId}`
+        : mission.cadence === 'weekly' && afterWeekKey
+          ? `mission_completed:${afterWeekKey}:${missionId}`
+          : mission.cadence === 'monthly' && afterMonthKey
+            ? `mission_completed:${afterMonthKey}:${missionId}`
+            : `mission_completed:${missionId}`,
       data: isHistoricalBadge
         ? { badgeId: missionId, badgeName: mission.name }
         : { missionId, missionName: mission.name },
