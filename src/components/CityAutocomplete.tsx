@@ -10,6 +10,8 @@ interface CityAutocompleteProps {
   className?: string
   variant?: 'default' | 'form'
   compact?: boolean
+  /** Texto escrito aunque no se elija una sugerencia (para buscar por lo escrito). */
+  onTextChange?: (text: string) => void
 }
 
 function CityAutocomplete({
@@ -20,6 +22,7 @@ function CityAutocomplete({
   className,
   variant = 'default',
   compact = false,
+  onTextChange,
 }: CityAutocompleteProps) {
   const listboxId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -120,6 +123,7 @@ function CityAutocomplete({
 
   const clearSelection = () => {
     onChange(null)
+    onTextChange?.('')
     setInputValue('')
     setSuggestions([])
     setIsOpen(false)
@@ -129,6 +133,7 @@ function CityAutocomplete({
 
   const handleInputChange = (nextValue: string) => {
     setInputValue(nextValue)
+    onTextChange?.(nextValue)
 
     if (value && nextValue !== value.label) {
       onChange(null)

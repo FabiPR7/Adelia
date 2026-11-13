@@ -40,7 +40,8 @@ describe('restaurantMatchesVenueKind', () => {
     expect(restaurantMatchesVenueKind({ venueTypes: ['restaurant'] }, 'bar')).toBe(false)
     expect(restaurantMatchesVenueKind({ venueTypes: ['gastrobar'] }, 'bar')).toBe(false)
     expect(restaurantMatchesVenueKind({ venueTypes: [] }, 'bar')).toBe(false)
-    expect(restaurantMatchesVenueKind({ venueTypes: ['restaurant', 'bar'] }, 'bar')).toBe(false)
+    // «Un sitio puede ser restaurante y bar a la vez»: sale en los dos filtros.
+    expect(restaurantMatchesVenueKind({ venueTypes: ['restaurant', 'bar'] }, 'bar')).toBe(true)
     expect(restaurantMatchesVenueKind({ venueTypes: ['bar', 'restaurant'] }, 'bar')).toBe(true)
   })
 

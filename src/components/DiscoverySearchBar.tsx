@@ -8,6 +8,7 @@ interface DiscoverySearchBarProps {
   onSearchDraftChange: (value: string) => void
   selectedCity: CitySuggestion | null
   onSelectedCityChange: (city: CitySuggestion | null) => void
+  onCityTextChange?: (text: string) => void
   activeTrait: string
   onTraitChange: (trait: string) => void
   traitOptions: string[]
@@ -25,6 +26,7 @@ function DiscoverySearchBar({
   onSearchDraftChange,
   selectedCity,
   onSelectedCityChange,
+  onCityTextChange,
   activeTrait,
   onTraitChange,
   traitOptions,
@@ -63,6 +65,7 @@ function DiscoverySearchBar({
         <CityAutocomplete
           value={selectedCity}
           onChange={onSelectedCityChange}
+          onTextChange={onCityTextChange}
           placeholder="Ciudad"
           label="Ciudad"
           compact

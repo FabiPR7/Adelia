@@ -51,6 +51,9 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchDraft, setSearchDraft] = useState('')
+  // Ciudad escrita a mano sin elegir sugerencia: filtra al pulsar Buscar.
+  const [cityDraft, setCityDraft] = useState('')
+  const [appliedCity, setAppliedCity] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [selectedCity, setSelectedCity] = useState<CitySuggestion | null>(null)
   const [activeTrait, setActiveTrait] = useState('')
@@ -150,7 +153,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
 
   const filteredRestaurants = useMemo(() => {
     const results = applyQuickFilters(
-      filterDiscoveryRestaurants(restaurants, effectiveQuery, selectedCity?.name ?? '')
+      filterDiscoveryRestaurants(restaurants, effectiveQuery, selectedCity?.name ?? appliedCity)
         .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind)),
       quickFilters,
       { promoCounts },
@@ -162,7 +165,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
     }
 
     return results
-  }, [restaurants, effectiveQuery, selectedCity, venueKind, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts])
+  }, [restaurants, effectiveQuery, selectedCity, appliedCity, venueKind, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts])
 
   const quickFilterOptions: QuickFilterOption[] = [
     { id: 'promo', label: 'Con promo' },
@@ -195,8 +198,23 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
     [restaurants, favoriteSlugs, venueKind],
   )
 
+  // «Ver todos»: quita búsqueda, ciudad y filtros de una vez.
+  const [cityResetKey, setCityResetKey] = useState(0)
+  const resetSearch = () => {
+    setSearchDraft('')
+    setAppliedSearch('')
+    setActiveTrait('')
+    setSelectedCity(null)
+    setCityDraft('')
+    setAppliedCity('')
+    setVenueKind('')
+    setQuickFilters(new Set())
+    setCityResetKey((value) => value + 1)
+  }
+
   const handleSearch = () => {
     setAppliedSearch(searchDraft.trim())
+    setAppliedCity(cityDraft.trim())
     setActiveTrait('')
   }
 
@@ -344,8 +362,10 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
             </label>
 
             <CityAutocomplete
+              key={cityResetKey}
               value={selectedCity}
               onChange={setSelectedCity}
+              onTextChange={setCityDraft}
               placeholder="Ciudad"
               label="Ciudad"
               compact
@@ -417,7 +437,12 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
           <div className={styles.stateBox} role="status">
             {restaurants.length === 0
               ? 'Aún no hay restaurantes publicados en Adelia. Cuando un local complete su perfil y marque su ubicación en el mapa, aparecerá aquí.'
-              : 'No encontramos restaurantes con esa búsqueda. Prueba otra ciudad, quita filtros o explora todos.'}
+              : 'No encontramos restaurantes con esa búsqueda. Prueba otra ciudad o quita filtros.'}
+            {restaurants.length > 0 ? (
+              <button type="button" className={styles.stateAction} onClick={resetSearch}>
+                Ver todos los restaurantes
+              </button>
+            ) : null}
           </div>
         )}
 

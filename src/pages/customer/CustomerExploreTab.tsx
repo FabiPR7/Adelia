@@ -45,6 +45,9 @@ function CustomerExploreTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchDraft, setSearchDraft] = useState('')
+  // Ciudad escrita a mano sin elegir sugerencia: filtra al pulsar Buscar.
+  const [cityDraft, setCityDraft] = useState('')
+  const [appliedCity, setAppliedCity] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [selectedCity, setSelectedCity] = useState<CitySuggestion | null>(null)
   const [activeTrait, setActiveTrait] = useState('')
@@ -112,7 +115,7 @@ function CustomerExploreTab() {
   }, [restaurants, userCoords])
 
   const filteredRestaurants = useMemo(() => {
-    let results = filterDiscoveryRestaurants(restaurants, effectiveQuery, selectedCity?.name ?? '')
+    let results = filterDiscoveryRestaurants(restaurants, effectiveQuery, selectedCity?.name ?? appliedCity)
       .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind))
 
     if (favoritesActive) {
@@ -133,7 +136,7 @@ function CustomerExploreTab() {
     }
 
     return results
-  }, [restaurants, effectiveQuery, selectedCity, venueKind, favoritesActive, favoriteSlugs, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts, nudge.visitedCompanyIds, nudge.closest])
+  }, [restaurants, effectiveQuery, selectedCity, appliedCity, venueKind, favoritesActive, favoriteSlugs, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts, nudge.visitedCompanyIds, nudge.closest])
 
   const quickFilterOptions = useMemo<QuickFilterOption[]>(() => [
     ...(nudge.closest
@@ -226,8 +229,24 @@ function CustomerExploreTab() {
   }, [restaurants, feedOrigin])
 
 
+  // «Ver todos»: quita búsqueda, ciudad y filtros de una vez.
+  const [cityResetKey, setCityResetKey] = useState(0)
+  const resetSearch = () => {
+    setSearchDraft('')
+    setAppliedSearch('')
+    setActiveTrait('')
+    setSelectedCity(null)
+    setCityDraft('')
+    setAppliedCity('')
+    setVenueKind('')
+    setQuickFilters(new Set())
+    setFavoritesActive(false)
+    setCityResetKey((value) => value + 1)
+  }
+
   const handleSearch = () => {
     setAppliedSearch(searchDraft.trim())
+    setAppliedCity(cityDraft.trim())
     setActiveTrait('')
   }
 
@@ -311,10 +330,12 @@ function CustomerExploreTab() {
       </div>
 
       <DiscoverySearchBar
+        key={cityResetKey}
         searchDraft={searchDraft}
         onSearchDraftChange={setSearchDraft}
         selectedCity={selectedCity}
         onSelectedCityChange={setSelectedCity}
+        onCityTextChange={setCityDraft}
         activeTrait={activeTrait}
         onTraitChange={handleTraitChange}
         traitOptions={traitOptions}
@@ -349,6 +370,11 @@ function CustomerExploreTab() {
                 : quickFilters.size > 0
                   ? 'Ningún restaurante cumple todos los filtros rápidos. Quita alguno para ver más.'
                   : 'No encontramos restaurantes con esa búsqueda. Prueba otra ciudad o quita filtros.'}
+            {restaurants.length > 0 ? (
+              <button type="button" className={styles.stateAction} onClick={resetSearch}>
+                Ver todos los restaurantes
+              </button>
+            ) : null}
           </div>
         )}
 

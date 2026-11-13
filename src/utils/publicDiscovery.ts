@@ -195,12 +195,12 @@ export function restaurantMatchesVenueKind(
     return true
   }
 
-  const primaryType = restaurant.venueTypes[0]
-  if (!primaryType) {
+  if (restaurant.venueTypes.length === 0) {
     return kind === 'restaurant'
   }
 
-  return venueTypesIncludeKind([primaryType], kind)
+  // Un local que es bar y restaurante sale en los dos filtros (antes solo contaba el primero).
+  return venueTypesIncludeKind(restaurant.venueTypes, kind)
 }
 
 export function filterDiscoveryRestaurants(
@@ -225,7 +225,10 @@ export function filterDiscoveryRestaurants(
       return true
     }
 
-    return restaurant.searchText.includes(normalizedQuery)
+    // Sin tildes en los dos lados («logrono» encuentra «Logroño») y cada palabra
+    // en cualquier orden («ginza sushi» encuentra «Sushi Ginza»).
+    const haystack = normalizeSearch(`${restaurant.searchText} ${restaurant.name} ${restaurant.municipality} ${restaurant.location}`)
+    return normalizedQuery.split(/\s+/).every((word) => haystack.includes(word))
   })
 }
 
