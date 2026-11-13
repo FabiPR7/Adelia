@@ -501,9 +501,13 @@ router.get('/ladder-progress', async (req: Request, res: Response) => {
 
     const current = readGamificationFromDocs(statsSnap.data(), userSnap.data())
     const tokenCredits = numberRecord(current.tokenCreditsByCompany)[companyId] ?? 0
+    // Misma regla que la app (countsForPromotionProgress): una reserva con gasto
+    // mínimo solo suma si se validó que llegó a ese gasto.
     const reservationCount = reservationsSnap.docs.filter((docSnap) => {
       const reservation = docSnap.data()
-      return reservation.companyId === companyId && reservation.status === 'confirmed'
+      if (reservation.companyId !== companyId || reservation.status !== 'confirmed') return false
+      const needsMinimum = typeof reservation.minimumSpendCents === 'number' && reservation.minimumSpendCents > 0
+      return !needsMinimum || reservation.promotionVisitStatus === 'eligible'
     }).length
     const confirmedCount = reservationCount + tokenCredits
 
@@ -597,9 +601,13 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
       return
     }
 
+    // Misma regla que la app (countsForPromotionProgress): una reserva con gasto
+    // mínimo solo suma si se validó que llegó a ese gasto.
     const reservationCount = reservationsSnap.docs.filter((docSnap) => {
       const reservation = docSnap.data()
-      return reservation.companyId === companyId && reservation.status === 'confirmed'
+      if (reservation.companyId !== companyId || reservation.status !== 'confirmed') return false
+      const needsMinimum = typeof reservation.minimumSpendCents === 'number' && reservation.minimumSpendCents > 0
+      return !needsMinimum || reservation.promotionVisitStatus === 'eligible'
     }).length
     const required = Math.max(1, Math.trunc(numberValue(promotion.requiredReservations, 1)))
 
