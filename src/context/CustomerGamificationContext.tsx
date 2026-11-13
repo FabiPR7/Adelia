@@ -443,18 +443,20 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
     await levelUpCelebration.dismissActive()
   }, [levelUpCelebration, previewStep])
 
+  // El mapa de premios cuenta todas las reservas del cliente (cuenta y correo),
+  // igual que el servidor al canjear. Las misiones siguen usando `reservations`.
   const verifiedReservationCounts = useMemo(() => {
-    const counts = buildVerifiedReservationCounts(reservations)
+    const counts = buildVerifiedReservationCounts(displayReservations)
     const withCredits = mergeTokenCredits(
       counts,
       gamification.state.tokenCreditsByCompany,
     )
     return import.meta.env.DEV ? mergeDemoReservationCounts(withCredits) : withCredits
-  }, [reservations, gamification.state.tokenCreditsByCompany])
+  }, [displayReservations, gamification.state.tokenCreditsByCompany])
 
   const pendingReservationCounts = useMemo(
-    () => buildPendingReservationCounts(reservations),
-    [reservations],
+    () => buildPendingReservationCounts(displayReservations),
+    [displayReservations],
   )
 
   const claimedPromotions = storedClaims.length > 0
