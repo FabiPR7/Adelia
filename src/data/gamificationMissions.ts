@@ -284,12 +284,16 @@ export function allMissionDefinitions(): MissionDefinition[] {
 
 export function applyMissionCatalog(missions: MissionDefinition[]): void {
   const remoteById = new Map(missions.map((mission) => [mission.id, mission]))
-  const overlayKnownMissions = (local: MissionDefinition[]) => local.map((mission) => {
-    const remote = remoteById.get(mission.id)
-    return remote
-      ? { ...mission, ...remote, rotationGroup: mission.rotationGroup }
-      : mission
-  })
+  // Con catálogo publicado, solo cuentan las misiones que el servidor conoce: una
+  // misión que falta en la base hacía que el servidor congelase todo el XP.
+  const overlayKnownMissions = (local: MissionDefinition[]) => local
+    .filter((mission) => remoteById.size === 0 || remoteById.has(mission.id))
+    .map((mission) => {
+      const remote = remoteById.get(mission.id)
+      return remote
+        ? { ...mission, ...remote, rotationGroup: mission.rotationGroup }
+        : mission
+    })
 
   WEEKLY_MISSIONS = overlayKnownMissions(WEEKLY_MISSIONS)
   MONTHLY_MISSION_POOL = overlayKnownMissions(MONTHLY_MISSION_POOL)

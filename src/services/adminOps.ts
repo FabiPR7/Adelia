@@ -251,7 +251,7 @@ export async function listLoginLocks(): Promise<AdminLoginLock[]> {
 
 export async function listAdminMissions(): Promise<AdminMissionRow[]> {
   try {
-    const snapshot = await getDocs(query(collection(db, 'missionCatalog'), limit(80)))
+    const snapshot = await getDocs(query(collection(db, 'missionCatalog'), limit(300)))
     const fromStore = snapshot.docs.map((item) => {
       const data = item.data()
       return {

@@ -25,7 +25,7 @@ async function refreshCatalog(): Promise<void> {
   }
 
   const [missionsSnap, levelsSnap] = await Promise.all([
-    adminDb.collection(COLLECTIONS.missionCatalog).limit(80).get(),
+    adminDb.collection(COLLECTIONS.missionCatalog).limit(300).get(),
     adminDb.collection(COLLECTIONS.levelCatalog).limit(40).get(),
   ])
 

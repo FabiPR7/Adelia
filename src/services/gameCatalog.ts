@@ -97,7 +97,7 @@ async function hydrateGameCatalog(): Promise<void> {
   const [missionsSnap, levelsSnap, configSnap] = bundle
     ? [bundleQuery(bundle, 'missionCatalog'), bundleQuery(bundle, 'levelCatalog'), bundleDoc(bundle, 'gameConfig/adelia')] as const
     : await Promise.all([
-        getDocs(query(collection(db, 'missionCatalog'), limit(80))),
+        getDocs(query(collection(db, 'missionCatalog'), limit(300))),
         getDocs(query(collection(db, 'levelCatalog'), limit(40))),
         getDoc(doc(db, 'gameConfig', 'adelia')),
       ])
