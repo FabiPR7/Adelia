@@ -146,6 +146,9 @@ function AdminDashboard() {
   const [currentView, setCurrentView] = useState<AdminView>('home')
 
   const [customers, setCustomers] = useState<AdminCustomerRow[]>([])
+  // Bloquear se hacía con un solo clic: ahora se confirma antes.
+  const [blockTarget, setBlockTarget] = useState<AdminCustomerRow | null>(null)
+  const [reviewToDelete, setReviewToDelete] = useState<IndexedReview | null>(null)
   const [customersTotal, setCustomersTotal] = useState(0)
   const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
   const [reviews, setReviews] = useState<IndexedReview[]>([])
@@ -480,6 +483,10 @@ function AdminDashboard() {
                 return Boolean(id)
               }}
               onToggleBlocked={async (customer) => {
+                if (!customer.blocked) {
+                  setBlockTarget(customer)
+                  return
+                }
                 setIsSaving(true)
                 try {
                   await adminApi.blockCustomer(customer.id, !customer.blocked)
@@ -543,16 +550,7 @@ function AdminDashboard() {
               isLoading={opsLoading}
               isSaving={isSaving}
               error={opsError}
-              onDelete={async (review) => {
-                setIsSaving(true)
-                try {
-                  await deleteIndexedReview(review)
-                  void adminApi.logChange('review.delete', review.id, { name: review.companyName })
-                  setReviews((current) => current.filter((item) => item.id !== review.id))
-                } finally {
-                  setIsSaving(false)
-                }
-              }}
+              onDelete={async (review) => setReviewToDelete(review)}
             />
           ) : null}
 
@@ -585,6 +583,57 @@ function AdminDashboard() {
         />
       ) : null}
 
+      <ConfirmDialog
+        isOpen={Boolean(reviewToDelete)}
+        title="Quitar reseña"
+        message="Se borra para siempre y deja de contar en la nota del restaurante. No se puede deshacer."
+        confirmLabel="Sí, quitar"
+        cancelLabel="Cancelar"
+        variant="danger"
+        isLoading={isSaving}
+        onConfirm={async () => {
+          const review = reviewToDelete
+          if (!review) return
+          setIsSaving(true)
+          try {
+            await deleteIndexedReview(review)
+            void adminApi.logChange('review.delete', review.id, { name: review.companyName })
+            setReviews((current) => current.filter((item) => item.id !== review.id))
+          } catch (err) {
+            setOpsError(err instanceof Error ? err.message : 'No se pudo quitar la reseña.')
+          } finally {
+            setIsSaving(false)
+            setReviewToDelete(null)
+          }
+        }}
+        onCancel={() => setReviewToDelete(null)}
+      />
+      <ConfirmDialog
+        isOpen={Boolean(blockTarget)}
+        title="Bloquear cliente"
+        message={blockTarget
+          ? `¿Bloquear a ${blockTarget.displayName}? Se le cerrará la sesión y no podrá entrar ni usar promociones hasta que lo desbloquees. Queda apuntado en Seguridad.`
+          : ''}
+        confirmLabel="Sí, bloquear"
+        cancelLabel="Cancelar"
+        variant="danger"
+        isLoading={isSaving}
+        onConfirm={async () => {
+          const target = blockTarget
+          if (!target) return
+          setIsSaving(true)
+          try {
+            await adminApi.blockCustomer(target.id, true, 'Bloqueado desde el panel de administración')
+            setCustomers((current) => current.map((item) => (item.id === target.id ? { ...item, blocked: true } : item)))
+          } catch (err) {
+            setOpsError(err instanceof Error ? err.message : 'No se pudo bloquear.')
+          } finally {
+            setIsSaving(false)
+            setBlockTarget(null)
+          }
+        }}
+        onCancel={() => setBlockTarget(null)}
+      />
       <ConfirmDialog
         isOpen={logoutConfirmOpen}
         title="Cerrar sesión"

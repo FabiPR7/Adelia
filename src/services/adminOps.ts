@@ -92,6 +92,15 @@ export async function listAdminCustomers(): Promise<{ rows: AdminCustomerRow[]; 
     .filter((item): item is AdminCustomerRow => item !== null)
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
 
+  // El perfil no guarda cuántas reservas tiene (salía 0 para todos): se cuentan
+  // en el servidor con una consulta de recuento por cliente de esta página.
+  await Promise.all(rows.map(async (row) => {
+    const snap = await getCountFromServer(
+      query(collection(db, 'reservations'), where('customerUid', '==', row.id)),
+    ).catch(() => null)
+    if (snap) row.reservationCount = snap.data().count
+  }))
+
   return {
     rows,
     totalCount: totalSnap?.data().count ?? rows.length,
@@ -190,7 +199,13 @@ export async function deleteIndexedReview(review: IndexedReview): Promise<void> 
     ? reviewData.adelinasEarned
     : computeReviewAdelinas(rating, hasPhoto, mediaItems as { type: 'image' | 'video'; url: string }[])
 
-  await deleteDoc(reviewRef).catch(() => undefined)
+  // Solo se descuenta del restaurante si la reseña existía y se ha borrado de verdad:
+  // antes un fallo o un doble clic restaba dos veces y descuadraba la nota media.
+  if (!reviewSnap.exists()) {
+    await deleteDoc(doc(db, 'reviewIndex', review.id)).catch(() => undefined)
+    return
+  }
+  await deleteDoc(reviewRef)
   await deleteDoc(doc(db, 'reviewIndex', review.id)).catch(() => undefined)
   await updateDoc(doc(db, 'companies', review.companyId), {
     reviewCount: increment(-1),

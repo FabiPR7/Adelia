@@ -26,7 +26,18 @@ function UserLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() => {
+    // Si la sesión se cerró por bloqueo, se explica aquí.
+    try {
+      if (sessionStorage.getItem('adelia:blocked-notice') === '1') {
+        sessionStorage.removeItem('adelia:blocked-notice')
+        return 'Tu cuenta está bloqueada. Si crees que es un error, escríbenos a contacto@adeliareservas.com.'
+      }
+    } catch {
+      // sin almacenamiento
+    }
+    return null
+  })
 
   useEffect(() => {
     loadRecaptchaScript().catch(() => undefined)

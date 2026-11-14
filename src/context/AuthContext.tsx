@@ -52,6 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (userProfile.blocked) {
+      // La pantalla de acceso explica por qué (antes salía sin decir nada).
+      try {
+        sessionStorage.setItem('adelia:blocked-notice', '1')
+      } catch {
+        // sin almacenamiento: se cierra la sesión igualmente
+      }
       await signOut(auth)
       setProfile(null)
       setCompany(null)
