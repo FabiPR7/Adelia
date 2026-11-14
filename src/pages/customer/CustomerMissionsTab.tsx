@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import AchievementBadgeCard from '../../components/AchievementBadgeCard'
 import MissionIcon from '../../components/MissionIcon'
@@ -99,7 +99,12 @@ function CustomerMissionsTab() {
   const productTour = useCustomerProductTourOptional()
   const gamification = useCustomerGamificationContext()
   const [section, setSection] = useState<MissionSection>('weekly')
-  const [arenaView, setArenaView] = useState<ArenaView>('missions')
+  // Los avisos de amigos llevan a ?ver=amigos o ?ver=solicitudes.
+  const [searchParams] = useSearchParams()
+  const linkedView = searchParams.get('ver')
+  const [arenaView, setArenaView] = useState<ArenaView>(
+    linkedView === 'amigos' || linkedView === 'solicitudes' ? 'compite' : linkedView === 'items' ? 'items' : 'missions',
+  )
   const [friendProfileActive, setFriendProfileActive] = useState(false)
   const [seasonOpen, setSeasonOpen] = useState(false)
   const [claimingPack, setClaimingPack] = useState<SeasonPackKind | null>(null)
@@ -269,7 +274,7 @@ function CustomerMissionsTab() {
     [countryLeaderboard, worldLeaderboard],
   )
 
-  const countryRank = useMemo(
+  const showcaseCountryRank = useMemo(
     () =>
       getUserRank(
         profile?.displayName ?? '',
@@ -287,7 +292,7 @@ function CustomerMissionsTab() {
     ],
   )
 
-  const worldRank = useMemo(
+  const showcaseWorldRank = useMemo(
     () =>
       getUserRank(
         profile?.displayName ?? '',
@@ -304,6 +309,10 @@ function CustomerMissionsTab() {
       leaderboardOptions,
     ],
   )
+
+  // El puesto real sale del ranking del servidor; el de ejemplo solo mientras carga o sin datos.
+  const countryRank = liveCountryLeaderboard?.find((entry) => entry.isYou)?.rank ?? showcaseCountryRank
+  const worldRank = liveWorldLeaderboard?.find((entry) => entry.isYou)?.rank ?? showcaseWorldRank
 
   const friends = useCustomerFriends(user?.uid)
   const userRankAmongFriends = friends.getFriendRankAmongFriends(gamification.state.xp)
@@ -423,6 +432,7 @@ function CustomerMissionsTab() {
           onToggleFavorite={friends.toggleFavorite}
           isFavorite={friends.isFavorite}
           onFriendProfileActiveChange={setFriendProfileActive}
+          openRequestsOnMount={linkedView === 'solicitudes'}
         />
       ) : arenaView === 'items' ? (
         <InventoryHub

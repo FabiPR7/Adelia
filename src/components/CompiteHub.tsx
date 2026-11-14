@@ -28,6 +28,8 @@ interface CompiteHubProps {
   onToggleFavorite: (id: string) => void
   isFavorite: (id: string) => boolean
   onFriendProfileActiveChange?: (active: boolean) => void
+  /** Desde el aviso «Ver solicitudes»: abre la bandeja directamente. */
+  openRequestsOnMount?: boolean
 }
 
 function CompiteHub({
@@ -51,6 +53,7 @@ function CompiteHub({
   onToggleFavorite,
   isFavorite,
   onFriendProfileActiveChange,
+  openRequestsOnMount = false,
 }: CompiteHubProps) {
   const [zone, setZone] = useState<CompiteZone>('friends')
   const [friendProfileActive, setFriendProfileActive] = useState(false)
@@ -116,6 +119,7 @@ function CompiteHub({
           onToggleFavorite={onToggleFavorite}
           isFavorite={isFavorite}
           onFriendProfileActiveChange={handleFriendProfileActiveChange}
+          openRequestsOnMount={openRequestsOnMount}
         />
       ) : (
         <CustomerRankingsBoard

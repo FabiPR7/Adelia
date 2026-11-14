@@ -26,6 +26,7 @@ interface CustomerFriendsBoardProps {
   onToggleFavorite: (id: string) => void
   isFavorite: (id: string) => boolean
   onFriendProfileActiveChange?: (active: boolean) => void
+  openRequestsOnMount?: boolean
 }
 
 function friendToStripProps(friend: FriendProfile, rank?: number) {
@@ -62,6 +63,7 @@ function CustomerFriendsBoard({
   onToggleFavorite,
   isFavorite,
   onFriendProfileActiveChange,
+  openRequestsOnMount = false,
 }: CustomerFriendsBoardProps) {
   const [friendQuery, setFriendQuery] = useState('')
   const [peopleQuery, setPeopleQuery] = useState('')
@@ -71,7 +73,7 @@ function CustomerFriendsBoard({
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [addQuery, setAddQuery] = useState('')
   const [addSubmittedQuery, setAddSubmittedQuery] = useState('')
-  const [requestsModalOpen, setRequestsModalOpen] = useState(false)
+  const [requestsModalOpen, setRequestsModalOpen] = useState(openRequestsOnMount)
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null)
   const [acceptingFriendId, setAcceptingFriendId] = useState<string | null>(null)
