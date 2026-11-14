@@ -24,6 +24,18 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
     'Error de conexión. Comprueba tu internet e inténtalo de nuevo.',
   'auth/requires-recent-login':
     'Por seguridad, vuelve a iniciar sesión e inténtalo de nuevo.',
+  // Google
+  'auth/popup-blocked':
+    'Tu navegador ha bloqueado la ventana de Google. Permite las ventanas emergentes para Adelia e inténtalo de nuevo.',
+  'auth/popup-closed-by-user': 'Has cerrado la ventana de Google antes de terminar.',
+  'auth/cancelled-popup-request': 'Ya hay una ventana de Google abierta. Termina en esa.',
+  'auth/unauthorized-domain':
+    'Desde esta dirección no se puede entrar con Google. Entra desde adeliareservas.com.',
+  'auth/operation-not-supported-in-this-environment':
+    'Este navegador no permite entrar con Google. Prueba en Chrome o Safari, o entra con tu email.',
+  'auth/account-exists-with-different-credential':
+    'Ya tienes cuenta con este email. Entra con tu email y contraseña.',
+  'auth/internal-error': 'Algo ha fallado al conectar con Google. Inténtalo de nuevo.',
 }
 
 export function getAuthErrorMessage(error: unknown): string {
@@ -34,7 +46,7 @@ export function getAuthErrorMessage(error: unknown): string {
     typeof error.code === 'string'
   ) {
     if (error.code === 'permission-denied') {
-      return 'No tienes permiso en Firestore. Despliega las reglas con npm run deploy:rules (base de datos adelia).'
+      return 'No se pudo cargar tu cuenta. Inténtalo de nuevo y, si sigue fallando, escríbenos.'
     }
 
     if (error.code.startsWith('auth/')) {

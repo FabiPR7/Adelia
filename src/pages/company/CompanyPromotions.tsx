@@ -168,9 +168,10 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
         ? String(err.code)
         : 'unknown'
 
+      // Nada de instrucciones técnicas para el restaurante: el código ayuda a soporte.
       setError(
         errorCode === 'permission-denied'
-          ? `${message} Vuelve a publicar reglas con npm run deploy:rules y comprueba en Firebase Console → Firestore → base «adelia» → Reglas que aparece «promotions».`
+          ? 'No se pudieron cargar tus promociones. Recarga la página y, si sigue igual, escríbenos.'
           : `${message} (${errorCode})`,
       )
     } finally {
