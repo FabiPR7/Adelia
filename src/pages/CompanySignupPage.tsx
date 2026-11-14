@@ -471,6 +471,7 @@ function CompanySignupPage() {
               />
               <ImageUploader
                 label="Logo"
+                cropAspect={1}
                 hint="Opcional. Cuadrado queda mejor."
                 currentImageUrl={logoUrl}
                 onImageUploaded={setLogoUrl}

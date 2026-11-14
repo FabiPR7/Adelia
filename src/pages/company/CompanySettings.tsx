@@ -983,6 +983,7 @@ const CompanySettings = forwardRef(function CompanySettings(
           <div className={`${styles.fullWidth} ${styles.logoField}`}>
             <ImageUploader
               label="Logo del restaurante"
+              cropAspect={1}
               hint="PNG o JPG. Se sube a Cloudinary al seleccionar el archivo."
               currentImageUrl={form.logoUrl}
               onImageUploaded={(url) => setForm({ ...form, logoUrl: url })}

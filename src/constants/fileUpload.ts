@@ -5,9 +5,8 @@
 // Tamaño máximo de archivo: 5MB
 export const MAX_FILE_SIZE = 5 * 1024 * 1024
 
-// Dimensiones máximas de imagen
-export const MAX_IMAGE_WIDTH = 4000
-export const MAX_IMAGE_HEIGHT = 4000
+// Foto original que se acepta del móvil: se reduce en el navegador antes de subirla.
+export const MAX_SOURCE_IMAGE_FILE_SIZE = 30 * 1024 * 1024
 
 // Tipos MIME permitidos (whitelist estricta)
 export const ALLOWED_IMAGE_TYPES = [

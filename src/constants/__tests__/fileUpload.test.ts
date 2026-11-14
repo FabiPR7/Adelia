@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   MAX_FILE_SIZE,
-  MAX_IMAGE_WIDTH,
-  MAX_IMAGE_HEIGHT,
+  MAX_SOURCE_IMAGE_FILE_SIZE,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_IMAGE_EXTENSIONS,
   isAllowedImageType,
@@ -29,9 +28,8 @@ describe('fileUpload constants and validation', () => {
       expect(MAX_FILE_SIZE).toBeGreaterThan(0)
     })
 
-    it('debería tener dimensiones máximas definidas', () => {
-      expect(MAX_IMAGE_WIDTH).toBe(4000)
-      expect(MAX_IMAGE_HEIGHT).toBe(4000)
+    it('acepta fotos de móvil grandes para reducirlas antes de subir', () => {
+      expect(MAX_SOURCE_IMAGE_FILE_SIZE).toBeGreaterThan(MAX_FILE_SIZE)
     })
 
     it('debería tener whitelist de tipos permitidos', () => {

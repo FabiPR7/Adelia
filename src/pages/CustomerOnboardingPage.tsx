@@ -151,6 +151,8 @@ function CustomerOnboardingPageContent() {
         <form className={styles.form} onSubmit={handleSubmit}>
           <ImageUploader
             label="Foto de perfil"
+            cropAspect={1}
+            cropRound
             hint="Opcional. Aparecerá en tu perfil y reseñas."
             currentImageUrl={photoUrl}
             onImageUploaded={setPhotoUrl}
