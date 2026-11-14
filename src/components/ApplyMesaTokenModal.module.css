@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 105; /* por encima del panel lateral de Promos (100) */
   display: flex;
   align-items: flex-end;
   justify-content: center;
