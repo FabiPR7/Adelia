@@ -28,6 +28,8 @@ interface CustomerReservationCardProps {
   onLeaveReview?: (reservation: Reservation) => void
   onChallenge?: () => void
   hasReviewForRestaurant?: boolean
+  /** Reservas pasadas: avisar a Adelia si el local no cumplió. */
+  onReport?: (reservation: Reservation) => void
 }
 
 function formatCountdown(startTime: Date): string | null {
@@ -67,6 +69,7 @@ function CustomerReservationCard({
   onLeaveReview,
   onChallenge,
   hasReviewForRestaurant = false,
+  onReport,
 }: CustomerReservationCardProps) {
   const isGuest = variant === 'guest'
   const isUpcoming = bucket === 'upcoming'
@@ -222,6 +225,11 @@ function CustomerReservationCard({
               <Link to={`/reservar/${restaurant.slug}`} className={styles.primaryAction}>
                 {isUpcoming ? 'Ver restaurante' : 'Reservar otra vez'}
               </Link>
+            ) : null}
+            {!isUpcoming && !isGuest && onReport ? (
+              <button type="button" className={styles.secondaryAction} onClick={() => onReport(reservation)}>
+                Reportar
+              </button>
             ) : null}
             {isUpcoming && !isGuest && cancelHref && reservation.status !== 'cancelled' && (
               <Link to={cancelHref} className={styles.secondaryAction}>

@@ -6,6 +6,8 @@ import { ensureRemoteCatalog, getRemoteCatalog } from '../data/remoteCatalog.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { loadDailyStats } from '../admin/dailyStats.ts'
 import { computeAdminAnalytics, computeAdminGeography, parseAnalyticsRange } from '../admin/analytics.ts'
+import { RESTAURANT_REPORTS } from './customerReports.ts'
+import { SUGGESTIONS } from './customerSuggestions.ts'
 
 /**
  * Panel de administración (todas las rutas pasan antes por verifyAdmin).
@@ -231,6 +233,122 @@ router.get('/geography', async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('admin geography error:', error)
     res.status(500).json({ error: 'No se pudo calcular el mapa de usuarios.' })
+  }
+})
+
+/* ───────────── Reportes de restaurantes ───────────── */
+
+const REPORT_STATUSES = new Set(['open', 'reviewing', 'resolved', 'dismissed'])
+
+router.get('/reports', async (req: Request, res: Response) => {
+  try {
+    const status = String(req.query.status ?? '')
+    let query: FirebaseFirestore.Query = adminDb.collection(RESTAURANT_REPORTS)
+    if (REPORT_STATUSES.has(status)) query = query.where('status', '==', status)
+    const snap = await query.orderBy('createdAt', 'desc').limit(300).get()
+      .catch(() => query.limit(300).get())
+    const reports = snap.docs.map((doc) => {
+      const data = doc.data()
+      return {
+        id: doc.id,
+        companyId: String(data.companyId ?? ''),
+        companyName: String(data.companyName ?? ''),
+        companySlug: String(data.companySlug ?? ''),
+        customerUid: String(data.customerUid ?? ''),
+        customerName: String(data.customerName ?? ''),
+        customerEmail: String(data.customerEmail ?? ''),
+        reason: String(data.reason ?? ''),
+        reasonLabel: String(data.reasonLabel ?? ''),
+        message: String(data.message ?? ''),
+        reservationId: data.reservationId ? String(data.reservationId) : null,
+        reservationStart: toIso(data.reservationStart),
+        promotionTitle: data.promotionTitle ? String(data.promotionTitle) : null,
+        status: String(data.status ?? 'open'),
+        adminNote: String(data.adminNote ?? ''),
+        createdAt: toIso(data.createdAt),
+        updatedAt: toIso(data.updatedAt),
+      }
+    }).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    res.json({ reports })
+  } catch (error) {
+    console.error('admin reports error:', error)
+    res.status(500).json({ error: 'No se pudieron cargar los reportes.' })
+  }
+})
+
+router.post('/reports/:id', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id ?? '')
+    const status = String(req.body?.status ?? '')
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || !REPORT_STATUSES.has(status)) {
+      res.status(400).json({ error: 'Estado no válido.' })
+      return
+    }
+    const ref = adminDb.collection(RESTAURANT_REPORTS).doc(id)
+    if (!(await ref.get()).exists) {
+      res.status(404).json({ error: 'Reporte no encontrado.' })
+      return
+    }
+    const adminNote = cleanText(req.body?.adminNote, 1500)
+    await ref.set({ status, adminNote, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    await audit(req, 'report.status', id, { status })
+    res.json({ ok: true })
+  } catch (error) {
+    console.error('admin report update error:', error)
+    res.status(500).json({ error: 'No se pudo guardar el reporte.' })
+  }
+})
+
+/* ───────────── Sugerencias ───────────── */
+
+const SUGGESTION_STATUSES = new Set(['new', 'read', 'done'])
+
+router.get('/suggestions', async (_req: Request, res: Response) => {
+  try {
+    const snap = await adminDb.collection(SUGGESTIONS).orderBy('createdAt', 'desc').limit(300).get()
+      .catch(() => adminDb.collection(SUGGESTIONS).limit(300).get())
+    const suggestions = snap.docs.map((doc) => {
+      const data = doc.data()
+      return {
+        id: doc.id,
+        customerUid: String(data.customerUid ?? ''),
+        customerName: String(data.customerName ?? ''),
+        customerEmail: String(data.customerEmail ?? ''),
+        topic: String(data.topic ?? ''),
+        topicLabel: String(data.topicLabel ?? ''),
+        message: String(data.message ?? ''),
+        status: String(data.status ?? 'new'),
+        adminNote: String(data.adminNote ?? ''),
+        createdAt: toIso(data.createdAt),
+      }
+    }).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    res.json({ suggestions })
+  } catch (error) {
+    console.error('admin suggestions error:', error)
+    res.status(500).json({ error: 'No se pudieron cargar las sugerencias.' })
+  }
+})
+
+router.post('/suggestions/:id', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id ?? '')
+    const status = String(req.body?.status ?? '')
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || !SUGGESTION_STATUSES.has(status)) {
+      res.status(400).json({ error: 'Estado no válido.' })
+      return
+    }
+    const ref = adminDb.collection(SUGGESTIONS).doc(id)
+    if (!(await ref.get()).exists) {
+      res.status(404).json({ error: 'Sugerencia no encontrada.' })
+      return
+    }
+    const adminNote = cleanText(req.body?.adminNote, 1500)
+    await ref.set({ status, adminNote, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    await audit(req, 'suggestion.status', id, { status })
+    res.json({ ok: true })
+  } catch (error) {
+    console.error('admin suggestion update error:', error)
+    res.status(500).json({ error: 'No se pudo guardar la sugerencia.' })
   }
 })
 

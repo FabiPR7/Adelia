@@ -623,6 +623,47 @@
   margin-top: 1.75rem;
 }
 
+.reportRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 24px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.reportButton {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-white);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s var(--ease-out), background-color 0.15s var(--ease-out);
+}
+
+.reportButton:hover {
+  background: var(--color-cream);
+}
+
+.reportButton:active {
+  transform: scale(0.97);
+}
+
+.reportButton:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
 /* ── Barra fija en móvil ── */
 .mobileBar {
   position: fixed;

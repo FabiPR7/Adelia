@@ -13,6 +13,7 @@ import { getLevelProfileBodyTheme } from '../../utils/levelProfileBodyThemes'
 import { getLevelRankingStripTheme } from '../../utils/levelRankingStripThemes'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
 import LegalLinks from '../../components/LegalLinks'
+import SupportMessageModal from '../../components/SupportMessageModal'
 import { cleanReviewExcerpt } from '../../utils/reviewCommentTags'
 import styles from './CustomerProfileTab.module.css'
 
@@ -34,6 +35,7 @@ function CustomerProfileTab() {
   const [reviews, setReviews] = useState<CustomerReviewSummary[]>([])
   const [productClaims, setProductClaims] = useState<ProductClaimRecord[]>([])
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [suggestionOpen, setSuggestionOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
@@ -317,10 +319,17 @@ function CustomerProfileTab() {
               Cambiar contraseña
             </Link>
           ) : null}
+          <button type="button" className={styles.secondaryBtn} onClick={() => setSuggestionOpen(true)}>
+            Enviar una sugerencia
+          </button>
           <button type="button" className={styles.logoutBtn} onClick={() => void logout()}>
             Cerrar sesión
           </button>
         </div>
+
+        {suggestionOpen ? (
+          <SupportMessageModal kind="suggestion" onClose={() => setSuggestionOpen(false)} />
+        ) : null}
 
         <section className={styles.deleteSection} aria-labelledby="delete-account-title">
           <h2 id="delete-account-title">Eliminar cuenta</h2>

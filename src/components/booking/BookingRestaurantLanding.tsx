@@ -7,6 +7,8 @@ import RestaurantPhotoCollage from './RestaurantPhotoCollage'
 import AdelinaCoin from '../AdelinaCoin'
 import FacilityIcon from '../FacilityIcon'
 import FavoriteButton from '../FavoriteButton'
+import SupportMessageModal from '../SupportMessageModal'
+import { useAuth } from '../../context/AuthContext'
 import type { PublicBookingCompany } from '../../services/publicApi'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../../services/publicPromotions'
 import { computeAverageReviewRating } from '../../types/review'
@@ -73,6 +75,9 @@ export default function BookingRestaurantLanding({
   onReserve,
 }: BookingRestaurantLandingProps) {
   const [routeMapOpen, setRouteMapOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const { profile } = useAuth()
+  const isCustomer = profile?.role === 'customer'
   const [promotions, setPromotions] = useState<PublicPromotion[]>([])
   const [showAllAmenities, setShowAllAmenities] = useState(false)
   const locationLine = formatRestaurantLocation(company)
@@ -399,6 +404,24 @@ export default function BookingRestaurantLanding({
       <div className={styles.reviews}>
         <PublicRestaurantReviews companySlug={company.slug} companyName={company.name} />
       </div>
+
+      {isCustomer ? (
+        <div className={styles.reportRow}>
+          <span>¿No te dieron la promoción o no respetaron tu reserva?</span>
+          <button type="button" className={styles.reportButton} onClick={() => setReportOpen(true)}>
+            Reportar un problema
+          </button>
+        </div>
+      ) : null}
+
+      {reportOpen ? (
+        <SupportMessageModal
+          kind="report"
+          companyId={company.id}
+          companyName={company.name}
+          onClose={() => setReportOpen(false)}
+        />
+      ) : null}
 
       {acceptsReservations ? (
         <div className={styles.mobileBar}>

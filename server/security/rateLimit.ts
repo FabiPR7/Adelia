@@ -136,6 +136,16 @@ export async function takeEmailSend(kind: string, email: string): Promise<boolea
   return takeDistributed(`mail-${kind}`, email.trim().toLowerCase(), 3, 60 * 60_000)
 }
 
+/** Reportes de restaurantes por cliente: 5 al día, para que no se usen para acosar a un local. */
+export async function takeRestaurantReport(uid: string): Promise<boolean> {
+  return takeDistributed('restaurant-report', uid, 5, 24 * 60 * 60_000)
+}
+
+/** Sugerencias por cliente: 5 al día. */
+export async function takeSuggestion(uid: string): Promise<boolean> {
+  return takeDistributed('suggestion', uid, 5, 24 * 60 * 60_000)
+}
+
 export function createRateLimit(maxRequests: number, windowMs: number, name = 'default') {
   const store = storeFor(`${name}:${maxRequests}:${windowMs}`)
   return (req: Request, res: Response, next: NextFunction) => {

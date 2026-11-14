@@ -211,7 +211,49 @@ export interface AdminGeography {
   companiesByCity: Array<{ city: string; companies: number; paid: number; active: number; country: string }>
 }
 
+export type AdminReportStatus = 'open' | 'reviewing' | 'resolved' | 'dismissed'
+
+export interface AdminRestaurantReport {
+  id: string
+  companyId: string
+  companyName: string
+  companySlug: string
+  customerUid: string
+  customerName: string
+  customerEmail: string
+  reason: string
+  reasonLabel: string
+  message: string
+  reservationId: string | null
+  reservationStart: string | null
+  promotionTitle: string | null
+  status: AdminReportStatus
+  adminNote: string
+  createdAt: string | null
+}
+
+export type AdminSuggestionStatus = 'new' | 'read' | 'done'
+
+export interface AdminSuggestion {
+  id: string
+  customerUid: string
+  customerName: string
+  customerEmail: string
+  topic: string
+  topicLabel: string
+  message: string
+  status: AdminSuggestionStatus
+  adminNote: string
+  createdAt: string | null
+}
+
 export const adminApi = {
+  reports: () => request<{ reports: AdminRestaurantReport[] }>('/reports'),
+  setReportStatus: (id: string, status: AdminReportStatus, adminNote = '') =>
+    request<{ ok: true }>(`/reports/${encodeURIComponent(id)}`, 'POST', { status, adminNote }),
+  suggestions: () => request<{ suggestions: AdminSuggestion[] }>('/suggestions'),
+  setSuggestionStatus: (id: string, status: AdminSuggestionStatus, adminNote = '') =>
+    request<{ ok: true }>(`/suggestions/${encodeURIComponent(id)}`, 'POST', { status, adminNote }),
   stats: (days: number) => request<AdminStats>(`/stats?days=${days}`),
   analytics: (from: string, to: string, includeTest = false) =>
     request<AdminAnalytics>(`/analytics?from=${from}&to=${to}${includeTest ? '&test=1' : ''}`),

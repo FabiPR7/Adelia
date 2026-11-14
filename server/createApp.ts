@@ -26,6 +26,8 @@ import customerReservationInvitesRouter from './routes/customerReservationInvite
 import customerReservationChallengesRouter from './routes/customerReservationChallenges.ts'
 import customerGamificationRouter from './routes/customerGamification.ts'
 import customerReviewsRouter from './routes/customerReviews.ts'
+import customerReportsRouter from './routes/customerReports.ts'
+import customerSuggestionsRouter from './routes/customerSuggestions.ts'
 import customerAccountRouter from './routes/customerAccount.ts'
 import companyGamificationRouter from './routes/companyGamification.ts'
 import companyNotificationsRouter from './routes/companyNotifications.ts'
@@ -120,6 +122,8 @@ export function createApp() {
   app.use('/api/company', companyGamificationRouter)
   app.use('/api/company', companyNotificationsRouter)
   app.use('/api/customer/reviews', customerReviewsRouter)
+  app.use('/api/customer/reports', customerReportsRouter)
+  app.use('/api/customer/suggestions', customerSuggestionsRouter)
   app.use('/api/customer/account', customerAccountRouter)
 
   app.use('/api', (req, res) => {

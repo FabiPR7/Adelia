@@ -7,6 +7,7 @@ import CustomerReviewModal, { type CustomerReviewSubmitInput } from '../../compo
 import MinimumSpendVerificationModal from '../../components/reservations/MinimumSpendVerificationModal'
 import ReservationInvitesModal from '../../components/ReservationInvitesModal'
 import PromoVisitCompleteModal from '../../components/promotions/PromoVisitCompleteModal'
+import SupportMessageModal from '../../components/SupportMessageModal'
 import { canCustomerVerifyMinimumSpend } from '../../utils/minimumSpendVerification'
 import { pendingTokenSpendForCompany, REVIEW_BOOST_ITEM_ID, inventoryQuantity } from '../../data/inventoryItems'
 import { useAuth } from '../../context/AuthContext'
@@ -137,6 +138,7 @@ function CustomerReservationsTab() {
   const [loading, setLoading] = useState(true)
   const [verifyReservation, setVerifyReservation] = useState<Reservation | null>(null)
   const [reviewReservation, setReviewReservation] = useState<Reservation | null>(null)
+  const [reportReservation, setReportReservation] = useState<Reservation | null>(null)
   const [verifyMenuNodes, setVerifyMenuNodes] = useState<MenuNode[]>([])
   const [verifyMenuLoading, setVerifyMenuLoading] = useState(false)
   const [reviewMenuNodes, setReviewMenuNodes] = useState<MenuNode[]>([])
@@ -713,6 +715,7 @@ function CustomerReservationsTab() {
                 }}
                 onLeaveReview={setReviewReservation}
                 hasReviewForRestaurant={Boolean(reviewsByCompanyId[item.reservation.companyId])}
+                onReport={setReportReservation}
               />
             )
           })}
@@ -787,6 +790,17 @@ function CustomerReservationsTab() {
           )}
         </section>
       )}
+
+      {reportReservation ? (
+        <SupportMessageModal
+          kind="report"
+          companyId={reportReservation.companyId}
+          companyName={restaurantById[reportReservation.companyId]?.name ?? 'este restaurante'}
+          reservationId={reportReservation.id}
+          promotionId={reportReservation.promotionId ?? undefined}
+          onClose={() => setReportReservation(null)}
+        />
+      ) : null}
 
       <CustomerReviewModal
         reservation={reviewReservation}

@@ -31,6 +31,7 @@ import AdminPlansBoard from '../components/admin/AdminPlansBoard'
 import AdminCustomersBoard from '../components/admin/AdminCustomersBoard'
 import AdminCustomerDrawer from '../components/admin/AdminCustomerDrawer'
 import AdminModerationBoard from '../components/admin/AdminModerationBoard'
+import AdminInboxBoard from '../components/admin/AdminInboxBoard'
 import AdminDiscoveryBoard from '../components/admin/AdminDiscoveryBoard'
 import AdminPlayBoard from '../components/admin/AdminPlayBoard'
 import AdminIncidentsBoard from '../components/admin/AdminIncidentsBoard'
@@ -82,7 +83,7 @@ const VIEW_HINT: Record<AdminView, string> = {
   customers: 'Fichas de clientes: nivel, XP, Adelinás, objetos, reservas y bloqueos.',
   game: 'Misiones, niveles, objetos, recompensas y penalizaciones de clientes y restaurantes.',
   notify: 'Mensajes dentro de Adelia para un cliente, un local o todos.',
-  moderation: 'Reseñas públicas de los restaurantes.',
+  moderation: 'Reportes de clientes sobre restaurantes, sugerencias y reseñas públicas.',
   security: 'Accesos bloqueados, alertas y todos los cambios hechos desde este panel.',
 }
 
@@ -533,6 +534,8 @@ function AdminDashboard() {
           ) : null}
 
           {currentView === 'notify' ? <AdminBroadcastBoard companies={companies} /> : null}
+
+          {currentView === 'moderation' ? <AdminInboxBoard /> : null}
 
           {currentView === 'moderation' ? (
             <AdminModerationBoard
