@@ -76,6 +76,8 @@ function CustomerFriendsBoard({
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null)
   const [acceptingFriendId, setAcceptingFriendId] = useState<string | null>(null)
   const [rejectConfirmFriend, setRejectConfirmFriend] = useState<FriendProfile | null>(null)
+  // Quitar un amigo pide confirmación: antes se borraba con un solo toque.
+  const [removeConfirmFriend, setRemoveConfirmFriend] = useState<{ id: string; displayName: string } | null>(null)
   const acceptTimeoutRef = useRef<number | null>(null)
   const entryAnchorsRef = useRef<Map<string, HTMLDivElement>>(new Map())
 
@@ -334,10 +336,7 @@ function CustomerFriendsBoard({
         isFavorite={isFavorite(entry.id)}
         onProfile={() => setSelectedFriendId(entry.id!)}
         onToggleFavorite={() => onToggleFavorite(entry.id!)}
-        onRemove={() => {
-          onRemoveFriend(entry.id!)
-          setActiveFriendId(null)
-        }}
+        onRemove={() => setRemoveConfirmFriend({ id: entry.id!, displayName: entry.displayName })}
       />
     )
   }
@@ -647,6 +646,28 @@ function CustomerFriendsBoard({
           </div>
         </FriendsStripModal>
       )}
+
+      <ConfirmDialog
+        elevated
+        isOpen={removeConfirmFriend != null}
+        title="¿Quitar de tus amigos?"
+        message={
+          removeConfirmFriend
+            ? `${removeConfirmFriend.displayName} dejará de estar en tus amigos y en tu ranking. Podréis volver a ser amigos con otra solicitud.`
+            : ''
+        }
+        confirmLabel="Sí, quitar"
+        cancelLabel="Cancelar"
+        variant="danger"
+        onConfirm={() => {
+          if (removeConfirmFriend) {
+            onRemoveFriend(removeConfirmFriend.id)
+            setActiveFriendId(null)
+          }
+          setRemoveConfirmFriend(null)
+        }}
+        onCancel={() => setRemoveConfirmFriend(null)}
+      />
 
       <ConfirmDialog
         elevated

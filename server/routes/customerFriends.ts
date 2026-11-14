@@ -154,7 +154,8 @@ router.post('/requests/:targetUid', async (req: Request, res: Response) => {
       icon: '👋',
       actionUrl: '/app/misiones',
       actionLabel: 'Ver solicitudes',
-      dedupeKey: `friend_request_received:${from.uid}:${toUid}`,
+      // Con la hora de la solicitud: si fuisteis amigos antes, el aviso viejo no tapa el nuevo.
+      dedupeKey: `friend_request_received:${from.uid}:${toUid}:${now.toMillis()}`,
       data: { actorUid: from.uid, actorDisplayName: fromName },
     })
     await createCustomerNotification(from.uid, {
@@ -164,7 +165,7 @@ router.post('/requests/:targetUid', async (req: Request, res: Response) => {
       icon: '📤',
       actionUrl: '/app/misiones',
       actionLabel: 'Ver amigos',
-      dedupeKey: `friend_request_sent:${from.uid}:${toUid}`,
+      dedupeKey: `friend_request_sent:${from.uid}:${toUid}:${now.toMillis()}`,
       data: { actorUid: toUid, actorDisplayName: targetName },
     })
 
@@ -211,7 +212,7 @@ router.post('/requests/:fromUid/accept', async (req: Request, res: Response) => 
       icon: '🤝',
       actionUrl: '/app/misiones',
       actionLabel: 'Ver amigos',
-      dedupeKey: `friend_request_accepted:${fromUid}:${to.uid}`,
+      dedupeKey: `friend_request_accepted:${fromUid}:${to.uid}:${now.toMillis()}`,
       data: { actorUid: to.uid, actorDisplayName: toName },
     })
     await createCustomerNotification(to.uid, {
@@ -221,7 +222,7 @@ router.post('/requests/:fromUid/accept', async (req: Request, res: Response) => 
       icon: '🤝',
       actionUrl: '/app/misiones',
       actionLabel: 'Ver amigos',
-      dedupeKey: `friend_request_accepted:${to.uid}:${fromUid}`,
+      dedupeKey: `friend_request_accepted:${to.uid}:${fromUid}:${now.toMillis()}`,
       data: { actorUid: fromUid, actorDisplayName: fromName },
     })
 
