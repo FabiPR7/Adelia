@@ -99,7 +99,7 @@ function FriendProfileView({ friend, onBack }: FriendProfileViewProps) {
   } as CSSProperties
 
   return (
-    <article className={`${styles.page} ${styles[`level${level}`]} ${isLevel1 ? styles.pageLevel1 : ''}`} style={themeStyle}>
+    <article className={`${styles.page} ${styles[`level${level}`] ?? ''} ${isLevel1 ? styles.pageLevel1 : ''}`} style={themeStyle}>
       <div className={styles.pageCanvas} aria-hidden="true">
         {isLevel1 ? (
           <Level1ProfileBackdrop />

@@ -785,9 +785,12 @@ function CustomerPromotionsTab() {
                 .slice(0, 2)
                 .join(' · ')
 
+              // También aquí: un mapa a 0 no sale en «En curso» y la llave no tendría dónde usarse.
+              const useToken = tokenHandlerFor(group)
+
               return (
+                <div key={group.companyId} className={panelStyles.mapRowWrap}>
                 <button
-                  key={group.companyId}
                   type="button"
                   className={panelStyles.mapRow}
                   onClick={() => setLadderMapGroup(group)}
@@ -807,6 +810,16 @@ function CustomerPromotionsTab() {
                   </span>
                   <span className={panelStyles.mapRowArrow} aria-hidden="true">→</span>
                 </button>
+                {useToken ? (
+                  <button
+                    type="button"
+                    className={panelStyles.mapRowToken}
+                    onClick={() => useToken(group)}
+                  >
+                    Usar carta o llave
+                  </button>
+                ) : null}
+                </div>
               )
             })
           )}

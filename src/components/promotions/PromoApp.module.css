@@ -751,6 +751,36 @@
   transition: transform 0.18s var(--ease-out, ease-out), box-shadow 0.18s var(--ease-out, ease-out);
 }
 
+.mapRowWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mapRowToken {
+  align-self: flex-end;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid var(--color-accent-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-accent-ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.mapRowToken:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.mapRowToken:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
 .mapRow:hover {
   transform: translateY(-1px);
   box-shadow: var(--elev-2);

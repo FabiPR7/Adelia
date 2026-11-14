@@ -58,6 +58,8 @@ export function resolveCycleActiveLadderPromotionId(
     sortedLadder.length,
     claimedPromotions,
     ladderRuntime.ladderCompletionsByCompany,
+    sortedLadder,
+    ladderRuntime.activeLadderPromotionByCompany,
   )
 
   const storedActive = resolveActiveLadderPromotionId(
@@ -91,9 +93,21 @@ export function getCurrentCycleClaimedIds(
   ladderSize: number,
   claimedPromotions: ClaimedPromotionRecord[],
   ladderCompletionsByCompany: Record<string, number>,
+  sortedLadder: PublicPromotion[] = [],
+  activeLadderPromotionByCompany: Record<string, string> = {},
 ): Set<string> {
   if (ladderSize <= 0) {
     return new Set()
+  }
+
+  // El servidor guarda qué premio toca ahora y el mapa es en orden: todo lo que
+  // va antes del premio activo ya está reclamado en esta vuelta.
+  const storedActive = activeLadderPromotionByCompany[companyId]
+  const activeIndex = storedActive
+    ? sortedLadder.findIndex((promotion) => promotion.id === storedActive)
+    : -1
+  if (activeIndex >= 0) {
+    return new Set(sortedLadder.slice(0, activeIndex).map((promotion) => promotion.id))
   }
 
   const completions = getCompanyLadderCompletions(
@@ -102,8 +116,9 @@ export function getCurrentCycleClaimedIds(
     claimedPromotions,
     ladderSize,
   )
+  // Los premios de horario no son del mapa: si contaran, descuadrarían la vuelta.
   const companyClaims = claimedPromotions
-    .filter((record) => record.companyId === companyId)
+    .filter((record) => record.companyId === companyId && record.promotionType !== 'time_limited')
     .sort(
       (left, right) => new Date(left.claimedAt).getTime() - new Date(right.claimedAt).getTime(),
     )
@@ -132,6 +147,8 @@ export function getLadderNodeStatus(
     sortedLadder.length,
     claimedPromotions,
     ladderRuntime.ladderCompletionsByCompany,
+    sortedLadder,
+    ladderRuntime.activeLadderPromotionByCompany,
   )
 
   if (cycleClaimedIds.has(promotion.id)) {
