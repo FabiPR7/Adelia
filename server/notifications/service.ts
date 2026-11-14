@@ -22,6 +22,7 @@ export type NotificationType =
   | 'reservation_challenge_received'
   | 'reservation_challenge_resolved'
   | 'reservation_challenge_declined'
+  | 'review_reply'
   | 'mission_completed'
   | 'badge_unlocked'
   | 'level_up'

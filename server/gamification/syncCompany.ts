@@ -1,5 +1,6 @@
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
+import { createCustomerNotification } from '../notifications/service.ts'
 import { COLLECTIONS } from '../data/collections.ts'
 import {
   processCompanyGamification,
@@ -115,6 +116,29 @@ async function loadCompanyContext(companyId: string) {
       replyAt: replyText ? asDate(reply?.updatedAt ?? reply?.createdAt) : null,
     }
   })
+
+  // Respuestas recientes del restaurante: aviso al cliente (antes no se enteraba).
+  // La clave lleva la fecha de la respuesta: editarla no vuelve a avisar.
+  const replyWindowMs = 15 * 60_000
+  await Promise.all(reviewsSnap.docs.map(async (docSnap) => {
+    const data = docSnap.data()
+    const reply = data.ownerReply && typeof data.ownerReply === 'object'
+      ? data.ownerReply as Record<string, unknown>
+      : null
+    const repliedAt = reply && typeof reply.text === 'string' && reply.text ? asDate(reply.createdAt) : null
+    if (!repliedAt || Date.now() - repliedAt.getTime() > replyWindowMs) return
+    const customerUid = typeof data.customerUid === 'string' && data.customerUid ? data.customerUid : docSnap.id
+    await createCustomerNotification(customerUid, {
+      type: 'review_reply',
+      title: `${String(company.name ?? 'El restaurante')} ha respondido a tu reseña`,
+      body: String(reply?.text ?? '').slice(0, 160),
+      icon: '💬',
+      actionUrl: company.slug ? `/reservar/${String(company.slug)}` : '/app/reservas',
+      actionLabel: 'Ver respuesta',
+      dedupeKey: `review_reply:${companyRef.id}:${docSnap.id}:${repliedAt.getTime()}`,
+      data: { companyId: companyRef.id, companyName: String(company.name ?? ''), companySlug: String(company.slug ?? '') },
+    }).catch(() => undefined)
+  }))
 
   const reviewCount = typeof company.reviewCount === 'number' ? company.reviewCount : reviews.length
   const reviewRatingSum = typeof company.reviewRatingSum === 'number'

@@ -173,6 +173,8 @@ export interface Reservation {
   depositAmountCents?: number | null
   depositPaymentIntentId?: string | null
   cancelledBy?: 'client' | 'restaurant' | null
+  /** El restaurante marcó que no se presentó. */
+  noShow?: boolean
   depositStatus?: ReservationDepositStatus | null
 }
 

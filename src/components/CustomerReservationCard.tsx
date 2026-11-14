@@ -78,7 +78,7 @@ function CustomerReservationCard({
   const isUpcoming = bucket === 'upcoming'
   const statusLabel = isGuest
     ? (reservation.status === 'cancelled' ? 'Cancelada' : 'Invitado')
-    : getReservationStatusLabel(reservation.status, isUpcoming)
+    : getReservationStatusLabel(reservation.status, isUpcoming, reservation)
   const promoVisitPresentation = isGuest
     ? null
     : getPromotionVisitStatusPresentation(reservation, isUpcoming, promotion)

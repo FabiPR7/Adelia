@@ -1897,6 +1897,7 @@ function mapReservation(id: string, data: Record<string, unknown>): Reservation 
     minSpendVerification: mapMinSpendVerification(data.minSpendVerification),
     depositAmountCents: typeof data.depositAmountCents === 'number' ? data.depositAmountCents : null,
     cancelledBy: data.cancelledBy === 'client' || data.cancelledBy === 'restaurant' ? data.cancelledBy : null,
+    noShow: data.noShow === true,
     depositPaymentIntentId: typeof data.depositPaymentIntentId === 'string'
       ? data.depositPaymentIntentId
       : null,

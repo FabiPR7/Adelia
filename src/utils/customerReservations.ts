@@ -23,8 +23,15 @@ export function splitCustomerReservations(reservations: Reservation[]) {
   return { upcoming, past }
 }
 
-export function getReservationStatusLabel(status: Reservation['status'], isUpcoming: boolean) {
+export function getReservationStatusLabel(
+  status: Reservation['status'],
+  isUpcoming: boolean,
+  detail?: { noShow?: boolean; cancelledBy?: Reservation['cancelledBy'] },
+) {
   if (status === 'cancelled') {
+    // Antes todo salía «Cancelada», también cuando el local marcó que no fuiste.
+    if (detail?.noShow) return 'No acudiste'
+    if (detail?.cancelledBy === 'restaurant') return 'Cancelada por el local'
     return 'Cancelada'
   }
 
