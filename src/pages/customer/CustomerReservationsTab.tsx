@@ -8,6 +8,7 @@ import MinimumSpendVerificationModal from '../../components/reservations/Minimum
 import ReservationInvitesModal from '../../components/ReservationInvitesModal'
 import PromoVisitCompleteModal from '../../components/promotions/PromoVisitCompleteModal'
 import SupportMessageModal from '../../components/SupportMessageModal'
+import InviteFriendsModal from '../../components/booking/InviteFriendsModal'
 import { canCustomerVerifyMinimumSpend } from '../../utils/minimumSpendVerification'
 import { pendingTokenSpendForCompany, REVIEW_BOOST_ITEM_ID, inventoryQuantity } from '../../data/inventoryItems'
 import { useAuth } from '../../context/AuthContext'
@@ -139,6 +140,7 @@ function CustomerReservationsTab() {
   const [verifyReservation, setVerifyReservation] = useState<Reservation | null>(null)
   const [reviewReservation, setReviewReservation] = useState<Reservation | null>(null)
   const [reportReservation, setReportReservation] = useState<Reservation | null>(null)
+  const [inviteReservation, setInviteReservation] = useState<Reservation | null>(null)
   const [verifyMenuNodes, setVerifyMenuNodes] = useState<MenuNode[]>([])
   const [verifyMenuLoading, setVerifyMenuLoading] = useState(false)
   const [reviewMenuNodes, setReviewMenuNodes] = useState<MenuNode[]>([])
@@ -716,6 +718,7 @@ function CustomerReservationsTab() {
                 onLeaveReview={setReviewReservation}
                 hasReviewForRestaurant={Boolean(reviewsByCompanyId[item.reservation.companyId])}
                 onReport={setReportReservation}
+                onInviteFriends={setInviteReservation}
               />
             )
           })}
@@ -790,6 +793,20 @@ function CustomerReservationsTab() {
           )}
         </section>
       )}
+
+      {inviteReservation && user ? (
+        <InviteFriendsModal
+          uid={user.uid}
+          reservationId={inviteReservation.id}
+          restaurantName={restaurantById[inviteReservation.companyId]?.name ?? 'el restaurante'}
+          alreadyInvitedIds={(sentInvitesByReservation[inviteReservation.id] ?? []).filter((invite) => invite.status !== 'rejected').map((invite) => invite.toUid)}
+          onClose={() => {
+            setInviteReservation(null)
+            // Al cerrar, refresca los invitados para que se vean en la tarjeta.
+            void fetchReservationInvitesState().then((data) => setSentInvites(data.sent)).catch(() => undefined)
+          }}
+        />
+      ) : null}
 
       {reportReservation ? (
         <SupportMessageModal

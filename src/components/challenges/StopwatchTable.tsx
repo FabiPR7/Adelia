@@ -586,7 +586,7 @@ function StopwatchTable({
             confirmForfeit ? (
               <>
                 <button type="button" disabled={busy} onClick={onForfeit} className={styles.danger}>
-                  Sí, cedo la reserva
+                  {isChallenged ? 'Sí, cedo la reserva' : 'Sí, me rindo'}
                 </button>
                 <button type="button" disabled={busy} onClick={() => setConfirmForfeit(false)} className={styles.ghost}>
                   Seguir jugando

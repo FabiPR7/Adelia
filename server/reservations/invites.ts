@@ -221,7 +221,7 @@ export async function createReservationInvites(params: {
       await createCustomerNotification(toUid, {
         type: 'reservation_invite_received',
         title: 'Te han invitado a una reserva',
-        body: `${params.fromDisplayName} te invita a ${params.companyName} · ${formatInviteWhen(params.startTime)}.`,
+        body: `${params.fromDisplayName} te invita a ${params.companyName} · ${formatInviteWhen(params.startTime)}. Acepta y rétale: si ganas, la mesa y sus premios pasan a tu nombre.`,
         icon: '💌',
         actionUrl: '/app/reservas',
         actionLabel: 'Aceptar o rechazar',
@@ -344,7 +344,7 @@ export async function respondToReservationInvite(
     await createCustomerNotification(invite.fromUid, {
       type: 'reservation_invite_accepted',
       title: 'Invitación aceptada',
-      body: `${responderName} ha aceptado tu invitación a ${invite.companyName}.`,
+      body: `${responderName} ha aceptado tu invitación a ${invite.companyName}. Ojo: puede retarte por la mesa. ¡Defiéndela!`,
       icon: '✅',
       actionUrl: '/app/reservas',
       actionLabel: 'Ver reserva',

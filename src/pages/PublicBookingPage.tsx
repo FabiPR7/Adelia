@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import Calendar from '../components/Calendar'
 import BookingRestaurantLanding from '../components/booking/BookingRestaurantLanding'
 import BookingInviteFriends from '../components/booking/BookingInviteFriends'
+import PostBookingInvite from '../components/booking/PostBookingInvite'
 import ReservationDepositPayment, {
   type ReservationDepositPaymentHandle,
 } from '../components/booking/ReservationDepositPayment'
@@ -135,6 +136,8 @@ function PublicBookingPage() {
   const [useDepositPass, setUseDepositPass] = useState(false)
   const [useExtraPax, setUseExtraPax] = useState(false)
   const [inviteeIds, setInviteeIds] = useState<string[]>([])
+  // Tras reservar: id de la reserva y amigos ya invitados, para ofrecer invitar más.
+  const [completedReservation, setCompletedReservation] = useState<{ id: string; invitedIds: string[] } | null>(null)
   const [completedBookingDeposit, setCompletedBookingDeposit] = useState<{
     amountCents: number
     pax: number
@@ -754,6 +757,7 @@ function PublicBookingPage() {
           : null,
       )
 
+      setCompletedReservation(isLoggedCustomer ? { id: booking.id, invitedIds: inviteeIds } : null)
       setStep('done')
       if (company?.id) {
         trackAppEvent(promoId ? 'reservation_from_promo' : 'reservation_from_profile', {
@@ -984,6 +988,15 @@ function PublicBookingPage() {
                   <p className={styles.successMinSpend}>
                     Cuando el restaurante confirme tu asistencia podrás verificar para reclamar tu premio.
                   </p>
+                ) : null}
+                {completedReservation ? (
+                  <PostBookingInvite
+                    key={completedReservation.id}
+                    reservationId={completedReservation.id}
+                    friends={friends}
+                    loading={friendsLoading}
+                    alreadyInvitedIds={completedReservation.invitedIds}
+                  />
                 ) : null}
                 <button type="button" className={styles.primaryButton} onClick={resetSelection}>
                   Hacer otra reserva

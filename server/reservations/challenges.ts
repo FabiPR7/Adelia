@@ -568,6 +568,23 @@ export async function declineReservationChallenge(
     updatedAt: now,
   })
 
+  // Al otro jugador se le cerraba la pantalla sin saber por qué: ahora le llega un aviso.
+  const declinedByChallenged = nextStatus === 'declined'
+  const otherUid = declinedByChallenged ? challenge.challengerUid : challenge.challengedUid
+  const actorName = declinedByChallenged ? challenge.challengedDisplayName : challenge.challengerDisplayName
+  await createCustomerNotification(otherUid, {
+    type: 'reservation_challenge_declined',
+    title: declinedByChallenged ? 'Reto rechazado' : 'Reto cancelado',
+    body: declinedByChallenged
+      ? `${actorName} no ha aceptado tu reto por ${challenge.companyName}. La reserva sigue a su nombre.`
+      : `${actorName} ha retirado el reto por tu reserva en ${challenge.companyName}.`,
+    icon: '🏳️',
+    actionUrl: '/app/reservas',
+    actionLabel: 'Ver reservas',
+    dedupeKey: `reservation_challenge_declined:${challengeId}`,
+    data: { challengeId, reservationId: challenge.reservationId, actorDisplayName: actorName },
+  }).catch(() => undefined)
+
   return asPublicChallenge({
     ...challenge,
     status: nextStatus,

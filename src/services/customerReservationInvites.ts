@@ -66,3 +66,23 @@ export async function rejectReservationInvite(inviteId: string): Promise<Reserva
   }
   return data.invite
 }
+
+/** Invitar amigos a una reserva ya hecha (solo el titular). */
+export async function inviteFriendsToReservation(
+  reservationId: string,
+  inviteeUids: string[],
+): Promise<{ created: number; invites: ReservationInvite[] }> {
+  const response = await fetch(
+    `${API_BASE}/api/customer/reservation-invites/reservation/${encodeURIComponent(reservationId)}/invite`,
+    {
+      method: 'POST',
+      headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviteeUids }),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(await readError(response, 'No se pudo enviar la invitación.'))
+  }
+  const data = (await response.json()) as { created?: number; invites?: ReservationInvite[] }
+  return { created: data.created ?? 0, invites: data.invites ?? [] }
+}

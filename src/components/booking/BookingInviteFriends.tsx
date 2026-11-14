@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { FriendProfile } from '../../types/friends'
 import { MAX_RESERVATION_INVITEES } from '../../types/reservationInvites'
 import styles from './BookingInviteFriends.module.css'
@@ -7,13 +8,19 @@ interface BookingInviteFriendsProps {
   loading: boolean
   selectedIds: string[]
   onChange: (ids: string[]) => void
+  /** Título y texto propios (por ejemplo, tras reservar). */
+  title?: string
+  hint?: string
 }
 
+/** Elegir amigos para invitar a una reserva (al reservar o después). */
 function BookingInviteFriends({
   friends,
   loading,
   selectedIds,
   onChange,
+  title = 'Invita a tus amigos y compite',
+  hint = 'La reserva y sus premios van a tu nombre… pero cada invitado puede retarte a un minijuego. Quien gane se queda la mesa y los premios.',
 }: BookingInviteFriendsProps) {
   const toggle = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -28,16 +35,22 @@ function BookingInviteFriends({
 
   return (
     <div className={styles.box}>
-      <p className={styles.title}>Invitar amigos</p>
-      <p className={styles.hint}>
-        La reserva queda a tu nombre. Ellos reciben una invitación pendiente y pueden aceptar o rechazar.
+      <p className={styles.title}>
+        <span aria-hidden="true">⚔️ </span>
+        {title}
       </p>
+      <p className={styles.hint}>{hint}</p>
       {loading ? (
         <p className={styles.empty}>Cargando amigos…</p>
       ) : friends.length === 0 ? (
-        <p className={styles.empty}>
-          Aún no tienes amigos. Añádelos en Misiones para poder invitarlos.
-        </p>
+        <div className={styles.emptyBox}>
+          <p className={styles.empty}>
+            Aún no tienes amigos en Adelia. Añádelos y podrás invitarlos a tus mesas y retarlos.
+          </p>
+          <Link to="/app/misiones?ver=amigos" className={styles.findFriends}>
+            Buscar amigos
+          </Link>
+        </div>
       ) : (
         <ul className={styles.list}>
           {friends.map((friend) => {
@@ -59,7 +72,10 @@ function BookingInviteFriends({
                       {(friend.displayName.trim()[0] ?? '?').toUpperCase()}
                     </span>
                   )}
-                  <span className={styles.name}>{friend.displayName}</span>
+                  <span className={styles.name}>
+                    {friend.displayName}
+                    {friend.username ? <small className={styles.username}>@{friend.username}</small> : null}
+                  </span>
                 </label>
               </li>
             )

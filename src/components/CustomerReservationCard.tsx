@@ -27,6 +27,8 @@ interface CustomerReservationCardProps {
   onVerifyMinimumSpend?: (reservation: Reservation) => void
   onLeaveReview?: (reservation: Reservation) => void
   onChallenge?: () => void
+  /** Reservas próximas propias: invitar amigos. */
+  onInviteFriends?: (reservation: Reservation) => void
   hasReviewForRestaurant?: boolean
   /** Reservas pasadas: avisar a Adelia si el local no cumplió. */
   onReport?: (reservation: Reservation) => void
@@ -68,6 +70,7 @@ function CustomerReservationCard({
   onVerifyMinimumSpend,
   onLeaveReview,
   onChallenge,
+  onInviteFriends,
   hasReviewForRestaurant = false,
   onReport,
 }: CustomerReservationCardProps) {
@@ -169,9 +172,16 @@ function CustomerReservationCard({
           </p>
 
           {isGuest ? (
-            <p className={styles.guestNote}>
-              Esta visita no está a tu nombre y no suma premios. Solo el titular puede cancelar.
-            </p>
+            onChallenge && isUpcoming && reservation.status !== 'cancelled' ? (
+              <p className={styles.guestNote}>
+                Vas como invitado: los premios de esta mesa son de {hostName ?? 'quien reservó'}.
+                ¿Los quieres? Rétale y, si ganas, la reserva y sus premios pasan a tu nombre.
+              </p>
+            ) : (
+              <p className={styles.guestNote}>
+                Esta visita no está a tu nombre y no suma premios. Solo el titular puede cancelar.
+              </p>
+            )
           ) : null}
 
           {promoVisitPresentation ? (
@@ -200,7 +210,7 @@ function CustomerReservationCard({
                 }}
               >
                 <Swords size={14} aria-hidden="true" />
-                Retar
+                Retar por la mesa
               </button>
             ) : null}
             {showReviewAction ? (
@@ -229,6 +239,12 @@ function CustomerReservationCard({
             {!isUpcoming && !isGuest && onReport ? (
               <button type="button" className={styles.secondaryAction} onClick={() => onReport(reservation)}>
                 Reportar
+              </button>
+            ) : null}
+            {isUpcoming && !isGuest && reservation.status !== 'cancelled' && onInviteFriends ? (
+              <button type="button" className={styles.challengeAction} onClick={() => onInviteFriends(reservation)}>
+                <Swords size={14} aria-hidden="true" />
+                Invitar y competir
               </button>
             ) : null}
             {isUpcoming && !isGuest && cancelHref && reservation.status !== 'cancelled' && (
