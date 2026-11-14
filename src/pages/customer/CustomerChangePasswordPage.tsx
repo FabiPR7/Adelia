@@ -71,6 +71,19 @@ function CustomerChangePasswordPage() {
     )
   }
 
+  if (!user.providerData.some((provider) => provider.providerId === 'password')) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.card}>
+          <p>Entras con Google o Apple, así que no tienes contraseña de Adelia que cambiar. Tu acceso lo protege esa cuenta.</p>
+          <Link to="/app/perfil" className={styles.button}>
+            Volver al perfil
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.card}>

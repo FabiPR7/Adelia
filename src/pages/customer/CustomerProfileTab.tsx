@@ -311,9 +311,12 @@ function CustomerProfileTab() {
           <Link to="/cuenta/completar-perfil?edit=1" className={styles.secondaryBtn}>
             Editar preferencias
           </Link>
-          <Link to="/cuenta/cambiar-contrasena" className={styles.secondaryBtn}>
-            Cambiar contraseña
-          </Link>
+          {/* Quien entra con Google o Apple no tiene contraseña de Adelia que cambiar. */}
+          {user?.providerData.some((provider) => provider.providerId === 'password') ? (
+            <Link to="/cuenta/cambiar-contrasena" className={styles.secondaryBtn}>
+              Cambiar contraseña
+            </Link>
+          ) : null}
           <button type="button" className={styles.logoutBtn} onClick={() => void logout()}>
             Cerrar sesión
           </button>
