@@ -35,7 +35,7 @@ export default function CompanyCompiteNotifications({ onOpenTab }: CompanyCompit
           <h1>Notificaciones</h1>
           <p className={styles.lead}>
             {unreadCount > 0
-              ? `Tienes ${unreadCount} sin leer: misiones, niveles, Adelinas y estrellas.`
+              ? `Tienes ${unreadCount} sin leer: reservas, misiones, niveles, Adelinas y estrellas.`
               : 'Estás al día con misiones, niveles y puntuación.'}
           </p>
         </div>

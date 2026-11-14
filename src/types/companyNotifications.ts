@@ -5,6 +5,8 @@ export type CompanyNotificationType =
   | 'adelinas_changed'
   | 'rating_changed'
   | 'review_received'
+  | 'reservation_new'
+  | 'reservation_cancelled_by_client'
   | 'admin_message'
 
 export interface CompanyNotification {

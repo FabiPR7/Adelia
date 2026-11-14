@@ -12,6 +12,7 @@ import {
   applyReservationCancellationPenalty,
   type CancellationPenaltyResult,
 } from '../gamification/cancellationPenalty.ts'
+import { createCompanyNotification } from './companyNotifications.ts'
 
 function reservationStartDate(data: DocumentData): Date {
   const startTime = data.startTime
@@ -22,10 +23,50 @@ function reservationStartDate(data: DocumentData): Date {
   return new Date()
 }
 
+/** Aviso en la campana del restaurante (antes no se enteraba si no miraba el listado). */
+async function notifyCompanyAboutReservation(
+  reservationId: string,
+  reservation: DocumentData,
+  kind: 'new' | 'cancelled_by_client',
+): Promise<void> {
+  const companyId = typeof reservation.companyId === 'string' ? reservation.companyId : ''
+  if (!companyId) return
+  const startTime = reservationStartDate(reservation)
+  const clientName = typeof reservation.clientName === 'string' && reservation.clientName.trim()
+    ? reservation.clientName.trim().slice(0, 60)
+    : 'Un cliente'
+  const pax = typeof reservation.pax === 'number' ? reservation.pax : null
+  const paxLabel = pax ? ` · ${pax} ${pax === 1 ? 'persona' : 'personas'}` : ''
+  await createCompanyNotification(companyId, kind === 'new'
+    ? {
+        type: 'reservation_new',
+        title: 'Nueva reserva',
+        body: `${clientName} ha reservado para el ${formatDateTime(startTime)}${paxLabel}.`,
+        icon: '📅',
+        actionTab: 'reservations',
+        actionLabel: 'Ver reservas',
+        dedupeKey: `reservation_new:${reservationId}`,
+        data: { reservationId },
+      }
+    : {
+        type: 'reservation_cancelled_by_client',
+        title: 'Reserva cancelada por el cliente',
+        body: `${clientName} ha cancelado su reserva del ${formatDateTime(startTime)}${paxLabel}. La mesa vuelve a estar libre.`,
+        icon: '↩️',
+        actionTab: 'reservations',
+        actionLabel: 'Ver reservas',
+        dedupeKey: `reservation_cancelled_by_client:${reservationId}`,
+        data: { reservationId },
+      })
+}
+
 export async function notifyReservationReceived(
   reservationId: string,
   reservation: DocumentData,
 ): Promise<void> {
+  await notifyCompanyAboutReservation(reservationId, reservation, 'new')
+    .catch((error) => console.error('company new-reservation notification failed:', error))
+
   const userId = await resolveCustomerUidForReservation(reservation as Record<string, unknown>)
   if (!userId) {
     return
@@ -149,6 +190,11 @@ export async function notifyReservationCancelled(
 ): Promise<{ penalty: CancellationPenaltyResult | null }> {
   await cancelNotificationJobsForReservation(reservationId)
 
+  if (cancelledBy === 'client') {
+    await notifyCompanyAboutReservation(reservationId, reservation, 'cancelled_by_client')
+      .catch((error) => console.error('company cancellation notification failed:', error))
+  }
+
   let penalty: CancellationPenaltyResult | null = null
   try {
     penalty = await applyReservationCancellationPenalty(
@@ -196,9 +242,9 @@ export async function notifyReservationCancelled(
 
   await createCustomerNotification(userId, {
     type,
-    title: 'Reserva cancelada',
-    body,
-    icon: '❌',
+    title: cancelledBy !== 'client' && reservation.noShow === true ? 'No acudiste a tu reserva' : 'Reserva cancelada',
+    body: body.replace('ha cubierto esta cancelación', reservation.noShow === true ? 'ha cubierto esta falta' : 'ha cubierto esta cancelación'),
+    icon: reservation.noShow === true ? '🚫' : '❌',
     actionUrl: '/app/reservas',
     actionLabel: 'Ver reservas',
     dedupeKey: `${type}:${reservationId}`,
