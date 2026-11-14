@@ -1458,6 +1458,22 @@ export async function updateReservationStatus(
   }
 }
 
+/**
+ * El restaurante cancela una reserva futura. Antes «Eliminar» la borraba sin
+ * avisar al cliente ni a sus invitados; ahora queda cancelada (sin castigo para
+ * el cliente) y los avisos salen como en cualquier cancelación.
+ */
+export async function cancelReservationByRestaurant(reservationId: string): Promise<void> {
+  rejectIfDemoCompanyWrite()
+  await updateDoc(doc(db, 'reservations', reservationId), {
+    status: 'cancelled',
+    cancelledBy: 'restaurant',
+    noShow: false,
+  })
+  invalidateCompanyReservationCache()
+  await notifyReservationCancelledNotification(reservationId, 'restaurant')
+}
+
 export async function updateReservationPromotionVisitStatus(
   reservationId: string,
   promotionVisitStatus: PromotionVisitStatus,

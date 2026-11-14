@@ -9,7 +9,7 @@ import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import {
   computeReservationCountsByMonth,
   createReservation,
-  deleteReservation,
+  cancelReservationByRestaurant,
   filterReservationsForDate,
   getFirestoreErrorMessage,
   getReservationsByCompany,
@@ -289,15 +289,23 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
     if (!reservationToDelete) {
       return
     }
+    // Con fianza hay que pasar por Editar → Cancelar, que gestiona la devolución.
+    if (reservationToDelete.depositPaymentIntentId) {
+      setReservationToDelete(null)
+      return
+    }
 
     setIsDeleting(true)
     setError(null)
 
     try {
-      await deleteReservation(reservationToDelete.id)
+      // Se cancela (con aviso al cliente), no se borra.
+      await cancelReservationByRestaurant(reservationToDelete.id)
       setReservationToDelete(null)
       setAllReservations((current) =>
-        current.filter((reservation) => reservation.id !== reservationToDelete.id),
+        current.map((reservation) => (reservation.id === reservationToDelete.id
+          ? { ...reservation, status: 'cancelled' as const }
+          : reservation)),
       )
     } catch (err) {
       setError(getFirestoreErrorMessage(err))
@@ -642,9 +650,12 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
 
       <ConfirmDialog
         isOpen={Boolean(reservationToDelete)}
-        title="Eliminar reserva"
-        message="¿Estás seguro de eliminar esta reserva?"
-        confirmLabel="Eliminar"
+        title="Cancelar reserva"
+        message={reservationToDelete?.depositPaymentIntentId
+          ? 'Esta reserva tiene fianza: cancélala desde Editar para gestionar la devolución.'
+          : 'Se avisará al cliente (y a sus invitados) de que has cancelado la reserva. No pierde XP por ello.'}
+        confirmLabel="Sí, cancelar"
+        cancelLabel="Volver"
         variant="danger"
         isLoading={isDeleting}
         onConfirm={() => void handleConfirmDelete()}

@@ -256,7 +256,8 @@ function ReservationList({
                             type="button"
                             className={`${styles.iconButton} ${styles.iconButtonDanger}`}
                             onClick={() => onDelete(reservation)}
-                            aria-label={`Eliminar reserva de ${reservation.clientName}`}
+                            aria-label={`Cancelar reserva de ${reservation.clientName}`}
+                            title="Cancelar reserva (se avisa al cliente)"
                           >
                             🗑
                           </button>
