@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { adminApi, type AdminCustomerDetail } from '../../services/adminApi'
 import { getGamificationLevelTitle } from '../../data/gamificationLevels'
 import { getInventoryItem, INVENTORY_ITEMS } from '../../data/inventoryItems'
+import ReasonDialog from '../ReasonDialog'
 import styles from './AdminPanel.module.css'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -97,11 +98,17 @@ function AdminCustomerDrawer({ customerId, companyNames, onClose, onChanged }: A
     return 'Ajuste guardado y apuntado en el registro.'
   })
 
-  const toggleBlock = () => run(async () => {
+  const [askBlockReason, setAskBlockReason] = useState(false)
+
+  // Bloquear pide el motivo con un diálogo propio (window.prompt lo bloquean muchos navegadores).
+  const toggleBlock = (why?: string) => run(async () => {
     if (!detail) return ''
     const next = !detail.blocked
-    const why = next ? window.prompt('¿Por qué lo bloqueas? (se guarda en el registro)') : ''
-    if (why === null) return ''
+    if (next && why === undefined) {
+      setAskBlockReason(true)
+      return ''
+    }
+    setAskBlockReason(false)
     await adminApi.blockCustomer(customerId, next, why ?? '')
     setDetail({ ...detail, blocked: next })
     onChanged({ id: customerId, blocked: next })
@@ -119,6 +126,15 @@ function AdminCustomerDrawer({ customerId, companyNames, onClose, onChanged }: A
 
   return (
     <div className={styles.drawerBackdrop} onClick={onClose} role="presentation">
+      <ReasonDialog
+        isOpen={askBlockReason}
+        title="Bloquear cliente"
+        message="Se le cerrará la sesión y no podrá entrar ni usar promociones hasta que lo desbloquees."
+        confirmLabel="Sí, bloquear"
+        isLoading={busy}
+        onConfirm={(reason) => void toggleBlock(reason)}
+        onCancel={() => setAskBlockReason(false)}
+      />
       <aside
         className={styles.drawer}
         role="dialog"

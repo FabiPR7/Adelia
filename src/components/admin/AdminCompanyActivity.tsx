@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ReasonDialog from '../ReasonDialog'
 import { adminApi, type AdminCompanySummary } from '../../services/adminApi'
 import styles from './AdminPanel.module.css'
 
@@ -34,11 +35,18 @@ function AdminCompanyActivity({ companyId, onChanged }: AdminCompanyActivityProp
     return () => { cancelled = true }
   }, [companyId])
 
-  const toggleActive = async () => {
+  const [askReason, setAskReason] = useState(false)
+
+  const toggleActive = async (reasonFromDialog?: string) => {
     if (!summary) return
     const activate = summary.deactivated
-    const reason = activate ? '' : window.prompt('¿Por qué lo desactivas? (se guarda en el registro)') ?? null
-    if (reason === null) return
+    // Para desactivar se pide el motivo con un diálogo propio (window.prompt lo bloquean muchos navegadores).
+    if (!activate && reasonFromDialog === undefined) {
+      setAskReason(true)
+      return
+    }
+    const reason = activate ? '' : reasonFromDialog ?? ''
+    setAskReason(false)
     setBusy(true)
     try {
       const result = await adminApi.setCompanyActive(companyId, activate, reason)
@@ -61,6 +69,15 @@ function AdminCompanyActivity({ companyId, onChanged }: AdminCompanyActivityProp
   const { reservations, billing } = summary
   return (
     <section className={styles.card} aria-label="Actividad del local">
+      <ReasonDialog
+        isOpen={askReason}
+        title="Desactivar local"
+        message="Dejará de aparecer en el buscador y no aceptará reservas nuevas hasta que lo reactives. Sus datos se conservan."
+        confirmLabel="Sí, desactivar"
+        isLoading={busy}
+        onConfirm={(reason) => void toggleActive(reason)}
+        onCancel={() => setAskReason(false)}
+      />
       <div className={styles.cardHead}>
         <h3>Actividad</h3>
         <div className={styles.row}>

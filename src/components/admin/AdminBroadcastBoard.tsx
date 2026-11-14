@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { AdminCompany } from '../../types'
 import { adminApi, type BroadcastTarget } from '../../services/adminApi'
 import { findCustomerIdByEmail } from '../../services/adminOps'
+import ConfirmDialog from '../ConfirmDialog'
 import styles from './AdminPanel.module.css'
 
 const TARGETS: Array<{ id: BroadcastTarget; label: string; hint: string }> = [
@@ -29,12 +30,17 @@ function AdminBroadcastBoard({ companies }: AdminBroadcastBoardProps) {
   const current = TARGETS.find((entry) => entry.id === target)!
   const sortedCompanies = [...companies].sort((a, b) => a.name.localeCompare(b.name, 'es'))
 
-  const send = async () => {
+  const [confirmMass, setConfirmMass] = useState(false)
+
+  const send = async (massConfirmed = false) => {
     setResult(null)
     const isMass = target === 'allCustomers' || target === 'allCompanies'
-    if (isMass && !window.confirm(`¿Enviar «${title.trim()}» a ${current.label.toLowerCase()}? No se puede deshacer.`)) {
+    // Confirmación propia: window.confirm lo bloquean muchos navegadores.
+    if (isMass && !massConfirmed) {
+      setConfirmMass(true)
       return
     }
+    setConfirmMass(false)
     setBusy(true)
     try {
       let id: string | undefined
@@ -81,6 +87,16 @@ function AdminBroadcastBoard({ companies }: AdminBroadcastBoardProps) {
 
   return (
     <div className={styles.wrap}>
+      <ConfirmDialog
+        isOpen={confirmMass}
+        title="Enviar a todos"
+        message={'¿Enviar «' + title.trim() + '» a ' + current.label.toLowerCase() + '? No se puede deshacer.'}
+        confirmLabel="Sí, enviar"
+        cancelLabel="Cancelar"
+        isLoading={busy}
+        onConfirm={() => void send(true)}
+        onCancel={() => setConfirmMass(false)}
+      />
       <div className={styles.grid2}>
         <section className={styles.card}>
           <div className={styles.cardHead}>

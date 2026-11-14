@@ -223,6 +223,8 @@ const CompanySettings = forwardRef(function CompanySettings(
   const [tableSearchQuery, setTableSearchQuery] = useState('')
   const [tableCapacityFilter, setTableCapacityFilter] = useState('')
   const [selectedMapId, setSelectedMapId] = useState('')
+  // Confirmación propia para quitar un mapa (window.confirm lo bloquean muchos navegadores).
+  const [removeMapConfirm, setRemoveMapConfirm] = useState<{ removedName: string; fallbackName: string } | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const clientLinkInputRef = useRef<HTMLInputElement>(null)
   const [isDownloadingQr, setIsDownloadingQr] = useState(false)
@@ -751,7 +753,7 @@ const CompanySettings = forwardRef(function CompanySettings(
     })
   }
 
-  const removeSelectedMap = () => {
+  const removeSelectedMap = (confirmed = false) => {
     if (!form || form.floorPlans.length <= 1) {
       return
     }
@@ -766,9 +768,11 @@ const CompanySettings = forwardRef(function CompanySettings(
     const removedName = form.floorPlans.find((plan) => plan.id === planId)?.name || 'este mapa'
     const fallbackName = remaining[0]?.name || 'el otro mapa'
 
-    if (!window.confirm(`¿Quitar «${removedName}»? Sus mesas pasarán a «${fallbackName}».`)) {
+    if (!confirmed) {
+      setRemoveMapConfirm({ removedName, fallbackName })
       return
     }
+    setRemoveMapConfirm(null)
 
     const nextTables = tables.map((table) =>
       table.floorPlanId === planId ? { ...table, floorPlanId: fallbackId } : table,
@@ -1770,7 +1774,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                       <button
                         type="button"
                         className={styles.mapDeleteButton}
-                        onClick={removeSelectedMap}
+                        onClick={() => removeSelectedMap()}
                       >
                         Quitar mapa
                       </button>
@@ -1883,6 +1887,16 @@ const CompanySettings = forwardRef(function CompanySettings(
         </div>
       </section>
 
+      <ConfirmDialog
+        isOpen={Boolean(removeMapConfirm)}
+        title="Quitar mapa"
+        message={removeMapConfirm ? '¿Quitar «' + removeMapConfirm.removedName + '»? Sus mesas pasarán a «' + removeMapConfirm.fallbackName + '».' : ''}
+        confirmLabel="Sí, quitar"
+        cancelLabel="Cancelar"
+        variant="danger"
+        onConfirm={() => removeSelectedMap(true)}
+        onCancel={() => setRemoveMapConfirm(null)}
+      />
       <ConfirmDialog
         isOpen={deactivateDialogOpen}
         variant="danger"
