@@ -195,6 +195,18 @@ export function pickRandomLadderMapTheme(): LadderMapTheme {
   return LADDER_MAP_THEMES[index] ?? LADDER_MAP_THEMES[0]
 }
 
+/**
+ * Dibujo fijo para un restaurante y una vuelta: el mismo mapa no cambia de
+ * aspecto al abrirlo, y al completarlo la vuelta nueva trae un mapa distinto.
+ */
+export function pickLadderMapTheme(seed: string): LadderMapTheme {
+  let hash = 0
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
+  }
+  return LADDER_MAP_THEMES[hash % LADDER_MAP_THEMES.length] ?? LADDER_MAP_THEMES[0]
+}
+
 export function getLadderMapThemeById(id: LadderMapThemeId): LadderMapTheme {
   return LADDER_MAP_THEMES.find((theme) => theme.id === id) ?? LADDER_MAP_THEMES[0]
 }

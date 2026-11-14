@@ -17,7 +17,7 @@ import {
 } from '../../utils/promotionLadderMapLayout'
 import {
   LADDER_MAP_HOOK,
-  pickRandomLadderMapTheme,
+  pickLadderMapTheme,
   type LadderMapTheme,
 } from '../../utils/promotionLadderMapThemes'
 import {
@@ -203,7 +203,6 @@ export default function PromotionLadderMapModal({
   onOpenPromotion,
 }: PromotionLadderMapModalProps) {
   const navigate = useNavigate()
-  const [theme, setTheme] = useState<LadderMapTheme>(() => pickRandomLadderMapTheme())
   const [visitOpen, setVisitOpen] = useState(false)
   const [menuNodes, setMenuNodes] = useState<MenuNode[]>([])
   const [menuLoading, setMenuLoading] = useState(false)
@@ -211,7 +210,6 @@ export default function PromotionLadderMapModal({
 
   useEffect(() => {
     if (group) {
-      setTheme(pickRandomLadderMapTheme())
       setVisitOpen(false)
     }
   }, [group?.companyId])
@@ -280,7 +278,6 @@ export default function PromotionLadderMapModal({
   const decorations = buildLadderMapDecorations(sortedLadder.length)
   const canvasHeight = getLadderMapCanvasHeight(sortedLadder.length)
   const viewBoxHeight = getLadderMapViewBoxHeight(sortedLadder.length)
-  const themeStyle = theme.cssVars as CSSProperties
   const mapPercentY = (y: number) => toMapPercentY(y, sortedLadder.length)
   const completions = getCompanyLadderCompletions(
     group.companyId,
@@ -288,6 +285,8 @@ export default function PromotionLadderMapModal({
     claimedPromotions,
     sortedLadder.length,
   )
+  const theme: LadderMapTheme = pickLadderMapTheme(`${group.companyId}:${completions}`)
+  const themeStyle = theme.cssVars as CSSProperties
   const activePromotionId =
     resolveActiveLadderPromotionId(
       group.companyId,

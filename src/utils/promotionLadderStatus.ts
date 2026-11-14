@@ -26,12 +26,15 @@ export function getCompanyLadderCompletions(
 ): number {
   const stored = ladderCompletionsByCompany[companyId] ?? 0
 
-  if (ladderSize <= 0) {
+  // El servidor apunta cada mapa completado: si lo tiene, ese es el dato bueno.
+  if (ladderSize <= 0 || stored > 0) {
     return stored
   }
 
+  // Cuentas antiguas sin el dato: se deduce solo con premios del mapa (los de
+  // horario no son del mapa e inflaban el número).
   const companyClaimsCount = claimedPromotions.filter(
-    (record) => record.companyId === companyId,
+    (record) => record.companyId === companyId && record.promotionType !== 'time_limited',
   ).length
   const inferred = Math.floor(companyClaimsCount / ladderSize)
 
