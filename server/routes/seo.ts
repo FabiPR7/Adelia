@@ -12,7 +12,10 @@ import { PRODUCTION_CSP } from '../security/csp.ts'
  */
 const router = Router()
 
-const TEMPLATE_CACHE_MS = 10 * 60_000
+// Muy corto a propósito: tras cada publicación de la web, index.html apunta a
+// scripts nuevos y los viejos dejan de existir. Con 10 min de caché las fichas
+// mandaban scripts que ya no estaban y salían en blanco.
+const TEMPLATE_CACHE_MS = 15_000
 let templateCache: { html: string; at: number } | null = null
 
 async function loadTemplate(): Promise<string> {
@@ -186,11 +189,11 @@ async function serveRestaurantPage(req: Request, res: Response, kind: 'ficha' | 
     res.setHeader('Content-Security-Policy', PRODUCTION_CSP)
     if (!restaurant) {
       // La web enseña su propio "no encontrado"; a Google le decimos 404.
-      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300')
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60')
       res.status(404).send(template)
       return
     }
-    res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=600')
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=120')
     res.send(injectHead(template, buildRestaurantHead(restaurant, kind)))
   } catch (error) {
     console.error('SEO page error:', error)
