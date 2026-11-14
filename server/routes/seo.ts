@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import { adminDb } from '../firebase-admin.ts'
 import { APP_URL } from '../email/config.ts'
+import { PRODUCTION_CSP } from '../security/csp.ts'
 
 /**
  * SEO de las fichas: la web se monta en el navegador, así que Google y quien
@@ -180,6 +181,9 @@ async function serveRestaurantPage(req: Request, res: Response, kind: 'ficha' | 
     const template = await loadTemplate()
     const restaurant = await findRestaurantBySlug(String(req.params.slug ?? '').toLowerCase())
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    // Es una página de la web, no de la API: con la CSP de la API (default-src 'none')
+    // el navegador bloqueaba scripts y estilos y la ficha salía en blanco.
+    res.setHeader('Content-Security-Policy', PRODUCTION_CSP)
     if (!restaurant) {
       // La web enseña su propio "no encontrado"; a Google le decimos 404.
       res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300')
