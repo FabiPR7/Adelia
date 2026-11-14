@@ -240,7 +240,12 @@ function ReservationList({
                       </div>
                     </div>
                     <span className={styles.cellActions}>
-                      {readOnly ? null : isLocked ? (
+                      {readOnly ? null : isCancelled ? (
+                        // Una reserva cancelada no se puede volver a cancelar ni editar.
+                        <span className={styles.lockedHint}>
+                          {reservation.cancelledBy === 'client' ? 'La canceló el cliente' : 'Cancelada'}
+                        </span>
+                      ) : isLocked ? (
                         <span className={styles.lockedHint}>Solo asistencia</span>
                       ) : (
                         <>
@@ -259,7 +264,7 @@ function ReservationList({
                             aria-label={`Cancelar reserva de ${reservation.clientName}`}
                             title="Cancelar reserva (se avisa al cliente)"
                           >
-                            🗑
+                            ✕
                           </button>
                         </>
                       )}

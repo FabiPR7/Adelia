@@ -1465,6 +1465,10 @@ export async function updateReservationStatus(
  */
 export async function cancelReservationByRestaurant(reservationId: string): Promise<void> {
   rejectIfDemoCompanyWrite()
+  const current = await getDoc(doc(db, 'reservations', reservationId))
+  if (current.data()?.status === 'cancelled') {
+    throw new Error('Esta reserva ya estaba cancelada.')
+  }
   await updateDoc(doc(db, 'reservations', reservationId), {
     status: 'cancelled',
     cancelledBy: 'restaurant',
@@ -1892,6 +1896,7 @@ function mapReservation(id: string, data: Record<string, unknown>): Reservation 
     promotionVisitStatus,
     minSpendVerification: mapMinSpendVerification(data.minSpendVerification),
     depositAmountCents: typeof data.depositAmountCents === 'number' ? data.depositAmountCents : null,
+    cancelledBy: data.cancelledBy === 'client' || data.cancelledBy === 'restaurant' ? data.cancelledBy : null,
     depositPaymentIntentId: typeof data.depositPaymentIntentId === 'string'
       ? data.depositPaymentIntentId
       : null,

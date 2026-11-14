@@ -172,6 +172,7 @@ export interface Reservation {
   minSpendVerification?: ReservationMinSpendVerification
   depositAmountCents?: number | null
   depositPaymentIntentId?: string | null
+  cancelledBy?: 'client' | 'restaurant' | null
   depositStatus?: ReservationDepositStatus | null
 }
 
