@@ -327,7 +327,14 @@ export default function PromotionLadderMapModal({
     activePromotion?.claimWindowEnabled
     && isWithinPromotionHours(activePromotion, new Date()) === false,
   )
-  const canClaim = activeStatus === 'claimable' && !claimLimitReached && !claimWindowClosed
+  // Plazas agotadas: antes se podía pulsar Reclamar y el aviso llegaba tras escribir el PIN.
+  const soldOut = Boolean(
+    activePromotion
+    && activePromotion.maxRedemptions != null
+    && activePromotion.maxRedemptions > 0
+    && activePromotion.currentRedemptions >= activePromotion.maxRedemptions,
+  )
+  const canClaim = activeStatus === 'claimable' && !claimLimitReached && !claimWindowClosed && !soldOut
   const progressLabel = activeProgress && activeProgress.required > 0
     ? `${activeProgress.current}/${activeProgress.required}`
     : null
@@ -509,7 +516,11 @@ export default function PromotionLadderMapModal({
           {activePromotion ? (
             <div className={styles.dockMeta}>
               <p className={styles.dockHint}>{activePromotion.title}</p>
-              {claimLimitReached ? (
+              {soldOut ? (
+                <p className={styles.dockProgress}>
+                  🔒 Este premio ha agotado sus plazas. Pregunta en el restaurante si van a abrir más.
+                </p>
+              ) : claimLimitReached ? (
                 <p className={styles.dockProgress}>
                   🔒 Ya has reclamado este premio {activeClaimLimit === 1 ? 'la única vez permitida' : `las ${activeClaimLimit} veces permitidas`}
                 </p>
