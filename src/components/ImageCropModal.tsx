@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { loadImageFile, renderImageRegion, type LoadedImage } from '../utils/imageResize'
+import { loadImageFile, loadImageForEditing, renderImageRegion, type LoadedImage } from '../utils/imageResize'
 import styles from './ImageCropModal.module.css'
 
 interface ImageCropModalProps {
@@ -50,7 +50,7 @@ function ImageCropModal({
   useEffect(() => {
     let cancelled = false
     let loaded: LoadedImage | null = null
-    loadImageFile(file)
+    loadImageForEditing(file)
       .then((result) => {
         loaded = result
         if (cancelled) URL.revokeObjectURL(result.url)
@@ -89,27 +89,51 @@ function ImageCropModal({
   const displayW = image ? image.width * scale : 0
   const displayH = image ? image.height * scale : 0
 
-  const applyZoom = useCallback((nextZoom: number) => {
+  // El zoom va en una ref y se aplica como mucho una vez por fotograma: al
+  // deslizar la barra o pellizcar llegan decenas de cambios por segundo.
+  const zoomRef = useRef(1)
+  const pendingZoom = useRef<number | null>(null)
+  const zoomFrame = useRef<number | null>(null)
+
+  const commitZoom = useCallback((nextZoom: number) => {
     const clamped = Math.min(MAX_ZOOM, Math.max(1, nextZoom))
+    const previous = zoomRef.current
+    if (clamped === previous) return
+    zoomRef.current = clamped
     setZoom(clamped)
     if (image && view.width) {
       const nextScale = Math.max(view.width / image.width, view.height / image.height) * clamped
       setOffset((current) => clampOffset(
-        { x: current.x * (clamped / zoom), y: current.y * (clamped / zoom) },
+        { x: current.x * (clamped / previous), y: current.y * (clamped / previous) },
         image.width * nextScale,
         image.height * nextScale,
         view.width,
         view.height,
       ))
     }
-  }, [image, view, zoom])
+  }, [image, view])
+
+  const applyZoom = useCallback((nextZoom: number) => {
+    pendingZoom.current = nextZoom
+    if (zoomFrame.current != null) return
+    zoomFrame.current = requestAnimationFrame(() => {
+      zoomFrame.current = null
+      const value = pendingZoom.current
+      pendingZoom.current = null
+      if (value != null) commitZoom(value)
+    })
+  }, [commitZoom])
+
+  useEffect(() => () => {
+    if (zoomFrame.current != null) cancelAnimationFrame(zoomFrame.current)
+  }, [])
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId)
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()]
-      pinchStart.current = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom }
+      pinchStart.current = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom: zoomRef.current }
     }
   }
 
@@ -146,36 +170,46 @@ function ImageCropModal({
     // La rueda del ratón hace zoom (passive: false para que no mueva la página).
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
-      applyZoom(zoom * (event.deltaY < 0 ? 1.08 : 1 / 1.08))
+      applyZoom(zoomRef.current * (event.deltaY < 0 ? 1.08 : 1 / 1.08))
     }
     element.addEventListener('wheel', onWheel, { passive: false })
     return () => element.removeEventListener('wheel', onWheel)
-  }, [applyZoom, zoom])
+  }, [applyZoom])
 
   const handleConfirm = async () => {
     if (!image || !view.width) return
     setSaving(true)
+    let full: LoadedImage | null = null
     try {
-      // Píxel del recorte → píxel de la foto original.
+      // Píxel del recorte → píxel de la copia de trabajo.
       const sw = view.width / scale
       const sh = view.height / scale
       const sx = image.width / 2 - (view.width / 2 + offset.x) / scale
       const sy = image.height / 2 - (view.height / 2 + offset.y) / scale
-      const longest = Math.min(outputSize, Math.round(Math.max(sw, sh)))
+
+      // El recorte final sale de la foto original (nítido aunque haya mucho
+      // zoom). Se abre solo un momento, al confirmar, no mientras se mueve.
+      full = await loadImageFile(file)
+      const ratio = full.width / image.width
+      const region = {
+        sx: Math.max(0, sx * ratio),
+        sy: Math.max(0, sy * ratio),
+        sw: Math.min(sw * ratio, full.width),
+        sh: Math.min(sh * ratio, full.height),
+      }
+      const longest = Math.min(outputSize, Math.round(Math.max(region.sw, region.sh)))
       const outW = aspect >= 1 ? longest : Math.round(longest * aspect)
       const outH = aspect >= 1 ? Math.round(longest / aspect) : longest
-      const result = await renderImageRegion(
-        image,
-        { sx: Math.max(0, sx), sy: Math.max(0, sy), sw: Math.min(sw, image.width), sh: Math.min(sh, image.height) },
-        Math.max(1, outW),
-        Math.max(1, outH),
-        file.type,
-        file.name,
-      )
+      const result = await renderImageRegion(full, region, Math.max(1, outW), Math.max(1, outH), file.type, file.name)
       onConfirm(result)
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'No se pudo preparar la imagen.')
       setSaving(false)
+    } finally {
+      if (full) {
+        full.element.src = ''
+        URL.revokeObjectURL(full.url)
+      }
     }
   }
 

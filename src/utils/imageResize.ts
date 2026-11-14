@@ -79,6 +79,34 @@ export async function renderImageRegion(
   return new File([blob], `${baseName}.${extension}`, { type: blob.type })
 }
 
+/**
+ * Abre la foto ya reducida a `maxSide` para editarla (recortar, zoom). Una foto
+ * de móvil a tamaño completo (12–50 MP) agota la memoria del navegador del
+ * móvil y cierra la página al moverla; con 1600 px sobra para un recorte de 1024.
+ */
+export async function loadImageForEditing(file: File, maxSide = 1600): Promise<LoadedImage> {
+  const original = await loadImageFile(file)
+  if (Math.max(original.width, original.height) <= maxSide) {
+    return original
+  }
+  try {
+    const size = fitWithin(original.width, original.height, maxSide)
+    const reduced = await renderImageRegion(
+      original,
+      { sx: 0, sy: 0, sw: original.width, sh: original.height },
+      size.width,
+      size.height,
+      file.type,
+      file.name,
+    )
+    return await loadImageFile(reduced)
+  } finally {
+    // Suelta la foto grande cuanto antes.
+    original.element.src = ''
+    URL.revokeObjectURL(original.url)
+  }
+}
+
 /** Reduce una foto a `maxSide` como mucho. Si ya es pequeña y ligera, la deja igual. */
 export async function downscaleImageFile(file: File, maxSide = UPLOAD_MAX_SIDE, maxBytes = 4.5 * 1024 * 1024): Promise<File> {
   const image = await loadImageFile(file)
