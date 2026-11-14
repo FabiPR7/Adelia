@@ -12,6 +12,7 @@ import { completeCustomerOnboarding } from '../services/customerAuth'
 import type { CitySuggestion } from '../services/citySearch'
 import { getCustomerDestination } from '../utils/customerRouting'
 import { formatSpanishPhoneForStorage, isValidSpanishPhone } from '../utils/helpers'
+import { getFirestoreErrorMessage } from '../services/firestoreErrors'
 import styles from './CustomerOnboardingPage.module.css'
 
 function CustomerOnboardingPageContent() {
@@ -90,7 +91,11 @@ function CustomerOnboardingPageContent() {
       await refreshProfile()
       navigate(isEditing ? '/app/perfil' : '/app/explorar', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar tu perfil.')
+      // Errores de la base en español (antes salía «Missing or insufficient permissions.»).
+      const code = typeof err === 'object' && err !== null && 'code' in err ? String((err as { code?: unknown }).code) : ''
+      setError(code === 'permission-denied'
+        ? 'No se pudo guardar tu perfil. Revisa los datos e inténtalo de nuevo; si sigue fallando, escríbenos.'
+        : getFirestoreErrorMessage(err))
     } finally {
       setIsSaving(false)
     }
