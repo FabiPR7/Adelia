@@ -800,9 +800,18 @@ function PublicBookingPage() {
   }
 
   if (!company) {
+    // Enlace viejo, local dado de baja o dirección mal escrita: se explica y se ofrece salida.
     return (
       <div className={styles.page}>
-        <p className={styles.error}>{error ?? 'Restaurante no encontrado.'}</p>
+        <div className={styles.successCard}>
+          <h3>Este restaurante no está disponible</h3>
+          <p>
+            Puede que el enlace esté mal escrito o que el restaurante ya no reciba reservas por Adelia.
+          </p>
+          <Link to="/" className={styles.primaryButton}>
+            Buscar otros restaurantes
+          </Link>
+        </div>
       </div>
     )
   }

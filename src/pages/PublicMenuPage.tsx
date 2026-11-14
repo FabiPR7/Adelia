@@ -75,8 +75,8 @@ function PublicMenuPage() {
   if (!company) {
     return (
       <div className={styles.errorPage}>
-        <p>{error ?? 'Restaurante no encontrado.'}</p>
-        <Link to={reserveHref}>Volver</Link>
+        <p>{error ? 'Este restaurante no está disponible ahora mismo.' : 'Restaurante no encontrado.'}</p>
+        <Link to="/">Buscar otros restaurantes</Link>
       </div>
     )
   }

@@ -65,12 +65,13 @@ function PublicCancelReservation() {
 
       try {
         const [bookingPage, preview] = await Promise.all([
-          fetchPublicBookingPage(slug),
+          // Si el local está dado de baja, su ficha ya no carga, pero la reserva se puede cancelar igual.
+          fetchPublicBookingPage(slug).catch(() => null),
           fetchPublicCancelPreview(token),
         ])
 
         if (!cancelled) {
-          setCompany(bookingPage.company)
+          setCompany(bookingPage?.company ?? null)
           setCancelPreview(preview)
           setUseShield((preview.cancelShieldCount ?? 0) > 0)
         }
@@ -135,7 +136,7 @@ function PublicCancelReservation() {
     )
   }
 
-  if (loadError || !company) {
+  if (loadError || (!company && !cancelPreview)) {
     return (
       <div className={styles.pageLoading}>
         <p>{loadError ?? 'Restaurante no encontrado.'}</p>
@@ -143,14 +144,9 @@ function PublicCancelReservation() {
     )
   }
 
-  const displayCompanyName = cancelPreview?.companyName || company.name
+  const displayCompanyName = cancelPreview?.companyName || company?.name || 'el restaurante'
 
-  return (
-    <PublicBookingShell
-      company={company}
-      legalFrom={`/reservar/${slug}/cancelar`}
-      reserveHref={companyAcceptsReservations(company.reservationMode) ? `/reservar/${slug}` : null}
-    >
+  const content = (
       <main className={styles.main}>
         <section className={styles.card}>
           <h1>Cancelar reserva</h1>
@@ -259,6 +255,19 @@ function PublicCancelReservation() {
           )}
         </section>
       </main>
+  )
+
+  if (!company) {
+    return <div className={styles.pageLoading}>{content}</div>
+  }
+
+  return (
+    <PublicBookingShell
+      company={company}
+      legalFrom={`/reservar/${slug}/cancelar`}
+      reserveHref={companyAcceptsReservations(company.reservationMode) ? `/reservar/${slug}` : null}
+    >
+      {content}
     </PublicBookingShell>
   )
 }
