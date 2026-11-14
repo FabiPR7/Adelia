@@ -1,6 +1,8 @@
 export interface FriendProfile {
   id: string
   displayName: string
+  /** @usuario (sin @); vacío si no tiene. */
+  username?: string
   xp: number
   level: number
   levelTitle: string

@@ -10,6 +10,7 @@ import {
 } from '../data/collections.ts'
 import { createCustomerNotification } from '../notifications/service.ts'
 import { getLevelDetailsForXp } from '../data/gameCatalog.ts'
+import { findUidsByUsernamePrefix, normalizeUsername } from '../data/usernames.ts'
 
 const router = Router()
 
@@ -51,6 +52,7 @@ async function mapFriendProfile(
   return {
     id: uid,
     displayName: typeof user.displayName === 'string' ? user.displayName : 'Usuario',
+    username: typeof user.username === 'string' ? user.username : '',
     xp,
     level: level.level,
     levelTitle: level.title,
@@ -340,6 +342,13 @@ function customerSearchScore(
   return 50
 }
 
+function usernameSearchScore(data: FirebaseFirestore.DocumentData, query: string): number {
+  const username = typeof data.username === 'string' ? data.username : ''
+  if (!username || query.length < 2) return 0
+  if (username === query) return 110
+  return username.startsWith(query) ? 90 : 0
+}
+
 async function listCustomerUserDocs(queryText: string, rawLower: string) {
   const prefixes = [...new Set([queryText, rawLower].filter((item) => item.length >= 3))]
   const prefixSnaps = await Promise.all(
@@ -374,7 +383,20 @@ router.get('/search', async (req: Request, res: Response) => {
       return
     }
 
-    const customerDocs = await listCustomerUserDocs(queryText, rawLower)
+    // «@ana» busca solo por @usuario; sin @, por nombre y por @usuario.
+    const byUsernameOnly = rawQuery.startsWith('@')
+    const usernameQuery = normalizeUsername(rawQuery)
+    const [nameDocs, usernameUids] = await Promise.all([
+      byUsernameOnly ? Promise.resolve([]) : listCustomerUserDocs(queryText, rawLower),
+      findUidsByUsernamePrefix(usernameQuery).catch(() => [] as string[]),
+    ])
+    const known = new Set(nameDocs.map((docSnap) => docSnap.id))
+    const extraRefs = usernameUids.filter((uid) => !known.has(uid))
+      .map((uid) => adminDb.collection(COLLECTIONS.users).doc(uid))
+    const usernameDocs = extraRefs.length
+      ? (await adminDb.getAll(...extraRefs)).filter((docSnap) => docSnap.exists && docSnap.data()?.role === 'customer') as FirebaseFirestore.QueryDocumentSnapshot[]
+      : []
+    const customerDocs = [...nameDocs, ...usernameDocs]
 
     const ranked = customerDocs
       // Una cuenta bloqueada no sale en la búsqueda.
@@ -382,7 +404,10 @@ router.get('/search', async (req: Request, res: Response) => {
       .map((docSnap) => ({
         id: docSnap.id,
         data: docSnap.data(),
-        score: customerSearchScore(docSnap.data(), queryText),
+        score: Math.max(
+          byUsernameOnly ? 0 : customerSearchScore(docSnap.data(), queryText),
+          usernameSearchScore(docSnap.data(), usernameQuery),
+        ),
       }))
       .filter((entry) => entry.score > 0)
       .sort((left, right) => {

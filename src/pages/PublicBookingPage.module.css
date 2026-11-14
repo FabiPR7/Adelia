@@ -940,3 +940,11 @@
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
+
+.fieldHint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}

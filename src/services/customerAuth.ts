@@ -300,6 +300,6 @@ export async function completeCustomerOnboarding(
     homeLongitude: payload.homeLongitude,
     foodPreferences: payload.foodPreferences,
     onboardingCompleted: true,
-    ...(payload.phone ? { phone: payload.phone } : {}),
+    ...(payload.phone !== undefined ? { phone: payload.phone } : {}),
   })
 }

@@ -145,6 +145,7 @@ function FriendProfileView({ friend, onBack }: FriendProfileViewProps) {
           </div>
 
           <h1 className={styles.displayName}>{friend.displayName}</h1>
+          {friend.username ? <p className={styles.username}>@{friend.username}</p> : null}
 
           <FriendProfileLevelBadge level={level} levelTitle={levelTitle} />
         </motion.div>

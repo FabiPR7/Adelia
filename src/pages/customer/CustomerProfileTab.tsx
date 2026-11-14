@@ -95,7 +95,8 @@ function CustomerProfileTab() {
     : ''
 
   const locationLabel = [profile.homeCity, profile.homeMunicipality].filter(Boolean).join(', ')
-  const profileHandle = `@${profile.email.split('@')[0] ?? 'usuario'}`
+  // Antes salía el principio del correo; ahora el @usuario elegido.
+  const profileHandle = profile.username ? `@${profile.username}` : ''
 
   const pageStyle = {
     '--profile-accent': stripTheme.cardBorder,
@@ -145,7 +146,11 @@ function CustomerProfileTab() {
           </div>
 
           <div className={styles.identityMeta}>
-            <span className={styles.handle}>{profileHandle}</span>
+            {profileHandle ? (
+              <span className={styles.handle}>{profileHandle}</span>
+            ) : (
+              <Link to="/cuenta/completar-perfil?edit=1" className={styles.handle}>Elige tu @usuario</Link>
+            )}
             {locationLabel ? <span className={styles.location}>📍 {locationLabel}</span> : null}
           </div>
 

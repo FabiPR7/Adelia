@@ -391,7 +391,7 @@ function CustomerFriendsBoard({
           type="search"
           value={friendQuery}
           onChange={(event) => setFriendQuery(event.target.value)}
-          placeholder="Nombre de la persona…"
+          placeholder="Nombre o @usuario…"
           className={styles.friendSearchInput}
           aria-label="Buscar personas en Adelia"
         />
@@ -406,7 +406,7 @@ function CustomerFriendsBoard({
             ? peopleError
             : peopleQuery.trim().length >= 3
               ? `${peopleResults.length} resultado${peopleResults.length === 1 ? '' : 's'} en Adelia`
-              : 'Escribe al menos 3 letras del nombre con el que aparece en Adelia.'}
+              : 'Escribe al menos 3 letras del nombre o su @usuario (p. ej. @ana).'}
       </p>
 
       {peopleQuery.trim().length >= 3 && !peopleLoading && !peopleError && peopleResults.length === 0 ? (
@@ -447,7 +447,7 @@ function CustomerFriendsBoard({
                       ? 'Te envió una solicitud'
                       : sent
                         ? 'Solicitud enviada'
-                        : 'Usuario de Adelia'}
+                        : person.username ? `@${person.username}` : 'Usuario de Adelia'}
                   </span>
                   {requestError ? <span className={styles.peopleHitError}>{requestError}</span> : null}
                 </div>
@@ -521,7 +521,7 @@ function CustomerFriendsBoard({
                   ? addSearchError
                   : addSubmittedQuery.length >= 3
                     ? `${addSearchResults.length} resultado${addSearchResults.length === 1 ? '' : 's'}`
-                    : 'Escribe al menos 3 letras del nombre.'}
+                    : 'Escribe al menos 3 letras del nombre o el @usuario.'}
             </p>
             {addSubmittedQuery.length >= 3 && !addSearchLoading && !addSearchError && addSearchResults.length === 0 ? (
               <p className={styles.emptyHint}>

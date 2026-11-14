@@ -296,6 +296,7 @@ function mapUserProfileRecord(
     createdAt,
     phone: typeof data.phone === 'string' ? data.phone : '',
     phoneVerified: data.phoneVerified === true,
+    username: typeof data.username === 'string' ? data.username : '',
     photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : '',
     homeCity: typeof data.homeCity === 'string' ? data.homeCity : '',
     homeMunicipality: typeof data.homeMunicipality === 'string' ? data.homeMunicipality : '',

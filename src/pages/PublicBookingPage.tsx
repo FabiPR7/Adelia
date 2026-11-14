@@ -74,6 +74,7 @@ import {
   tableBelongsToFloorPlan,
   tablesForFloorPlan,
 } from '../types'
+import { updateCustomerPhone } from '../services/customerAuth'
 import styles from './PublicBookingPage.module.css'
 
 const FloorPlanViewer = lazy(() => import('../components/FloorPlanViewer'))
@@ -90,6 +91,8 @@ function PublicBookingPage() {
   const productTour = useCustomerProductTourOptional()
   const { refreshGamificationData } = useCustomerGamificationContext()
   const isLoggedCustomer = profile?.role === 'customer'
+  // Cuenta sin teléfono: se pide al reservar para que el local pueda avisar.
+  const accountNeedsPhone = isLoggedCustomer && !isValidSpanishPhone(profile?.phone ?? '')
   const { friends, loading: friendsLoading } = useCustomerFriends(
     isLoggedCustomer ? user?.uid : undefined,
   )
@@ -614,9 +617,20 @@ function PublicBookingPage() {
       ? (profile?.displayName ?? '').trim()
       : clientName.trim().replace(/\s+/g, ' ')
     const bookingEmail = isLoggedCustomer ? (profile?.email ?? '').trim() : clientEmail.trim()
-    const bookingPhone = isLoggedCustomer
+    const bookingPhone = isLoggedCustomer && !accountNeedsPhone
       ? (profile?.phone ?? '').trim()
       : formatSpanishPhoneForStorage(clientPhone)
+
+    if (accountNeedsPhone) {
+      if (!isValidSpanishPhone(clientPhone)) {
+        setError('Indica un teléfono de contacto válido de España (9 dígitos, p. ej. 612 345 678).')
+        return
+      }
+      // Se queda en el perfil: no se vuelve a pedir.
+      if (user) {
+        await updateCustomerPhone(user.uid, clientPhone).catch(() => undefined)
+      }
+    }
 
     if (!isLoggedCustomer) {
       if (!isValidClientName(bookingName)) {
@@ -1083,6 +1097,21 @@ function PublicBookingPage() {
                     </label>
                       </>
                     )}
+                    {accountNeedsPhone ? (
+                      <label>
+                        Teléfono de contacto
+                        <input
+                          type="tel"
+                          value={clientPhone}
+                          onChange={(e) => setClientPhone(e.target.value)}
+                          autoComplete="tel"
+                          inputMode="tel"
+                          placeholder="612 345 678"
+                          required
+                        />
+                        <span className={styles.fieldHint}>Para que el restaurante pueda avisarte. Lo guardamos en tu perfil.</span>
+                      </label>
+                    ) : null}
                     <label>
                       Comensales
                       <input

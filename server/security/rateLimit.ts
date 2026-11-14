@@ -146,6 +146,11 @@ export async function takeSuggestion(uid: string): Promise<boolean> {
   return takeDistributed('suggestion', uid, 5, 24 * 60 * 60_000)
 }
 
+/** Cambios de @usuario: 5 al día (evita ir ocupando nombres). */
+export async function takeUsernameChange(uid: string): Promise<boolean> {
+  return takeDistributed('username-change', uid, 5, 24 * 60 * 60_000)
+}
+
 export function createRateLimit(maxRequests: number, windowMs: number, name = 'default') {
   const store = storeFor(`${name}:${maxRequests}:${windowMs}`)
   return (req: Request, res: Response, next: NextFunction) => {

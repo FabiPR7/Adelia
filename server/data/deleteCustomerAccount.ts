@@ -2,6 +2,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminAuth, adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from './collections.ts'
 import { deleteQueryInBatches } from './deleteQueryInBatches.ts'
+import { releaseUsername } from './usernames.ts'
 
 const ANONYMIZE_PAGE = 200
 
@@ -200,6 +201,7 @@ export async function deleteCustomerAccount(uid: string): Promise<void> {
   }
 
   // recursiveDelete cubre cualquier subcolección del perfil, no solo las conocidas.
+  await releaseUsername(uid, userSnap.data()?.username)
   await adminDb.recursiveDelete(userRef)
   await adminDb.collection(COLLECTIONS.userGamification).doc(uid).delete()
 

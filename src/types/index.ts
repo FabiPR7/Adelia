@@ -29,6 +29,8 @@ export interface AppUser {
   role: UserRole
   companyId: string | null
   displayName: string
+  /** @usuario único (sin la @). Vacío si aún no ha elegido uno. */
+  username?: string
   favoriteSlugs: string[]
   gamification: CustomerGamificationState
   mustChangePassword: boolean

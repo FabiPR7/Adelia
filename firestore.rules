@@ -109,6 +109,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /usernames/{username} {
+      // Reserva de @usuarios únicos: solo la API (Admin SDK).
+      allow read, write: if false;
+    }
+
     match /restaurantReports/{reportId} {
       // Reportes de clientes sobre restaurantes. Se crean y leen solo por la API.
       allow read, write: if false;
@@ -193,6 +198,8 @@ service cloud.firestore {
         && (data.homeLatitude == null || data.homeLatitude is number)
         && (data.homeLongitude == null || data.homeLongitude is number)
         && data.createdAt == request.time
+        // El @usuario solo lo pone el servidor (comprueba que no esté cogido).
+        && !('username' in data)
         && hasNoPasswordSecrets(data);
     }
 

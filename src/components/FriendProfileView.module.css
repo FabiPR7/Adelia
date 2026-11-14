@@ -228,6 +228,14 @@
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
 }
 
+.username {
+  margin: 0.1rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--strip-title);
+  text-shadow: var(--strip-name-shadow);
+}
+
 .displayName {
   margin: 0.15rem 0 0;
   font-family: var(--font-display);

@@ -696,7 +696,7 @@ export function CustomerGamificationProvider({ children }: { children: ReactNode
       <LevelUpCelebrationModal
         step={activeLevelUpStep}
         displayName={profile?.displayName ?? 'Tu perfil'}
-        handle={profile ? `@${profile.email.split('@')[0] ?? 'usuario'}` : undefined}
+        handle={profile?.username ? `@${profile.username}` : undefined}
         photoUrl={profile?.photoUrl || undefined}
         xp={
           previewStep

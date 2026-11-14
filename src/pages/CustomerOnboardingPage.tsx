@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import CityAutocomplete from '../components/CityAutocomplete'
 import CharacteristicPicker from '../components/CharacteristicPicker'
@@ -13,6 +13,13 @@ import type { CitySuggestion } from '../services/citySearch'
 import { getCustomerDestination } from '../utils/customerRouting'
 import { formatSpanishPhoneForStorage, isValidSpanishPhone } from '../utils/helpers'
 import { getFirestoreErrorMessage } from '../services/firestoreErrors'
+import UsernameField, { type UsernameStatus } from '../components/UsernameField'
+import {
+  checkUsernameAvailable,
+  localUsernameError,
+  suggestUsername,
+  updateCustomerIdentity,
+} from '../services/customerIdentityApi'
 import styles from './CustomerOnboardingPage.module.css'
 
 function CustomerOnboardingPageContent() {
@@ -39,12 +46,49 @@ function CustomerOnboardingPageContent() {
   )
   const [foodPreferences, setFoodPreferences] = useState<string[]>(profile?.foodPreferences ?? [])
   const [phone, setPhone] = useState(profile?.phone ?? '')
+  const [displayName, setDisplayName] = useState(profile?.displayName ?? '')
+  const currentUsername = profile?.username ?? ''
+  const [username, setUsername] = useState(
+    currentUsername || suggestUsername(profile?.displayName ?? '', profile?.email ?? ''),
+  )
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const needsPhone = !isValidSpanishPhone(profile?.phone ?? '')
+
+  // Sin @usuario aún: si la propuesta está cogida, se prueba con números.
+  useEffect(() => {
+    if (currentUsername || !user) return
+    let cancelled = false
+    void (async () => {
+      const base = suggestUsername(profile?.displayName ?? '', profile?.email ?? '')
+      for (let attempt = 0; attempt < 5 && !cancelled; attempt += 1) {
+        const candidate = attempt === 0 ? base : `${base}${Math.floor(10 + Math.random() * 990)}`
+        const result = await checkUsernameAvailable(candidate).catch(() => null)
+        if (!result || result.available) {
+          if (!cancelled && attempt > 0) setUsername(candidate)
+          return
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [currentUsername, user, profile?.displayName, profile?.email])
 
   if (user && profile && profile.onboardingCompleted && !isEditing) {
     return <Navigate to="/app/perfil" replace />
+  }
+
+  /** Guarda nombre y @usuario por el servidor (comprueba que el @usuario sea único). */
+  const saveIdentity = async () => {
+    const cleanName = displayName.replace(/\s+/g, ' ').trim()
+    const cleanUsername = username.trim().toLowerCase()
+    const changes: { displayName?: string; username?: string } = {}
+    if (cleanName !== (profile?.displayName ?? '')) changes.displayName = cleanName
+    if (cleanUsername && cleanUsername !== currentUsername) changes.username = cleanUsername
+    if (changes.displayName !== undefined || changes.username !== undefined) {
+      await updateCustomerIdentity(changes)
+    }
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -53,6 +97,21 @@ function CustomerOnboardingPageContent() {
 
     if (!user) {
       setError('Sesión expirada. Vuelve a iniciar sesión.')
+      return
+    }
+
+    if (displayName.replace(/\s+/g, ' ').trim().length < 2) {
+      setError('Escribe tu nombre (al menos 2 letras). Es el que verán tus amigos.')
+      return
+    }
+
+    const usernameProblem = localUsernameError(username)
+    if (usernameProblem) {
+      setError(`Tu @usuario: ${usernameProblem}`)
+      return
+    }
+    if (usernameStatus === 'taken') {
+      setError(`@${username} ya está cogido. Prueba con otro.`)
       return
     }
 
@@ -75,6 +134,12 @@ function CustomerOnboardingPageContent() {
     setIsSaving(true)
 
     try {
+      try {
+        await saveIdentity()
+      } catch (identityError) {
+        setError(identityError instanceof Error ? identityError.message : 'No se pudo guardar tu nombre.')
+        return
+      }
       await completeCustomerOnboarding(user.uid, {
         photoUrl,
         homeCity: city.name,
@@ -84,9 +149,8 @@ function CustomerOnboardingPageContent() {
         homeLatitude: coordinates?.lat ?? null,
         homeLongitude: coordinates?.lng ?? null,
         foodPreferences,
-        ...(isValidSpanishPhone(phone)
-          ? { phone: formatSpanishPhoneForStorage(phone) }
-          : {}),
+        // Vacío = quitar el teléfono.
+        phone: phone.trim() ? formatSpanishPhoneForStorage(phone) : '',
       })
       await refreshProfile()
       navigate(isEditing ? '/app/perfil' : '/app/explorar', { replace: true })
@@ -112,6 +176,8 @@ function CustomerOnboardingPageContent() {
     setIsSaving(true)
 
     try {
+      // Aunque salte el resto, se queda con el @usuario propuesto (si está libre).
+      await saveIdentity().catch(() => undefined)
       await completeCustomerOnboarding(user.uid, {
         photoUrl,
         homeCity: city?.name ?? '',
@@ -159,6 +225,26 @@ function CustomerOnboardingPageContent() {
             onImageRemoved={() => setPhotoUrl('')}
           />
 
+          <label className={styles.field}>
+            <span className={styles.label}>Tu nombre</span>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value.slice(0, 60))}
+              autoComplete="name"
+              placeholder="Nombre y apellido"
+              className={styles.textInput}
+            />
+            <span className={styles.fieldHint}>Es el que ven tus amigos, el ranking y tus reseñas.</span>
+          </label>
+
+          <UsernameField
+            value={username}
+            onChange={setUsername}
+            currentUsername={currentUsername}
+            onStatusChange={setUsernameStatus}
+          />
+
           <div className={styles.field}>
             <span className={styles.label}>¿Dónde vives?</span>
             <CityAutocomplete
@@ -169,23 +255,21 @@ function CustomerOnboardingPageContent() {
             />
           </div>
 
-          {needsPhone ? (
-            <label className={styles.field}>
-              <span className={styles.label}>Teléfono (opcional)</span>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                autoComplete="tel"
-                inputMode="tel"
-                placeholder="612 345 678"
-                className={styles.textInput}
-              />
-              <span className={styles.fieldHint}>
-                Así el restaurante puede avisarte si cambia algo de tu reserva.
-              </span>
-            </label>
-          ) : null}
+          <label className={styles.field}>
+            <span className={styles.label}>Teléfono (opcional)</span>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              autoComplete="tel"
+              inputMode="tel"
+              placeholder="612 345 678"
+              className={styles.textInput}
+            />
+            <span className={styles.fieldHint}>
+              Así el restaurante puede avisarte si cambia algo de tu reserva. Te lo pediremos al reservar si no lo pones.
+            </span>
+          </label>
 
           <div className={styles.field}>
             <span className={styles.label}>Ubicación en mapa (opcional)</span>
