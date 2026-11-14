@@ -194,7 +194,9 @@ export async function createReservationInvites(params: {
       const inviteId = reservationInviteId(params.reservationId, toUid)
       const inviteRef = adminDb.collection(COLLECTIONS.reservationInvites).doc(inviteId)
       const existing = await inviteRef.get()
-      if (existing.exists) {
+      // Si ya la rechazó (o se canceló), se puede volver a invitar; si está pendiente o aceptada, no.
+      const previousStatus = existing.exists ? String(existing.data()?.status ?? '') : ''
+      if (existing.exists && previousStatus !== 'rejected' && previousStatus !== 'cancelled') {
         continue
       }
 
@@ -225,7 +227,7 @@ export async function createReservationInvites(params: {
         icon: '💌',
         actionUrl: '/app/reservas',
         actionLabel: 'Aceptar o rechazar',
-        dedupeKey: `reservation_invite_received:${inviteId}`,
+        dedupeKey: `reservation_invite_received:${inviteId}:${now.toMillis()}`,
         data: {
           inviteId,
           reservationId: params.reservationId,
@@ -348,7 +350,7 @@ export async function respondToReservationInvite(
       icon: '✅',
       actionUrl: '/app/reservas',
       actionLabel: 'Ver reserva',
-      dedupeKey: `reservation_invite_accepted:${inviteId}`,
+      dedupeKey: `reservation_invite_accepted:${inviteId}:${now.toMillis()}`,
       data: {
         inviteId,
         reservationId: invite.reservationId,
@@ -367,7 +369,7 @@ export async function respondToReservationInvite(
       icon: '✖️',
       actionUrl: '/app/reservas',
       actionLabel: 'Ver reserva',
-      dedupeKey: `reservation_invite_rejected:${inviteId}`,
+      dedupeKey: `reservation_invite_rejected:${inviteId}:${now.toMillis()}`,
       data: {
         inviteId,
         reservationId: invite.reservationId,

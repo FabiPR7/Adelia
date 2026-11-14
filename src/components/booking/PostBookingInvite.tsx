@@ -28,9 +28,16 @@ function PostBookingInvite({ reservationId, friends, loading, alreadyInvitedIds 
     setSending(true)
     setError(null)
     try {
-      await inviteFriendsToReservation(reservationId, selected)
-      setInvitedIds((current) => [...new Set([...current, ...selected])])
+      const result = await inviteFriendsToReservation(reservationId, selected)
+      // Solo cuentan como invitados los que el servidor ha invitado de verdad.
+      const nowInvited = result.invites
+        .filter((invite) => invite.status === 'pending' || invite.status === 'accepted')
+        .map((invite) => invite.toUid)
+      setInvitedIds((current) => [...new Set([...current, ...nowInvited])])
       setSelected([])
+      if (result.created === 0) {
+        setError('No se ha enviado ninguna invitación nueva: ya estaban invitados o ya no sois amigos.')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo enviar la invitación.')
     } finally {
