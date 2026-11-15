@@ -1,11 +1,40 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
+import {
+  BookOpen,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Copy,
+  Download,
+  ExternalLink,
+  EyeOff,
+  FileSpreadsheet,
+  FileText,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  GripVertical,
+  Info,
+  LayoutList,
+  Link2,
+  Palette,
+  Pencil,
+  Plus,
+  QrCode,
+  Smartphone,
+  Trash2,
+  Upload,
+  UtensilsCrossed,
+  X,
+} from 'lucide-react'
+import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import ImageUploader from '../../components/ImageUploader'
 import MenuExcelExportModal from '../../components/menu/MenuExcelExportModal'
 import MenuExcelImportModal, { type MenuExcelImportMode } from '../../components/menu/MenuExcelImportModal'
 import MenuPdfViewer from '../../components/menu/MenuPdfViewer'
 import MenuPreview from '../../components/menu/MenuPreview'
-import InfoHint from '../../components/company/InfoHint'
 import { useAuth } from '../../context/AuthContext'
 import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import { parseCompanyPlanId } from '../../data/companyPlans'
@@ -827,151 +856,168 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
     return styles.treeRowDropAfter
   }
 
+  const countProducts = (node: MenuTreeNode): number =>
+    node.children.reduce(
+      (sum, child) => sum + (child.nodeType === 'product' ? 1 : countProducts(child)),
+      0,
+    )
+
   const renderTreeNode = (node: MenuTreeNode) => {
     const pathLabel = getNodePathLabel(node, boardNodes)
     const isFamily = node.nodeType === 'family'
     const isSubfamily = isFamily && Boolean(node.parentId)
+    const productCount = isFamily ? countProducts(node) : 0
 
     return (
       <div key={node.id} className={styles.treeBlock}>
         <div
           className={[
             styles.treeRow,
-            isFamily ? styles.treeRowFamily : styles.treeRowProduct,
-            isSubfamily ? styles.treeRowSubfamily : '',
+            isFamily ? (isSubfamily ? styles.treeRowSubfamily : styles.treeRowFamily) : styles.treeRowProduct,
+            node.nodeType === 'product' && !node.active ? styles.treeRowHidden : '',
             draggingNodeId === node.id ? styles.treeRowDragging : '',
             getTreeRowDropClass(node),
           ].filter(Boolean).join(' ')}
-          draggable
+          style={{ "--depth": node.depth } as CSSProperties}
+          draggable={!demo}
           onDragStart={() => setDraggingNodeId(node.id)}
           onDragEnd={handleDragEnd}
           onDragOver={(event) => handleDragOverNode(event, node)}
           onDrop={(event) => handleDropOnNode(event, node)}
+          onDoubleClick={() => {
+            if (!demo) {
+              openEditNode(node)
+            }
+          }}
         >
-          <div className={styles.treeRowGuide} aria-hidden="true">
-            {Array.from({ length: node.depth }, (_, index) => (
-              <span key={index} className={styles.treeDepthLine} />
-            ))}
-          </div>
-          <span className={styles.dragHandle} aria-hidden="true">⠿</span>
+          {demo ? null : (
+            <span className={styles.dragHandle} aria-hidden="true" title="Arrastra para mover">
+              <GripVertical size={15} />
+            </span>
+          )}
+
+          {isFamily ? (
+            <span className={isSubfamily ? styles.subfamilyIcon : styles.familyIcon} aria-hidden="true">
+              {isSubfamily ? <Folder size={15} /> : <FolderOpen size={16} />}
+            </span>
+          ) : (
+            <span className={styles.productThumb} aria-hidden="true">
+              {node.photoUrl ? (
+                <img src={optimizeCloudinaryUrl(node.photoUrl, CLOUDINARY_DISPLAY.photoPreview)} alt="" loading="lazy" />
+              ) : (
+                <UtensilsCrossed size={15} />
+              )}
+            </span>
+          )}
+
           <div className={styles.treeMain}>
             <div className={styles.treeTitleRow}>
-              <span
-                className={
-                  isFamily
-                    ? node.parentId
-                      ? styles.subfamilyTag
-                      : styles.familyTag
-                    : styles.productTag
-                }
-              >
-                {getFamilyTypeLabel(node, boardNodes)}
-              </span>
               <strong>{node.name || 'Sin nombre'}</strong>
+              {isFamily ? (
+                <span className={styles.countChip}>
+                  {productCount} {productCount === 1 ? 'producto' : 'productos'}
+                </span>
+              ) : null}
+              {isSubfamily ? <span className={styles.kindChip}>{getFamilyTypeLabel(node, boardNodes)}</span> : null}
               {isFamily && node.availability.enabled ? (
                 <span className={styles.availabilityTag}>
+                  <Clock size={12} aria-hidden="true" />
                   {formatMenuCategoryAvailability(node.availability)}
                 </span>
               ) : null}
-              {node.nodeType === 'product' && node.priceCents != null ? (
-                <span className={styles.treePrice}>
-                  {formatMenuPrice(node.priceCents, node.priceCurrency)}
-                </span>
-              ) : null}
-              {node.nodeType === 'product' && node.allergens.length > 0 ? (
-                <span className={styles.treeAllergens} aria-label={`Alérgenos: ${node.allergens.map(getMenuAllergenLabel).join(', ')}`}>
-                  {node.allergens.map((allergen) => (
-                    <span
-                      key={allergen}
-                      className={styles.treeAllergenIcon}
-                      title={getMenuAllergenLabel(allergen)}
-                    >
-                      {getMenuAllergenIcon(allergen)}
-                    </span>
-                  ))}
-                </span>
-              ) : null}
               {node.nodeType === 'product' && !node.active ? (
-                <span className={styles.inactiveTag}>Oculto</span>
+                <span className={styles.inactiveTag}>
+                  <EyeOff size={12} aria-hidden="true" />
+                  Oculto
+                </span>
               ) : null}
             </div>
-            {node.nodeType === 'product' && pathLabel ? (
-              <p className={styles.treePath}>{pathLabel}</p>
-            ) : null}
-            {node.nodeType === 'product' && node.description ? (
-              <p className={styles.treeDescription}>{node.description}</p>
+            {node.nodeType === 'product' && (node.description || (pathLabel && node.depth === 0)) ? (
+              <p className={styles.treeDescription}>
+                {node.description || pathLabel}
+              </p>
             ) : null}
           </div>
-          <div className={styles.treeActions}>
-            {node.nodeType === 'family' ? (
-              <>
+
+          {node.nodeType === 'product' && node.allergens.length > 0 ? (
+            <span
+              className={styles.treeAllergens}
+              aria-label={`Alérgenos: ${node.allergens.map(getMenuAllergenLabel).join(', ')}`}
+            >
+              {node.allergens.slice(0, 5).map((allergen) => (
+                <span key={allergen} className={styles.treeAllergenIcon} title={getMenuAllergenLabel(allergen)}>
+                  {getMenuAllergenIcon(allergen)}
+                </span>
+              ))}
+              {node.allergens.length > 5 ? (
+                <span className={styles.treeAllergenMore}>+{node.allergens.length - 5}</span>
+              ) : null}
+            </span>
+          ) : null}
+
+          {node.nodeType === 'product' ? (
+            <span className={styles.treePrice}>
+              {node.priceCents != null ? formatMenuPrice(node.priceCents, node.priceCurrency) : '—'}
+            </span>
+          ) : null}
+
+          {demo ? null : (
+            <div className={styles.treeActions}>
+              {isFamily ? (
+                <>
+                  <button
+                    type="button"
+                    className={styles.treeIconBtn}
+                    onClick={() => openCreateNode('product', node.id)}
+                    title="Añadir producto"
+                    aria-label={`Añadir producto a ${node.name}`}
+                  >
+                    <Plus size={15} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.treeIconBtn}
+                    onClick={() => openCreateNode('family', node.id)}
+                    title="Añadir subfamilia"
+                    aria-label={`Añadir subfamilia a ${node.name}`}
+                  >
+                    <FolderPlus size={15} aria-hidden="true" />
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
                   className={styles.treeIconBtn}
-                  onClick={() => openCreateNode('family', node.id)}
-                  title="Añadir subfamilia"
-                  aria-label="Añadir subfamilia"
+                  onClick={() => openCopyProduct(node)}
+                  title="Duplicar"
+                  aria-label={`Duplicar ${node.name}`}
                 >
-                  <svg viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M2 3h8v3H2V3zm0 6h5v3H2V9zm7-3h5v6H9V6z" fill="currentColor" />
-                  </svg>
+                  <Copy size={15} aria-hidden="true" />
                 </button>
-                <button
-                  type="button"
-                  className={styles.treeIconBtn}
-                  onClick={() => openCreateNode('product', node.id)}
-                  title="Añadir producto"
-                  aria-label="Añadir producto"
-                >
-                  <svg viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M8 3.5v9M3.5 8h9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </>
-            ) : null}
-            {node.nodeType === 'product' ? (
+              )}
               <button
                 type="button"
                 className={styles.treeIconBtn}
-                onClick={() => openCopyProduct(node)}
-                title="Copiar producto"
-                aria-label="Copiar producto"
+                onClick={() => openEditNode(node)}
+                title="Editar"
+                aria-label={`Editar ${node.name}`}
               >
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <path
-                    d="M5.5 2.5h6A1.5 1.5 0 0113 4v6.5h-1.5V4h-6V2.5zm-2 2H4A1.5 1.5 0 002.5 6v7A1.5 1.5 0 004 14.5h6A1.5 1.5 0 0011.5 13V11.5H13v1.5A3 3 0 0110 16H4a3 3 0 01-3-3V6a3 3 0 013-3h1.5v1.5z"
-                    fill="currentColor"
-                  />
-                </svg>
+                <Pencil size={15} aria-hidden="true" />
               </button>
-            ) : null}
-            <button
-              type="button"
-              className={styles.treeIconBtn}
-              onClick={() => openEditNode(node)}
-              title="Editar"
-              aria-label="Editar"
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <path
-                  d="M11.3 2.7l2 2-8.6 8.6H2.7v-2.7l8.6-8.6zM10.6 3.4L3.4 10.6v.7h.7l7.2-7.2-.7-.7z"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={`${styles.treeIconBtn} ${styles.dangerBtn}`}
-              onClick={() => setDeleteNodeTarget(node)}
-              title="Eliminar"
-              aria-label="Eliminar"
-            >
-              ✕
-            </button>
-          </div>
+              <button
+                type="button"
+                className={`${styles.treeIconBtn} ${styles.dangerBtn}`}
+                onClick={() => setDeleteNodeTarget(node)}
+                title="Eliminar"
+                aria-label={`Eliminar ${node.name}`}
+              >
+                <Trash2 size={15} aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
         {node.children.length > 0 ? (
-          <div className={node.depth === 0 ? styles.treeGroup : styles.treeGroupSub}>
+          <div className={styles.treeChildren}>
             {node.children.map((child) => renderTreeNode(child))}
           </div>
         ) : null}
@@ -980,121 +1026,326 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
   }
 
   if (loading) {
-    return <div className={styles.loading}>Cargando carta…</div>
+    return (
+      <div className={styles.loading}>
+        <span className={styles.spinner} aria-hidden="true" />
+        Cargando carta…
+      </div>
+    )
   }
+
+  const allProducts = nodes.filter((node) => node.nodeType === 'product')
+  const visibleProducts = allProducts.filter((node) => node.active).length
+  const productsWithPhoto = allProducts.filter((node) => node.photoUrl).length
+  const activeBoardCount = boards.filter((board) => board.active).length
+  const productsByBoard = new Map<string, number>()
+  for (const node of allProducts) {
+    productsByBoard.set(node.boardId, (productsByBoard.get(node.boardId) ?? 0) + 1)
+  }
+  const boardProductCount = productsByBoard.get(selectedBoardId ?? '') ?? 0
+  const boardFamilyCount = boardNodes.filter((node) => node.nodeType === 'family').length
+  const shareDisabled = !selectedBoard?.active || !selectedBoardPublicUrl
+  const shareTitle = selectedBoard?.active ? undefined : 'Activa la carta para compartirla'
+  const boardNameDirty = Boolean(selectedBoard) && boardNameDraft.trim() !== (selectedBoard?.name ?? '')
+
+  const colorFields: { key: keyof MenuTemplateConfig; label: string }[] = [
+    { key: 'backgroundColor', label: 'Fondo' },
+    { key: 'titleColor', label: 'Títulos' },
+    { key: 'textColor', label: 'Texto' },
+    { key: 'accentColor', label: 'Acento' },
+    { key: 'familyColor', label: 'Familias' },
+    { key: 'subfamilyColor', label: 'Subfamilias' },
+    { key: 'priceColor', label: 'Precios' },
+  ]
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div>
-          <h1>
-            Carta digital
-            <InfoHint label="Sobre la carta digital">
-              Crea cartas por categoría (desayuno, cena…), organiza familias y productos, personaliza
-              el diseño o sube un PDF.
-            </InfoHint>
-          </h1>
+        <div className={styles.headerText}>
+          <h2 className={styles.title}>Carta</h2>
+          <p className={styles.subtitle}>
+            Crea cartas (desayuno, cena, vinos…), organiza familias y productos, elige el diseño o sube un PDF.
+          </p>
         </div>
         <div className={styles.headerActions}>
           {demo ? null : (
             <>
-          <LockedControl
-            locked={!canUseExcel}
-            feature="importar la carta desde Excel"
-            capabilityId="excel"
-          >
-            <button
-              type="button"
-              className={styles.secondaryBtn}
-              onClick={() => openExcelImportModal('new-board')}
-              disabled={saving}
-            >
-              Desde Excel
-            </button>
-          </LockedControl>
-          <LockedControl
-            locked={!canAddMenu}
-            feature="crear más cartas"
-            capabilityId="menus"
-            requiredPlanId={planRequiredForCount('menus', boards.length + 1)}
-          >
-            <button type="button" className={styles.primaryBtn} onClick={openCreateBoardModal} disabled={saving}>
-              + Agregar carta
-            </button>
-          </LockedControl>
+              <LockedControl
+                locked={!canUseExcel}
+                feature="importar la carta desde Excel"
+                capabilityId="excel"
+              >
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={() => openExcelImportModal('new-board')}
+                  disabled={saving}
+                >
+                  <FileSpreadsheet size={15} aria-hidden="true" />
+                  Desde Excel
+                </button>
+              </LockedControl>
+              <LockedControl
+                locked={!canAddMenu}
+                feature="crear más cartas"
+                capabilityId="menus"
+                requiredPlanId={planRequiredForCount('menus', boards.length + 1)}
+              >
+                <button type="button" className={styles.primaryBtn} onClick={openCreateBoardModal} disabled={saving}>
+                  <Plus size={16} aria-hidden="true" />
+                  Nueva carta
+                </button>
+              </LockedControl>
             </>
           )}
         </div>
       </header>
 
-      {error ? <p className={styles.error}>{error}</p> : null}
+      <div className={styles.kpis}>
+        <div className={styles.kpi}>
+          <span className={styles.kpiLabel}>Cartas activas</span>
+          <span className={styles.kpiValue}>
+            {activeBoardCount}
+            <small>de {boards.length}</small>
+          </span>
+        </div>
+        <div className={styles.kpi}>
+          <span className={styles.kpiLabel}>Productos visibles</span>
+          <span className={styles.kpiValue}>
+            {visibleProducts}
+            <small>de {allProducts.length}</small>
+          </span>
+        </div>
+        <div className={styles.kpi}>
+          <span className={styles.kpiLabel}>Familias</span>
+          <span className={styles.kpiValue}>{nodes.filter((node) => node.nodeType === 'family').length}</span>
+        </div>
+        <div className={styles.kpi}>
+          <span className={styles.kpiLabel}>Con foto</span>
+          <span className={styles.kpiValue}>
+            {allProducts.length ? Math.round((productsWithPhoto / allProducts.length) * 100) : 0}
+            <small>%</small>
+          </span>
+          <span className={styles.kpiBar} aria-hidden="true">
+            <span style={{ width: `${allProducts.length ? (productsWithPhoto / allProducts.length) * 100 : 0}%` }} />
+          </span>
+        </div>
+      </div>
+
+      {error ? (
+        <div className={styles.error} role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)} aria-label="Cerrar aviso">
+            <X size={15} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
 
       <div className={styles.layout}>
-        <aside className={styles.boardSidebar}>
-          <h2>Cartas</h2>
+        <aside className={styles.boardSidebar} aria-label="Cartas">
+          <div className={styles.boardSidebarHead}>
+            <h3>Cartas</h3>
+            <span className={styles.countChip}>{boards.length}</span>
+          </div>
           {boards.length === 0 ? (
-            <p className={styles.emptyHint}>Aún no tienes cartas. Crea la primera con «Agregar carta».</p>
+            <div className={styles.emptyHint}>
+              <BookOpen size={20} aria-hidden="true" />
+              <p>Aún no tienes cartas.</p>
+              {demo ? null : (
+                <button type="button" className={styles.secondaryBtn} onClick={openCreateBoardModal}>
+                  Crear la primera
+                </button>
+              )}
+            </div>
           ) : (
             <ul className={styles.boardList}>
               {boards.map((board, index) => (
-                <li key={board.id}>
+                <li key={board.id} className={styles.boardListItem}>
                   <button
                     type="button"
                     className={`${styles.boardItem} ${selectedBoardId === board.id ? styles.boardItemActive : ''}`}
                     onClick={() => setSelectedBoardId(board.id)}
+                    aria-current={selectedBoardId === board.id ? 'true' : undefined}
                   >
-                    <span className={styles.boardItemName}>{board.name}</span>
-                    <span className={board.active ? styles.boardActive : styles.boardInactive}>
-                      {board.active ? 'Activa' : 'Inactiva'}
+                    <span className={styles.boardItemIcon} aria-hidden="true">
+                      {hasMenuPdf(board) ? <FileText size={16} /> : <BookOpen size={16} />}
+                    </span>
+                    <span className={styles.boardItemText}>
+                      <span className={styles.boardItemName}>{board.name}</span>
+                      <span className={styles.boardItemMeta}>
+                        <span className={board.active ? styles.dotOn : styles.dotOff} aria-hidden="true" />
+                        {board.active ? 'Activa' : 'Inactiva'}
+                        {' · '}
+                        {hasMenuPdf(board)
+                          ? 'PDF'
+                          : `${productsByBoard.get(board.id) ?? 0} productos`}
+                      </span>
                     </span>
                   </button>
-                  <div className={styles.boardItemActions}>
-                    <button type="button" onClick={() => void handleMoveBoard(board.id, -1)} disabled={index === 0}>↑</button>
-                    <button type="button" onClick={() => void handleMoveBoard(board.id, 1)} disabled={index === boards.length - 1}>↓</button>
-                    <button type="button" onClick={() => void handleToggleBoardActive(board)}>
-                      {board.active ? 'Desactivar' : 'Activar'}
-                    </button>
-                    <button type="button" className={styles.dangerBtn} onClick={() => setDeleteBoardTarget(board)}>✕</button>
-                  </div>
+                  {demo ? null : (
+                    <div className={styles.boardItemActions}>
+                      <button
+                        type="button"
+                        onClick={() => void handleMoveBoard(board.id, -1)}
+                        disabled={index === 0 || saving}
+                        aria-label={`Subir ${board.name}`}
+                        title="Subir"
+                      >
+                        <ChevronUp size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleMoveBoard(board.id, 1)}
+                        disabled={index === boards.length - 1 || saving}
+                        aria-label={`Bajar ${board.name}`}
+                        title="Bajar"
+                      >
+                        <ChevronDown size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.dangerBtn}
+                        onClick={() => setDeleteBoardTarget(board)}
+                        aria-label={`Eliminar ${board.name}`}
+                        title="Eliminar carta"
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
           )}
         </aside>
 
-        <section className={`${styles.editor} ${editorTab === 'design' ? styles.editorDesignMode : ''} ${editorTab === 'pdf' ? styles.editorPdfMode : ''}`}>
+        <section className={`${styles.editor} ${editorTab === 'design' ? styles.editorDesignMode : ''}`}>
           {!selectedBoard ? (
             <div className={styles.emptyEditor}>
+              <BookOpen size={24} aria-hidden="true" />
               <p>Selecciona o crea una carta para empezar.</p>
             </div>
           ) : (
             <>
               <div className={styles.editorHead}>
-                <div className={styles.boardNameField}>
-                  <label htmlFor="board-name">Nombre de la carta</label>
-                  <div className={styles.inlineField}>
+                <div className={styles.editorTitleRow}>
+                  <div className={styles.boardNameField}>
+                    <label htmlFor="board-name" className={styles.srOnly}>Nombre de la carta</label>
                     <input
                       id="board-name"
+                      className={styles.boardNameInput}
                       value={boardNameDraft}
                       onChange={(event) => setBoardNameDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && boardNameDirty) {
+                          event.preventDefault()
+                          void handleSaveBoardMeta()
+                        }
+                      }}
+                      readOnly={demo}
+                      title="Pulsa para cambiar el nombre"
                     />
-                    <button type="button" onClick={() => void handleSaveBoardMeta()} disabled={saving}>
-                      Guardar
-                    </button>
+                    {boardNameDirty && !demo ? (
+                      <button
+                        type="button"
+                        className={styles.primaryBtnSmall}
+                        onClick={() => void handleSaveBoardMeta()}
+                        disabled={saving}
+                      >
+                        Guardar nombre
+                      </button>
+                    ) : (
+                      <Pencil size={14} aria-hidden="true" className={styles.boardNameHint} />
+                    )}
+                  </div>
+
+                  <div className={styles.editorHeadRight}>
+                    {demo ? (
+                      <span className={selectedBoard.active ? styles.statusOn : styles.statusOff}>
+                        {selectedBoard.active ? 'Activa' : 'Inactiva'}
+                      </span>
+                    ) : (
+                      <label className={styles.activeSwitch} title="Solo las cartas activas las ven los clientes">
+                        <span className={styles.switch}>
+                          <input
+                            type="checkbox"
+                            checked={selectedBoard.active}
+                            onChange={() => void handleToggleBoardActive(selectedBoard)}
+                            disabled={saving}
+                          />
+                          <span aria-hidden="true" />
+                        </span>
+                        {selectedBoard.active ? 'Activa' : 'Inactiva'}
+                      </label>
+                    )}
+                    <span className={styles.headDivider} aria-hidden="true" />
+                    <div className={styles.shareGroup} role="group" aria-label="Compartir carta">
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        onClick={handleOpenMenuBoardPublic}
+                        disabled={shareDisabled}
+                        title={shareTitle ?? 'Ver la carta como cliente'}
+                        aria-label="Ver la carta como cliente"
+                      >
+                        <ExternalLink size={16} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.iconBtn} ${menuShareCopied ? styles.iconBtnDone : ''}`}
+                        onClick={() => void handleCopyMenuBoardLink()}
+                        disabled={shareDisabled}
+                        title={shareTitle ?? (menuShareCopied ? 'Enlace copiado' : 'Copiar enlace')}
+                        aria-label={menuShareCopied ? 'Enlace copiado' : 'Copiar enlace de la carta'}
+                      >
+                        {menuShareCopied ? <Check size={16} aria-hidden="true" /> : <Link2 size={16} aria-hidden="true" />}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        onClick={() => setMenuQrCustomizerOpen(true)}
+                        disabled={shareDisabled}
+                        title={shareTitle ?? 'Personalizar QR'}
+                        aria-label="Personalizar QR de la carta"
+                      >
+                        <Palette size={16} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.iconBtnLabel}
+                        onClick={() => void handleDownloadMenuBoardQr()}
+                        disabled={shareDisabled || isDownloadingMenuQr}
+                        title={shareTitle ?? 'Descargar el QR de la carta'}
+                      >
+                        <QrCode size={16} aria-hidden="true" />
+                        {isDownloadingMenuQr ? 'Generando…' : 'QR'}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className={styles.tabs}>
+                <p className={styles.editorMeta}>
+                  {hasMenuPdf(selectedBoard)
+                    ? `Se muestra el PDF «${selectedBoard.pdfFileName || 'Carta.pdf'}» · ${boardProductCount} productos para reseñas y promociones`
+                    : `${boardFamilyCount} ${boardFamilyCount === 1 ? 'familia' : 'familias'} · ${boardProductCount} ${boardProductCount === 1 ? 'producto' : 'productos'}`}
+                </p>
+
+                <div className={styles.tabs} role="tablist" aria-label="Editor de la carta">
                   {(['content', 'design', 'pdf'] as EditorTab[]).map((tab) => {
                     const pdfLocked = tab === 'pdf' && !canUsePdf
+                    const Icon = tab === 'content' ? LayoutList : tab === 'design' ? Palette : FileText
                     const tabButton = (
                       <button
                         key={tab}
                         type="button"
-                        className={editorTab === tab ? styles.tabActive : styles.tab}
+                        role="tab"
+                        aria-selected={editorTab === tab}
+                        className={`${styles.tab} ${editorTab === tab ? styles.tabActive : ''}`}
                         onClick={() => setEditorTab(tab)}
                       >
-                        {tab === 'content' ? 'Contenido' : tab === 'design' ? 'Diseño y vista previa' : 'Subir PDF'}
+                        <Icon size={15} aria-hidden="true" />
+                        {tab === 'content' ? 'Productos' : tab === 'design' ? 'Diseño' : 'PDF'}
+                        {tab === 'pdf' && hasMenuPdf(selectedBoard) ? <span className={styles.tabDot} aria-hidden="true" /> : null}
                       </button>
                     )
 
@@ -1118,88 +1369,98 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
 
               {editorTab === 'content' ? (
                 <div className={styles.contentPanel}>
-                  <p className={styles.productsHint}>
-                    {hasMenuPdf(selectedBoard)
-                      ? 'Si hay un PDF, los clientes verán ese documento. Estos productos siguen sirviendo para reseñas, promociones y la vista previa.'
-                      : 'Organiza familias y productos. Sirven para la vista previa, reseñas y promociones. También puedes subir un PDF.'}
-                  </p>
                   <div className={styles.contentToolbar}>
                     {demo ? null : (
                       <>
-                    <button type="button" onClick={() => openCreateNode('family', null)}>+ Familia</button>
-                    <button type="button" onClick={() => openCreateNode('product', null)}>+ Producto suelto</button>
+                        <button type="button" className={styles.primaryBtnSmall} onClick={() => openCreateNode('family', null)}>
+                          <FolderPlus size={15} aria-hidden="true" />
+                          Familia
+                        </button>
+                        <button type="button" className={styles.secondaryBtnSmall} onClick={() => openCreateNode('product', null)}>
+                          <Plus size={15} aria-hidden="true" />
+                          Producto suelto
+                        </button>
                       </>
                     )}
-                    <button type="button" onClick={() => setExcelExportOpen(true)}>
-                      Descargar Excel
+                    <span className={styles.toolbarSpacer} />
+                    <button type="button" className={styles.ghostBtn} onClick={() => setExcelExportOpen(true)}>
+                      <Download size={15} aria-hidden="true" />
+                      Exportar Excel
                     </button>
                     {demo ? null : (
-                    <LockedControl
-                      locked={!canUseExcel}
-                      feature="importar la carta desde Excel"
-                      capabilityId="excel"
-                    >
-                      <button type="button" onClick={() => openExcelImportModal('existing-board')}>
-                        Importar Excel
-                      </button>
-                    </LockedControl>
+                      <LockedControl
+                        locked={!canUseExcel}
+                        feature="importar la carta desde Excel"
+                        capabilityId="excel"
+                      >
+                        <button type="button" className={styles.ghostBtn} onClick={() => openExcelImportModal('existing-board')}>
+                          <Upload size={15} aria-hidden="true" />
+                          Importar Excel
+                        </button>
+                      </LockedControl>
                     )}
-                    <span className={styles.toolbarDivider} aria-hidden="true" />
-                    <button
-                      type="button"
-                      onClick={handleOpenMenuBoardPublic}
-                      disabled={!selectedBoard?.active || !selectedBoardPublicUrl}
-                      title={selectedBoard?.active ? 'Abrir la carta pública' : 'Activa la carta para compartirla'}
-                    >
-                      Ver carta
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleCopyMenuBoardLink()}
-                      disabled={!selectedBoard?.active || !selectedBoardPublicUrl}
-                      title={selectedBoard?.active ? 'Copiar enlace público' : 'Activa la carta para compartirla'}
-                    >
-                      {menuShareCopied ? 'Enlace copiado' : 'Copiar enlace'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMenuQrCustomizerOpen(true)}
-                      disabled={!selectedBoard?.active || !selectedBoardPublicUrl}
-                      title={selectedBoard?.active ? 'Personalizar QR de la carta' : 'Activa la carta para compartirla'}
-                    >
-                      Personalizar QR
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadMenuBoardQr()}
-                      disabled={!selectedBoard?.active || !selectedBoardPublicUrl || isDownloadingMenuQr}
-                      title={selectedBoard?.active ? 'Descargar QR de la carta' : 'Activa la carta para compartirla'}
-                    >
-                      {isDownloadingMenuQr ? 'Generando QR…' : 'Descargar QR'}
-                    </button>
-                    <span className={styles.toolbarHint}>
-                      Arrastra entre filas para reordenar o cambiar de familia; arriba para sacar al nivel principal
-                    </span>
                   </div>
 
+                  {hasMenuPdf(selectedBoard) ? (
+                    <p className={styles.infoNote}>
+                      <Info size={14} aria-hidden="true" />
+                      Esta carta muestra un PDF a los clientes. Estos productos siguen sirviendo para reseñas,
+                      promociones y la vista previa.
+                    </p>
+                  ) : null}
+
                   {flatTree.length === 0 ? (
-                    <p className={styles.emptyHint}>Empieza añadiendo una familia (Entrantes, Carnes…) o un producto suelto.</p>
+                    <div className={styles.emptyTree}>
+                      <span className={styles.emptyTreeIcon} aria-hidden="true">
+                        <UtensilsCrossed size={22} />
+                      </span>
+                      <p className={styles.emptyTreeTitle}>La carta está vacía</p>
+                      <p>Empieza con una familia (Entrantes, Carnes, Postres…) y añade tus platos dentro.</p>
+                      {demo ? null : (
+                        <div className={styles.emptyTreeActions}>
+                          <button type="button" className={styles.primaryBtnSmall} onClick={() => openCreateNode('family', null)}>
+                            <FolderPlus size={15} aria-hidden="true" />
+                            Crear familia
+                          </button>
+                          <LockedControl
+                            locked={!canUseExcel}
+                            feature="importar la carta desde Excel"
+                            capabilityId="excel"
+                          >
+                            <button type="button" className={styles.secondaryBtnSmall} onClick={() => openExcelImportModal('existing-board')}>
+                              <Upload size={15} aria-hidden="true" />
+                              Importar Excel
+                            </button>
+                          </LockedControl>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className={styles.tree}>
-                      <div
-                        className={[
-                          styles.rootDropZone,
-                          dropHint?.position === 'root' ? styles.rootDropZoneActive : '',
-                        ].filter(Boolean).join(' ')}
-                        onDragOver={handleDragOverRoot}
-                        onDragLeave={() => setDropHint((current) => (current?.position === 'root' ? null : current))}
-                        onDrop={handleDropOnRoot}
-                      >
-                        Suelta aquí para mover al nivel principal (sin familia)
-                      </div>
+                      {demo ? null : (
+                        <div
+                          className={[
+                            styles.rootDropZone,
+                            draggingNodeId ? styles.rootDropZoneVisible : '',
+                            dropHint?.position === 'root' ? styles.rootDropZoneActive : '',
+                          ].filter(Boolean).join(' ')}
+                          onDragOver={handleDragOverRoot}
+                          onDragLeave={() => setDropHint((current) => (current?.position === 'root' ? null : current))}
+                          onDrop={handleDropOnRoot}
+                        >
+                          Suelta aquí para sacarlo de su familia
+                        </div>
+                      )}
                       {boardTree.map((node) => renderTreeNode(node))}
                     </div>
                   )}
+
+                  {flatTree.length > 0 && !demo ? (
+                    <p className={styles.treeFootnote}>
+                      <GripVertical size={13} aria-hidden="true" />
+                      Arrastra las filas para reordenar o cambiar de familia. Doble clic para editar.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -1208,140 +1469,144 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                   <aside className={styles.designTools} aria-label="Herramientas de diseño">
                     <div className={styles.designToolsInner}>
                       <section className={styles.designSection}>
-                        <h3>Colores y tipografía</h3>
-                        <div className={styles.designGrid}>
-                          <label>
-                            Fondo
-                            <input
-                              type="color"
-                              value={templateDraft.backgroundColor}
-                              onChange={(event) => setTemplateDraft({ ...templateDraft, backgroundColor: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            Títulos
-                            <input
-                              type="color"
-                              value={templateDraft.titleColor}
-                              onChange={(event) => setTemplateDraft({ ...templateDraft, titleColor: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            Texto
-                            <input
-                              type="color"
-                              value={templateDraft.textColor}
-                              onChange={(event) => setTemplateDraft({ ...templateDraft, textColor: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            Acento
-                            <input
-                              type="color"
-                              value={templateDraft.accentColor}
-                              onChange={(event) => setTemplateDraft({ ...templateDraft, accentColor: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            Familias
-                            <input
-                              type="color"
-                              value={templateDraft.familyColor}
-                              onChange={(event) => setTemplateDraft({ ...templateDraft, familyColor: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            Subfamilias
-                            <input
-                              type="color"
-                              value={templateDraft.subfamilyColor}
-                              onChange={(event) => setTemplateDraft({ ...templateDraft, subfamilyColor: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            Precios
-                            <input
-                              type="color"
-                              value={templateDraft.priceColor}
-                              onChange={(event) => setTemplateDraft({ ...templateDraft, priceColor: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            Fuente
-                            <select
-                              value={MENU_FONT_OPTIONS.find((option) => option.value === templateDraft.fontFamily)?.id ?? 'inter'}
-                              onChange={(event) => {
-                                const font = MENU_FONT_OPTIONS.find((option) => option.id === event.target.value)
-                                if (font) {
-                                  setTemplateDraft({ ...templateDraft, fontFamily: font.value })
-                                }
-                              }}
+                        <h3>Plantilla</h3>
+                        <div className={styles.templateGridSmall} role="list" aria-label="Plantillas de carta">
+                          {MENU_TEMPLATE_PRESETS.map((preset) => (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              role="listitem"
+                              className={`${styles.templateChip} ${templateDraft.templateId === preset.id ? styles.templateChipActive : ''}`}
+                              onClick={() => applyTemplatePreset(preset.id)}
+                              title={preset.description}
                             >
-                              {MENU_FONT_OPTIONS.map((option) => (
-                                <option key={option.id} value={option.id}>{option.label}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <div className={styles.lockedField}>
-                            <label>
-                              Disposición
-                              <select
-                                value={templateDraft.layout}
-                                onChange={(event) => {
-                                  const layout = event.target.value as MenuTemplateConfig['layout']
-                                  if (layout === 'grid' && !canUseGrid) {
-                                    return
-                                  }
-                                  setTemplateDraft({ ...templateDraft, layout })
-                                }}
-                              >
-                                {MENU_LAYOUT_OPTIONS.map((option) => (
-                                  <option
-                                    key={option.id}
-                                    value={option.id}
-                                    disabled={option.id === 'grid' && !canUseGrid}
-                                  >
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            {!canUseGrid ? (
-                              <PlanLockHint feature="la disposición en cuadrícula" capabilityId="menu_photos" />
-                            ) : null}
-                          </div>
+                              <span className={styles.templateChipSwatch} style={{ background: preset.swatch }} />
+                              <span className={styles.templateChipName}>{preset.name}</span>
+                            </button>
+                          ))}
                         </div>
                       </section>
 
                       <section className={styles.designSection}>
-                        <h3>Contenido visible</h3>
-                        <div className={styles.toggleGrid}>
+                        <h3>Colores</h3>
+                        <div className={styles.colorList}>
+                          {colorFields.map((field) => (
+                            <label key={field.key} className={styles.colorRow}>
+                              <span>{field.label}</span>
+                              <span className={styles.colorValue}>
+                                <code>{String(templateDraft[field.key]).toUpperCase()}</code>
+                                <input
+                                  type="color"
+                                  value={String(templateDraft[field.key])}
+                                  onChange={(event) => setTemplateDraft({ ...templateDraft, [field.key]: event.target.value })}
+                                  aria-label={`Color de ${field.label.toLowerCase()}`}
+                                />
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section className={styles.designSection}>
+                        <h3>Tipografía y disposición</h3>
+                        <label className={styles.designField}>
+                          <span>Fuente</span>
+                          <select
+                            value={MENU_FONT_OPTIONS.find((option) => option.value === templateDraft.fontFamily)?.id ?? 'inter'}
+                            onChange={(event) => {
+                              const font = MENU_FONT_OPTIONS.find((option) => option.id === event.target.value)
+                              if (font) {
+                                setTemplateDraft({ ...templateDraft, fontFamily: font.value })
+                              }
+                            }}
+                          >
+                            {MENU_FONT_OPTIONS.map((option) => (
+                              <option key={option.id} value={option.id}>{option.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className={styles.lockedField}>
+                          <label className={styles.designField}>
+                            <span>Disposición</span>
+                            <select
+                              value={templateDraft.layout}
+                              onChange={(event) => {
+                                const layout = event.target.value as MenuTemplateConfig['layout']
+                                if (layout === 'grid' && !canUseGrid) {
+                                  return
+                                }
+                                setTemplateDraft({ ...templateDraft, layout })
+                              }}
+                            >
+                              {MENU_LAYOUT_OPTIONS.map((option) => (
+                                <option
+                                  key={option.id}
+                                  value={option.id}
+                                  disabled={option.id === 'grid' && !canUseGrid}
+                                >
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          {!canUseGrid ? (
+                            <PlanLockHint feature="la disposición en cuadrícula" capabilityId="menu_photos" />
+                          ) : null}
+                        </div>
+                      </section>
+
+                      <section className={styles.designSection}>
+                        <h3>Qué se muestra</h3>
+                        <div className={styles.switchList}>
                           <div className={styles.lockedField}>
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={templateDraft.showPhotos}
-                                disabled={!canUsePhotos}
-                                onChange={(event) => {
-                                  if (!canUsePhotos) {
-                                    return
-                                  }
-                                  setTemplateDraft({ ...templateDraft, showPhotos: event.target.checked })
-                                }}
-                              />{' '}
-                              Mostrar fotos
+                            <label className={styles.switchRow}>
+                              <span>Fotos de los platos</span>
+                              <span className={styles.switch}>
+                                <input
+                                  type="checkbox"
+                                  checked={templateDraft.showPhotos}
+                                  disabled={!canUsePhotos}
+                                  onChange={(event) => {
+                                    if (!canUsePhotos) {
+                                      return
+                                    }
+                                    setTemplateDraft({ ...templateDraft, showPhotos: event.target.checked })
+                                  }}
+                                />
+                                <span aria-hidden="true" />
+                              </span>
                             </label>
                             {!canUsePhotos ? (
                               <PlanLockHint feature="fotos en los platos" capabilityId="menu_photos" />
                             ) : null}
                           </div>
-                          <label><input type="checkbox" checked={templateDraft.showDescriptions} onChange={(event) => setTemplateDraft({ ...templateDraft, showDescriptions: event.target.checked })} /> Descripciones</label>
-                          <label><input type="checkbox" checked={templateDraft.showAllergens} onChange={(event) => setTemplateDraft({ ...templateDraft, showAllergens: event.target.checked })} /> Alérgenos</label>
+                          <label className={styles.switchRow}>
+                            <span>Descripciones</span>
+                            <span className={styles.switch}>
+                              <input
+                                type="checkbox"
+                                checked={templateDraft.showDescriptions}
+                                onChange={(event) => setTemplateDraft({ ...templateDraft, showDescriptions: event.target.checked })}
+                              />
+                              <span aria-hidden="true" />
+                            </span>
+                          </label>
+                          <label className={styles.switchRow}>
+                            <span>Alérgenos</span>
+                            <span className={styles.switch}>
+                              <input
+                                type="checkbox"
+                                checked={templateDraft.showAllergens}
+                                onChange={(event) => setTemplateDraft({ ...templateDraft, showAllergens: event.target.checked })}
+                              />
+                              <span aria-hidden="true" />
+                            </span>
+                          </label>
                         </div>
                       </section>
 
                       <section className={styles.designSection}>
-                        <h3>Fondo</h3>
+                        <h3>Imagen de fondo</h3>
                         <ImageUploader
                           label="Imagen de fondo (opcional)"
                           currentImageUrl={templateDraft.backgroundImageUrl}
@@ -1352,7 +1617,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                         {templateDraft.backgroundImageUrl ? (
                           <label className={styles.opacityField}>
                             <span className={styles.opacityFieldLabel}>
-                              Opacidad del fondo
+                              Opacidad
                               <strong>{templateDraft.backgroundImageOpacity}%</strong>
                             </span>
                             <input
@@ -1374,42 +1639,26 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                       </section>
                     </div>
 
-                    <div className={styles.designToolsFooter}>
-                      {demo ? null : (
-                      <button type="button" className={styles.primaryBtn} onClick={() => void handleSaveTemplate()} disabled={saving}>
-                        Guardar diseño
-                      </button>
-                      )}
-                    </div>
+                    {demo ? null : (
+                      <div className={styles.designToolsFooter}>
+                        <button type="button" className={styles.primaryBtn} onClick={() => void handleSaveTemplate()} disabled={saving}>
+                          {saving ? 'Guardando…' : 'Guardar diseño'}
+                        </button>
+                      </div>
+                    )}
                   </aside>
 
                   <div className={styles.designCanvas} aria-label="Vista previa en vivo">
                     <div className={styles.designCanvasToolbar}>
-                      <span className={styles.designCanvasLabel}>Vista previa móvil</span>
+                      <span className={styles.designCanvasLabel}>
+                        <Smartphone size={14} aria-hidden="true" />
+                        Vista previa
+                      </span>
                       <span className={styles.designCanvasHint}>
                         {hasMenuPdf(selectedBoard)
-                          ? 'Los clientes verán el PDF. Esta vista previa es la carta de productos.'
-                          : 'Así se verá en el teléfono del cliente'}
+                          ? 'Los clientes verán el PDF; esto es la carta de productos.'
+                          : 'Así se verá en el móvil del cliente. Los cambios se ven al momento.'}
                       </span>
-                    </div>
-
-                    <div className={styles.templateStrip}>
-                      <span className={styles.templateStripLabel}>Plantillas</span>
-                      <div className={styles.templateStripScroll} role="list" aria-label="Plantillas de carta">
-                        {MENU_TEMPLATE_PRESETS.map((preset) => (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            role="listitem"
-                            className={`${styles.templateChip} ${templateDraft.templateId === preset.id ? styles.templateChipActive : ''}`}
-                            onClick={() => applyTemplatePreset(preset.id)}
-                            title={preset.description}
-                          >
-                            <span className={styles.templateChipSwatch} style={{ background: preset.swatch }} />
-                            <span className={styles.templateChipName}>{preset.name}</span>
-                          </button>
-                        ))}
-                      </div>
                     </div>
 
                     <div className={styles.designCanvasViewport}>
@@ -1434,11 +1683,6 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
 
               {editorTab === 'pdf' && selectedBoard ? (
                 <div className={styles.pdfPanel}>
-                  <p className={styles.pdfHint}>
-                    Si subes un PDF, los clientes verán ese documento. El contenido y el diseño siguen disponibles
-                    para productos, reseñas y promociones.
-                  </p>
-
                   <input
                     ref={pdfInputRef}
                     className={styles.hiddenFileInput}
@@ -1447,63 +1691,44 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                     onChange={(event) => void handlePdfFile(event)}
                   />
 
-                  <div className={styles.contentToolbar}>
-                    <button
-                      type="button"
-                      className={styles.primaryBtn}
-                      onClick={() => pdfInputRef.current?.click()}
-                      disabled={saving}
-                    >
-                      {saving ? 'Subiendo…' : hasMenuPdf(selectedBoard) ? 'Reemplazar PDF' : 'Subir PDF'}
-                    </button>
-                    {hasMenuPdf(selectedBoard) ? (
-                      <button
-                        type="button"
-                        className={styles.secondaryBtn}
-                        onClick={() => void handleRemovePdf()}
-                        disabled={saving}
-                      >
-                        Quitar PDF
-                      </button>
-                    ) : null}
-                    <span className={styles.toolbarDivider} aria-hidden="true" />
-                    <button
-                      type="button"
-                      onClick={handleOpenMenuBoardPublic}
-                      disabled={!selectedBoard.active || !selectedBoardPublicUrl}
-                      title={selectedBoard.active ? 'Abrir la carta pública' : 'Activa la carta para compartirla'}
-                    >
-                      Ver carta
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleCopyMenuBoardLink()}
-                      disabled={!selectedBoard.active || !selectedBoardPublicUrl}
-                    >
-                      {menuShareCopied ? 'Enlace copiado' : 'Copiar enlace'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMenuQrCustomizerOpen(true)}
-                      disabled={!selectedBoard.active || !selectedBoardPublicUrl}
-                    >
-                      Personalizar QR
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadMenuBoardQr()}
-                      disabled={!selectedBoard.active || !selectedBoardPublicUrl || isDownloadingMenuQr}
-                    >
-                      {isDownloadingMenuQr ? 'Generando QR…' : 'Descargar QR'}
-                    </button>
-                  </div>
-
                   {hasMenuPdf(selectedBoard) ? (
                     <>
-                      <p className={styles.pdfMeta}>
-                        {selectedBoard.pdfFileName || 'Carta.pdf'}
-                        {selectedBoard.pdfPages > 0 ? ` · ${selectedBoard.pdfPages} página${selectedBoard.pdfPages === 1 ? '' : 's'}` : ''}
-                      </p>
+                      <div className={styles.pdfFileCard}>
+                        <span className={styles.pdfFileIcon} aria-hidden="true">
+                          <FileText size={20} />
+                        </span>
+                        <span className={styles.pdfFileText}>
+                          <strong>{selectedBoard.pdfFileName || 'Carta.pdf'}</strong>
+                          <span>
+                            {selectedBoard.pdfPages > 0
+                              ? `${selectedBoard.pdfPages} página${selectedBoard.pdfPages === 1 ? '' : 's'} · `
+                              : ''}
+                            Es lo que ven los clientes al abrir esta carta
+                          </span>
+                        </span>
+                        {demo ? null : (
+                          <div className={styles.pdfFileActions}>
+                            <button
+                              type="button"
+                              className={styles.secondaryBtnSmall}
+                              onClick={() => pdfInputRef.current?.click()}
+                              disabled={saving}
+                            >
+                              <Upload size={15} aria-hidden="true" />
+                              {saving ? 'Subiendo…' : 'Reemplazar'}
+                            </button>
+                            <button
+                              type="button"
+                              className={`${styles.ghostBtn} ${styles.dangerBtn}`}
+                              onClick={() => void handleRemovePdf()}
+                              disabled={saving}
+                            >
+                              <Trash2 size={15} aria-hidden="true" />
+                              Quitar
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <MenuPdfViewer
                         pdfUrl={selectedBoard.pdfUrl}
                         pdfPages={selectedBoard.pdfPages}
@@ -1511,9 +1736,20 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                       />
                     </>
                   ) : (
-                    <div className={styles.pdfEmpty}>
-                      <p>Aún no hay PDF. Súbelo para que la carta pública sea exactamente ese documento.</p>
-                    </div>
+                    <button
+                      type="button"
+                      className={styles.pdfDropzone}
+                      onClick={() => pdfInputRef.current?.click()}
+                      disabled={saving || demo}
+                    >
+                      <span className={styles.pdfDropzoneIcon} aria-hidden="true">
+                        <Upload size={22} />
+                      </span>
+                      <strong>{saving ? 'Subiendo PDF…' : 'Sube tu carta en PDF'}</strong>
+                      <span>
+                        Los clientes verán exactamente ese documento. Máximo {formatFileSize(MAX_PDF_FILE_SIZE)}.
+                      </span>
+                    </button>
                   )}
                 </div>
               ) : null}
@@ -1531,59 +1767,68 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
             aria-labelledby="create-board-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 id="create-board-title">Nueva carta</h3>
-            <p className={styles.modalLead}>
-              Cada carta es una categoría distinta: desayuno, comidas, cena, vinos…
-            </p>
+            <header className={styles.modalHead}>
+              <div>
+                <h3 id="create-board-title">Nueva carta</h3>
+                <p className={styles.modalLead}>Cada carta es una categoría: desayuno, comidas, cena, vinos…</p>
+              </div>
+              <button type="button" className={styles.iconBtn} onClick={closeCreateBoardModal} aria-label="Cerrar">
+                <X size={18} aria-hidden="true" />
+              </button>
+            </header>
 
-            <label>
-              Nombre de la carta *
-              <input
-                value={newBoardName}
-                onChange={(event) => setNewBoardName(event.target.value)}
-                placeholder="Ej. Desayuno, Cena, Carta de vinos"
-                autoFocus
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    void handleCreateBoard()
-                  }
-                }}
-              />
-            </label>
+            <div className={styles.modalBody}>
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Nombre de la carta</span>
+                <input
+                  value={newBoardName}
+                  onChange={(event) => setNewBoardName(event.target.value)}
+                  placeholder="Ej. Desayuno, Cena, Carta de vinos"
+                  autoFocus
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void handleCreateBoard()
+                    }
+                  }}
+                />
+              </label>
 
-            <div className={styles.suggestionRow}>
-              {['Desayuno', 'Comidas', 'Cena', 'Vinos'].map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  className={styles.suggestionChip}
-                  onClick={() => setNewBoardName(suggestion)}
-                >
-                  {suggestion}
-                </button>
-              ))}
+              <div className={styles.suggestionRow}>
+                {['Desayuno', 'Comidas', 'Cena', 'Postres', 'Vinos', 'Cócteles'].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    className={`${styles.suggestionChip} ${newBoardName === suggestion ? styles.suggestionChipOn : ''}`}
+                    onClick={() => setNewBoardName(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+
+              {createBoardError ? <p className={styles.formError}>{createBoardError}</p> : null}
             </div>
 
-            {createBoardError ? <p className={styles.error}>{createBoardError}</p> : null}
-
             <div className={styles.modalActions}>
-              <button type="button" className={styles.modalCancelBtn} onClick={closeCreateBoardModal} disabled={saving}>
-                Cancelar
-              </button>
               <button
                 type="button"
-                className={styles.modalSecondaryBtn}
+                className={styles.ghostBtn}
                 onClick={() => {
                   closeCreateBoardModal()
                   openExcelImportModal('new-board')
                 }}
                 disabled={saving}
               >
+                <FileSpreadsheet size={15} aria-hidden="true" />
                 Crear desde Excel
               </button>
-              <button type="button" className={styles.modalAcceptBtn} onClick={() => void handleCreateBoard()} disabled={saving}>
-                Aceptar
+              <span className={styles.toolbarSpacer} />
+              <button type="button" className={styles.secondaryBtn} onClick={closeCreateBoardModal} disabled={saving}>
+                Cancelar
+              </button>
+              <button type="button" className={styles.primaryBtn} onClick={() => void handleCreateBoard()} disabled={saving}>
+                {saving ? 'Creando…' : 'Crear carta'}
               </button>
             </div>
           </div>
@@ -1592,157 +1837,203 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
 
       {nodeForm ? (
         <div className={styles.modalBackdrop} role="presentation" onClick={() => setNodeForm(null)}>
-          <div className={styles.modal} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <h3>
-              {nodeForm.mode === 'edit' ? 'Editar' : 'Nuevo'}{' '}
-              {nodeForm.nodeType === 'product'
-                ? 'producto'
-                : getParentFamilyName(nodeForm, boardNodes)
-                  ? `subfamilia de ${getParentFamilyName(nodeForm, boardNodes)}`
-                  : 'familia'}
-            </h3>
-
-            <label>
-              Nombre *
-              <input
-                value={nodeForm.name}
-                onChange={(event) => setNodeForm({ ...nodeForm, name: event.target.value })}
-              />
-            </label>
-
-            {nodeForm.nodeType === 'family' ? (
-              <div className={styles.availabilityField}>
-                <label className={styles.checkboxInline}>
-                  <input
-                    type="checkbox"
-                    checked={nodeForm.availabilityEnabled}
-                    onChange={(event) =>
-                      setNodeForm({ ...nodeForm, availabilityEnabled: event.target.checked })
-                    }
-                  />
-                  Activar horario de disponibilidad
-                </label>
-                {nodeForm.availabilityEnabled ? (
-                  <div className={styles.availabilityRow}>
-                    <input
-                      type="time"
-                      value={nodeForm.availabilityStart}
-                      onChange={(event) =>
-                        setNodeForm({ ...nodeForm, availabilityStart: event.target.value })
-                      }
-                      aria-label="Hora de inicio"
-                    />
-                    <span aria-hidden="true">—</span>
-                    <input
-                      type="time"
-                      value={nodeForm.availabilityEnd}
-                      onChange={(event) =>
-                        setNodeForm({ ...nodeForm, availabilityEnd: event.target.value })
-                      }
-                      aria-label="Hora de fin"
-                    />
-                  </div>
-                ) : null}
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="node-form-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className={styles.modalHead}>
+              <div>
+                <h3 id="node-form-title">
+                  {nodeForm.mode === 'edit' ? 'Editar' : 'Nuevo'}{' '}
+                  {nodeForm.nodeType === 'product'
+                    ? 'producto'
+                    : getParentFamilyName(nodeForm, boardNodes)
+                      ? `subfamilia de ${getParentFamilyName(nodeForm, boardNodes)}`
+                      : 'familia'}
+                </h3>
+                <p className={styles.modalLead}>
+                  {nodeForm.nodeType === 'product'
+                    ? 'Lo que verán tus clientes en la carta.'
+                    : 'Agrupa productos: Entrantes, Carnes, Postres…'}
+                </p>
               </div>
-            ) : null}
+              <button type="button" className={styles.iconBtn} onClick={() => setNodeForm(null)} aria-label="Cerrar">
+                <X size={18} aria-hidden="true" />
+              </button>
+            </header>
 
-            {nodeForm.nodeType === 'product' ? (
-              <>
-                <label>
-                  Descripción
-                  <textarea
-                    rows={3}
-                    value={nodeForm.description}
-                    onChange={(event) => setNodeForm({ ...nodeForm, description: event.target.value })}
-                  />
-                </label>
-                <div className={styles.priceField}>
-                  <span className={styles.fieldLabel}>Precio</span>
-                  <div className={styles.priceRow}>
-                    <select
-                      value={nodeForm.priceCurrency}
-                      onChange={(event) =>
-                        setNodeForm({ ...nodeForm, priceCurrency: event.target.value })
-                      }
-                      aria-label="Divisa"
-                    >
-                      {MENU_CURRENCY_OPTIONS.map((currency) => (
-                        <option key={currency.code} value={currency.code}>
-                          {currency.code} ({currency.symbol})
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      inputMode="decimal"
-                      value={nodeForm.priceInput}
-                      onChange={(event) =>
-                        setNodeForm({
-                          ...nodeForm,
-                          priceInput: sanitizeMenuPriceInput(event.target.value),
-                        })
-                      }
-                      placeholder="12,50"
-                      aria-label="Importe"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <span className={styles.fieldLabel}>Alérgenos</span>
-                  <div className={styles.allergenGrid}>
-                    {MENU_ALLERGEN_OPTIONS.map((allergen) => {
-                      const selected = nodeForm.allergens.includes(allergen.id)
+            <div className={styles.modalBody}>
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Nombre</span>
+                <input
+                  value={nodeForm.name}
+                  onChange={(event) => setNodeForm({ ...nodeForm, name: event.target.value })}
+                  placeholder={nodeForm.nodeType === 'product' ? 'Ej. Croquetas de jamón' : 'Ej. Entrantes'}
+                  autoFocus
+                />
+              </label>
 
-                      return (
-                        <button
-                          key={allergen.id}
-                          type="button"
-                          className={`${styles.allergenChip} ${selected ? styles.allergenChipActive : ''}`}
-                          onClick={() => toggleAllergen(allergen.id)}
-                          aria-pressed={selected}
-                        >
-                          <span className={styles.allergenIcon} aria-hidden="true">
-                            {allergen.icon}
-                          </span>
-                          <span>{allergen.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
+              {nodeForm.nodeType === 'family' ? (
+                <div className={styles.optionCard}>
+                  <label className={styles.switchRow}>
+                    <span className={styles.switchText}>
+                      <strong>Horario de disponibilidad</strong>
+                      <small>Por ejemplo, desayunos solo hasta las 12:00.</small>
+                    </span>
+                    <span className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={nodeForm.availabilityEnabled}
+                        onChange={(event) =>
+                          setNodeForm({ ...nodeForm, availabilityEnabled: event.target.checked })
+                        }
+                      />
+                      <span aria-hidden="true" />
+                    </span>
+                  </label>
+                  {nodeForm.availabilityEnabled ? (
+                    <div className={styles.availabilityRow}>
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Desde</span>
+                        <input
+                          type="time"
+                          value={nodeForm.availabilityStart}
+                          onChange={(event) =>
+                            setNodeForm({ ...nodeForm, availabilityStart: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Hasta</span>
+                        <input
+                          type="time"
+                          value={nodeForm.availabilityEnd}
+                          onChange={(event) =>
+                            setNodeForm({ ...nodeForm, availabilityEnd: event.target.value })
+                          }
+                        />
+                      </label>
+                    </div>
+                  ) : null}
                 </div>
-                {nodeForm.nodeType === 'product' ? (
-                  canUsePhotos ? (
-                    <ImageUploader
-                      label="Foto del producto"
-                      currentImageUrl={nodeForm.photoUrl}
-                      onImageUploaded={(url) => setNodeForm({ ...nodeForm, photoUrl: url })}
-                      onImageRemoved={() => setNodeForm({ ...nodeForm, photoUrl: '' })}
+              ) : null}
+
+              {nodeForm.nodeType === 'product' ? (
+                <>
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Descripción</span>
+                    <textarea
+                      rows={3}
+                      value={nodeForm.description}
+                      onChange={(event) => setNodeForm({ ...nodeForm, description: event.target.value })}
+                      placeholder="Ingredientes, cómo se prepara, para cuántos es…"
                     />
+                  </label>
+
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Precio</span>
+                    <div className={styles.priceRow}>
+                      <input
+                        inputMode="decimal"
+                        value={nodeForm.priceInput}
+                        onChange={(event) =>
+                          setNodeForm({
+                            ...nodeForm,
+                            priceInput: sanitizeMenuPriceInput(event.target.value),
+                          })
+                        }
+                        placeholder="12,50"
+                        aria-label="Importe"
+                      />
+                      <select
+                        value={nodeForm.priceCurrency}
+                        onChange={(event) =>
+                          setNodeForm({ ...nodeForm, priceCurrency: event.target.value })
+                        }
+                        aria-label="Divisa"
+                      >
+                        {MENU_CURRENCY_OPTIONS.map((currency) => (
+                          <option key={currency.code} value={currency.code}>
+                            {currency.symbol} {currency.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabelRow}>
+                      <span className={styles.fieldLabel}>Alérgenos</span>
+                      <span className={styles.fieldCounter}>
+                        {nodeForm.allergens.length ? `${nodeForm.allergens.length} marcados` : 'Ninguno'}
+                      </span>
+                    </span>
+                    <div className={styles.allergenGrid}>
+                      {MENU_ALLERGEN_OPTIONS.map((allergen) => {
+                        const selected = nodeForm.allergens.includes(allergen.id)
+
+                        return (
+                          <button
+                            key={allergen.id}
+                            type="button"
+                            className={`${styles.allergenChip} ${selected ? styles.allergenChipActive : ''}`}
+                            onClick={() => toggleAllergen(allergen.id)}
+                            aria-pressed={selected}
+                          >
+                            <span className={styles.allergenIcon} aria-hidden="true">
+                              {allergen.icon}
+                            </span>
+                            <span>{allergen.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {canUsePhotos ? (
+                    <div className={styles.field}>
+                      <ImageUploader
+                        label="Foto del producto"
+                        currentImageUrl={nodeForm.photoUrl}
+                        onImageUploaded={(url) => setNodeForm({ ...nodeForm, photoUrl: url })}
+                        onImageRemoved={() => setNodeForm({ ...nodeForm, photoUrl: '' })}
+                      />
+                    </div>
                   ) : (
                     <div className={styles.lockedField}>
                       <p className={styles.lockedHint}>Foto del producto</p>
                       <PlanLockHint feature="añadir imágenes a los productos" capabilityId="menu_photos" />
                     </div>
-                  )
-                ) : null}
-                <label className={styles.checkboxLine}>
-                  <input
-                    type="checkbox"
-                    checked={nodeForm.active}
-                    onChange={(event) => setNodeForm({ ...nodeForm, active: event.target.checked })}
-                  />
-                  Visible en la carta
-                </label>
-              </>
-            ) : null}
+                  )}
+                </>
+              ) : null}
 
-            {nodeFormError ? <p className={styles.error}>{nodeFormError}</p> : null}
+              {nodeFormError ? <p className={styles.formError}>{nodeFormError}</p> : null}
+            </div>
 
             <div className={styles.modalActions}>
-              <button type="button" className={styles.modalCancelBtn} onClick={() => setNodeForm(null)}>
+              {nodeForm.nodeType === 'product' ? (
+                <label className={styles.activeSwitch}>
+                  <span className={styles.switch}>
+                    <input
+                      type="checkbox"
+                      checked={nodeForm.active}
+                      onChange={(event) => setNodeForm({ ...nodeForm, active: event.target.checked })}
+                    />
+                    <span aria-hidden="true" />
+                  </span>
+                  {nodeForm.active ? 'Visible en la carta' : 'Oculto en la carta'}
+                </label>
+              ) : null}
+              <span className={styles.toolbarSpacer} />
+              <button type="button" className={styles.secondaryBtn} onClick={() => setNodeForm(null)}>
                 Cancelar
               </button>
-              <button type="button" className={styles.modalAcceptBtn} onClick={() => void saveNodeForm()} disabled={saving}>
-                Aceptar
+              <button type="button" className={styles.primaryBtn} onClick={() => void saveNodeForm()} disabled={saving}>
+                {saving ? 'Guardando…' : nodeForm.mode === 'edit' ? 'Guardar cambios' : 'Crear'}
               </button>
             </div>
           </div>
