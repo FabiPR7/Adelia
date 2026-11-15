@@ -33,6 +33,7 @@ import {
 import { syncCompanyGamification } from '../services/companyGamification'
 import styles from './CompanyDashboard.module.css'
 
+const CompanyHome = lazy(() => import('./company/CompanyHome'))
 const CompanyReservations = lazy(() => import('./company/CompanyReservations'))
 const CompanyClients = lazy(() => import('./company/CompanyClients'))
 const CompanyReportsReservations = lazy(() => import('./company/CompanyReportsReservations'))
@@ -52,6 +53,10 @@ const CompanySettings = lazy(() => import('./company/CompanySettings'))
 const CompanyPlan = lazy(() => import('./company/CompanyPlan'))
 
 function settingsSectionLabel(tab: CompanyTab): string {
+  if (tab === 'home') {
+    return 'Inicio'
+  }
+
   if (tab === 'reservations') {
     return 'Reservas'
   }
@@ -77,7 +82,7 @@ function settingsSectionLabel(tab: CompanyTab): string {
 
 /** Grupo del menú al que pertenece la sección (se muestra encima del título). */
 function groupLabelForTab(tab: CompanyTab): string {
-  if (tab === 'reservations') return 'Operación'
+  if (tab === 'home' || tab === 'reservations') return 'Operación'
   if (isClientsTab(tab)) return 'Clientes'
   if (isReportsTab(tab)) return 'Informes'
   if (isCompiteTab(tab)) return 'Compite'
@@ -138,7 +143,7 @@ function SidebarNavGroup({ label, hint, open, active, onToggle, children }: Side
 function CompanyDashboard({ demo = false }: { demo?: boolean }) {
   const { company } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [activeTab, setActiveTab] = useState<CompanyTab>('reservations')
+  const [activeTab, setActiveTab] = useState<CompanyTab>('home')
   const [lastSettingsSection, setLastSettingsSection] = useState<CompanySettingsSection>('contact')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
@@ -163,6 +168,9 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
     }
     const tab = searchParams.get('tab')
     const knownTabs = new Set<string>([
+      'home',
+      'reservations',
+      'help',
       'reservation-settings',
       'plan',
       ...CLIENTS_SECTIONS.map((section) => section.id),
@@ -376,6 +384,15 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
         <nav className={styles.nav} aria-label="Panel principal">
           <button
             type="button"
+            className={`${styles.navItem} ${activeTab === 'home' ? styles.navItemActive : ''}`}
+            onClick={() => attemptNavigate('home')}
+          >
+            <span className={styles.navLabel}>Inicio</span>
+            <span className={styles.navHint}>Resumen del día</span>
+          </button>
+
+          <button
+            type="button"
             className={`${styles.navItem} ${activeTab === 'reservations' ? styles.navItemActive : ''}`}
             onClick={() => attemptNavigate('reservations')}
           >
@@ -531,6 +548,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
               />
             ) : (
               <>
+                {activeTab === 'home' ? <CompanyHome companyId={company.id} onOpenTab={attemptNavigate} /> : null}
                 {activeTab === 'reservations' ? (
                   <CompanyReservations companyId={company.id} createSignal={reservationCreateSignal} />
                 ) : null}

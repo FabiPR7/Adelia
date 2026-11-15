@@ -951,7 +951,7 @@ export type ReportsSection =
 
 export type CompiteSection = 'compite-notifications' | 'compite-missions' | 'compite-ranking'
 
-export type CompanyTab = 'reservations' | ClientsSection | ReportsSection | CompiteSection | 'help' | SettingsSection
+export type CompanyTab = 'home' | 'reservations' | ClientsSection | ReportsSection | CompiteSection | 'help' | SettingsSection
 
 export const CLIENTS_SECTIONS: { id: ClientsSection; label: string; hint: string }[] = [
   { id: 'clients-reservations', label: 'Reservas', hint: 'Historial por cliente' },
@@ -1007,7 +1007,8 @@ export function isCompiteTab(tab: CompanyTab): tab is CompiteSection {
 }
 
 export function isSettingsTab(tab: CompanyTab): tab is SettingsSection {
-  return tab !== 'reservations'
+  return tab !== 'home'
+    && tab !== 'reservations'
     && !isClientsTab(tab)
     && !isReportsTab(tab)
     && !isCompiteTab(tab)

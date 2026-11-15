@@ -208,25 +208,10 @@ function CompanyReservations({ companyId, createSignal = 0 }: CompanyReservation
     return pendingHours[0] ?? null
   }, [attendanceClock, dismissedAttendanceHours, reservations, selectedDate])
 
-  useEffect(() => {
-    if (
-      !nextPendingAttendanceHour ||
-      attendanceHour ||
-      modalOpen ||
-      reservationToDelete ||
-      isLoading
-    ) {
-      return
-    }
-
-    setAttendanceHour(nextPendingAttendanceHour)
-  }, [
-    attendanceHour,
-    isLoading,
-    modalOpen,
-    nextPendingAttendanceHour,
-    reservationToDelete,
-  ])
+  // Antes la ventana de asistencia se abría sola (una tras otra) al entrar y
+  // tapaba el panel. Ahora se abre al pulsar el aviso o una hora de la barra
+  // «Control de asistencia»; Inicio también avisa de las pendientes.
+  void nextPendingAttendanceHour
 
   useEffect(() => {
     if (!attendanceHour) {
