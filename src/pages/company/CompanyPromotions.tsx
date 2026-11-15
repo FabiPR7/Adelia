@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ConfirmDialog from '../../components/ConfirmDialog'
-import InfoHint from '../../components/company/InfoHint'
 import ImageUploader from '../../components/ImageUploader'
 import PromotionPhotoCollage from '../../components/promotions/PromotionPhotoCollage'
 import PromotionProductPicker from '../../components/promotions/PromotionProductPicker'
@@ -22,6 +21,7 @@ import {
   createCompanyPromotion,
   deleteCompanyPromotion,
   getCompanyPromotions,
+  setCompanyPromotionActive,
   updateCompanyPromotion,
 } from '../../services/promotions'
 import { getPromotionPinSettings, savePromotionPinSettings } from '../../services/promotionPin'
@@ -154,6 +154,27 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
   const [qrCustomizerOpen, setQrCustomizerOpen] = useState(false)
   const [scanPreviewOpen, setScanPreviewOpen] = useState(false)
   const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Escape cierra el panel lateral (salvo que haya otra ventana encima).
+  useEffect(() => {
+    if (!drawerOpen || scanPreviewOpen || qrCustomizerOpen) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setDrawerOpen(false)
+        setEditingId(null)
+        setFormError(null)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [drawerOpen, scanPreviewOpen, qrCustomizerOpen])
 
   const loadPromotions = useCallback(async () => {
     setLoading(true)
@@ -468,7 +489,9 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
     try {
       await deleteCompanyPromotion(companyId, deleteTarget.id)
       if (editingId === deleteTarget.id) {
-        startCreate()
+        setEditingId(null)
+        setForm(defaultPromotionInput(selectedType))
+        setDrawerOpen(false)
       }
       setDeleteTarget(null)
       await loadPromotions()
@@ -479,795 +502,952 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
     }
   }
 
+  const openCreate = () => {
+    if (!selectedTypeAllowed || !canCreatePromo) {
+      startCreate()
+      return
+    }
+
+    startCreate()
+    setDrawerOpen(true)
+  }
+
+  const openEdit = (promotion: CompanyPromotion) => {
+    startEdit(promotion)
+    setDrawerOpen(true)
+  }
+
+  const closeDrawer = () => {
+    setDrawerOpen(false)
+    setEditingId(null)
+    setFormError(null)
+  }
+
+  const handleToggleActive = async (promotion: CompanyPromotion) => {
+    const nextActive = !promotion.active
+
+    if (nextActive) {
+      const validationError = validatePromotionInput(
+        { ...promotionToInput(promotion), active: true },
+        promotions,
+        promotion.id,
+      )
+      if (validationError) {
+        setError(validationError)
+        return
+      }
+    }
+
+    setTogglingId(promotion.id)
+    setError(null)
+
+    try {
+      await setCompanyPromotionActive(companyId, promotion.id, nextActive)
+      await loadPromotions()
+    } catch (err) {
+      setError(getFirestoreErrorMessage(err, 'save'))
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
+  const typeCounts = PROMOTION_TYPES.reduce<Record<PromotionType, number>>((counts, type) => {
+    counts[type] = promotions.filter((promotion) => promotion.type === type).length
+    return counts
+  }, { reservation_ladder: 0, time_limited: 0, attendance: 0 })
+
+  const normalizedSearch = searchQuery.trim().toLowerCase()
+  const visiblePromotions = normalizedSearch
+    ? filteredPromotions.filter((promotion) => promotion.title.toLowerCase().includes(normalizedSearch))
+    : filteredPromotions
+
+  const activeCount = promotions.filter((promotion) => promotion.active).length
+  const editingPromotion = editingId ? promotions.find((item) => item.id === editingId) ?? null : null
+
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
-        <h2>
-          Zona de promociones
-          <InfoHint label="Sobre la zona de promociones">
-            Crea ofertas por reservas o consumos, promociones por tiempo limitado y cupos con
-            asistencia. Los clientes las ven y las canjean desde su zona de usuario.
-          </InfoHint>
-        </h2>
+        <div className={styles.headerText}>
+          <h2 className={styles.title}>Promociones</h2>
+          <p className={styles.subtitle}>
+            Ofertas por visitas, por franja horaria o con cupo. Los clientes las ven en tu ficha y las
+            canjean en el local con tu código.
+          </p>
+        </div>
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={() => void loadPromotions()}
+            disabled={loading}
+          >
+            {loading ? 'Actualizando…' : 'Actualizar'}
+          </button>
+          <LockedControl
+            locked={!canCreatePromo || !selectedTypeAllowed}
+            feature="crear más promociones"
+            capabilityId={promotionTypeCapability(selectedType)}
+            requiredPlanId={nextPromoPlanId}
+          >
+            {demo ? null : (
+              <button type="button" className={styles.primaryButton} onClick={openCreate}>
+                + Nueva promoción
+              </button>
+            )}
+          </LockedControl>
+        </div>
       </header>
 
-      <section className={styles.pinPanel} aria-labelledby="promotion-pin-title">
-        <div className={styles.pinPanelHead}>
-          <div>
-            <h3 id="promotion-pin-title">Código de canje</h3>
-            <p>
-              Los clientes usan este PIN en el local para validar promociones y el gasto mínimo.
-            </p>
-          </div>
+      <section className={styles.pinCard} aria-labelledby="promotion-pin-title">
+        <div className={styles.pinIntro}>
+          <h3 id="promotion-pin-title">Código de canje</h3>
+          <p>El cliente lo escribe en el local para validar la promoción y el gasto mínimo.</p>
         </div>
 
         {pinLoading ? (
           <p className={styles.pinLoading}>Cargando código…</p>
         ) : (
-          <>
-            <div className={styles.pinRow}>
-              <label className={styles.pinField}>
-                <span>Código actual</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  maxLength={4}
-                  value={pinCode}
-                  onChange={(event) => {
-                    setPinCode(normalizePromotionPinCode(event.target.value))
-                    setPinSavedMessage(null)
-                  }}
-                  placeholder="1234"
-                />
-              </label>
-
+          <div className={styles.pinControls}>
+            <label className={styles.pinField}>
+              <span className={styles.srOnly}>Código actual</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={4}
+                value={pinCode}
+                onChange={(event) => {
+                  setPinCode(normalizePromotionPinCode(event.target.value))
+                  setPinSavedMessage(null)
+                }}
+                placeholder="1234"
+                aria-label="Código de canje"
+              />
+            </label>
+            <label className={styles.pinRotationField}>
+              <span>Cambio automático</span>
+              <select
+                value={pinRotation}
+                onChange={(event) => {
+                  setPinRotation(event.target.value as PromotionPinRotation)
+                  setPinSavedMessage(null)
+                }}
+              >
+                {PIN_ROTATIONS.map((rotation) => (
+                  <option key={rotation} value={rotation}>
+                    {PROMOTION_PIN_ROTATION_LABELS[rotation]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {demo ? null : (
               <div className={styles.pinActions}>
-                {demo ? null : (
-                  <>
                 <button
                   type="button"
-                  className={styles.actionButton}
+                  className={styles.secondaryButton}
                   onClick={() => setPinCode(generatePromotionPinCode())}
                   disabled={pinSaving}
                 >
-                  Cambiar aleatoriamente
+                  Generar otro
                 </button>
                 <button
                   type="button"
-                  className={`${styles.actionButton} ${styles.actionButtonPrimary}`}
+                  className={styles.primaryButton}
                   onClick={() => void handleSavePin(false)}
                   disabled={pinSaving}
                 >
-                  {pinSaving ? 'Guardando…' : 'Guardar'}
+                  {pinSaving ? 'Guardando…' : 'Guardar código'}
                 </button>
-                  </>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!pinLoading ? (
+          <div className={styles.pinFooter}>
+            <p className={styles.pinHint}>{formatPromotionPinRotationHint(pinRotation, pinNextRotationAt)}</p>
+            {pinError && <p className={styles.inlineError}>{pinError}</p>}
+            {pinSavedMessage && <p className={styles.inlineSuccess}>✓ {pinSavedMessage}</p>}
+          </div>
+        ) : null}
+      </section>
+
+      <section className={styles.listCard}>
+        <div className={styles.listToolbar}>
+          <div className={styles.typeTabs} role="tablist" aria-label="Tipo de promoción">
+            {PROMOTION_TYPES.map((type) => {
+              const typeLocked = !planAllowsPromotionType(planId, type)
+              const button = (
+                <button
+                  key={type}
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedType === type}
+                  className={`${styles.typeTab} ${selectedType === type ? styles.typeTabActive : ''}`}
+                  onClick={() => handleTypeChange(type)}
+                  title={PROMOTION_TYPE_HINTS[type]}
+                >
+                  {PROMOTION_TYPE_LABELS[type]}
+                  <span className={styles.typeTabCount}>{typeCounts[type]}</span>
+                </button>
+              )
+
+              if (!typeLocked) {
+                return button
+              }
+
+              return (
+                <LockedControl
+                  key={type}
+                  locked
+                  feature={PROMOTION_TYPE_LABELS[type].toLowerCase()}
+                  capabilityId={promotionTypeCapability(type)}
+                >
+                  {button}
+                </LockedControl>
+              )
+            })}
+          </div>
+          <div className={styles.listToolbarRight}>
+            <span className={styles.activeSummary}>
+              <strong>{activeCount}</strong> {activeCount === 1 ? 'activa' : 'activas'} de {promotions.length}
+            </span>
+            <input
+              type="search"
+              className={styles.searchInput}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Buscar promoción…"
+              aria-label="Buscar promoción por título"
+            />
+          </div>
+        </div>
+
+        <p className={styles.typeHint}>{PROMOTION_TYPE_HINTS[selectedType]}</p>
+
+        {error && <div className={styles.errorBanner} role="alert">{error}</div>}
+        {formError && !drawerOpen && <div className={styles.errorBanner} role="alert">{formError}</div>}
+
+        {loading && promotions.length === 0 ? (
+          <div className={styles.stateBox}>Cargando promociones…</div>
+        ) : visiblePromotions.length === 0 ? (
+          <div className={styles.stateBox}>
+            {normalizedSearch ? (
+              <p>Ninguna promoción coincide con «{searchQuery.trim()}».</p>
+            ) : (
+              <>
+                <p className={styles.stateTitle}>Aún no tienes promociones de este tipo</p>
+                <p>{PROMOTION_TYPE_HINTS[selectedType]}</p>
+                {demo || !canCreatePromo ? null : (
+                  <button type="button" className={styles.primaryButton} onClick={openCreate}>
+                    Crear la primera
+                  </button>
                 )}
-              </div>
-            </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">Promoción</th>
+                  <th scope="col" className={styles.colRules}>Condiciones</th>
+                  <th scope="col" className={styles.colSpots}>Plazas</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col" className={styles.colActions}>
+                    <span className={styles.srOnly}>Acciones</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visiblePromotions.map((promotion) => {
+                  const max = promotion.maxRedemptions
+                  const used = promotion.currentRedemptions ?? 0
+                  const soldOut = promotion.active && max != null && max > 0 && used >= max
+                  const percent = max != null && max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0
+                  const rules = describePromotionRules(promotion).filter(
+                    (rule) => !/plaza/i.test(rule),
+                  )
 
-            <fieldset className={styles.pinRotationFieldset}>
-              <legend>Rotación automática</legend>
-              <div className={styles.pinRotationOptions}>
-                {PIN_ROTATIONS.map((rotation) => (
-                  <label key={rotation} className={styles.pinRotationOption}>
-                    <input
-                      type="radio"
-                      name="promotion-pin-rotation"
-                      value={rotation}
-                      checked={pinRotation === rotation}
-                      onChange={() => {
-                        setPinRotation(rotation)
-                        setPinSavedMessage(null)
-                      }}
-                    />
-                    <span>{PROMOTION_PIN_ROTATION_LABELS[rotation]}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <p className={styles.pinHint}>
-              {formatPromotionPinRotationHint(pinRotation, pinNextRotationAt)}
-            </p>
-
-            {pinError && <div className={styles.error}>{pinError}</div>}
-            {pinSavedMessage && <p className={styles.pinSuccess}>{pinSavedMessage}</p>}
-          </>
+                  return (
+                    <tr
+                      key={promotion.id}
+                      className={editingId === promotion.id ? styles.rowSelected : undefined}
+                    >
+                      <td>
+                        <button
+                          type="button"
+                          className={styles.promoCell}
+                          onClick={() => openEdit(promotion)}
+                        >
+                          <span className={styles.promoThumb}>
+                            <PromotionPhotoCollage
+                              productRefs={promotion.productRefs}
+                              fallbackPhotoUrl={promotion.photoUrl}
+                              alt=""
+                            />
+                          </span>
+                          <span className={styles.promoText}>
+                            <strong>{promotion.title}</strong>
+                            <span>{promotionSummary(promotion)}</span>
+                          </span>
+                        </button>
+                      </td>
+                      <td className={styles.colRules}>
+                        <span className={styles.ruleChips}>
+                          {rules.slice(0, 3).map((rule) => (
+                            <em key={rule}>{rule}</em>
+                          ))}
+                          {rules.length > 3 ? <em>+{rules.length - 3}</em> : null}
+                        </span>
+                      </td>
+                      <td className={styles.colSpots}>
+                        {max != null && max > 0 ? (
+                          <span className={styles.spots}>
+                            <span className={styles.spotsText}>
+                              <strong>{used}</strong> / {max}
+                            </span>
+                            <span
+                              className={`${styles.spotsBar} ${percent >= 80 ? styles.spotsBarHigh : ''}`}
+                              role="progressbar"
+                              aria-valuemin={0}
+                              aria-valuemax={max}
+                              aria-valuenow={used}
+                              aria-label={`${used} de ${max} plazas usadas`}
+                            >
+                              <span style={{ width: `${percent}%` }} />
+                            </span>
+                          </span>
+                        ) : (
+                          <span className={styles.muted}>Sin límite</span>
+                        )}
+                      </td>
+                      <td>
+                        <span
+                          className={`${styles.statusChip} ${
+                            !promotion.active
+                              ? styles.statusPaused
+                              : soldOut
+                                ? styles.statusSoldOut
+                                : styles.statusActive
+                          }`}
+                        >
+                          {!promotion.active ? 'Pausada' : soldOut ? 'Agotada' : 'Activa'}
+                        </span>
+                      </td>
+                      <td className={styles.colActions}>
+                        <div className={styles.rowActions}>
+                          {demo ? null : (
+                            <button
+                              type="button"
+                              className={styles.rowButton}
+                              onClick={() => void handleToggleActive(promotion)}
+                              disabled={togglingId === promotion.id}
+                            >
+                              {togglingId === promotion.id
+                                ? '…'
+                                : promotion.active ? 'Pausar' : 'Activar'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className={styles.rowButton}
+                            onClick={() => openEdit(promotion)}
+                          >
+                            {demo ? 'Ver' : 'Editar'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
-      <div className={styles.toolbar}>
-        <div className={styles.typeToggle} role="tablist" aria-label="Tipo de promoción">
-          {PROMOTION_TYPES.map((type) => {
-            const typeLocked = !planAllowsPromotionType(planId, type)
-            const button = (
+      {drawerOpen ? (
+        <>
+          <div className={styles.drawerBackdrop} onClick={closeDrawer} aria-hidden="true" />
+          <aside
+            className={styles.drawer}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="promotion-drawer-title"
+          >
+            <header className={styles.drawerHeader}>
+              <div>
+                <p className={styles.drawerEyebrow}>{PROMOTION_TYPE_LABELS[selectedType]}</p>
+                <h3 id="promotion-drawer-title">
+                  {editingId ? (editingPromotion?.title || 'Editar promoción') : 'Nueva promoción'}
+                </h3>
+              </div>
               <button
-                key={type}
                 type="button"
-                role="tab"
-                aria-selected={selectedType === type}
-                className={`${styles.typeButton} ${selectedType === type ? styles.typeButtonActive : ''}`}
-                onClick={() => handleTypeChange(type)}
+                className={styles.drawerClose}
+                onClick={closeDrawer}
+                aria-label="Cerrar"
               >
-                {PROMOTION_TYPE_LABELS[type]}
+                ×
               </button>
-            )
+            </header>
 
-            if (!typeLocked) {
-              return button
-            }
-
-            return (
-              <LockedControl
-                key={type}
-                locked
-                feature={PROMOTION_TYPE_LABELS[type].toLowerCase()}
-                capabilityId={promotionTypeCapability(type)}
-              >
-                {button}
-              </LockedControl>
-            )
-          })}
-        </div>
-
-        <LockedControl
-          locked={!canCreatePromo || !selectedTypeAllowed}
-          feature="crear más promociones"
-          capabilityId={promotionTypeCapability(selectedType)}
-          requiredPlanId={nextPromoPlanId}
-        >
-          {demo ? null : (
-          <button type="button" className={`${styles.actionButton} ${styles.actionButtonPrimary}`} onClick={startCreate}>
-            Nueva promoción
-          </button>
-          )}
-        </LockedControl>
-
-        <button
-          type="button"
-          className={styles.refreshButton}
-          onClick={() => void loadPromotions()}
-          disabled={loading}
-        >
-          {loading ? 'Actualizando…' : 'Actualizar'}
-        </button>
-      </div>
-
-      {error && <div className={styles.error}>{error}</div>}
-
-      <div className={styles.layout}>
-        <section className={styles.listPanel}>
-          <h3>{PROMOTION_TYPE_LABELS[selectedType]}</h3>
-
-          {loading ? (
-            <div className={styles.loading}>Cargando promociones…</div>
-          ) : filteredPromotions.length === 0 ? (
-            <div className={styles.empty}>No hay promociones de este tipo todavía.</div>
-          ) : (
-            <div className={styles.promotionList}>
-              {filteredPromotions.map((promotion) => (
-                  <button
-                    key={promotion.id}
-                    type="button"
-                    className={`${styles.promotionCard} ${
-                      editingId === promotion.id ? styles.promotionCardSelected : ''
-                    }`}
-                    onClick={() => startEdit(promotion)}
-                  >
-                    <PromotionPhotoCollage
-                      productRefs={promotion.productRefs}
-                      fallbackPhotoUrl={promotion.photoUrl}
-                      alt={promotion.title}
-                    />
-                    <div className={styles.promotionCardBody}>
-                      <strong>{promotion.title}</strong>
-                      <span>{promotionSummary(promotion)}</span>
-                      <span className={styles.ruleChips}>
-                        {describePromotionRules(promotion, { showUsedSpots: true }).map((rule) => (
-                          <em key={rule}>{rule}</em>
-                        ))}
-                      </span>
-                    </div>
-                    <span className={`${styles.statusBadge} ${
-                      promotion.active ? styles.statusActive : styles.statusInactive
-                    }`}
-                    >
-                      {promotion.active ? 'Activa' : 'Inactiva'}
-                    </span>
-                  </button>
-                ))}
-            </div>
-          )}
-        </section>
-
-        <section className={styles.formPanel}>
-          <div className={styles.formPanelHead}>
-            <h3>{editingId ? 'Editar promoción' : 'Nueva promoción'}</h3>
-            <p className={styles.formPanelIntro}>{PROMOTION_TYPE_HINTS[selectedType]}</p>
-          </div>
-
-          <div className={styles.formSections}>
-            <section className={styles.formSection}>
-              <div className={styles.sectionHead}>
-                <h4>
-                  Información
-                  <InfoHint label="Sobre esta sección">Título y descripción que verá el cliente.</InfoHint>
-                </h4>
-              </div>
-
-              <div className={styles.sectionGrid}>
-                <div className={`${styles.formField} ${styles.formFieldWide}`}>
-                  <div className={styles.titleRow}>
-                    <label htmlFor="promotion-title">Título</label>
-                    <button
-                      type="button"
-                      className={styles.suggestButton}
-                      onClick={() => setForm({
-                        ...form,
-                        title: suggestPromotionTitle(form.offer, previewProductRefs),
-                      })}
-                    >
-                      Sugerir título
-                    </button>
-                  </div>
-                  <input
-                    id="promotion-title"
-                    value={form.title}
-                    onChange={(event) => setForm({ ...form, title: event.target.value })}
-                    placeholder="Ej. 2×1 en cañas seleccionadas"
-                  />
-                </div>
-
-                <div className={`${styles.formField} ${styles.formFieldWide}`}>
-                  <label htmlFor="promotion-description">Descripción</label>
-                  <textarea
-                    id="promotion-description"
-                    value={form.description}
-                    onChange={(event) => setForm({ ...form, description: event.target.value })}
-                    placeholder="Explica el premio y condiciones"
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section className={styles.formSection}>
-              <div className={styles.sectionHead}>
-                <h4>
-                  Tipo de oferta
-                  <InfoHint label="Sobre el tipo de oferta">Define el formato del descuento o regalo.</InfoHint>
-                </h4>
-              </div>
-
-              <div className={styles.sectionGrid}>
-                <div className={`${styles.formField} ${styles.formFieldWide}`}>
-                  <label htmlFor="promotion-offer-kind">Formato</label>
-                  <select
-                    id="promotion-offer-kind"
-                    value={form.offer.kind}
-                    onChange={(event) => {
-                      const kind = event.target.value as PromotionOfferKind
-                      setForm({
-                        ...form,
-                        offer: defaultPromotionOffer(kind),
-                      })
-                    }}
-                  >
-                    {PROMOTION_OFFER_KINDS.map((kind) => (
-                      <option key={kind} value={kind}>
-                        {PROMOTION_OFFER_KIND_LABELS[kind]}
-                      </option>
-                    ))}
-                  </select>
-                  <p className={styles.fieldHint}>{PROMOTION_OFFER_KIND_HINTS[form.offer.kind]}</p>
-                </div>
-
-                {form.offer.kind === 'bundle' && (
-                  <>
-                    <div className={styles.formField}>
-                      <label htmlFor="promotion-bundle-get">Unidades que lleva</label>
-                      <input
-                        id="promotion-bundle-get"
-                        type="number"
-                        min={2}
-                        value={form.offer.bundleGet ?? 2}
-                        onChange={(event) => setForm({
-                          ...form,
-                          offer: {
-                            ...form.offer,
-                            bundleGet: Math.max(2, Number(event.target.value) || 2),
-                          },
-                        })}
-                      />
-                    </div>
-                    <div className={styles.formField}>
-                      <label htmlFor="promotion-bundle-pay">Unidades que paga</label>
-                      <input
-                        id="promotion-bundle-pay"
-                        type="number"
-                        min={1}
-                        value={form.offer.bundlePay ?? 1}
-                        onChange={(event) => setForm({
-                          ...form,
-                          offer: {
-                            ...form.offer,
-                            bundlePay: Math.max(1, Number(event.target.value) || 1),
-                          },
-                        })}
-                      />
-                    </div>
-                  </>
-                )}
-
-                {(form.offer.kind === 'discount' || form.offer.kind === 'second_unit') && (
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-discount">
-                      {form.offer.kind === 'second_unit' ? 'Descuento 2ª unidad (%)' : 'Descuento (%)'}
-                    </label>
-                    <input
-                      id="promotion-discount"
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={form.offer.discountPercent ?? 20}
-                      onChange={(event) => setForm({
-                        ...form,
-                        offer: {
-                          ...form.offer,
-                          discountPercent: Math.min(100, Math.max(1, Number(event.target.value) || 1)),
-                        },
-                      })}
-                    />
-                  </div>
-                )}
-
-                {form.offer.kind === 'fixed_price' && (
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-fixed-price">Precio fijo (€)</label>
-                    <input
-                      id="promotion-fixed-price"
-                      type="number"
-                      min={0.01}
-                      step={0.01}
-                      value={((form.offer.fixedPriceCents ?? 1000) / 100).toFixed(2)}
-                      onChange={(event) => setForm({
-                        ...form,
-                        offer: {
-                          ...form.offer,
-                          fixedPriceCents: Math.max(1, Math.round(Number(event.target.value) * 100) || 1),
-                        },
-                      })}
-                    />
-                  </div>
-                )}
-
-                {form.offer.kind === 'custom' && (
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-custom-label">Etiqueta destacada</label>
-                    <input
-                      id="promotion-custom-label"
-                      value={form.offer.customLabel}
-                      onChange={(event) => setForm({
-                        ...form,
-                        offer: { ...form.offer, customLabel: event.target.value },
-                      })}
-                      placeholder="Ej. 2×1, -20%, GRATIS"
-                    />
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className={styles.formSection}>
-              <div className={styles.sectionHead}>
-                <h4>
-                  Productos e imagen
-                  <InfoHint label="Sobre productos e imagen">
-                    Elige productos de la carta; la foto se genera sola si tienen imagen.
-                  </InfoHint>
-                </h4>
-              </div>
-
-              <div className={styles.mediaLayout}>
-                <div className={styles.productsColumn}>
-                  <PromotionProductPicker
-                    menuNodes={menuNodes}
-                    selectedIds={form.productIds}
-                    onChange={(productIds) => setForm({ ...form, productIds })}
-                  />
-                </div>
-
-                <aside className={styles.photoColumn}>
-                  <div className={styles.photoCard}>
-                    <span className={styles.photoCardLabel}>Vista previa</span>
-                    <PromotionPhotoCollage
-                      productRefs={previewProductRefs}
-                      fallbackPhotoUrl={form.photoUrl}
-                      size="preview"
-                      alt={form.title}
-                    />
-                    <div className={styles.photoCardActions}>
-                      <button
-                        type="button"
-                        className={styles.photoCardButton}
-                        onClick={() => setQrCustomizerOpen(true)}
-                        disabled={!editingId || !promotionLandingUrl}
-                        title={editingId ? 'Crear y personalizar el QR de esta promoción' : 'Guarda la promoción para crear el QR'}
-                      >
-                        Crear QR
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.photoCardButton} ${styles.photoCardButtonPrimary}`}
-                        onClick={() => setScanPreviewOpen(true)}
-                        disabled={!scanPreviewPromotion}
-                      >
-                        Visualizar
-                      </button>
-                    </div>
-                    {qrPreviewUrl ? (
-                      <img
-                        src={qrPreviewUrl}
-                        alt="QR de la promoción"
-                        className={styles.promoQrPreview}
-                      />
-                    ) : null}
-                    <p className={styles.photoCardHint}>
-                      {!editingId
-                        ? 'Guarda la promoción para crear su QR. Visualizar muestra cómo se ve al escanearlo.'
-                        : previewProductRefs.length === 0
-                          ? 'Añade productos con foto o sube una imagen.'
-                          : previewProductRefs.length === 1
-                            ? 'Foto del producto seleccionado.'
-                            : previewProductRefs.length > 4
-                              ? `Collage con ${previewProductRefs.length} productos.`
-                              : 'Collage con las fotos disponibles.'}
-                    </p>
-                  </div>
-
-                  {(form.offer.kind === 'custom' || previewProductRefs.length === 0) && (
-                    <div className={styles.photoUploaderWrap}>
-                      <ImageUploader
-                        label="Foto manual"
-                        hint="Opcional si hay productos con foto"
-                        currentImageUrl={form.photoUrl}
-                        onImageUploaded={(url) => setForm({ ...form, photoUrl: url })}
-                        onImageRemoved={() => setForm({ ...form, photoUrl: '' })}
-                      />
-                    </div>
-                  )}
-                </aside>
-              </div>
-            </section>
-
-            <section className={styles.formSection}>
-              <div className={styles.sectionHead}>
-                <h4>
-                  Condiciones
-                  <InfoHint label="Sobre las condiciones">
-                    {selectedType === 'reservation_ladder' && 'Requisitos para canjear la oferta.'}
-                    {selectedType === 'time_limited' && 'Franja horaria en la que aplica.'}
-                    {selectedType === 'attendance' && 'Horario, cupos y plazo de llegada.'}
-                  </InfoHint>
-                </h4>
-              </div>
-
-              {selectedType === 'reservation_ladder' && (
+            <div className={styles.drawerBody}>
+              <section className={styles.formSection}>
+                <h4 className={styles.formSectionTitle}>Oferta</h4>
                 <div className={styles.sectionGrid}>
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-reservations">Reserva o consumo requeridos</label>
+                  <div className={`${styles.formField} ${styles.formFieldWide}`}>
+                    <div className={styles.titleRow}>
+                      <label htmlFor="promotion-title">Título</label>
+                      <button
+                        type="button"
+                        className={styles.linkButton}
+                        onClick={() => setForm({
+                          ...form,
+                          title: suggestPromotionTitle(form.offer, previewProductRefs),
+                        })}
+                      >
+                        Sugerir título
+                      </button>
+                    </div>
                     <input
-                      id="promotion-reservations"
-                      type="number"
-                      min={form.requiresReservation ? 1 : 0}
-                      value={form.requiredReservations ?? ''}
+                      id="promotion-title"
+                      value={form.title}
+                      onChange={(event) => setForm({ ...form, title: event.target.value })}
+                      placeholder="Ej. 2×1 en cañas seleccionadas"
+                    />
+                  </div>
+
+                  <div className={`${styles.formField} ${styles.formFieldWide}`}>
+                    <label htmlFor="promotion-description">Descripción</label>
+                    <textarea
+                      id="promotion-description"
+                      value={form.description}
+                      onChange={(event) => setForm({ ...form, description: event.target.value })}
+                      placeholder="Explica el premio y las condiciones"
+                    />
+                  </div>
+
+                  <div className={`${styles.formField} ${styles.formFieldWide}`}>
+                    <label htmlFor="promotion-offer-kind">Tipo de oferta</label>
+                    <select
+                      id="promotion-offer-kind"
+                      value={form.offer.kind}
                       onChange={(event) => {
-                        const raw = event.target.value
+                        const kind = event.target.value as PromotionOfferKind
                         setForm({
                           ...form,
-                          requiredReservations: raw === '' ? null : Number(raw),
+                          offer: defaultPromotionOffer(kind),
                         })
                       }}
-                      placeholder={form.requiresReservation ? 'Ej. 3' : '0 o vacío'}
-                    />
+                    >
+                      {PROMOTION_OFFER_KINDS.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {PROMOTION_OFFER_KIND_LABELS[kind]}
+                        </option>
+                      ))}
+                    </select>
+                    <p className={styles.fieldHint}>{PROMOTION_OFFER_KIND_HINTS[form.offer.kind]}</p>
                   </div>
 
-                  <label className={`${styles.toggleCard} ${form.requiresReservation ? styles.toggleCardActive : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={form.requiresReservation}
-                      onChange={(event) => setForm({
-                        ...form,
-                        requiresReservation: event.target.checked,
-                      })}
-                    />
-                    <span>
-                      <strong>Reserva o consumo requerido</strong>
-                      <small>Cada reserva o consumo cuenta</small>
-                    </span>
-                  </label>
-
-                  <p className={`${styles.fieldHint} ${styles.formFieldWide}`}>
-                    Solo puede haber una oferta activa por cada número de reserva o consumo requeridos.
-                  </p>
-                </div>
-              )}
-
-              {selectedType === 'reservation_ladder' && (
-                <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
-                  <label className={`${styles.toggleCard} ${styles.formFieldWide} ${form.claimWindowEnabled ? styles.toggleCardActive : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={form.claimWindowEnabled}
-                      onChange={(event) => setForm({ ...form, claimWindowEnabled: event.target.checked })}
-                    />
-                    <span>
-                      <strong>Canjear solo en una franja horaria</strong>
-                      <small>Por ejemplo, el postre gratis solo al mediodía</small>
-                    </span>
-                  </label>
-
-                  {form.claimWindowEnabled ? (
+                  {form.offer.kind === 'bundle' && (
                     <>
                       <div className={styles.formField}>
-                        <label htmlFor="promotion-claim-from">Canjeable desde</label>
+                        <label htmlFor="promotion-bundle-get">Unidades que lleva</label>
                         <input
-                          id="promotion-claim-from"
-                          type="time"
-                          value={form.activeFromTime}
-                          onChange={(event) => setForm({ ...form, activeFromTime: event.target.value })}
+                          id="promotion-bundle-get"
+                          type="number"
+                          min={2}
+                          value={form.offer.bundleGet ?? 2}
+                          onChange={(event) => setForm({
+                            ...form,
+                            offer: {
+                              ...form.offer,
+                              bundleGet: Math.max(2, Number(event.target.value) || 2),
+                            },
+                          })}
                         />
                       </div>
-
                       <div className={styles.formField}>
-                        <label htmlFor="promotion-claim-to">Canjeable hasta</label>
+                        <label htmlFor="promotion-bundle-pay">Unidades que paga</label>
                         <input
-                          id="promotion-claim-to"
-                          type="time"
-                          value={form.activeToTime}
-                          onChange={(event) => setForm({ ...form, activeToTime: event.target.value })}
+                          id="promotion-bundle-pay"
+                          type="number"
+                          min={1}
+                          value={form.offer.bundlePay ?? 1}
+                          onChange={(event) => setForm({
+                            ...form,
+                            offer: {
+                              ...form.offer,
+                              bundlePay: Math.max(1, Number(event.target.value) || 1),
+                            },
+                          })}
                         />
                       </div>
                     </>
+                  )}
+
+                  {(form.offer.kind === 'discount' || form.offer.kind === 'second_unit') && (
+                    <div className={styles.formField}>
+                      <label htmlFor="promotion-discount">
+                        {form.offer.kind === 'second_unit' ? 'Descuento 2ª unidad (%)' : 'Descuento (%)'}
+                      </label>
+                      <input
+                        id="promotion-discount"
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={form.offer.discountPercent ?? 20}
+                        onChange={(event) => setForm({
+                          ...form,
+                          offer: {
+                            ...form.offer,
+                            discountPercent: Math.min(100, Math.max(1, Number(event.target.value) || 1)),
+                          },
+                        })}
+                      />
+                    </div>
+                  )}
+
+                  {form.offer.kind === 'fixed_price' && (
+                    <div className={styles.formField}>
+                      <label htmlFor="promotion-fixed-price">Precio fijo (€)</label>
+                      <input
+                        id="promotion-fixed-price"
+                        type="number"
+                        min={0.01}
+                        step={0.01}
+                        value={((form.offer.fixedPriceCents ?? 1000) / 100).toFixed(2)}
+                        onChange={(event) => setForm({
+                          ...form,
+                          offer: {
+                            ...form.offer,
+                            fixedPriceCents: Math.max(1, Math.round(Number(event.target.value) * 100) || 1),
+                          },
+                        })}
+                      />
+                    </div>
+                  )}
+
+                  {form.offer.kind === 'custom' && (
+                    <div className={styles.formField}>
+                      <label htmlFor="promotion-custom-label">Etiqueta destacada</label>
+                      <input
+                        id="promotion-custom-label"
+                        value={form.offer.customLabel}
+                        onChange={(event) => setForm({
+                          ...form,
+                          offer: { ...form.offer, customLabel: event.target.value },
+                        })}
+                        placeholder="Ej. 2×1, -20%, GRATIS"
+                      />
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className={styles.formSection}>
+                <h4 className={styles.formSectionTitle}>Productos e imagen</h4>
+                <p className={styles.formSectionHint}>
+                  Elige productos de la carta: si tienen foto, la imagen de la promoción se crea sola.
+                </p>
+                <div className={styles.mediaLayout}>
+                  <div className={styles.productsColumn}>
+                    <PromotionProductPicker
+                      menuNodes={menuNodes}
+                      selectedIds={form.productIds}
+                      onChange={(productIds) => setForm({ ...form, productIds })}
+                    />
+                  </div>
+
+                  <aside className={styles.photoColumn}>
+                    <div className={styles.photoCard}>
+                      <span className={styles.photoCardLabel}>Vista previa</span>
+                      <PromotionPhotoCollage
+                        productRefs={previewProductRefs}
+                        fallbackPhotoUrl={form.photoUrl}
+                        size="preview"
+                        alt={form.title}
+                      />
+                      <div className={styles.photoCardActions}>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          onClick={() => setQrCustomizerOpen(true)}
+                          disabled={!editingId || !promotionLandingUrl}
+                          title={editingId ? 'Crear y personalizar el QR de esta promoción' : 'Guarda la promoción para crear el QR'}
+                        >
+                          Crear QR
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          onClick={() => setScanPreviewOpen(true)}
+                          disabled={!scanPreviewPromotion}
+                        >
+                          Visualizar
+                        </button>
+                      </div>
+                      {qrPreviewUrl ? (
+                        <img
+                          src={qrPreviewUrl}
+                          alt="QR de la promoción"
+                          className={styles.promoQrPreview}
+                        />
+                      ) : null}
+                      <p className={styles.photoCardHint}>
+                        {!editingId
+                          ? 'Guarda la promoción para crear su QR. «Visualizar» enseña cómo se ve al escanearlo.'
+                          : previewProductRefs.length === 0
+                            ? 'Añade productos con foto o sube una imagen.'
+                            : previewProductRefs.length === 1
+                              ? 'Foto del producto elegido.'
+                              : previewProductRefs.length > 4
+                                ? `Collage con ${previewProductRefs.length} productos.`
+                                : 'Collage con las fotos disponibles.'}
+                      </p>
+                    </div>
+
+                    {(form.offer.kind === 'custom' || previewProductRefs.length === 0) && (
+                      <div className={styles.photoUploaderWrap}>
+                        <ImageUploader
+                          label="Foto manual"
+                          hint="Opcional si hay productos con foto"
+                          currentImageUrl={form.photoUrl}
+                          onImageUploaded={(url) => setForm({ ...form, photoUrl: url })}
+                          onImageRemoved={() => setForm({ ...form, photoUrl: '' })}
+                        />
+                      </div>
+                    )}
+                  </aside>
+                </div>
+              </section>
+
+              <section className={styles.formSection}>
+                <h4 className={styles.formSectionTitle}>Condiciones</h4>
+                <p className={styles.formSectionHint}>
+                  {selectedType === 'reservation_ladder' && 'Qué tiene que hacer el cliente para conseguir el premio.'}
+                  {selectedType === 'time_limited' && 'La franja horaria en la que se puede usar.'}
+                  {selectedType === 'attendance' && 'Horario, plazas y tiempo para llegar.'}
+                </p>
+
+                {selectedType === 'reservation_ladder' && (
+                  <div className={styles.optionList}>
+                    <label className={styles.switchRow}>
+                      <span className={styles.switchText}>
+                        <strong>Pedir reservas o consumos</strong>
+                        <small>Cada reserva o consumo verificado suma para el premio.</small>
+                      </span>
+                      <span className={styles.switch}>
+                        <input
+                          type="checkbox"
+                          checked={form.requiresReservation}
+                          onChange={(event) => setForm({
+                            ...form,
+                            requiresReservation: event.target.checked,
+                          })}
+                        />
+                        <span aria-hidden="true" />
+                      </span>
+                    </label>
+                    <div className={styles.optionDetail}>
+                      <div className={styles.formField}>
+                        <label htmlFor="promotion-reservations">Reservas o consumos necesarios</label>
+                        <input
+                          id="promotion-reservations"
+                          type="number"
+                          min={form.requiresReservation ? 1 : 0}
+                          value={form.requiredReservations ?? ''}
+                          onChange={(event) => {
+                            const raw = event.target.value
+                            setForm({
+                              ...form,
+                              requiredReservations: raw === '' ? null : Number(raw),
+                            })
+                          }}
+                          placeholder={form.requiresReservation ? 'Ej. 3' : '0 o vacío'}
+                        />
+                      </div>
+                      <p className={styles.fieldHint}>
+                        Solo puede haber una oferta activa por cada número de reservas o consumos.
+                      </p>
+                    </div>
+
+                    <label className={styles.switchRow}>
+                      <span className={styles.switchText}>
+                        <strong>Canjear solo en una franja horaria</strong>
+                        <small>
+                          {form.claimWindowEnabled
+                            ? `Las visitas cuentan a cualquier hora, pero el premio solo se reclama de ${form.activeFromTime || '…'} a ${form.activeToTime || '…'}.`
+                            : 'Por ejemplo, el postre gratis solo al mediodía.'}
+                        </small>
+                      </span>
+                      <span className={styles.switch}>
+                        <input
+                          type="checkbox"
+                          checked={form.claimWindowEnabled}
+                          onChange={(event) => setForm({ ...form, claimWindowEnabled: event.target.checked })}
+                        />
+                        <span aria-hidden="true" />
+                      </span>
+                    </label>
+                    {form.claimWindowEnabled ? (
+                      <div className={`${styles.optionDetail} ${styles.sectionGrid}`}>
+                        <div className={styles.formField}>
+                          <label htmlFor="promotion-claim-from">Desde</label>
+                          <input
+                            id="promotion-claim-from"
+                            type="time"
+                            value={form.activeFromTime}
+                            onChange={(event) => setForm({ ...form, activeFromTime: event.target.value })}
+                          />
+                        </div>
+                        <div className={styles.formField}>
+                          <label htmlFor="promotion-claim-to">Hasta</label>
+                          <input
+                            id="promotion-claim-to"
+                            type="time"
+                            value={form.activeToTime}
+                            onChange={(event) => setForm({ ...form, activeToTime: event.target.value })}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
+                {(selectedType === 'time_limited' || selectedType === 'attendance') && (
+                  <div className={styles.sectionGrid}>
+                    <div className={styles.formField}>
+                      <label htmlFor="promotion-from">Activa desde</label>
+                      <input
+                        id="promotion-from"
+                        type="time"
+                        value={form.activeFromTime}
+                        onChange={(event) => setForm({ ...form, activeFromTime: event.target.value })}
+                      />
+                    </div>
+                    <div className={styles.formField}>
+                      <label htmlFor="promotion-to">Activa hasta</label>
+                      <input
+                        id="promotion-to"
+                        type="time"
+                        value={form.activeToTime}
+                        onChange={(event) => setForm({ ...form, activeToTime: event.target.value })}
+                      />
+                    </div>
+                    {selectedType === 'attendance' && (
+                      <div className={`${styles.formField} ${styles.formFieldWide}`}>
+                        <label htmlFor="promotion-arrival">Tiempo máximo para llegar (min)</label>
+                        <input
+                          id="promotion-arrival"
+                          type="number"
+                          min={1}
+                          value={form.arrivalWindowMinutes ?? 30}
+                          onChange={(event) => setForm({
+                            ...form,
+                            arrivalWindowMinutes: Math.max(1, Number(event.target.value) || 1),
+                          })}
+                        />
+                        <p className={styles.fieldHint}>
+                          Si el cliente no confirma su llegada a tiempo, la plaza se libera sola.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className={`${styles.optionList} ${styles.optionListSpaced}`}>
+                  <label className={styles.switchRow}>
+                    <span className={styles.switchText}>
+                      <strong>Limitar plazas en total</strong>
+                      <small>
+                        {form.maxRedemptions != null
+                          ? `Al usarse las ${form.maxRedemptions} plazas saldrá como «Agotada».`
+                          : 'Sin límite: puede usarla todo el que quiera.'}
+                      </small>
+                    </span>
+                    <span className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={form.maxRedemptions != null}
+                        onChange={(event) => setForm({
+                          ...form,
+                          maxRedemptions: event.target.checked ? (form.maxRedemptions ?? 10) : null,
+                        })}
+                      />
+                      <span aria-hidden="true" />
+                    </span>
+                  </label>
+                  {form.maxRedemptions != null ? (
+                    <div className={styles.optionDetail}>
+                      <div className={styles.formField}>
+                        <label htmlFor="promotion-max">Plazas en total</label>
+                        <input
+                          id="promotion-max"
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          value={form.maxRedemptions}
+                          onChange={(event) => setForm({
+                            ...form,
+                            maxRedemptions: Math.max(1, Math.floor(Number(event.target.value) || 1)),
+                          })}
+                        />
+                      </div>
+                    </div>
                   ) : null}
 
-                  <p className={`${styles.fieldHint} ${styles.formFieldWide}`}>
-                    {form.claimWindowEnabled
-                      ? `Las visitas cuentan a cualquier hora, pero el premio solo se puede reclamar de ${form.activeFromTime || '…'} a ${form.activeToTime || '…'}. Fuera de esa franja el cliente lo verá con candado.`
-                      : 'Sin franja: el premio se puede reclamar a cualquier hora en cuanto se completen las visitas.'}
+                  <label className={styles.switchRow}>
+                    <span className={styles.switchText}>
+                      <strong>Limitar usos por cliente</strong>
+                      <small>
+                        {form.maxClaimsPerCustomer != null
+                          ? `Cada cliente podrá usarla ${form.maxClaimsPerCustomer === 1 ? 'una sola vez' : `${form.maxClaimsPerCustomer} veces`}.`
+                          : 'Sin límite: cada cliente puede usarla siempre que vuelva.'}
+                      </small>
+                    </span>
+                    <span className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={form.maxClaimsPerCustomer != null}
+                        onChange={(event) => setForm({
+                          ...form,
+                          maxClaimsPerCustomer: event.target.checked ? (form.maxClaimsPerCustomer ?? 1) : null,
+                        })}
+                      />
+                      <span aria-hidden="true" />
+                    </span>
+                  </label>
+                  {form.maxClaimsPerCustomer != null ? (
+                    <div className={styles.optionDetail}>
+                      <div className={styles.formField}>
+                        <label htmlFor="promotion-per-customer">Veces por cliente</label>
+                        <input
+                          id="promotion-per-customer"
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          value={form.maxClaimsPerCustomer}
+                          onChange={(event) => setForm({
+                            ...form,
+                            maxClaimsPerCustomer: Math.max(1, Math.floor(Number(event.target.value) || 1)),
+                          })}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <label className={styles.switchRow}>
+                    <span className={styles.switchText}>
+                      <strong>Gasto mínimo</strong>
+                      <small>El cliente tiene que gastar al menos este importe para usarla.</small>
+                    </span>
+                    <span className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={form.minimumSpendEnabled}
+                        onChange={(event) => setForm({
+                          ...form,
+                          minimumSpendEnabled: event.target.checked,
+                          minimumSpendCents: event.target.checked
+                            ? (form.minimumSpendCents ?? 1200)
+                            : null,
+                        })}
+                      />
+                      <span aria-hidden="true" />
+                    </span>
+                  </label>
+                  {form.minimumSpendEnabled ? (
+                    <div className={styles.optionDetail}>
+                      <div className={styles.formField}>
+                        <label htmlFor="promotion-min-spend">Importe mínimo (€)</label>
+                        <input
+                          id="promotion-min-spend"
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={((form.minimumSpendCents ?? 0) / 100).toFixed(2)}
+                          onChange={(event) => setForm({
+                            ...form,
+                            minimumSpendCents: Math.max(
+                              0,
+                              Math.round(Number(event.target.value) * 100) || 0,
+                            ),
+                          })}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className={styles.rulesPreview} aria-live="polite">
+                  <p className={styles.rulesPreviewTitle}>Así lo verá el cliente</p>
+                  <div className={styles.ruleChips}>
+                    {describePromotionRules({ ...form, type: selectedType }).map((rule) => (
+                      <em key={rule}>{rule}</em>
+                    ))}
+                  </div>
+                  <p className={styles.rulesPreviewHint}>
+                    Si no puede usarla en ese momento (fuera de horario, sin plazas o sin usos), la verá
+                    con un candado y el motivo.
                   </p>
                 </div>
-              )}
+              </section>
+            </div>
 
-              {(selectedType === 'time_limited' || selectedType === 'attendance') && (
-                <div className={styles.sectionGrid}>
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-from">Activa desde</label>
-                    <input
-                      id="promotion-from"
-                      type="time"
-                      value={form.activeFromTime}
-                      onChange={(event) => setForm({ ...form, activeFromTime: event.target.value })}
-                    />
-                  </div>
-
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-to">Activa hasta</label>
-                    <input
-                      id="promotion-to"
-                      type="time"
-                      value={form.activeToTime}
-                      onChange={(event) => setForm({ ...form, activeToTime: event.target.value })}
-                    />
+            <footer className={styles.drawerFooter}>
+              {formError && <div className={styles.errorBanner} role="alert">{formError}</div>}
+              {demo ? (
+                <p className={styles.demoNote}>En la demo las promociones se pueden ver, no crear ni editar.</p>
+              ) : (
+                <div className={styles.drawerFooterRow}>
+                  <label className={styles.activeSwitch}>
+                    <span className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={form.active}
+                        onChange={(event) => setForm({ ...form, active: event.target.checked })}
+                      />
+                      <span aria-hidden="true" />
+                    </span>
+                    <span>{form.active ? 'Activa' : 'Pausada'}</span>
+                  </label>
+                  <div className={styles.drawerFooterActions}>
+                    {editingId && (
+                      <button
+                        type="button"
+                        className={styles.dangerButton}
+                        onClick={() => {
+                          if (editingPromotion) {
+                            setDeleteTarget(editingPromotion)
+                          }
+                        }}
+                        disabled={saving}
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                    <button type="button" className={styles.secondaryButton} onClick={closeDrawer}>
+                      Cerrar
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      onClick={() => void handleSave()}
+                      disabled={saving}
+                    >
+                      {saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Crear promoción'}
+                    </button>
                   </div>
                 </div>
               )}
-
-              {selectedType === 'attendance' && (
-                <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-arrival">Tiempo máximo de llegada (min)</label>
-                    <input
-                      id="promotion-arrival"
-                      type="number"
-                      min={1}
-                      value={form.arrivalWindowMinutes ?? 30}
-                      onChange={(event) => setForm({
-                        ...form,
-                        arrivalWindowMinutes: Math.max(1, Number(event.target.value) || 1),
-                      })}
-                    />
-                  </div>
-
-                  <p className={`${styles.fieldHint} ${styles.formFieldWide}`}>
-                    Si el cliente no confirma asistencia a tiempo, el cupo se liberará automáticamente.
-                  </p>
-                </div>
-              )}
-
-              <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
-                <label className={`${styles.toggleCard} ${styles.formFieldWide} ${form.maxRedemptions != null ? styles.toggleCardActive : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={form.maxRedemptions != null}
-                    onChange={(event) => setForm({
-                      ...form,
-                      maxRedemptions: event.target.checked ? (form.maxRedemptions ?? 10) : null,
-                    })}
-                  />
-                  <span>
-                    <strong>Limitar plazas en total</strong>
-                    <small>Solo las primeras personas que la usen</small>
-                  </span>
-                </label>
-
-                {form.maxRedemptions != null ? (
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-max">Plazas en total</label>
-                    <input
-                      id="promotion-max"
-                      type="number"
-                      min={1}
-                      inputMode="numeric"
-                      value={form.maxRedemptions}
-                      onChange={(event) => setForm({
-                        ...form,
-                        maxRedemptions: Math.max(1, Math.floor(Number(event.target.value) || 1)),
-                      })}
-                    />
-                  </div>
-                ) : null}
-
-                <p className={`${styles.fieldHint} ${styles.formFieldWide}`}>
-                  {form.maxRedemptions != null
-                    ? `Cuando se usen las ${form.maxRedemptions} plazas, la promo saldrá como «Agotada» y nadie más podrá reservar con ella.`
-                    : 'Sin límite de plazas: puede usarla todo el que quiera.'}
-                </p>
-              </div>
-
-              <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
-                <label className={`${styles.toggleCard} ${styles.formFieldWide} ${form.maxClaimsPerCustomer != null ? styles.toggleCardActive : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={form.maxClaimsPerCustomer != null}
-                    onChange={(event) => setForm({
-                      ...form,
-                      maxClaimsPerCustomer: event.target.checked ? (form.maxClaimsPerCustomer ?? 1) : null,
-                    })}
-                  />
-                  <span>
-                    <strong>Limitar usos por cliente</strong>
-                    <small>Por ejemplo, 1 para una promo de primera visita</small>
-                  </span>
-                </label>
-
-                {form.maxClaimsPerCustomer != null ? (
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-per-customer">Veces que cada cliente puede usarla</label>
-                    <input
-                      id="promotion-per-customer"
-                      type="number"
-                      min={1}
-                      inputMode="numeric"
-                      value={form.maxClaimsPerCustomer}
-                      onChange={(event) => setForm({
-                        ...form,
-                        maxClaimsPerCustomer: Math.max(1, Math.floor(Number(event.target.value) || 1)),
-                      })}
-                    />
-                  </div>
-                ) : null}
-
-                <p className={`${styles.fieldHint} ${styles.formFieldWide}`}>
-                  {form.maxClaimsPerCustomer != null
-                    ? `Cada cliente podrá usarla ${form.maxClaimsPerCustomer === 1 ? 'una sola vez' : `${form.maxClaimsPerCustomer} veces`}. Verá cuántos usos le quedan y, al llegar al límite, le aparecerá con candado.`
-                    : 'Sin límite: cada cliente puede usarla todas las veces que vuelva.'}
-                </p>
-              </div>
-
-              <div className={`${styles.sectionGrid} ${styles.sectionGridTop}`}>
-                <label className={`${styles.toggleCard} ${styles.formFieldWide} ${form.minimumSpendEnabled ? styles.toggleCardActive : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={form.minimumSpendEnabled}
-                    onChange={(event) => setForm({
-                      ...form,
-                      minimumSpendEnabled: event.target.checked,
-                      minimumSpendCents: event.target.checked
-                        ? (form.minimumSpendCents ?? 1200)
-                        : null,
-                    })}
-                  />
-                  <span>
-                    <strong>Gasto mínimo</strong>
-                    <small>Desde 0 € sin límite superior</small>
-                  </span>
-                </label>
-
-                {form.minimumSpendEnabled ? (
-                  <div className={styles.formField}>
-                    <label htmlFor="promotion-min-spend">Importe mínimo (€)</label>
-                    <input
-                      id="promotion-min-spend"
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      value={((form.minimumSpendCents ?? 0) / 100).toFixed(2)}
-                      onChange={(event) => setForm({
-                        ...form,
-                        minimumSpendCents: Math.max(
-                          0,
-                          Math.round(Number(event.target.value) * 100) || 0,
-                        ),
-                      })}
-                    />
-                  </div>
-                ) : null}
-              </div>
-
-              <div className={styles.rulesPreview} aria-live="polite">
-                <p className={styles.rulesPreviewTitle}>Así lo verá el cliente</p>
-                <div className={styles.ruleChips}>
-                  {describePromotionRules({ ...form, type: selectedType }).map((rule) => (
-                    <em key={rule}>{rule}</em>
-                  ))}
-                </div>
-                <p className={styles.rulesPreviewHint}>
-                  Si no puede usarla en ese momento (fuera de horario, sin plazas o sin usos), la verá con
-                  un candado y el motivo.
-                </p>
-              </div>
-            </section>
-
-            <section className={`${styles.formSection} ${styles.formSectionFooter}`}>
-              <label className={`${styles.toggleCard} ${styles.toggleCardWide} ${form.active ? styles.toggleCardActive : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(event) => setForm({ ...form, active: event.target.checked })}
-                />
-                <span>
-                  <strong>Promoción activa</strong>
-                  <small>Visible para clientes cuando esté publicada</small>
-                </span>
-              </label>
-            </section>
-          </div>
-
-          {formError && <div className={styles.formError}>{formError}</div>}
-
-          {demo ? (
-            <p className={styles.formError}>En la demo las promociones se pueden ver, no crear ni editar.</p>
-          ) : (
-          <div className={styles.formActions}>
-            <button
-              type="button"
-              className={`${styles.actionButton} ${styles.actionButtonPrimary}`}
-              onClick={() => void handleSave()}
-              disabled={saving}
-            >
-              {saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Crear promoción'}
-            </button>
-
-            {editingId && (
-              <button
-                type="button"
-                className={styles.actionButton}
-                onClick={() => {
-                  const promotion = promotions.find((item) => item.id === editingId)
-                  if (promotion) {
-                    setDeleteTarget(promotion)
-                  }
-                }}
-                disabled={saving}
-              >
-                Eliminar
-              </button>
-            )}
-          </div>
-          )}
-        </section>
-      </div>
+            </footer>
+          </aside>
+        </>
+      ) : null}
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
