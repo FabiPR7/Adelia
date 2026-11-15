@@ -24,6 +24,7 @@ import CompanyNotificationsBell from '../components/CompanyNotificationsBell'
 import { LockedControl, PlanLockedPanel } from '../components/PlanLockHint'
 import LegalLinks from '../components/LegalLinks'
 import { parseCompanyPlanId } from '../data/companyPlans'
+import { companyAcceptsReservations } from '../data/companyReservationMode'
 import {
   lockedCapabilityForTab,
   lockedTabFeatureLabel,
@@ -72,6 +73,16 @@ function settingsSectionLabel(tab: CompanyTab): string {
   }
 
   return SETTINGS_SECTIONS.find((section) => section.id === tab)?.label ?? 'Mi restaurante'
+}
+
+/** Grupo del menú al que pertenece la sección (se muestra encima del título). */
+function groupLabelForTab(tab: CompanyTab): string {
+  if (tab === 'reservations') return 'Operación'
+  if (isClientsTab(tab)) return 'Clientes'
+  if (isReportsTab(tab)) return 'Informes'
+  if (isCompiteTab(tab)) return 'Compite'
+  if (tab === 'help') return 'Soporte'
+  return 'Mi restaurante'
 }
 
 type SidebarGroupId = 'clients' | 'reports' | 'settings' | 'compite'
@@ -136,6 +147,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
   const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false)
   const [isSavingUnsaved, setIsSavingUnsaved] = useState(false)
   const [openGroups, setOpenGroups] = useState<Record<SidebarGroupId, boolean>>(CLOSED_GROUPS)
+  const [reservationCreateSignal, setReservationCreateSignal] = useState(0)
   const settingsRef = useRef<CompanySettingsHandle>(null)
 
   useEffect(() => {
@@ -351,7 +363,6 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
             <h1>{company.name}</h1>
             <p>{company.location || 'Sin dirección'}</p>
           </div>
-          {renderCompiteBell()}
           <button
             type="button"
             className={styles.sidebarClose}
@@ -449,7 +460,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
       </aside>
 
       <div className={styles.contentArea}>
-        <header className={styles.mobileHeader}>
+        <header className={styles.topBar}>
           <button
             type="button"
             className={styles.menuButton}
@@ -461,14 +472,26 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
             <span className={styles.menuButtonBar} aria-hidden="true" />
             <span className={styles.menuButtonBar} aria-hidden="true" />
           </button>
-          <div className={styles.mobileBrand}>
-            <img src={logoSrc} alt="" className={styles.mobileLogo} />
-            <div>
-              <strong>{company.name}</strong>
-              <span>{settingsSectionLabel(activeTab)}</span>
-            </div>
+          <div className={styles.topBarTitle}>
+            <span className={styles.topBarGroup}>{groupLabelForTab(activeTab)}</span>
+            <strong>{settingsSectionLabel(activeTab)}</strong>
           </div>
-          {renderCompiteBell()}
+          <div className={styles.topBarActions}>
+            {renderCompiteBell()}
+            {demo || activeTab === 'reservations' || !companyAcceptsReservations(company.reservationMode) ? null : (
+              <button
+                type="button"
+                className={styles.topBarPrimary}
+                onClick={() => {
+                  attemptNavigate('reservations')
+                  setReservationCreateSignal((value) => value + 1)
+                }}
+              >
+                <span aria-hidden="true">+</span>
+                <span className={styles.topBarPrimaryLabel}>Nueva reserva</span>
+              </button>
+            )}
+          </div>
         </header>
 
         <main className={`${styles.main} ${demo ? styles.demoReadOnly : ''}`}>
@@ -508,7 +531,9 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
               />
             ) : (
               <>
-                {activeTab === 'reservations' ? <CompanyReservations companyId={company.id} /> : null}
+                {activeTab === 'reservations' ? (
+                  <CompanyReservations companyId={company.id} createSignal={reservationCreateSignal} />
+                ) : null}
                 {activeTab === 'clients-reservations' ? <CompanyClients companyId={company.id} /> : null}
                 {activeTab === 'clients-promotions' ? <CompanyPromotions companyId={company.id} /> : null}
                 {activeTab === 'clients-reviews' ? <CompanyReviews companyId={company.id} /> : null}

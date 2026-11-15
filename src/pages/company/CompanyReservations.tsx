@@ -40,13 +40,15 @@ import styles from './CompanyReservations.module.css'
 
 interface CompanyReservationsProps {
   companyId: string
+  /** Sube cuando se pulsa «+ Nueva reserva» en la barra superior del panel. */
+  createSignal?: number
 }
 
 function sortReservations(items: Reservation[]) {
   return [...items].sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
 }
 
-function CompanyReservations({ companyId }: CompanyReservationsProps) {
+function CompanyReservations({ companyId, createSignal = 0 }: CompanyReservationsProps) {
   const { company } = useAuth()
   const demo = useCompanyDemo()
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -269,6 +271,16 @@ function CompanyReservations({ companyId }: CompanyReservationsProps) {
     setEditingReservation(null)
     setModalOpen(true)
   }
+
+  // «+ Nueva reserva» de la barra superior: abre el mismo formulario que el botón de esta pantalla.
+  useEffect(() => {
+    if (createSignal > 0 && !demo && acceptsReservations) {
+      setSelectedDate((current) => (isPastCalendarDate(current) ? new Date() : current))
+      setEditingReservation(null)
+      setModalOpen(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createSignal])
 
   const handleOpenEdit = (reservation: Reservation) => {
     if (isReservationStartInPast(selectedDate, dateToTimeInput(reservation.startTime))) {

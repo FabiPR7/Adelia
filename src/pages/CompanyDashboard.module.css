@@ -1,11 +1,77 @@
+/*
+ * Panel del restaurante: estilo de herramienta de trabajo (CRM).
+ * Los tokens globales se redefinen SOLO dentro del panel: todas las secciones
+ * (que usan --font-display, --color-brown, --color-border…) toman a la vez la
+ * tipografía sobria, los neutros y el acento teja, sin tocar la web pública.
+ */
 .page {
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  --color-cream: #f6f5f2;
+  --color-beige: #f1eee9;
+  --color-beige-dark: #e0dbd4;
+  --color-sand: #a8957f;
+  --color-brown: #1c1917;
+  --color-brown-light: #57504a;
+  --color-text: #1c1917;
+  --color-text-muted: #6b645d;
+  --color-border: #e5e1db;
+  --color-shadow: rgba(28, 25, 23, 0.05);
+  --color-shadow-strong: rgba(28, 25, 23, 0.1);
+
+  --color-accent: #a24a22;
+  --color-accent-strong: #8a3f1c;
+  --color-accent-ink: #8a3f1c;
+  --color-accent-wash: rgba(138, 63, 28, 0.08);
+  --gradient-energy: linear-gradient(135deg, #8a3f1c 0%, #a24a22 100%);
+  --color-sand-wash: rgba(28, 25, 23, 0.04);
+
+  --color-ok: #1f6b45;
+  --color-ok-bg: #e3f1ea;
+  --color-warn: #7a4a00;
+  --color-warn-bg: #fff1d6;
+  --color-danger-bg: #fbeaea;
+
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --elev-1: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --elev-2: 0 4px 14px rgba(28, 25, 23, 0.07), 0 1px 3px rgba(28, 25, 23, 0.05);
+  --elev-3: 0 12px 32px rgba(28, 25, 23, 0.12), 0 2px 6px rgba(28, 25, 23, 0.06);
+
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   background: var(--color-cream);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Títulos de las secciones: misma escala y peso en todo el panel. */
+.main :where(h1) {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.main :where(h2, h3) {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+}
+
+.main :where(table) {
+  font-variant-numeric: tabular-nums;
 }
 
 .pageDemo {
@@ -13,10 +79,10 @@
   isolation: isolate;
   height: min(860px, 88vh);
   max-height: 88vh;
-  border-radius: 22px;
+  border-radius: 18px;
   overflow: hidden;
-  border: 1px solid rgba(61, 42, 31, 0.12);
-  box-shadow: 0 20px 48px rgba(26, 18, 12, 0.12);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--elev-3);
 }
 
 .demoRibbon {
@@ -27,8 +93,8 @@
   margin: 0;
   padding: 0.28rem 0.7rem;
   border-radius: 999px;
-  background: rgba(61, 42, 31, 0.9);
-  color: #fff8ee;
+  background: rgba(28, 25, 23, 0.9);
+  color: #ffffff;
   font-family: var(--font-ui);
   font-size: 0.7rem;
   letter-spacing: 0.02em;
@@ -63,23 +129,27 @@
   display: none;
 }
 
+/* ── Menú lateral ─────────────────────────────────────────── */
+
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.1rem;
   min-height: 0;
   height: 100%;
-  padding: 1.5rem;
-  background: var(--color-white);
+  padding: 1.1rem 0.85rem 0.9rem;
+  background: #ffffff;
   border-right: 1px solid var(--color-border);
   overflow: hidden;
 }
 
 .sidebarBrand {
   display: flex;
-  gap: 0.875rem;
+  gap: 0.7rem;
   align-items: center;
   flex-shrink: 0;
+  padding: 0 0.4rem 0.9rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .sidebarBrandText {
@@ -92,121 +162,153 @@
 }
 
 .sidebarLogo {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   object-fit: cover;
-  box-shadow: 0 2px 10px var(--color-shadow);
+  border: 1px solid var(--color-border);
   background: var(--color-cream);
   flex-shrink: 0;
 }
 
 .sidebarBrand h1 {
-  font-family: var(--font-display);
-  font-size: 1.375rem;
-  color: var(--color-brown);
-  line-height: 1.2;
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebarBrand p {
-  font-size: 0.8125rem;
+  margin: 0.1rem 0 0;
+  overflow: hidden;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
-  margin-top: 0.15rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.15rem;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
-.navItem {
+/* Las pistas bajo cada opción se quitan: en un CRM el menú es de una línea. */
+.navHint {
+  display: none;
+}
+
+.navItem,
+.navSubItem {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  padding: 0.875rem 1rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  align-items: center;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 0.65rem;
+  border: none;
+  border-radius: 8px;
   background: transparent;
+  color: #4a443e;
+  font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.navItem:hover {
-  background: var(--color-cream);
+.navItem:hover,
+.navSubItem:hover {
+  background: #f6f4f1;
+  color: var(--color-text);
 }
 
-.navItemActive {
-  background: linear-gradient(135deg, var(--color-beige) 0%, var(--color-white) 100%);
-  border-color: var(--color-border);
+.navItem:focus-visible,
+.navSubItem:focus-visible,
+.navGroupToggle:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 1px;
 }
 
-.navLabel {
-  font-size: 0.9375rem;
+.navItemActive,
+.navSubItemActive {
+  background: #f1ece6;
+  color: var(--color-text);
+}
+
+.navItemActive .navLabel,
+.navSubItemActive .navSubLabel {
   font-weight: 600;
-  color: var(--color-brown);
 }
 
-.navHint {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
+.navLabel,
+.navSubLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: inherit;
 }
 
 .navGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  margin-top: 0.55rem;
 }
 
 .navGroupTitle {
-  padding: 0.875rem 1rem 0.35rem;
+  padding: 0.5rem 0.65rem 0.25rem;
 }
 
+/* Cabecera de grupo: etiqueta pequeña en mayúsculas, como en la maqueta. */
 .navGroupToggle {
   position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
+  align-items: center;
   width: 100%;
-  padding: 0.875rem 1.75rem 0.35rem 1rem;
+  min-height: 30px;
+  padding: 0 1.6rem 0 0.65rem;
   border: none;
+  border-radius: 6px;
   background: transparent;
   text-align: left;
   cursor: pointer;
 }
 
-.navGroupToggle::after {
-  content: '▾';
-  position: absolute;
-  right: 0.7rem;
-  top: 0.95rem;
-  font-size: 0.7rem;
+.navGroupToggle .navLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--color-text-muted);
-  transform: rotate(-90deg);
-  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.navGroupToggle[aria-expanded='true']::after {
-  transform: rotate(0deg);
+.navGroupToggle::after {
+  content: '';
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--color-text-muted);
+  border-bottom: 1.5px solid var(--color-text-muted);
+  transform: translateY(-70%) rotate(45deg);
+  transition: transform 0.2s ease;
 }
 
 .navGroupToggle[aria-expanded='false']::after {
-  transform: rotate(-90deg);
+  transform: translateY(-50%) rotate(-45deg);
 }
 
-.navGroupToggle:hover .navLabel {
-  color: var(--color-brown);
-}
-
+.navGroupToggle:hover .navLabel,
 .navGroupTitleActive .navLabel {
-  color: var(--color-brown);
+  color: var(--color-text);
 }
 
 .navSubmenuWrap {
@@ -216,9 +318,9 @@
   pointer-events: none;
   visibility: hidden;
   transition:
-    grid-template-rows 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.22s ease,
-    visibility 0s linear 0.34s;
+    grid-template-rows 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease,
+    visibility 0s linear 0.24s;
 }
 
 .navSubmenuWrapOpen {
@@ -227,8 +329,8 @@
   pointer-events: auto;
   visibility: visible;
   transition:
-    grid-template-rows 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.22s ease,
+    grid-template-rows 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease,
     visibility 0s;
 }
 
@@ -240,87 +342,62 @@
 .navSubmenu {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.15rem 0 0.35rem;
-  padding-left: 0.65rem;
-  margin-left: 0.65rem;
-  border-left: 2px solid var(--color-border);
-  transform: translateY(-6px);
-  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.navSubmenuWrapOpen .navSubmenu {
-  transform: translateY(0);
+  gap: 0.1rem;
+  padding: 0.15rem 0 0.2rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .navGroupToggle::after,
   .navSubmenuWrap,
-  .navSubmenu {
+  .navItem,
+  .navSubItem {
     transition: none;
   }
-}
-
-.navSubItem {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.navSubItem:hover {
-  background: var(--color-cream);
-}
-
-.navSubItemActive {
-  background: var(--color-cream);
-  border-color: var(--color-border);
-}
-
-.navSubLabel {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-brown);
 }
 
 .sidebarFooter {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.6rem;
   flex-shrink: 0;
-  padding-top: 1rem;
+  padding: 0.85rem 0.4rem 0;
   border-top: 1px solid var(--color-border);
 }
 
 .meta {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.1rem;
+  overflow: hidden;
   font-size: 0.75rem;
   color: var(--color-text-muted);
 }
 
+.meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .logoutButton {
-  padding: 0.55rem 0.875rem;
+  min-height: 36px;
+  padding: 0 0.85rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-white);
-  color: var(--color-brown);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--color-text);
+  font: inherit;
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 .logoutButton:hover {
-  background: var(--color-cream);
+  background: #f6f4f1;
 }
+
+/* ── Zona de contenido ────────────────────────────────────── */
 
 .contentArea {
   min-width: 0;
@@ -331,8 +408,83 @@
   flex-direction: column;
 }
 
-.mobileHeader {
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-shrink: 0;
+  min-height: 60px;
+  padding: 0 2rem;
+  background: #ffffff;
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  z-index: 50;
+}
+
+.menuButton {
   display: none;
+}
+
+.topBarTitle {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.topBarGroup {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.topBarTitle strong {
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topBarActions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.topBarPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 38px;
+  padding: 0 0.95rem;
+  border: none;
+  border-radius: 9px;
+  background: var(--color-accent-strong);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.12s ease;
+}
+
+.topBarPrimary:hover {
+  background: #6e3013;
+}
+
+.topBarPrimary:active {
+  transform: scale(0.97);
+}
+
+.topBarPrimary:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
 }
 
 .main {
@@ -340,7 +492,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 1.5rem 2rem 2rem;
+  padding: 1.75rem 2rem 2.5rem;
   width: 100%;
   max-width: none;
 }
@@ -350,9 +502,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding: 0.85rem 1.1rem;
-  border: 1px solid rgba(181, 74, 74, 0.4);
+  margin-bottom: 1.25rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid #efc7c7;
   border-radius: var(--radius-md);
   background: var(--color-danger-bg);
 }
@@ -373,20 +525,21 @@
 .deactivatedBannerText span {
   font-size: 0.8125rem;
   color: var(--color-error);
-  opacity: 0.85;
 }
 
 .deactivatedBannerButton {
   flex-shrink: 0;
-  padding: 0.55rem 1.1rem;
+  min-height: 36px;
+  padding: 0 1rem;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   background: var(--color-error);
-  color: var(--color-white);
+  color: #ffffff;
+  font: inherit;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition: transform 0.12s ease, opacity 0.15s ease;
 }
 
 .deactivatedBannerButton:hover {
@@ -410,7 +563,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .deactivatedBannerButton {
+  .deactivatedBannerButton,
+  .topBarPrimary,
+  .logoutButton {
     transition: none;
   }
 }
@@ -423,6 +578,8 @@
   display: block;
   min-width: 0;
 }
+
+/* ── Pantallas estrechas: el menú se abre como cajón ──────── */
 
 @media (max-width: 900px) {
   .page {
@@ -444,7 +601,7 @@
     z-index: 199;
     border: none;
     padding: 0;
-    background: rgba(61, 50, 41, 0.35);
+    background: rgba(28, 25, 23, 0.32);
     cursor: pointer;
   }
 
@@ -454,7 +611,7 @@
     left: 0;
     bottom: 0;
     z-index: 200;
-    width: min(280px, 88vw);
+    width: min(272px, 86vw);
     min-height: 0;
     transform: translateX(-100%);
     transition: transform 0.22s ease;
@@ -464,7 +621,7 @@
 
   .sidebarOpen {
     transform: translateX(0);
-    box-shadow: 4px 0 24px rgba(61, 50, 41, 0.18);
+    box-shadow: var(--elev-3);
   }
 
   .sidebarClose {
@@ -472,27 +629,20 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 2rem;
-    height: 2rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-cream);
-    color: var(--color-brown);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--color-text);
     font-size: 0.875rem;
     cursor: pointer;
   }
 
-  .mobileHeader {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-shrink: 0;
-    padding: 0.85rem 1rem;
-    background: var(--color-white);
-    border-bottom: 1px solid var(--color-border);
-    position: sticky;
-    top: 0;
-    z-index: 50;
+  .topBar {
+    min-height: 56px;
+    padding: 0 0.85rem;
+    gap: 0.65rem;
   }
 
   .menuButton {
@@ -503,10 +653,10 @@
     flex-shrink: 0;
     width: 2.5rem;
     height: 2.5rem;
-    padding: 0.45rem;
+    padding: 0.6rem;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-cream);
+    border-radius: 9px;
+    background: #ffffff;
     cursor: pointer;
   }
 
@@ -515,38 +665,23 @@
     width: 100%;
     height: 2px;
     border-radius: 1px;
-    background: var(--color-brown);
-  }
-
-  .mobileBrand {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .mobileLogo {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    object-fit: cover;
-    flex-shrink: 0;
-  }
-
-  .mobileHeader strong {
-    display: block;
-    color: var(--color-brown);
-    font-size: 0.9375rem;
-    line-height: 1.2;
-  }
-
-  .mobileHeader span {
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
+    background: var(--color-text);
   }
 
   .main {
     padding: 1rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .topBarPrimaryLabel {
+    display: none;
+  }
+
+  .topBarPrimary {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+    font-size: 1.1rem;
   }
 }
