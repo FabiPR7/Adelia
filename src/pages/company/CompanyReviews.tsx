@@ -461,6 +461,7 @@ function CompanyReviews({ companyId }: CompanyReviewsProps) {
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent')
   const [visibleCount, setVisibleCount] = useState(PAGE_STEP)
   const [lightbox, setLightbox] = useState<{ items: ReviewMediaItem[]; index: number } | null>(null)
+  const listRef = useRef<HTMLElement>(null)
 
   const loadReviews = useCallback(async () => {
     setLoading(true)
@@ -737,14 +738,17 @@ function CompanyReviews({ companyId }: CompanyReviewsProps) {
           onClick={() => {
             clearFilters()
             setReplyFilter('pending')
-            setSortOrder('worst')
+            // Lleva directamente a la lista, ya filtrada.
+            window.requestAnimationFrame(() => {
+              listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            })
           }}
           disabled={analysis.pending === 0}
         >
           <span className={styles.kpiLabel}>Sin responder</span>
           <span className={styles.kpiValue}>{analysis.pending}</span>
           <span className={styles.kpiHint}>
-            {analysis.pending > 0 ? 'Ver primero las peores →' : '¡Todo al día!'}
+            {analysis.pending > 0 ? 'Ver las reseñas sin responder →' : '¡Todo al día!'}
           </span>
         </button>
       </div>
@@ -860,7 +864,7 @@ function CompanyReviews({ companyId }: CompanyReviewsProps) {
         </div>
       ) : null}
 
-      <section className={styles.listCard} aria-labelledby="company-reviews-heading">
+      <section ref={listRef} className={styles.listCard} aria-labelledby="company-reviews-heading">
         <h3 id="company-reviews-heading" className={styles.srOnly}>Listado de reseñas</h3>
         <div className={styles.toolbar}>
           <div className={styles.segmented} role="group" aria-label="Filtrar por respuesta">
