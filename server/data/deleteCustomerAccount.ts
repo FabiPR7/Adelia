@@ -144,6 +144,27 @@ export async function deleteCustomerAccount(uid: string): Promise<void> {
     adminDb.collection(COLLECTIONS.userFavorites).where('userId', '==', uid),
   )
 
+  // Reportes de locales y sugerencias: el texto se conserva (soporte puede tener que
+  // revisar una queja), pero ya no se sabe de quién era.
+  for (const collectionName of ['restaurantReports', 'suggestions']) {
+    const query = adminDb.collection(collectionName).where('customerUid', '==', uid)
+    for (;;) {
+      const snap = await query.limit(ANONYMIZE_PAGE).get()
+      if (snap.empty) break
+      const batch = adminDb.batch()
+      for (const docSnap of snap.docs) {
+        batch.update(docSnap.ref, {
+          customerUid: FieldValue.delete(),
+          customerName: 'Cliente eliminado',
+          customerEmail: '',
+          anonymizedAt: Timestamp.now(),
+        })
+      }
+      await batch.commit()
+      if (snap.size < ANONYMIZE_PAGE) break
+    }
+  }
+
   // Anonimizar reservas: el local conserva el hueco; se quita PII del comensal.
   await anonymizeReservations(
     adminDb.collection(COLLECTIONS.reservations).where('customerUid', '==', uid),
