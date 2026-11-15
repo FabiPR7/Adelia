@@ -57,10 +57,11 @@
 }
 
 .popover {
-  position: absolute;
-  top: calc(100% + 0.35rem);
+  /* top/left los calcula el componente junto al botón (fixed: no lo recorta la ficha). */
+  position: fixed;
+  top: 0;
   left: 0;
-  z-index: 30;
+  z-index: 60;
   width: min(17.5rem, calc(100vw - 2rem));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);

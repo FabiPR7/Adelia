@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Calendar from './Calendar'
 import { computeReservationCountsByMonth } from '../services/firestore'
 import type { Reservation } from '../types'
@@ -32,6 +32,57 @@ function ClientReservationDatePicker({
   })
 
   const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  // El calendario flota con position: fixed para que ningún contenedor con
+  // overflow: hidden (p. ej. la ficha del cliente) lo recorte.
+  const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPopoverPosition(null)
+      return
+    }
+
+    const GAP = 6
+    const MARGIN = 12
+
+    const place = () => {
+      const trigger = triggerRef.current
+      const popover = popoverRef.current
+
+      if (!trigger || !popover) {
+        return
+      }
+
+      const rect = trigger.getBoundingClientRect()
+      const width = popover.offsetWidth
+      const height = popover.offsetHeight
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const spaceBelow = viewportHeight - rect.bottom - MARGIN
+      const spaceAbove = rect.top - MARGIN
+      const openUp = spaceBelow < height + GAP && spaceAbove > spaceBelow
+      const top = openUp
+        ? Math.max(MARGIN, rect.top - height - GAP)
+        : Math.min(rect.bottom + GAP, Math.max(MARGIN, viewportHeight - height - MARGIN))
+      const left = Math.min(
+        Math.max(MARGIN, rect.left),
+        Math.max(MARGIN, viewportWidth - width - MARGIN),
+      )
+
+      setPopoverPosition({ top, left })
+    }
+
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open])
 
   const selectedDate = useMemo(
     () => (value ? new Date(`${value}T12:00:00`) : viewDate),
@@ -97,6 +148,7 @@ function ClientReservationDatePicker({
     <div className={styles.wrapper} ref={rootRef}>
       <span className={styles.label}>Fecha</span>
       <button
+        ref={triggerRef}
         type="button"
         className={`${styles.trigger} ${open ? styles.triggerOpen : ''}`}
         onClick={() => setOpen((current) => !current)}
@@ -112,7 +164,17 @@ function ClientReservationDatePicker({
       </button>
 
       {open && (
-        <div className={styles.popover} role="dialog" aria-label="Seleccionar fecha">
+        <div
+          ref={popoverRef}
+          className={styles.popover}
+          role="dialog"
+          aria-label="Seleccionar fecha"
+          style={
+            popoverPosition
+              ? { top: popoverPosition.top, left: popoverPosition.left }
+              : { visibility: 'hidden' }
+          }
+        >
           <div className={styles.popoverActions}>
             <button
               type="button"
