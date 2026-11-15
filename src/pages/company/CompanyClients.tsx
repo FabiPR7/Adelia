@@ -37,12 +37,49 @@ function shortDate(date: Date): string {
   return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+type ClientSegment = 'all' | 'regular' | 'new'
+
+const REGULAR_MIN_RESERVATIONS = 3
+const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+
+/** «Hoy», «Ayer», «Hace 5 días»… y la fecha corta a partir de un mes. */
+function relativeDay(date: Date, now = Date.now()): string {
+  const day = 24 * 60 * 60 * 1000
+  const startOf = (value: number) => {
+    const d = new Date(value)
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  }
+  const diff = Math.round((startOf(now) - startOf(date.getTime())) / day)
+  if (diff === 0) return 'Hoy'
+  if (diff === 1) return 'Ayer'
+  if (diff === -1) return 'Mañana'
+  if (diff < 0) return `En ${Math.abs(diff)} días`
+  if (diff < 30) return `Hace ${diff} días`
+  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+}
+
+/** El valor que más se repite (o null si la lista está vacía). */
+function mostFrequent<T>(values: T[]): { value: T; count: number } | null {
+  const counts = new Map<T, number>()
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1)
+  }
+  let best: { value: T; count: number } | null = null
+  for (const [value, count] of counts) {
+    if (!best || count > best.count) {
+      best = { value, count }
+    }
+  }
+  return best
+}
+
 function CompanyClients({ companyId }: CompanyClientsProps) {
   const [clients, setClients] = useState<CompanyClient[]>([])
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [tableMeta, setTableMeta] = useState<Record<string, { name: string; capacity: number }>>({})
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [segment, setSegment] = useState<ClientSegment>('all')
   const [reservationDateFilter, setReservationDateFilter] = useState('')
   const [reservationTimeFilter, setReservationTimeFilter] = useState('')
   const [reservationTableFilter, setReservationTableFilter] = useState('')
@@ -116,21 +153,32 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
     setReservationTableFilter('')
   }, [selectedClientId])
 
+  const segmentCounts = useMemo(() => ({
+    all: clients.length,
+    regular: clients.filter((client) => client.reservationCount >= REGULAR_MIN_RESERVATIONS).length,
+    new: clients.filter((client) => isNewCompanyClient(client)).length,
+  }), [clients])
+
   const filteredClients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
 
-    if (!query) {
-      return clients
-    }
-
     return clients.filter((client) => {
+      if (segment === 'regular' && client.reservationCount < REGULAR_MIN_RESERVATIONS) {
+        return false
+      }
+      if (segment === 'new' && !isNewCompanyClient(client)) {
+        return false
+      }
+      if (!query) {
+        return true
+      }
       return (
         client.name.toLowerCase().includes(query)
         || client.email.toLowerCase().includes(query)
         || client.phone.toLowerCase().includes(query)
       )
     })
-  }, [clients, searchQuery])
+  }, [clients, searchQuery, segment])
 
   const selectedClient = useMemo(
     () => clients.find((client) => client.id === selectedClientId) ?? null,
@@ -247,6 +295,25 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
     }
   })()
 
+  // Hábitos del cliente, sacados de sus reservas no canceladas.
+  const habits = (() => {
+    const kept = clientReservations.filter((row) => row.status !== 'cancelled')
+    if (kept.length === 0) {
+      return null
+    }
+    const table = mostFrequent(kept.map((row) => row.tableId).filter(Boolean))
+    const hour = mostFrequent(kept.map((row) => formatTimeSpanish(row.startTime)))
+    const weekday = mostFrequent(kept.map((row) => row.startTime.getDay()))
+    const averagePax = kept.reduce((sum, row) => sum + (row.pax || 0), 0) / kept.length
+    return {
+      table: table ? { name: tableMeta[table.value]?.name ?? 'Mesa', count: table.count } : null,
+      hour,
+      weekday: weekday ? { name: WEEKDAYS[weekday.value], count: weekday.count } : null,
+      averagePax,
+      total: kept.length,
+    }
+  })()
+
   if (isLoading) {
     return (
       <div className={styles.wrapper}>
@@ -295,11 +362,40 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
 
       <div className={styles.layout}>
         <section className={styles.listPanel} aria-label="Lista de clientes">
+          <div className={styles.segmented} role="group" aria-label="Filtrar clientes">
+            {([
+              ['all', 'Todos'],
+              ['regular', 'Habituales'],
+              ['new', 'Nuevos'],
+            ] as [ClientSegment, string][]).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`${styles.segmentedButton} ${segment === id ? styles.segmentedButtonOn : ''}`}
+                aria-pressed={segment === id}
+                onClick={() => setSegment(id)}
+                title={
+                  id === 'regular'
+                    ? `${REGULAR_MIN_RESERVATIONS} reservas o más`
+                    : id === 'new'
+                      ? 'Primera reserva en los últimos 30 días'
+                      : undefined
+                }
+              >
+                {label}
+                <span className={styles.segmentedCount}>{segmentCounts[id]}</span>
+              </button>
+            ))}
+          </div>
           {filteredClients.length === 0 ? (
             <div className={styles.emptyState}>
               {clients.length === 0
                 ? 'Aún no hay clientes. Aparecerán cuando reserven con su correo.'
-                : 'Ningún cliente coincide con la búsqueda.'}
+                : searchQuery.trim()
+                  ? 'Ningún cliente coincide con la búsqueda.'
+                  : segment === 'regular'
+                    ? `Aún no hay clientes con ${REGULAR_MIN_RESERVATIONS} reservas o más.`
+                    : 'No hay clientes nuevos en los últimos 30 días.'}
             </div>
           ) : (
             <ul className={styles.clientList}>
@@ -319,8 +415,13 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
                       </span>
                       <span className={styles.clientMeta} title={client.email}>{client.email}</span>
                     </span>
-                    <span className={styles.clientCount} aria-label={`${client.reservationCount} reservas`}>
-                      {client.reservationCount}
+                    <span className={styles.clientSide}>
+                      <span className={styles.clientCount} aria-label={`${client.reservationCount} reservas`}>
+                        {client.reservationCount}
+                      </span>
+                      <span className={styles.clientLast} title={`Última reserva: ${shortDate(client.lastReservationDate)}`}>
+                        {relativeDay(client.lastReservationDate)}
+                      </span>
                     </span>
                   </button>
                 </li>
@@ -337,6 +438,16 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
               {loadingMore ? 'Cargando…' : 'Cargar más clientes'}
             </button>
           ) : null}
+          <footer className={styles.listFooter}>
+            <span>
+              <strong>{filteredClients.length}</strong> de {clients.length}
+              {clientsCursor ? '+' : ''}
+            </span>
+            <span>
+              <strong>{segmentCounts.new}</strong> nuevos este mes · <strong>{segmentCounts.regular}</strong>{' '}
+              habituales
+            </span>
+          </footer>
         </section>
 
         <section className={styles.detailPanel} aria-label="Ficha del cliente">
@@ -364,6 +475,25 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
                     )}
                     <span>Cliente desde {formatDateSpanish(selectedClient.firstReservationDate)}</span>
                   </div>
+                </div>
+                <div className={styles.profileActions}>
+                  {selectedClient.email ? (
+                    <a className={styles.actionButton} href={`mailto:${selectedClient.email}`}>
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <rect x="3" y="5" width="18" height="14" rx="2" />
+                        <path d="m3 7 9 6 9-6" />
+                      </svg>
+                      Correo
+                    </a>
+                  ) : null}
+                  {selectedClient.phone ? (
+                    <a className={styles.actionButton} href={`tel:${selectedClient.phone.replace(/\s+/g, '')}`}>
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
+                      </svg>
+                      Llamar
+                    </a>
+                  ) : null}
                 </div>
               </div>
 
@@ -393,6 +523,49 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
                   <dd className={styles.statDate}>{stats.next ? shortDate(stats.next) : '—'}</dd>
                 </div>
               </dl>
+
+              {habits ? (
+                <div className={styles.habits}>
+                  <h4 className={styles.habitsTitle}>Hábitos</h4>
+                  <div className={styles.habitList}>
+                    <div className={styles.habit}>
+                      <span className={styles.habitLabel}>Mesa favorita</span>
+                      <span className={styles.habitValue}>{habits.table?.name ?? '—'}</span>
+                      {habits.table ? (
+                        <span className={styles.habitHint}>
+                          {habits.table.count} de {habits.total} {habits.total === 1 ? 'vez' : 'veces'}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className={styles.habit}>
+                      <span className={styles.habitLabel}>Hora habitual</span>
+                      <span className={styles.habitValue}>{habits.hour?.value ?? '—'}</span>
+                      {habits.hour ? (
+                        <span className={styles.habitHint}>
+                          {habits.hour.count} de {habits.total} {habits.total === 1 ? 'vez' : 'veces'}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className={styles.habit}>
+                      <span className={styles.habitLabel}>Día preferido</span>
+                      <span className={`${styles.habitValue} ${styles.capitalize}`}>{habits.weekday?.name ?? '—'}</span>
+                      {habits.weekday ? (
+                        <span className={styles.habitHint}>
+                          {habits.weekday.count} de {habits.total} {habits.total === 1 ? 'vez' : 'veces'}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className={styles.habit}>
+                      <span className={styles.habitLabel}>Viene con</span>
+                      <span className={styles.habitValue}>
+                        {habits.averagePax.toLocaleString('es-ES', { maximumFractionDigits: 1 })}{' '}
+                        {Math.round(habits.averagePax) === 1 ? 'persona' : 'personas'}
+                      </span>
+                      <span className={styles.habitHint}>de media por reserva</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className={styles.historyHead}>
                 <h4 className={styles.historyTitle}>
