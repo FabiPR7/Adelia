@@ -15,16 +15,26 @@ interface CompanyClientsProps {
   companyId: string
 }
 
-const STATUS_LABELS: Record<Reservation['status'], string> = {
-  confirmed: 'Confirmada',
-  cancelled: 'Cancelada',
-  completed: 'Pendiente',
+/** Estado tal como lo entiende el local (el servidor guarda las activas como `completed`). */
+function reservationStatus(reservation: Reservation, now: number): { label: string; className: string } {
+  if (reservation.status === 'cancelled') {
+    return reservation.noShow
+      ? { label: 'No vino', className: styles.statusDanger }
+      : { label: 'Cancelada', className: styles.statusMuted }
+  }
+  if (reservation.status === 'confirmed') return { label: 'Asistió', className: styles.statusOk }
+  return reservation.startTime.getTime() <= now
+    ? { label: 'Por marcar', className: styles.statusWarn }
+    : { label: 'Reservada', className: styles.statusInfo }
 }
 
-const STATUS_CLASS: Record<Reservation['status'], string> = {
-  confirmed: styles.statusConfirmed,
-  cancelled: styles.statusCancelled,
-  completed: styles.statusCompleted,
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? '')).toUpperCase()
+}
+
+function shortDate(date: Date): string {
+  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function CompanyClients({ companyId }: CompanyClientsProps) {
@@ -221,6 +231,22 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
     setReservationTableFilter('')
   }
 
+  const now = Date.now()
+  const stats = (() => {
+    const visits = clientReservations.filter((row) => row.status === 'confirmed')
+    const upcoming = clientReservations
+      .filter((row) => row.status !== 'cancelled' && row.startTime.getTime() > now)
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+    return {
+      total: clientReservations.length,
+      visits: visits.length,
+      cancelled: clientReservations.filter((row) => row.status === 'cancelled' && !row.noShow).length,
+      noShows: clientReservations.filter((row) => row.noShow === true).length,
+      lastVisit: visits[0]?.startTime ?? null,
+      next: upcoming[0]?.startTime ?? null,
+    }
+  })()
+
   if (isLoading) {
     return (
       <div className={styles.wrapper}>
@@ -232,15 +258,28 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
-        <h2>Clientes</h2>
+        <div>
+          <h2 className={styles.title}>Clientes</h2>
+          <p className={styles.subtitle}>
+            {clients.length} {clients.length === 1 ? 'cliente' : 'clientes'}
+            {clientsCursor ? ' (hay más)' : ''} · quien ha reservado en tu local
+          </p>
+        </div>
         <div className={styles.searchRow}>
-          <input
-            type="search"
-            className={styles.searchInput}
-            placeholder="Buscar nombre, correo o teléfono…"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
+          <label className={styles.search}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input
+              type="search"
+              className={styles.searchInput}
+              placeholder="Buscar nombre, correo o teléfono"
+              aria-label="Buscar cliente"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </label>
           <button
             type="button"
             className={styles.refreshButton}
@@ -255,192 +294,198 @@ function CompanyClients({ companyId }: CompanyClientsProps) {
       {error && <div className={styles.errorState}>{error}</div>}
 
       <div className={styles.layout}>
-        <section className={styles.panel} aria-label="Lista de clientes">
-          <div className={styles.panelHeader}>
-            <h3>Lista</h3>
-          </div>
-          <div className={styles.panelBody}>
-            {filteredClients.length === 0 ? (
-              <div className={styles.emptyState}>
-                {clients.length === 0
-                  ? 'Aún no hay clientes registrados. Aparecerán al crear reservas con correo.'
-                  : 'Ningún cliente coincide con la búsqueda.'}
-              </div>
-            ) : (
-              <ul className={styles.clientList}>
-                {filteredClients.map((client) => (
-                  <li key={client.id}>
-                    <button
-                      type="button"
-                      className={`${styles.clientItem} ${
-                        selectedClientId === client.id ? styles.clientItemActive : ''
-                      }`}
-                      onClick={() => setSelectedClientId(client.id)}
-                    >
-                      <div className={styles.clientNameRow}>
-                        <span className={styles.clientName} title={client.name}>
-                          {client.name}
-                        </span>
-                        <span className={styles.clientCount}>
-                          {client.reservationCount}
-                        </span>
-                      </div>
-                      <div className={styles.clientSubRow}>
-                        <span className={styles.clientMeta} title={client.email}>
-                          {client.email}
-                        </span>
-                        {isNewCompanyClient(client) && (
-                          <span className={styles.clientBadge}>Nuevo</span>
-                        )}
-                      </div>
-                      {client.phone && (
-                        <span className={styles.clientPhone} title={client.phone}>
-                          {client.phone}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {clientsCursor ? (
-              <button
-                type="button"
-                className={styles.loadMoreButton}
-                onClick={() => void loadMoreClients()}
-                disabled={loadingMore}
-              >
-                {loadingMore ? 'Cargando…' : 'Cargar más clientes'}
-              </button>
-            ) : null}
-          </div>
-        </section>
-
-        <section className={styles.panel} aria-label="Reservas del cliente">
-          <div className={styles.panelHeader}>
-            <h3>Reservas del cliente</h3>
-          </div>
-
-          {!selectedClient ? (
-            <div className={styles.panelBody}>
-              <div className={styles.detailEmpty}>Selecciona un cliente de la lista.</div>
+        <section className={styles.listPanel} aria-label="Lista de clientes">
+          {filteredClients.length === 0 ? (
+            <div className={styles.emptyState}>
+              {clients.length === 0
+                ? 'Aún no hay clientes. Aparecerán cuando reserven con su correo.'
+                : 'Ningún cliente coincide con la búsqueda.'}
             </div>
           ) : (
+            <ul className={styles.clientList}>
+              {filteredClients.map((client) => (
+                <li key={client.id}>
+                  <button
+                    type="button"
+                    className={`${styles.clientItem} ${selectedClientId === client.id ? styles.clientItemActive : ''}`}
+                    aria-pressed={selectedClientId === client.id}
+                    onClick={() => setSelectedClientId(client.id)}
+                  >
+                    <span className={styles.avatar} aria-hidden="true">{initials(client.name)}</span>
+                    <span className={styles.clientText}>
+                      <span className={styles.clientNameRow}>
+                        <span className={styles.clientName} title={client.name}>{client.name}</span>
+                        {isNewCompanyClient(client) ? <span className={styles.badgeNew}>Nuevo</span> : null}
+                      </span>
+                      <span className={styles.clientMeta} title={client.email}>{client.email}</span>
+                    </span>
+                    <span className={styles.clientCount} aria-label={`${client.reservationCount} reservas`}>
+                      {client.reservationCount}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {clientsCursor ? (
+            <button
+              type="button"
+              className={styles.loadMoreButton}
+              onClick={() => void loadMoreClients()}
+              disabled={loadingMore}
+            >
+              {loadingMore ? 'Cargando…' : 'Cargar más clientes'}
+            </button>
+          ) : null}
+        </section>
+
+        <section className={styles.detailPanel} aria-label="Ficha del cliente">
+          {!selectedClient ? (
+            <div className={styles.detailEmpty}>Selecciona un cliente de la lista.</div>
+          ) : (
             <>
-              <div className={styles.detailSummary}>
-                <span>
-                  <strong>{selectedClient.name}</strong>
-                </span>
-                <span>{selectedClient.email}</span>
-                <span>{selectedClient.phone || 'Sin teléfono'}</span>
-                <span>
-                  Cliente desde {formatDateSpanish(selectedClient.firstReservationDate)}
-                </span>
-                <span>
-                  {hasReservationFilters
-                    ? `${filteredClientReservations.length} de ${clientReservations.length} reserva(s)`
-                    : `${clientReservations.length} reserva(s) en total`}
-                </span>
+              <div className={styles.profile}>
+                <span className={styles.profileAvatar} aria-hidden="true">{initials(selectedClient.name)}</span>
+                <div className={styles.profileMain}>
+                  <div className={styles.profileNameRow}>
+                    <h3 className={styles.profileName}>{selectedClient.name}</h3>
+                    {isNewCompanyClient(selectedClient) ? (
+                      <span className={styles.badgeNew}>Nuevo</span>
+                    ) : stats.visits >= 3 ? (
+                      <span className={styles.badgeRegular}>Habitual</span>
+                    ) : null}
+                  </div>
+                  <div className={styles.contact}>
+                    {selectedClient.email ? <a href={`mailto:${selectedClient.email}`}>{selectedClient.email}</a> : null}
+                    {selectedClient.phone ? (
+                      <a href={`tel:${selectedClient.phone.replace(/\s+/g, '')}`}>{selectedClient.phone}</a>
+                    ) : (
+                      <span>Sin teléfono</span>
+                    )}
+                    <span>Cliente desde {formatDateSpanish(selectedClient.firstReservationDate)}</span>
+                  </div>
+                </div>
               </div>
 
-              {clientReservations.length > 0 && (
-                <div className={styles.reservationFilters}>
-                  <ClientReservationDatePicker
-                    value={reservationDateFilter}
-                    onChange={(isoDate) => {
-                      setReservationDateFilter(isoDate)
-                      setReservationTimeFilter('')
-                      setReservationTableFilter('')
-                    }}
-                    reservations={clientReservations}
-                    availableDates={reservationDateOptions}
-                  />
+              <dl className={styles.stats}>
+                <div className={styles.stat}>
+                  <dt>Reservas</dt>
+                  <dd>{stats.total}</dd>
+                </div>
+                <div className={styles.stat}>
+                  <dt>Vino</dt>
+                  <dd>{stats.visits}</dd>
+                </div>
+                <div className={styles.stat}>
+                  <dt>Canceladas</dt>
+                  <dd>{stats.cancelled}</dd>
+                </div>
+                <div className={styles.stat}>
+                  <dt>Faltas</dt>
+                  <dd className={stats.noShows > 0 ? styles.statDanger : ''}>{stats.noShows}</dd>
+                </div>
+                <div className={styles.stat}>
+                  <dt>Última visita</dt>
+                  <dd className={styles.statDate}>{stats.lastVisit ? shortDate(stats.lastVisit) : '—'}</dd>
+                </div>
+                <div className={styles.stat}>
+                  <dt>Próxima reserva</dt>
+                  <dd className={styles.statDate}>{stats.next ? shortDate(stats.next) : '—'}</dd>
+                </div>
+              </dl>
 
-                  <label className={styles.filterField}>
-                    <span>Hora</span>
-                    <select
-                      value={reservationTimeFilter}
-                      onChange={(event) => {
-                        setReservationTimeFilter(event.target.value)
+              <div className={styles.historyHead}>
+                <h4 className={styles.historyTitle}>
+                  Historial
+                  <span className={styles.historyCount}>
+                    {hasReservationFilters
+                      ? `${filteredClientReservations.length} de ${clientReservations.length}`
+                      : clientReservations.length}
+                  </span>
+                </h4>
+                {clientReservations.length > 0 && (
+                  <div className={styles.reservationFilters}>
+                    <ClientReservationDatePicker
+                      value={reservationDateFilter}
+                      onChange={(isoDate) => {
+                        setReservationDateFilter(isoDate)
+                        setReservationTimeFilter('')
                         setReservationTableFilter('')
                       }}
-                    >
-                      <option value="">Todas</option>
-                      {reservationTimeOptions.map((time) => (
-                        <option key={time} value={time}>
-                          {time}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className={styles.filterField}>
-                    <span>Mesa</span>
-                    <select
-                      value={reservationTableFilter}
-                      onChange={(event) => setReservationTableFilter(event.target.value)}
-                    >
-                      <option value="">Todas</option>
-                      {reservationTableOptions.map((table) => (
-                        <option key={table.id} value={table.id}>
-                          {table.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {hasReservationFilters && (
-                    <button
-                      type="button"
-                      className={styles.filterClearButton}
-                      onClick={clearReservationFilters}
-                    >
-                      Limpiar
-                    </button>
-                  )}
-                </div>
-              )}
-
-              <div className={styles.panelBody}>
-                {clientReservations.length === 0 ? (
-                  <div className={styles.detailEmpty}>
-                    Este cliente aún no tiene reservas registradas con correo.
-                  </div>
-                ) : filteredClientReservations.length === 0 ? (
-                  <div className={styles.detailEmpty}>
-                    Ninguna reserva coincide con los filtros seleccionados.
-                  </div>
-                ) : (
-                  <div className={styles.tableWrap}>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>Fecha</th>
-                          <th>Hora</th>
-                          <th>Mesa</th>
-                          <th>Pax</th>
-                          <th>Estado</th>
-                          <th>Notas</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredClientReservations.map((reservation) => (
-                          <tr key={reservation.id}>
-                            <td>{formatDateSpanish(reservation.startTime)}</td>
-                            <td>{formatTimeSpanish(reservation.startTime)}</td>
-                            <td>{tableMeta[reservation.tableId]?.name ?? '—'}</td>
-                            <td>{reservation.pax}</td>
-                            <td className={STATUS_CLASS[reservation.status]}>
-                              {STATUS_LABELS[reservation.status]}
-                            </td>
-                            <td>{reservation.notes || '—'}</td>
-                          </tr>
+                      reservations={clientReservations}
+                      availableDates={reservationDateOptions}
+                    />
+                    <label className={styles.filterField}>
+                      <span>Hora</span>
+                      <select
+                        value={reservationTimeFilter}
+                        onChange={(event) => {
+                          setReservationTimeFilter(event.target.value)
+                          setReservationTableFilter('')
+                        }}
+                      >
+                        <option value="">Todas</option>
+                        {reservationTimeOptions.map((time) => (
+                          <option key={time} value={time}>{time}</option>
                         ))}
-                      </tbody>
-                    </table>
+                      </select>
+                    </label>
+                    <label className={styles.filterField}>
+                      <span>Mesa</span>
+                      <select
+                        value={reservationTableFilter}
+                        onChange={(event) => setReservationTableFilter(event.target.value)}
+                      >
+                        <option value="">Todas</option>
+                        {reservationTableOptions.map((table) => (
+                          <option key={table.id} value={table.id}>{table.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {hasReservationFilters && (
+                      <button type="button" className={styles.filterClearButton} onClick={clearReservationFilters}>
+                        Limpiar
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
+
+              {clientReservations.length === 0 ? (
+                <div className={styles.detailEmpty}>Este cliente aún no tiene reservas con su correo.</div>
+              ) : filteredClientReservations.length === 0 ? (
+                <div className={styles.detailEmpty}>Ninguna reserva coincide con los filtros.</div>
+              ) : (
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th scope="col">Fecha</th>
+                        <th scope="col">Hora</th>
+                        <th scope="col">Mesa</th>
+                        <th scope="col">Pers.</th>
+                        <th scope="col">Estado</th>
+                        <th scope="col">Notas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredClientReservations.map((reservation) => {
+                        const status = reservationStatus(reservation, now)
+                        return (
+                          <tr key={reservation.id}>
+                            <td className={styles.nowrap}>{shortDate(reservation.startTime)}</td>
+                            <td className={styles.nowrap}>{formatTimeSpanish(reservation.startTime)}</td>
+                            <td className={styles.nowrap}>{tableMeta[reservation.tableId]?.name ?? '—'}</td>
+                            <td>{reservation.pax}</td>
+                            <td><span className={`${styles.status} ${status.className}`}>{status.label}</span></td>
+                            <td className={styles.notes}>{reservation.notes || '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </>
           )}
         </section>
