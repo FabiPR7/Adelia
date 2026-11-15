@@ -121,7 +121,8 @@ const DepositPaymentFields = forwardRef<
           <PaymentElement
             // Si Stripe no puede cargar el formulario, se dice (antes quedaba vacío y el
             // botón fallaba con un error técnico en inglés).
-            onLoadError={() => {
+            onLoadError={(event) => {
+              console.warn('[fianza] Stripe no cargó el formulario:', event?.error?.type, event?.error?.code, event?.error?.message)
               onReadyChange?.(false)
               onError?.('No se pudo cargar el pago de la fianza. Recarga la página e inténtalo de nuevo.')
             }}
