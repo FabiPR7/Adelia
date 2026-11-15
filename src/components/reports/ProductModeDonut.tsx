@@ -7,8 +7,8 @@ interface ProductModeDonutProps {
 }
 
 const SLICES = [
-  { key: 'withProducts' as const, label: 'Detalle por productos', color: '#2e7d6b' },
-  { key: 'totalOnly' as const, label: 'Solo importe total', color: '#8b6914' },
+  { key: 'withProducts' as const, label: 'Detalle por productos', color: '#3f9a6b' },
+  { key: 'totalOnly' as const, label: 'Solo importe total', color: '#2b4c8c' },
 ]
 
 function describeArc(
@@ -91,10 +91,10 @@ function ProductModeDonut({ withProducts, totalOnly }: ProductModeDonutProps) {
             />
           ) : null
         ))}
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="22" fontWeight="600" fill="#6b5344">
+        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="22" fontWeight="700" fill="#1c1917">
           {total}
         </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" fontSize="10" fill="#8a7a6e">
+        <text x={cx} y={cy + 14} textAnchor="middle" fontSize="10" fill="#a29a91">
           verificaciones
         </text>
       </svg>

@@ -11,8 +11,8 @@ const HEIGHT = 180
 const PADDING = { top: 14, right: 12, bottom: 28, left: 32 }
 
 const SERIES = [
-  { key: 'newClients' as const, label: 'Nuevos', color: '#2e7d6b', fill: 'rgba(46, 125, 107, 0.35)' },
-  { key: 'returning' as const, label: 'Recurrentes', color: '#6b5344', fill: 'rgba(107, 83, 68, 0.35)' },
+  { key: 'newClients' as const, label: 'Nuevos', color: '#3f9a6b', fill: 'rgba(63, 154, 107, 0.26)' },
+  { key: 'returning' as const, label: 'Recurrentes', color: '#8a3f1c', fill: 'rgba(138, 63, 28, 0.22)' },
 ]
 
 function buildAreaPath(
@@ -102,9 +102,9 @@ function ClientTrendChart({ data }: ClientTrendChartProps) {
                   y1={y}
                   x2={WIDTH - PADDING.right}
                   y2={y}
-                  stroke="rgba(107, 83, 68, 0.1)"
+                  stroke="rgba(28, 25, 23, 0.07)"
                 />
-                <text x={PADDING.left - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#8a7a6e">
+                <text x={PADDING.left - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#a29a91">
                   {tick}
                 </text>
               </g>
@@ -138,7 +138,7 @@ function ClientTrendChart({ data }: ClientTrendChartProps) {
                 y={HEIGHT - 8}
                 textAnchor="middle"
                 fontSize="10"
-                fill="#8a7a6e"
+                fill="#a29a91"
               >
                 {label}
               </text>

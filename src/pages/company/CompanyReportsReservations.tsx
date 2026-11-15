@@ -1,10 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  CalendarCheck,
+  CalendarDays,
+  CalendarX,
+  ChartColumn,
+  CircleCheck,
+  Clock,
+  PieChart,
+  TrendingUp,
+  UsersRound,
+} from 'lucide-react'
 import ReservationHourSlotsChart from '../../components/reports/ReservationHourSlotsChart'
 import ReservationStatusDonut from '../../components/reports/ReservationStatusDonut'
 import ReservationTrendChart from '../../components/reports/ReservationTrendChart'
 import ReservationWeekdayChart from '../../components/reports/ReservationWeekdayChart'
 import SortableTh from '../../components/reports/SortableTh'
-import InfoHint from '../../components/company/InfoHint'
+import {
+  ChartsGrid,
+  computeDelta,
+  EmptyState,
+  formatNumber,
+  KpiCard,
+  KpiGrid,
+  LoadingState,
+  previousPeriodConfig,
+  previousPeriodLabel,
+  ReportCard,
+  ReportHeader,
+  ReportPeriodBar,
+  reportStyles as styles,
+  TableCard,
+} from '../../components/reports/ReportKit'
 import { getFirestoreErrorMessage, getReservationsByCompany } from '../../services/firestore'
 import { reportYearOptions, yearBounds } from '../../services/firestoreQuery'
 import type { Reservation } from '../../types'
@@ -19,17 +45,14 @@ import {
 } from '../../utils/tableSort'
 import {
   computeHourSlotChartData,
-  computeReservationKpis,
   computeStatusDistribution,
   computeTrendChartData,
   computeWeekdayChartData,
   filterReservationsInRange,
   formatReportPeriodLabel,
   getReportDateRange,
-  type ReportGranularity,
   type ReportPeriodConfig,
 } from '../../utils/reservationReports'
-import styles from './CompanyReportsReservations.module.css'
 
 type ReservationSortKey = 'name' | 'startTime' | 'pax' | 'createdAt'
 
@@ -40,61 +63,64 @@ const RESERVATION_SORT_DEFAULTS: Record<ReservationSortKey, SortState['direction
   createdAt: 'desc',
 }
 
+const PAGE_STEP = 50
+
 interface CompanyReportsReservationsProps {
   companyId: string
 }
 
-const GRANULARITY_OPTIONS: { id: ReportGranularity; label: string }[] = [
-  { id: 'annual', label: 'Anual' },
-  { id: 'quarterly', label: 'Trimestral' },
-  { id: 'monthly', label: 'Mensual' },
-]
-
-const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
-  value: index + 1,
-  label: new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(2024, index, 1)),
-}))
-
-const QUARTER_OPTIONS = [
-  { value: 1, label: 'T1 (Ene – Mar)' },
-  { value: 2, label: 'T2 (Abr – Jun)' },
-  { value: 3, label: 'T3 (Jul – Sep)' },
-  { value: 4, label: 'T4 (Oct – Dic)' },
-]
-
-const STATUS_LABELS: Record<Reservation['status'], string> = {
-  confirmed: 'Confirmada',
-  cancelled: 'Cancelada',
-  completed: 'Pendiente',
+/** Estado como lo entiende el local (el servidor guarda las activas como `completed`). */
+function reservationStatus(reservation: Reservation, now: number): { label: string; className: string } {
+  if (reservation.status === 'cancelled') {
+    return reservation.noShow
+      ? { label: 'No vino', className: styles.chipBad }
+      : { label: 'Cancelada', className: styles.chipMuted }
+  }
+  if (reservation.status === 'confirmed') return { label: 'Asistió', className: styles.chipOk }
+  return reservation.startTime.getTime() <= now
+    ? { label: 'Por marcar', className: styles.chipWarn }
+    : { label: 'Reservada', className: styles.chipInfo }
 }
 
-function statusClass(status: Reservation['status']): string {
-  if (status === 'confirmed') {
-    return styles.statusConfirmed
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? '')).toUpperCase()
+}
+
+function summarize(list: Reservation[]) {
+  const cancelled = list.filter((row) => row.status === 'cancelled')
+  const attended = list.filter((row) => row.status === 'confirmed')
+  const pax = list.filter((row) => row.status !== 'cancelled').reduce((sum, row) => sum + (row.pax || 0), 0)
+  return {
+    total: list.length,
+    attended: attended.length,
+    cancelled: cancelled.length,
+    noShows: cancelled.filter((row) => row.noShow).length,
+    pax,
   }
-  if (status === 'cancelled') {
-    return styles.statusCancelled
-  }
-  return styles.statusCompleted
 }
 
 function CompanyReportsReservations({ companyId }: CompanyReportsReservationsProps) {
   const now = new Date()
-  const [granularity, setGranularity] = useState<ReportGranularity>('monthly')
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1)
+  const [config, setConfig] = useState<ReportPeriodConfig>({
+    granularity: 'monthly',
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    quarter: Math.floor(now.getMonth() / 3) + 1,
+  })
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sort, setSort] = useState<SortState>({ key: 'createdAt', direction: 'desc' })
+  const [sort, setSort] = useState<SortState>({ key: 'startTime', direction: 'desc' })
+  const [query, setQuery] = useState('')
+  const [visibleCount, setVisibleCount] = useState(PAGE_STEP)
 
   const loadReservations = useCallback(async () => {
     setLoading(true)
     setError(null)
 
     try {
-      const range = yearBounds(year)
+      const range = yearBounds(config.year)
       const data = await getReservationsByCompany(companyId, { from: range.start, to: range.end })
       setReservations(data)
     } catch (err) {
@@ -102,296 +128,262 @@ function CompanyReportsReservations({ companyId }: CompanyReportsReservationsPro
     } finally {
       setLoading(false)
     }
-  }, [companyId, year])
+  }, [companyId, config.year])
 
   useEffect(() => {
     void loadReservations()
   }, [loadReservations])
 
+  useEffect(() => {
+    setVisibleCount(PAGE_STEP)
+  }, [config, query, sort])
+
   const availableYears = useMemo(() => reportYearOptions(), [])
 
-  const periodConfig = useMemo<ReportPeriodConfig>(
-    () => ({ granularity, year, month, quarter }),
-    [granularity, year, month, quarter],
+  const periodReservations = useMemo(
+    () => filterReservationsInRange(reservations, getReportDateRange(config)),
+    [reservations, config],
   )
 
-  const periodReservations = useMemo(() => {
-    const range = getReportDateRange(periodConfig)
-    return filterReservationsInRange(reservations, range)
-  }, [reservations, periodConfig])
+  const previousConfig = previousPeriodConfig(config)
+  const previousReservations = useMemo(
+    () => (previousConfig ? filterReservationsInRange(reservations, getReportDateRange(previousConfig)) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [reservations, previousConfig?.month, previousConfig?.quarter, previousConfig?.granularity, previousConfig?.year],
+  )
 
-  const kpis = useMemo(() => computeReservationKpis(periodReservations), [periodReservations])
-  const trendData = useMemo(
-    () => computeTrendChartData(periodReservations, periodConfig),
-    [periodReservations, periodConfig],
-  )
-  const statusData = useMemo(
-    () => computeStatusDistribution(periodReservations),
-    [periodReservations],
-  )
-  const weekdayData = useMemo(
-    () => computeWeekdayChartData(periodReservations),
-    [periodReservations],
-  )
-  const hourSlotData = useMemo(
-    () => computeHourSlotChartData(periodReservations),
-    [periodReservations],
-  )
-  const sortedReservationsList = useMemo(() => {
-    const list = [...reservations]
+  const current = useMemo(() => summarize(periodReservations), [periodReservations])
+  const previous = useMemo(() => (previousReservations ? summarize(previousReservations) : null), [previousReservations])
+
+  const trendData = useMemo(() => computeTrendChartData(periodReservations, config), [periodReservations, config])
+  const statusData = useMemo(() => computeStatusDistribution(periodReservations), [periodReservations])
+  const weekdayData = useMemo(() => computeWeekdayChartData(periodReservations), [periodReservations])
+  const hourSlotData = useMemo(() => computeHourSlotChartData(periodReservations), [periodReservations])
+
+  const busiestDay = useMemo(() => {
+    let bestIndex = -1
+    weekdayData.values.forEach((value, index) => {
+      if (value > 0 && (bestIndex === -1 || value > weekdayData.values[bestIndex])) bestIndex = index
+    })
+    const fullNames = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
+    return bestIndex >= 0 ? fullNames[bestIndex] ?? weekdayData.labels[bestIndex] : null
+  }, [weekdayData])
+
+  const filteredList = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    const list = normalized
+      ? periodReservations.filter((row) =>
+        `${row.clientName} ${row.clientEmail} ${row.clientPhone}`.toLowerCase().includes(normalized))
+      : [...periodReservations]
 
     list.sort((left, right) => {
       switch (sort.key as ReservationSortKey) {
         case 'name':
           return compareStrings(left.clientName, right.clientName, sort.direction)
-        case 'startTime':
-          return compareDates(left.startTime, right.startTime, sort.direction)
         case 'pax':
           return compareNumbers(left.pax, right.pax, sort.direction)
         case 'createdAt':
-        default:
           return compareDates(left.createdAt, right.createdAt, sort.direction)
+        case 'startTime':
+        default:
+          return compareDates(left.startTime, right.startTime, sort.direction)
       }
     })
 
     return list
-  }, [reservations, sort])
+  }, [periodReservations, query, sort])
 
-  const handleReservationSort = useCallback((key: string) => {
-    setSort((current) => nextSortState(
-      current,
+  const handleSort = useCallback((key: string) => {
+    setSort((currentSort) => nextSortState(
+      currentSort,
       key,
       RESERVATION_SORT_DEFAULTS[key as ReservationSortKey] ?? 'asc',
     ))
   }, [])
 
-  const periodLabel = formatReportPeriodLabel(periodConfig)
+  const periodLabel = formatReportPeriodLabel(config)
+  const prevLabel = previousPeriodLabel(config)
+  const nowMs = Date.now()
+  const pct = (value: number) => (current.total > 0 ? Math.round((value / current.total) * 100) : 0)
 
-  const handleDownloadReservations = () => {
+  const handleDownload = () => {
     downloadExcelFile(
-      'reservas-adelia.csv',
+      `reservas-${periodLabel.replaceAll(' ', '-')}.csv`,
       ['Cliente', 'Email', 'Teléfono', 'Fecha reserva', 'Hora', 'Comensales', 'Estado', 'Creada el'],
-      sortedReservationsList.map((reservation) => [
+      filteredList.map((reservation) => [
         reservation.clientName,
         reservation.clientEmail,
         reservation.clientPhone,
         formatExcelDate(reservation.startTime),
         formatTimeSpanish(reservation.startTime),
         reservation.pax,
-        STATUS_LABELS[reservation.status],
+        reservationStatus(reservation, nowMs).label,
         formatExcelDateTime(reservation.createdAt),
       ]),
     )
   }
 
   return (
-    <div className={styles.wrapper}>
-      <header className={styles.header}>
-        <h2>
-          Informes de reservas
-          <InfoHint label="Sobre los informes de reservas">
-            Evolución, estados, días fuertes y horas punta del periodo seleccionado.
-          </InfoHint>
-        </h2>
-      </header>
+    <div className={styles.page}>
+      <ReportHeader
+        title="Informe de reservas"
+        subtitle="Cuántas reservas recibes, cuántas se cumplen y cuándo tienes más demanda."
+      />
 
-      <div className={styles.scrollArea}>
-        <div className={styles.controls}>
-          <div className={styles.controlsFilters}>
-            <div className={styles.periodToggle} role="radiogroup" aria-label="Tipo de informe">
-            {GRANULARITY_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                role="radio"
-                aria-checked={granularity === option.id}
-                className={`${styles.periodButton} ${
-                  granularity === option.id ? styles.periodButtonActive : ''
-                }`}
-                onClick={() => setGranularity(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+      <ReportPeriodBar
+        config={config}
+        years={availableYears}
+        periodLabel={periodLabel}
+        loading={loading}
+        onChange={setConfig}
+        onRefresh={() => void loadReservations()}
+      />
 
-          <select
-            className={styles.select}
-            value={year}
-            onChange={(event) => setYear(Number(event.target.value))}
-            aria-label="Año"
-          >
-            {availableYears.map((optionYear) => (
-              <option key={optionYear} value={optionYear}>
-                {optionYear}
-              </option>
-            ))}
-          </select>
+      {error ? <div className={styles.error} role="alert">{error}</div> : null}
 
-          {granularity === 'monthly' && (
-            <select
-              className={styles.select}
-              value={month}
-              onChange={(event) => setMonth(Number(event.target.value))}
-              aria-label="Mes"
+      {loading && reservations.length === 0 ? (
+        <LoadingState />
+      ) : (
+        <>
+          <KpiGrid columns={4}>
+            <KpiCard
+              icon={CalendarDays}
+              label="Reservas"
+              value={formatNumber(current.total)}
+              delta={computeDelta(current.total, previous?.total)}
+              deltaLabel={prevLabel}
+              hint={previous ? `vs. ${prevLabel}` : undefined}
+              tone="info"
+            />
+            <KpiCard
+              icon={UsersRound}
+              label="Comensales"
+              value={formatNumber(current.pax)}
+              delta={computeDelta(current.pax, previous?.pax)}
+              deltaLabel={prevLabel}
+              hint={current.total - current.cancelled > 0
+                ? `${formatNumber(current.pax / (current.total - current.cancelled), 1)} de media por mesa`
+                : undefined}
+            />
+            <KpiCard
+              icon={CircleCheck}
+              label="Asistieron"
+              value={formatNumber(current.attended)}
+              suffix={current.total ? `· ${pct(current.attended)} %` : undefined}
+              delta={computeDelta(current.attended, previous?.attended)}
+              deltaLabel={prevLabel}
+              tone="good"
+            />
+            <KpiCard
+              icon={CalendarX}
+              label="Canceladas"
+              value={formatNumber(current.cancelled)}
+              suffix={current.total ? `· ${pct(current.cancelled)} %` : undefined}
+              delta={computeDelta(current.cancelled, previous?.cancelled, true)}
+              deltaLabel={prevLabel}
+              hint={current.noShows > 0 ? `${current.noShows} no vinieron` : undefined}
+              tone={current.cancelled > 0 ? 'bad' : 'default'}
+            />
+          </KpiGrid>
+
+          <ChartsGrid>
+            <ReportCard
+              wide
+              icon={TrendingUp}
+              title="Evolución"
+              subtitle={`Reservas por estado · ${periodLabel}`}
             >
-              {MONTH_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {granularity === 'quarterly' && (
-            <select
-              className={styles.select}
-              value={quarter}
-              onChange={(event) => setQuarter(Number(event.target.value))}
-              aria-label="Trimestre"
+              <ReservationTrendChart data={trendData} />
+            </ReportCard>
+            <ReportCard icon={PieChart} title="Estados" subtitle="Cómo terminan las reservas del periodo">
+              <ReservationStatusDonut data={statusData} />
+            </ReportCard>
+            <ReportCard
+              icon={CalendarCheck}
+              title="Días con más reservas"
+              subtitle={busiestDay ? `El día más fuerte es el ${busiestDay}` : 'Qué días concentran la demanda'}
             >
-              {QUARTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          )}
-
-          </div>
-
-          <div className={styles.controlsSummary}>
-            <button
-              type="button"
-              className={styles.refreshButton}
-              onClick={() => void loadReservations()}
-              disabled={loading}
+              <ReservationWeekdayChart data={weekdayData} />
+            </ReportCard>
+            <ReportCard
+              wide
+              icon={Clock}
+              title="Franjas horarias"
+              subtitle={`Comida y cena en bloques de 2 horas · ${periodLabel}`}
             >
-              {loading ? 'Actualizando…' : 'Actualizar'}
-            </button>
+              <ReservationHourSlotsChart data={hourSlotData} />
+            </ReportCard>
+          </ChartsGrid>
 
-            {!loading || reservations.length > 0 ? (
-              <div className={styles.kpiInline} aria-label="Resumen del periodo">
-                <span className={`${styles.kpiChip} ${styles.kpiChipTotal}`}>
-                  <span className={styles.kpiLabel}>Totales</span>
-                  <strong className={styles.kpiValue}>{kpis.total}</strong>
-                </span>
-                <span className={`${styles.kpiChip} ${styles.kpiChipCancelled}`}>
-                  <span className={styles.kpiLabel}>Canceladas</span>
-                  <strong className={styles.kpiValue}>{kpis.cancelled}</strong>
-                </span>
-                <span className={`${styles.kpiChip} ${styles.kpiChipConfirmed}`}>
-                  <span className={styles.kpiLabel}>Confirmadas</span>
-                  <strong className={styles.kpiValue}>{kpis.confirmed}</strong>
-                </span>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {error && <div className={styles.error}>{error}</div>}
-
-        {loading && reservations.length === 0 ? (
-          <div className={styles.loading}>Cargando informes…</div>
-        ) : (
-          <>
-            <div className={styles.chartsGrid}>
-              <section className={`${styles.chartCard} ${styles.chartCardWide}`}>
-                <div className={styles.chartHeader}>
-                  <h3>Tendencia del periodo</h3>
-                  <p className={styles.chartSubtitle}>
-                    Volumen apilado por estado · {periodLabel}
-                  </p>
-                </div>
-                <ReservationTrendChart data={trendData} />
-              </section>
-
-              <section className={styles.chartCard}>
-                <div className={styles.chartHeader}>
-                  <h3>Distribución por estado</h3>
-                  <p className={styles.chartSubtitle}>Proporción confirmadas, completadas y canceladas</p>
-                </div>
-                <ReservationStatusDonut data={statusData} />
-              </section>
-
-              <section className={styles.chartCard}>
-                <div className={styles.chartHeader}>
-                  <h3>Días con más reservas</h3>
-                  <p className={styles.chartSubtitle}>Qué días de la semana concentran la demanda</p>
-                </div>
-                <ReservationWeekdayChart data={weekdayData} />
-              </section>
-
-              <section className={`${styles.chartCard} ${styles.chartCardWide}`}>
-                <div className={styles.chartHeader}>
-                  <h3>Franjas horarias</h3>
-                  <p className={styles.chartSubtitle}>
-                    Comida y cena en bloques de 2 h · {periodLabel}
-                  </p>
-                </div>
-                <ReservationHourSlotsChart data={hourSlotData} />
-              </section>
-            </div>
-
-            <section className={styles.listSection}>
-              <div className={styles.listHeader}>
-                <div className={styles.listHeaderText}>
-                  <h3>Lista de reservas</h3>
-                  <p className={styles.listMeta}>
-                    {sortedReservationsList.length} reserva{sortedReservationsList.length === 1 ? '' : 's'} · historial completo
-                  </p>
-                </div>
+          <TableCard
+            title="Reservas del periodo"
+            meta={`${filteredList.length} ${filteredList.length === 1 ? 'reserva' : 'reservas'} · ${periodLabel}`}
+            search={{ value: query, onChange: setQuery, placeholder: 'Buscar cliente, correo o teléfono' }}
+            onDownload={handleDownload}
+            downloadDisabled={filteredList.length === 0}
+            footer={filteredList.length > visibleCount ? (
+              <>
+                <span>Mostrando {visibleCount} de {filteredList.length}</span>
                 <button
                   type="button"
-                  className={styles.downloadButton}
-                  onClick={handleDownloadReservations}
-                  disabled={sortedReservationsList.length === 0}
+                  className={styles.secondaryButton}
+                  onClick={() => setVisibleCount((count) => count + PAGE_STEP)}
                 >
-                  Descargar Excel
+                  Mostrar más
                 </button>
-              </div>
-
-              {sortedReservationsList.length === 0 ? (
-                <div className={styles.emptyList}>No hay reservas registradas todavía.</div>
-              ) : (
-                <div className={styles.tableWrap}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <SortableTh label="Cliente" sortKey="name" sort={sort} onSort={handleReservationSort} />
-                        <SortableTh label="Fecha reserva" sortKey="startTime" sort={sort} onSort={handleReservationSort} />
-                        <th scope="col">Hora</th>
-                        <SortableTh label="Comensales" sortKey="pax" sort={sort} onSort={handleReservationSort} />
-                        <th scope="col">Estado</th>
-                        <SortableTh label="Creada el" sortKey="createdAt" sort={sort} onSort={handleReservationSort} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedReservationsList.map((reservation) => (
+              </>
+            ) : undefined}
+          >
+            {filteredList.length === 0 ? (
+              <EmptyState
+                icon={ChartColumn}
+                title={query.trim() ? 'Ninguna reserva coincide' : 'Sin reservas en este periodo'}
+                text={query.trim() ? undefined : 'Prueba con otro mes, trimestre o año.'}
+              />
+            ) : (
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <SortableTh label="Cliente" sortKey="name" sort={sort} onSort={handleSort} />
+                      <SortableTh label="Fecha" sortKey="startTime" sort={sort} onSort={handleSort} />
+                      <th scope="col">Hora</th>
+                      <SortableTh label="Pers." sortKey="pax" sort={sort} onSort={handleSort} />
+                      <th scope="col">Estado</th>
+                      <SortableTh label="Hecha el" sortKey="createdAt" sort={sort} onSort={handleSort} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredList.slice(0, visibleCount).map((reservation) => {
+                      const status = reservationStatus(reservation, nowMs)
+                      return (
                         <tr key={reservation.id}>
-                          <td>{reservation.clientName}</td>
-                          <td>{formatDateSpanish(reservation.startTime)}</td>
-                          <td>{formatTimeSpanish(reservation.startTime)}</td>
-                          <td>{reservation.pax}</td>
                           <td>
-                            <span className={`${styles.statusBadge} ${statusClass(reservation.status)}`}>
-                              {STATUS_LABELS[reservation.status]}
+                            <span className={styles.personCell}>
+                              <span className={styles.avatar} aria-hidden="true">{initials(reservation.clientName)}</span>
+                              <span className={styles.personText}>
+                                <strong>{reservation.clientName || 'Cliente'}</strong>
+                                {reservation.clientEmail ? <span>{reservation.clientEmail}</span> : null}
+                              </span>
                             </span>
                           </td>
-                          <td>
-                            {formatDateSpanish(reservation.createdAt)}{' '}
-                            {formatTimeSpanish(reservation.createdAt)}
+                          <td className={styles.nowrap}>{formatDateSpanish(reservation.startTime)}</td>
+                          <td className={styles.nowrap}>{formatTimeSpanish(reservation.startTime)}</td>
+                          <td>{reservation.pax}</td>
+                          <td><span className={`${styles.chip} ${status.className}`}>{status.label}</span></td>
+                          <td className={`${styles.nowrap} ${styles.muted}`}>
+                            {formatDateSpanish(reservation.createdAt)}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </>
-        )}
-      </div>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TableCard>
+        </>
+      )}
     </div>
   )
 }

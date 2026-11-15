@@ -256,6 +256,24 @@
   color: inherit;
 }
 
+/* Icono de cada opción del menú */
+.navIcon {
+  flex-shrink: 0;
+  margin-right: 0.625rem;
+  color: #8a8279;
+  transition: color 0.15s ease;
+}
+
+.navItem:hover .navIcon,
+.navSubItem:hover .navIcon {
+  color: var(--color-text);
+}
+
+.navItemActive .navIcon,
+.navSubItemActive .navIcon {
+  color: var(--color-accent-strong);
+}
+
 .navGroup {
   display: flex;
   flex-direction: column;

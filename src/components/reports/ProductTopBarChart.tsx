@@ -47,7 +47,7 @@ function ProductTopBarChart({ products, metric }: ProductTopBarChartProps) {
                   y={y + barHeight / 2 + 4}
                   textAnchor="end"
                   fontSize="10"
-                  fill="#6b5344"
+                  fill="#8a3f1c"
                 >
                   {label}
                 </text>
@@ -57,7 +57,7 @@ function ProductTopBarChart({ products, metric }: ProductTopBarChartProps) {
                   width={Math.max(barWidth, value > 0 ? 4 : 0)}
                   height={barHeight}
                   rx={6}
-                  fill={isTop ? '#2e7d6b' : 'rgba(107, 83, 68, 0.55)'}
+                  fill={isTop ? '#3f9a6b' : 'rgba(138, 63, 28, 0.32)'}
                 />
                 {value > 0 && (
                   <text
@@ -65,7 +65,7 @@ function ProductTopBarChart({ products, metric }: ProductTopBarChartProps) {
                     y={y + barHeight / 2 + 4}
                     fontSize="10"
                     fontWeight="600"
-                    fill="#6b5344"
+                    fill="#8a3f1c"
                   >
                     {metric === 'quantity' ? value : `${(value / 100).toFixed(2).replace('.', ',')} €`}
                   </text>

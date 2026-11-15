@@ -7,9 +7,9 @@ interface ReservationStatusDonutProps {
 }
 
 const SLICES = [
-  { key: 'confirmed' as const, label: 'Confirmadas', color: '#2e7d6b' },
-  { key: 'completed' as const, label: 'Pendientes', color: '#8b6914' },
-  { key: 'cancelled' as const, label: 'Canceladas', color: '#c0392b' },
+  { key: 'confirmed' as const, label: 'Asistieron', color: '#3f9a6b' },
+  { key: 'completed' as const, label: 'Reservadas', color: '#2b4c8c' },
+  { key: 'cancelled' as const, label: 'Canceladas', color: '#c2553b' },
 ]
 
 function describeArc(
@@ -90,10 +90,10 @@ function ReservationStatusDonut({ data }: ReservationStatusDonutProps) {
             />
           ) : null
         ))}
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="22" fontWeight="600" fill="#6b5344">
+        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="22" fontWeight="700" fill="#1c1917">
           {total}
         </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" fontSize="10" fill="#8a7a6e">
+        <text x={cx} y={cy + 14} textAnchor="middle" fontSize="10" fill="#a29a91">
           reservas
         </text>
       </svg>

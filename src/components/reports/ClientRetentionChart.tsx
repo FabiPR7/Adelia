@@ -25,11 +25,11 @@ function ClientRetentionChart({ data }: ClientRetentionChartProps) {
     <div className={shared.chartBody}>
       <div className={shared.legend} aria-hidden="true">
         <span className={shared.legendItem}>
-          <span className={shared.legendSwatch} style={{ background: '#2e7d6b' }} />
+          <span className={shared.legendSwatch} style={{ background: '#3f9a6b' }} />
           Captados
         </span>
         <span className={shared.legendItem}>
-          <span className={shared.legendSwatch} style={{ background: '#6b5344' }} />
+          <span className={shared.legendSwatch} style={{ background: '#8a3f1c' }} />
           Volvieron al mes siguiente
         </span>
       </div>
@@ -59,7 +59,7 @@ function ClientRetentionChart({ data }: ClientRetentionChartProps) {
                   width={barWidth}
                   height={Math.max(acquiredHeight, acquired > 0 ? 4 : 0)}
                   rx={5}
-                  fill="#2e7d6b"
+                  fill="#3f9a6b"
                   className={styles.bar}
                 />
                 <rect
@@ -68,7 +68,7 @@ function ClientRetentionChart({ data }: ClientRetentionChartProps) {
                   width={barWidth}
                   height={Math.max(returnedHeight, returned > 0 ? 4 : 0)}
                   rx={5}
-                  fill="#6b5344"
+                  fill="#8a3f1c"
                   className={styles.bar}
                 />
                 {acquired > 0 && (
@@ -77,7 +77,7 @@ function ClientRetentionChart({ data }: ClientRetentionChartProps) {
                     y={baseY - acquiredHeight - 4}
                     textAnchor="middle"
                     fontSize="9"
-                    fill="#2e7d6b"
+                    fill="#3f9a6b"
                   >
                     {acquired}
                   </text>
@@ -88,7 +88,7 @@ function ClientRetentionChart({ data }: ClientRetentionChartProps) {
                     y={baseY - returnedHeight - 4}
                     textAnchor="middle"
                     fontSize="9"
-                    fill="#6b5344"
+                    fill="#8a3f1c"
                   >
                     {returned}
                   </text>
@@ -98,7 +98,7 @@ function ClientRetentionChart({ data }: ClientRetentionChartProps) {
                   y={HEIGHT - 8}
                   textAnchor="middle"
                   fontSize={groupCount > 6 ? 8 : 9}
-                  fill="#8a7a6e"
+                  fill="#a29a91"
                 >
                   {label}
                 </text>

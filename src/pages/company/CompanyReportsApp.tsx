@@ -1,6 +1,33 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import InfoHint from '../../components/company/InfoHint'
+import {
+  BookOpen,
+  CalendarRange,
+  Download,
+  Eye,
+  Filter,
+  Heart,
+  MousePointerClick,
+  RefreshCw,
+  Search,
+  Tag,
+  TicketCheck,
+  UserRound,
+} from 'lucide-react'
+import {
+  computeDelta,
+  EmptyState,
+  formatNumber,
+  InlineBar,
+  KpiCard,
+  KpiGrid,
+  LoadingState,
+  ReportCard,
+  ReportHeader,
+  reportStyles as styles,
+  TableCard,
+} from '../../components/reports/ReportKit'
 import { getFirestoreErrorMessage } from '../../services/firestore'
+import { isDemoCompanyId } from '../../data/companyPanelDemo'
 import { getCompanyMenuBoards } from '../../services/companyMenu'
 import { getCompanyPromotions } from '../../services/promotions'
 import {
@@ -9,7 +36,6 @@ import {
   type CompanyMonthMetrics,
 } from '../../services/companyMetrics'
 import { downloadExcelFile } from '../../utils/exportSpreadsheet'
-import styles from './CompanyReportsApp.module.css'
 
 interface CompanyReportsAppProps {
   companyId: string
@@ -130,15 +156,8 @@ function aggregate(months: CompanyMonthMetrics[]): Aggregate {
   return out
 }
 
-function delta(current: number, previous: number): { text: string; tone: 'up' | 'down' | 'flat' } {
-  if (previous <= 0) {
-    return current > 0 ? { text: 'nuevo', tone: 'up' } : { text: '—', tone: 'flat' }
-  }
-  const pct = Math.round(((current - previous) / previous) * 100)
-  if (pct === 0) {
-    return { text: '=', tone: 'flat' }
-  }
-  return { text: `${pct > 0 ? '+' : ''}${pct}%`, tone: pct > 0 ? 'up' : 'down' }
+function percent(part: number, whole: number): number {
+  return whole > 0 ? Math.round((part / whole) * 100) : 0
 }
 
 function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
@@ -150,15 +169,17 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const window = useMemo(() => rangeWindow(rangeId), [rangeId])
+  const range = useMemo(() => rangeWindow(rangeId), [rangeId])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
+      // El local de demostración no tiene métricas reales: se muestra vacío, sin error.
+      const demoCompany = isDemoCompanyId(companyId)
       const [current, previous, boards, promotions] = await Promise.all([
-        fetchCompanyMonthMetrics(companyId, window.months),
-        fetchCompanyMonthMetrics(companyId, window.prevMonths),
+        demoCompany ? Promise.resolve([]) : fetchCompanyMonthMetrics(companyId, range.months),
+        demoCompany ? Promise.resolve([]) : fetchCompanyMonthMetrics(companyId, range.prevMonths),
         getCompanyMenuBoards(companyId).catch(() => []),
         getCompanyPromotions(companyId).catch(() => []),
       ])
@@ -171,7 +192,7 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
     } finally {
       setLoading(false)
     }
-  }, [companyId, window.months, window.prevMonths])
+  }, [companyId, range.months, range.prevMonths])
 
   useEffect(() => {
     void load()
@@ -181,12 +202,12 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
   const before = useMemo(() => aggregate(prevMonths), [prevMonths])
 
   const tiles = [
-    { key: 'profile', label: 'Visitas al perfil', value: now.profileViews, prev: before.profileViews },
-    { key: 'menu', label: 'Aperturas de carta', value: now.menuViews, prev: before.menuViews },
-    { key: 'promoZone', label: 'Visitas a promos', value: now.promoZoneViews, prev: before.promoZoneViews },
-    { key: 'claims', label: 'Promos reclamadas', value: now.promoClaims, prev: before.promoClaims },
-    { key: 'reserveClicks', label: 'Clics a "Reservar" desde promo', value: now.promoReserveClicks, prev: before.promoReserveClicks },
-    { key: 'uniques', label: 'Personas distintas', value: now.uniques, prev: before.uniques },
+    { key: 'profile', icon: Eye, label: 'Visitas a tu ficha', value: now.profileViews, prev: before.profileViews, tone: 'info' as const },
+    { key: 'uniques', icon: UserRound, label: 'Personas distintas', value: now.uniques, prev: before.uniques, tone: 'default' as const },
+    { key: 'menu', icon: BookOpen, label: 'Aperturas de carta', value: now.menuViews, prev: before.menuViews, tone: 'default' as const },
+    { key: 'promoZone', icon: Tag, label: 'Visitas a promociones', value: now.promoZoneViews, prev: before.promoZoneViews, tone: 'warn' as const },
+    { key: 'claims', icon: TicketCheck, label: 'Promos reclamadas', value: now.promoClaims, prev: before.promoClaims, tone: 'good' as const },
+    { key: 'reserveClicks', icon: MousePointerClick, label: 'Clics en «Reservar» desde promo', value: now.promoReserveClicks, prev: before.promoReserveClicks, tone: 'good' as const },
   ]
 
   const topBoards = useMemo(
@@ -208,9 +229,21 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
   )
 
   const maxDaily = Math.max(1, ...now.daily.map((point) => point.views))
-  const funnelRate = now.promoReserveClicks > 0
-    ? Math.round((now.reservationsFromPromo / now.promoReserveClicks) * 100)
-    : 0
+  const totalDaily = now.daily.reduce((sum, point) => sum + point.views, 0)
+  const bestDay = now.daily.reduce<{ day: string; views: number } | null>(
+    (best, point) => (!best || point.views > best.views ? point : best),
+    null,
+  )
+  const maxBoard = Math.max(1, ...topBoards.map((board) => board.count))
+  const searchCtr = percent(now.searchClicks, now.searchImpressions)
+  const favoritesNet = now.favoritesAdd - now.favoritesRemove
+
+  const funnelSteps = [
+    { label: 'Promos vistas', value: now.promoViews },
+    { label: 'Clics en «Reservar»', value: now.promoReserveClicks },
+    { label: 'Reservas hechas', value: now.reservationsFromPromo },
+  ]
+  const funnelMax = Math.max(1, ...funnelSteps.map((step) => step.value))
 
   const exportExcel = () => {
     const rows: (string | number)[][] = [
@@ -236,145 +269,213 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
   }
 
   return (
-    <div className={styles.wrapper}>
-      <header className={styles.header}>
-        <h2>
-          Informe de la App
-          <InfoHint label="Sobre el informe de la App">
-            Cómo se comporta la gente con tu restaurante dentro de Adelia: cuánta ve tu ficha, abre
-            tus cartas, entra en tus promos, qué promos clica y cuántas reservas nacen de una promo.
-            Son totales — nunca ves quién es cada persona. "Personas distintas" se calcula una vez al
-            día, puede tardar en aparecer.
-          </InfoHint>
-        </h2>
-        <div className={styles.controls}>
-          <div className={styles.rangeTabs} role="group" aria-label="Periodo">
-            {RANGES.map((range) => (
-              <button
-                key={range.id}
-                type="button"
-                className={rangeId === range.id ? styles.rangeTabOn : styles.rangeTab}
-                aria-pressed={rangeId === range.id}
-                onClick={() => setRangeId(range.id)}
-              >
-                {range.label}
-              </button>
-            ))}
-          </div>
-          <button type="button" className={styles.exportBtn} onClick={exportExcel} disabled={loading}>
-            Exportar Excel
+    <div className={styles.page}>
+      <ReportHeader
+        title="Informe de la app"
+        subtitle="Cómo se mueve la gente con tu local dentro de Adelia. Son totales: nunca ves quién es cada persona."
+        actions={(
+          <button type="button" className={styles.secondaryButton} onClick={exportExcel} disabled={loading}>
+            <Download size={15} aria-hidden="true" />
+            Excel
           </button>
-        </div>
-        <p className={styles.periodLabel}>Datos de {window.label}</p>
-      </header>
+        )}
+      />
 
-      {error ? <p className={styles.error} role="alert">{error}</p> : null}
+      <div className={styles.periodBar}>
+        <div className={styles.segmented} role="radiogroup" aria-label="Periodo">
+          {RANGES.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={rangeId === option.id}
+              className={`${styles.segmentedButton} ${rangeId === option.id ? styles.segmentedButtonOn : ''}`}
+              onClick={() => setRangeId(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <span className={styles.periodLabel}>
+          <CalendarRange size={15} aria-hidden="true" />
+          {range.label.charAt(0).toUpperCase() + range.label.slice(1)}
+        </span>
+        <button type="button" className={styles.ghostButton} onClick={() => void load()} disabled={loading}>
+          <RefreshCw size={15} aria-hidden="true" className={loading ? styles.spin : undefined} />
+          {loading ? 'Actualizando…' : 'Actualizar'}
+        </button>
+      </div>
+
+      {error ? <div className={styles.error} role="alert">{error}</div> : null}
 
       {loading ? (
-        <p className={styles.loading}>Cargando…</p>
+        <LoadingState />
       ) : (
         <>
-          <section className={styles.kpiGrid} aria-label="Resumen">
-            {tiles.map((tile) => {
-              const change = delta(tile.value, tile.prev)
-              return (
-                <div key={tile.key} className={styles.kpi}>
-                  <span className={styles.kpiLabel}>{tile.label}</span>
-                  <strong className={styles.kpiValue}>{tile.value.toLocaleString('es-ES')}</strong>
-                  <span className={`${styles.kpiDelta} ${styles[`delta_${change.tone}`]}`}>
-                    {change.text} vs. periodo anterior
-                  </span>
-                </div>
-              )
-            })}
-          </section>
+          <KpiGrid columns={3}>
+            {tiles.map((tile) => (
+              <KpiCard
+                key={tile.key}
+                icon={tile.icon}
+                label={tile.label}
+                value={formatNumber(tile.value)}
+                delta={computeDelta(tile.value, tile.prev)}
+                deltaLabel="el periodo anterior"
+                hint={`antes: ${formatNumber(tile.prev)}`}
+                tone={tile.tone}
+              />
+            ))}
+          </KpiGrid>
 
-          <section className={styles.panel} aria-label="Visitas por día">
-            <h3>Visitas por día</h3>
-            {now.daily.length === 0 ? (
-              <p className={styles.empty}>Sin datos todavía.</p>
-            ) : (
-              <div className={styles.bars}>
-                {now.daily.map((point) => (
-                  <div key={point.day} className={styles.barCol} title={`${point.day}: ${point.views} visitas`}>
-                    <span
-                      className={styles.bar}
-                      style={{ height: `${Math.max(3, (point.views / maxDaily) * 100)}%` }}
-                    />
-                    <span className={styles.barLabel}>{point.day.slice(8)}</span>
+          <div className={styles.chartsGrid}>
+            <ReportCard
+              wide
+              icon={Eye}
+              title="Visitas por día"
+              subtitle={bestDay && bestDay.views > 0
+                ? `${formatNumber(totalDaily)} visitas · el mejor día fue el ${Number(bestDay.day.slice(8))} con ${bestDay.views}`
+                : 'Visitas a tu ficha cada día'}
+            >
+              {now.daily.length === 0 ? (
+                <EmptyState icon={Eye} title="Sin datos todavía" text="Las visitas aparecen en cuanto alguien abre tu ficha." />
+              ) : (
+                <div className={styles.dailyChart} role="img" aria-label="Visitas por día">
+                  {now.daily.map((point) => (
+                    <div key={point.day} className={styles.dailyCol} title={`Día ${Number(point.day.slice(8))}: ${point.views} visitas`}>
+                      <span className={styles.dailyTrack}>
+                        <span
+                          className={`${styles.dailyBar} ${bestDay?.day === point.day ? styles.dailyBarBest : ''}`}
+                          style={{ height: `${Math.max(3, (point.views / maxDaily) * 100)}%` }}
+                        />
+                      </span>
+                      <span className={styles.dailyLabel}>{Number(point.day.slice(8))}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ReportCard>
+
+            <ReportCard icon={Filter} title="De promo a reserva" subtitle="Cuánta gente avanza en cada paso">
+              <div className={styles.funnel}>
+                {funnelSteps.map((step, index) => (
+                  <div key={step.label} className={styles.funnelStep}>
+                    <div className={styles.funnelRow}>
+                      <span>{step.label}</span>
+                      <strong>{formatNumber(step.value)}</strong>
+                    </div>
+                    <span className={styles.funnelTrack}>
+                      <span style={{ width: `${Math.max(step.value ? 4 : 0, (step.value / funnelMax) * 100)}%`, opacity: 1 - index * 0.2 }} />
+                    </span>
+                    {index > 0 ? (
+                      <span className={styles.funnelRate}>
+                        {percent(step.value, funnelSteps[index - 1].value)} % del paso anterior
+                      </span>
+                    ) : null}
                   </div>
                 ))}
               </div>
-            )}
-          </section>
+            </ReportCard>
 
-          <section className={styles.panel} aria-label="Embudo de promociones">
-            <h3>De promo a reserva</h3>
-            <div className={styles.funnel}>
-              <div className={styles.funnelStep}>
-                <strong>{now.promoViews.toLocaleString('es-ES')}</strong>
-                <span>Promos vistas</span>
-              </div>
-              <span className={styles.funnelArrow} aria-hidden="true">→</span>
-              <div className={styles.funnelStep}>
-                <strong>{now.promoReserveClicks.toLocaleString('es-ES')}</strong>
-                <span>Clics a reservar</span>
-              </div>
-              <span className={styles.funnelArrow} aria-hidden="true">→</span>
-              <div className={styles.funnelStep}>
-                <strong>{now.reservationsFromPromo.toLocaleString('es-ES')}</strong>
-                <span>Reservas hechas</span>
-              </div>
-              <div className={styles.funnelRate}>{funnelRate}% de los clics acaban en reserva</div>
-            </div>
-          </section>
+            <ReportCard icon={Search} title="Búsquedas y favoritos" subtitle="Cómo te encuentran y te guardan">
+              <dl className={styles.miniStats}>
+                <div>
+                  <dt>Apareciste en búsquedas</dt>
+                  <dd>{formatNumber(now.searchImpressions)}</dd>
+                </div>
+                <div>
+                  <dt>Te abrieron desde la búsqueda</dt>
+                  <dd>
+                    {formatNumber(now.searchClicks)}
+                    <small>{searchCtr} %</small>
+                  </dd>
+                </div>
+                <div>
+                  <dt>
+                    <Heart size={13} aria-hidden="true" /> Te guardaron en favoritos
+                  </dt>
+                  <dd>
+                    {formatNumber(now.favoritesAdd)}
+                    {now.favoritesRemove > 0 ? <small>−{now.favoritesRemove} quitados</small> : null}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Reservas desde tu ficha</dt>
+                  <dd>{formatNumber(now.reservationsFromProfile)}</dd>
+                </div>
+              </dl>
+              {favoritesNet !== 0 ? (
+                <p className={styles.miniNote}>
+                  Balance de favoritos: {favoritesNet > 0 ? `+${favoritesNet}` : favoritesNet} en el periodo.
+                </p>
+              ) : null}
+            </ReportCard>
+          </div>
 
-          <section className={styles.panel} aria-label="Cartas más vistas">
-            <h3>Cartas más vistas</h3>
+          <TableCard title="Cartas más vistas" meta={`Aperturas de cada carta · ${range.label}`}>
             {topBoards.length === 0 ? (
-              <p className={styles.empty}>Nadie ha abierto una carta concreta todavía.</p>
+              <EmptyState icon={BookOpen} title="Nadie ha abierto una carta concreta todavía" />
             ) : (
-              <table className={styles.table}>
-                <thead>
-                  <tr><th>Carta</th><th>Aperturas</th></tr>
-                </thead>
-                <tbody>
-                  {topBoards.map((board) => (
-                    <tr key={board.id}>
-                      <td>{board.name}</td>
-                      <td className={styles.num}>{board.count.toLocaleString('es-ES')}</td>
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th scope="col" style={{ width: '3rem' }}>#</th>
+                      <th scope="col">Carta</th>
+                      <th scope="col" style={{ width: '40%' }}>Peso</th>
+                      <th scope="col" className={styles.num}>Aperturas</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {topBoards.map((board, index) => (
+                      <tr key={board.id}>
+                        <td><span className={`${styles.rank} ${index < 3 ? styles.rankTop : ''}`}>{index + 1}</span></td>
+                        <td><strong>{board.name}</strong></td>
+                        <td><InlineBar value={board.count} max={maxBoard} /></td>
+                        <td className={styles.num}>{formatNumber(board.count)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </section>
+          </TableCard>
 
-          <section className={styles.panel} aria-label="Promos con más tirón">
-            <h3>Promos con más tirón</h3>
+          <TableCard title="Promociones con más tirón" meta={`Vistas, reclamos y reservas · ${range.label}`}>
             {topPromos.length === 0 ? (
-              <p className={styles.empty}>Sin datos de promos todavía.</p>
+              <EmptyState icon={Tag} title="Sin datos de promociones todavía" />
             ) : (
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Promo</th><th>Vistas</th><th>Reclamos</th><th>Clics reservar</th><th>Reservas</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topPromos.map((promo) => (
-                    <tr key={promo.id}>
-                      <td>{promo.name}</td>
-                      <td className={styles.num}>{promo.views.toLocaleString('es-ES')}</td>
-                      <td className={styles.num}>{promo.claims.toLocaleString('es-ES')}</td>
-                      <td className={styles.num}>{promo.reserveClicks.toLocaleString('es-ES')}</td>
-                      <td className={styles.num}>{promo.reservations.toLocaleString('es-ES')}</td>
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Promoción</th>
+                      <th scope="col" className={styles.num}>Vistas</th>
+                      <th scope="col" className={styles.num}>Reclamos</th>
+                      <th scope="col" className={styles.num}>Clics reservar</th>
+                      <th scope="col" className={styles.num}>Reservas</th>
+                      <th scope="col" className={styles.num}>Conversión</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {topPromos.map((promo) => (
+                      <tr key={promo.id}>
+                        <td><strong>{promo.name}</strong></td>
+                        <td className={styles.num}>{formatNumber(promo.views)}</td>
+                        <td className={styles.num}>{formatNumber(promo.claims)}</td>
+                        <td className={styles.num}>{formatNumber(promo.reserveClicks)}</td>
+                        <td className={styles.num}>{formatNumber(promo.reservations)}</td>
+                        <td className={styles.num}>
+                          <span className={`${styles.chip} ${promo.reservations > 0 ? styles.chipOk : styles.chipMuted}`}>
+                            {percent(promo.reservations, promo.views)} %
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </section>
+          </TableCard>
         </>
       )}
     </div>

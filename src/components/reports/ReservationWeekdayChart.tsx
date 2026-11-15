@@ -15,7 +15,11 @@ function ReservationWeekdayChart({ data, emptyLabel = 'Sin reservas en este peri
   const plotWidth = WIDTH - PADDING.left - PADDING.right
   const plotHeight = HEIGHT - PADDING.top - PADDING.bottom
   const hasData = data.values.some((value) => value > 0)
-  const barGap = 10
+  // Con muchas columnas (p. ej. los 30 días de un mes) se estrechan los huecos
+  // y solo se rotulan algunas, para que no se amontonen los números.
+  const many = data.labels.length > 12
+  const barGap = many ? 2 : 10
+  const labelStep = many ? Math.ceil(data.labels.length / 10) : 1
   const barWidth = (plotWidth - barGap * (data.labels.length - 1)) / data.labels.length
 
   return (
@@ -42,31 +46,33 @@ function ReservationWeekdayChart({ data, emptyLabel = 'Sin reservas en este peri
                   y={y}
                   width={barWidth}
                   height={Math.max(barHeight, value > 0 ? 4 : 0)}
-                  rx={6}
-                  fill={isPeak ? '#6b5344' : 'rgba(107, 83, 68, 0.55)'}
+                  rx={Math.min(6, barWidth / 3)}
+                  fill={isPeak ? '#8a3f1c' : 'rgba(138, 63, 28, 0.32)'}
                   className={styles.bar}
                 />
-                {value > 0 && (
+                {value > 0 && (!many || isPeak) && (
                   <text
                     x={x + barWidth / 2}
                     y={y - 5}
                     textAnchor="middle"
                     fontSize="10"
                     fontWeight="600"
-                    fill="#6b5344"
+                    fill="#8a3f1c"
                   >
                     {value}
                   </text>
                 )}
-                <text
+                {index % labelStep === 0 || index === data.labels.length - 1 ? (
+                  <text
                   x={x + barWidth / 2}
                   y={HEIGHT - 8}
                   textAnchor="middle"
                   fontSize="10"
-                  fill="#8a7a6e"
+                  fill="#a29a91"
                 >
                   {data.labels[index]}
                 </text>
+                ) : null}
               </g>
             )
           })}

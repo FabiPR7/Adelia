@@ -43,7 +43,7 @@ function ReservationHourSlotsChart({ data }: ReservationHourSlotsChartProps) {
                   width={barWidth}
                   height={Math.max(barHeight, value > 0 ? 4 : 0)}
                   rx={6}
-                  fill={isPeak ? '#6b5344' : isDinner ? 'rgba(46, 125, 107, 0.65)' : 'rgba(107, 83, 68, 0.5)'}
+                  fill={isPeak ? '#8a3f1c' : isDinner ? 'rgba(63, 154, 107, 0.7)' : 'rgba(138, 63, 28, 0.3)'}
                   className={styles.bar}
                 />
                 {value > 0 && (
@@ -53,7 +53,7 @@ function ReservationHourSlotsChart({ data }: ReservationHourSlotsChartProps) {
                     textAnchor="middle"
                     fontSize="10"
                     fontWeight="600"
-                    fill="#6b5344"
+                    fill="#8a3f1c"
                   >
                     {value}
                   </text>
@@ -63,7 +63,7 @@ function ReservationHourSlotsChart({ data }: ReservationHourSlotsChartProps) {
                   y={HEIGHT - 8}
                   textAnchor="middle"
                   fontSize="10"
-                  fill="#8a7a6e"
+                  fill="#a29a91"
                 >
                   {data.labels[index]}
                 </text>

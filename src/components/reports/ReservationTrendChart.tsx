@@ -11,9 +11,9 @@ const HEIGHT = 180
 const PADDING = { top: 14, right: 12, bottom: 28, left: 32 }
 
 const SERIES = [
-  { key: 'confirmed' as const, label: 'Confirmadas', color: '#2e7d6b', fill: 'rgba(46, 125, 107, 0.35)' },
-  { key: 'completed' as const, label: 'Pendientes', color: '#8b6914', fill: 'rgba(139, 105, 20, 0.28)' },
-  { key: 'cancelled' as const, label: 'Canceladas', color: '#c0392b', fill: 'rgba(192, 57, 43, 0.22)' },
+  { key: 'confirmed' as const, label: 'Asistieron', color: '#3f9a6b', fill: 'rgba(63, 154, 107, 0.26)' },
+  { key: 'completed' as const, label: 'Reservadas', color: '#2b4c8c', fill: 'rgba(43, 76, 140, 0.2)' },
+  { key: 'cancelled' as const, label: 'Canceladas', color: '#c2553b', fill: 'rgba(194, 85, 59, 0.2)' },
 ]
 
 export function buildAreaPath(
@@ -110,9 +110,9 @@ function ReservationTrendChart({ data }: ReservationTrendChartProps) {
                   y1={y}
                   x2={WIDTH - PADDING.right}
                   y2={y}
-                  stroke="rgba(107, 83, 68, 0.1)"
+                  stroke="rgba(28, 25, 23, 0.07)"
                 />
-                <text x={PADDING.left - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#8a7a6e">
+                <text x={PADDING.left - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#a29a91">
                   {tick}
                 </text>
               </g>
@@ -146,7 +146,7 @@ function ReservationTrendChart({ data }: ReservationTrendChartProps) {
                 y={HEIGHT - 8}
                 textAnchor="middle"
                 fontSize="10"
-                fill="#8a7a6e"
+                fill="#a29a91"
               >
                 {label}
               </text>

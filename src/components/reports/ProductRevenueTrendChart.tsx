@@ -46,11 +46,11 @@ function ProductRevenueTrendChart({ data }: ProductRevenueTrendChartProps) {
     <div className={shared.chartBody}>
       <div className={shared.legend} aria-hidden="true">
         <span className={shared.legendItem}>
-          <span className={shared.legendSwatch} style={{ background: '#2e7d6b' }} />
+          <span className={shared.legendSwatch} style={{ background: '#3f9a6b' }} />
           Ingresos verificados
         </span>
         <span className={shared.legendItem}>
-          <span className={shared.legendSwatch} style={{ background: '#8b6914' }} />
+          <span className={shared.legendSwatch} style={{ background: '#2b4c8c' }} />
           Unidades vendidas
         </span>
       </div>
@@ -74,9 +74,9 @@ function ProductRevenueTrendChart({ data }: ProductRevenueTrendChartProps) {
                   y1={y}
                   x2={WIDTH - PADDING.right}
                   y2={y}
-                  stroke="rgba(107, 83, 68, 0.1)"
+                  stroke="rgba(28, 25, 23, 0.07)"
                 />
-                <text x={PADDING.left - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#8a7a6e">
+                <text x={PADDING.left - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#a29a91">
                   {(tick / 100).toFixed(0)} €
                 </text>
               </g>
@@ -86,7 +86,7 @@ function ProductRevenueTrendChart({ data }: ProductRevenueTrendChartProps) {
           <path
             d={buildLinePath(data.revenueCents, maxRevenue, plotWidth, plotHeight)}
             fill="none"
-            stroke="#2e7d6b"
+            stroke="#3f9a6b"
             strokeWidth="2.5"
             strokeLinejoin="round"
           />
@@ -94,7 +94,7 @@ function ProductRevenueTrendChart({ data }: ProductRevenueTrendChartProps) {
           <path
             d={buildLinePath(data.unitsSold, maxUnits, plotWidth, plotHeight)}
             fill="none"
-            stroke="#8b6914"
+            stroke="#2b4c8c"
             strokeWidth="2"
             strokeDasharray="5 4"
             strokeLinejoin="round"
@@ -116,7 +116,7 @@ function ProductRevenueTrendChart({ data }: ProductRevenueTrendChartProps) {
                 y={HEIGHT - 8}
                 textAnchor="middle"
                 fontSize="10"
-                fill="#8a7a6e"
+                fill="#a29a91"
               >
                 {label}
               </text>

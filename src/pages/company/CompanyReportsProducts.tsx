@@ -1,10 +1,37 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  BadgeCheck,
+  Clock,
+  Euro,
+  Package,
+  PieChart,
+  Receipt,
+  ShoppingBasket,
+  Trophy,
+  TrendingUp,
+} from 'lucide-react'
 import ProductModeDonut from '../../components/reports/ProductModeDonut'
 import ProductRevenueTrendChart from '../../components/reports/ProductRevenueTrendChart'
 import ProductTopBarChart from '../../components/reports/ProductTopBarChart'
 import ReservationHourSlotsChart from '../../components/reports/ReservationHourSlotsChart'
 import SortableTh from '../../components/reports/SortableTh'
-import InfoHint from '../../components/company/InfoHint'
+import {
+  ChartsGrid,
+  computeDelta,
+  EmptyState,
+  formatNumber,
+  InlineBar,
+  KpiCard,
+  KpiGrid,
+  LoadingState,
+  previousPeriodConfig,
+  previousPeriodLabel,
+  ReportCard,
+  ReportHeader,
+  ReportPeriodBar,
+  reportStyles as styles,
+  TableCard,
+} from '../../components/reports/ReportKit'
 import {
   getFirestoreErrorMessage,
   getReservationsByCompany,
@@ -33,8 +60,7 @@ import {
   getReportDateRange,
   mergeVerifiedConsumptions,
 } from '../../utils/productReports'
-import type { ReportGranularity, ReportPeriodConfig } from '../../utils/reservationReports'
-import styles from './CompanyReportsReservations.module.css'
+import type { ReportPeriodConfig } from '../../utils/reservationReports'
 
 type ProductSortKey = 'name' | 'quantity' | 'revenue'
 type VerificationSortKey = 'clientName' | 'startTime' | 'totalCents' | 'verifiedAt'
@@ -56,45 +82,27 @@ interface CompanyReportsProductsProps {
   companyId: string
 }
 
-const GRANULARITY_OPTIONS: { id: ReportGranularity; label: string }[] = [
-  { id: 'annual', label: 'Anual' },
-  { id: 'quarterly', label: 'Trimestral' },
-  { id: 'monthly', label: 'Mensual' },
-]
-
-const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
-  value: index + 1,
-  label: new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(2024, index, 1)),
-}))
-
-const QUARTER_OPTIONS = [
-  { value: 1, label: 'T1 (Ene – Mar)' },
-  { value: 2, label: 'T2 (Abr – Jun)' },
-  { value: 3, label: 'T3 (Jul – Sep)' },
-  { value: 4, label: 'T4 (Oct – Dic)' },
-]
-
 function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
   const now = new Date()
-  const [granularity, setGranularity] = useState<ReportGranularity>('monthly')
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1)
+  const [config, setConfig] = useState<ReportPeriodConfig>({
+    granularity: 'monthly',
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    quarter: Math.floor(now.getMonth() / 3) + 1,
+  })
   const [records, setRecords] = useState<VerifiedConsumptionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [productSort, setProductSort] = useState<SortState>({ key: 'quantity', direction: 'desc' })
-  const [verificationSort, setVerificationSort] = useState<SortState>({
-    key: 'verifiedAt',
-    direction: 'desc',
-  })
+  const [verificationSort, setVerificationSort] = useState<SortState>({ key: 'verifiedAt', direction: 'desc' })
+  const [query, setQuery] = useState('')
 
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
 
     try {
-      const range = yearBounds(year)
+      const range = yearBounds(config.year)
       const [fromSubcollection, reservations] = await Promise.all([
         getVerifiedConsumptionsByCompany(companyId),
         getReservationsByCompany(companyId, { from: range.start, to: range.end }),
@@ -106,7 +114,7 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
     } finally {
       setLoading(false)
     }
-  }, [companyId, year])
+  }, [companyId, config.year])
 
   useEffect(() => {
     void loadData()
@@ -114,31 +122,29 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
 
   const availableYears = useMemo(() => reportYearOptions(), [])
 
-  const periodConfig = useMemo<ReportPeriodConfig>(
-    () => ({ granularity, year, month, quarter }),
-    [granularity, year, month, quarter],
+  const periodRecords = useMemo(
+    () => filterVerifiedInRange(records, getReportDateRange(config)),
+    [records, config],
   )
 
-  const periodRecords = useMemo(() => {
-    const range = getReportDateRange(periodConfig)
-    return filterVerifiedInRange(records, range)
-  }, [records, periodConfig])
+  const previousConfig = previousPeriodConfig(config)
+  const previousKpis = useMemo(() => {
+    if (!previousConfig) {
+      return null
+    }
+    return computeProductKpis(filterVerifiedInRange(records, getReportDateRange(previousConfig)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [records, previousConfig?.granularity, previousConfig?.month, previousConfig?.quarter, previousConfig?.year])
 
   const kpis = useMemo(() => computeProductKpis(periodRecords), [periodRecords])
   const topProducts = useMemo(() => computeTopProducts(periodRecords, 8), [periodRecords])
-  const trendData = useMemo(
-    () => computeProductTrendChartData(records, periodConfig),
-    [records, periodConfig],
-  )
+  const allProducts = useMemo(() => computeTopProducts(periodRecords, 500), [periodRecords])
+  const trendData = useMemo(() => computeProductTrendChartData(records, config), [records, config])
   const modeData = useMemo(() => computeModeDistribution(periodRecords), [periodRecords])
-  const hourSlotData = useMemo(
-    () => computeProductHourChartData(periodRecords),
-    [periodRecords],
-  )
+  const hourSlotData = useMemo(() => computeProductHourChartData(periodRecords), [periodRecords])
 
   const sortedProducts = useMemo(() => {
-    const list = [...topProducts]
-
+    const list = [...allProducts]
     list.sort((left, right) => {
       switch (productSort.key as ProductSortKey) {
         case 'name':
@@ -150,12 +156,21 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
           return compareNumbers(left.quantity, right.quantity, productSort.direction)
       }
     })
-
     return list
-  }, [topProducts, productSort])
+  }, [allProducts, productSort])
+
+  const maxQuantity = Math.max(1, ...allProducts.map((product) => product.quantity))
+  const rankByQuantity = useMemo(() => {
+    const ranked = [...allProducts].sort((left, right) => right.quantity - left.quantity)
+    return new Map(ranked.map((product, index) => [product.nodeId, index + 1]))
+  }, [allProducts])
 
   const sortedVerifications = useMemo(() => {
-    const list = [...periodRecords]
+    const normalized = query.trim().toLowerCase()
+    const list = normalized
+      ? periodRecords.filter((record) =>
+        `${record.clientName} ${record.lineItems.map((item) => item.name).join(' ')}`.toLowerCase().includes(normalized))
+      : [...periodRecords]
 
     list.sort((left, right) => {
       switch (verificationSort.key as VerificationSortKey) {
@@ -170,15 +185,24 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
           return compareDates(left.verifiedAt, right.verifiedAt, verificationSort.direction)
       }
     })
-
     return list
-  }, [periodRecords, verificationSort])
+  }, [periodRecords, verificationSort, query])
 
-  const periodLabel = formatReportPeriodLabel(periodConfig)
+  const periodLabel = formatReportPeriodLabel(config)
+  const prevLabel = previousPeriodLabel(config)
+  const averageTicket = kpis.verificationCount > 0 ? Math.round(kpis.totalCents / kpis.verificationCount) : 0
+  const prevAverageTicket = previousKpis && previousKpis.verificationCount > 0
+    ? Math.round(previousKpis.totalCents / previousKpis.verificationCount)
+    : null
+
+  const onProductSort = (key: string) => setProductSort((current) =>
+    nextSortState(current, key, PRODUCT_SORT_DEFAULTS[key as ProductSortKey] ?? 'asc'))
+  const onVerificationSort = (key: string) => setVerificationSort((current) =>
+    nextSortState(current, key, VERIFICATION_SORT_DEFAULTS[key as VerificationSortKey] ?? 'asc'))
 
   const handleDownloadProducts = () => {
     downloadExcelFile(
-      'productos-verificados-adelia.csv',
+      `productos-${periodLabel.replaceAll(' ', '-')}.csv`,
       ['Producto', 'Unidades', 'Ingresos (€)'],
       sortedProducts.map((product) => [
         product.name,
@@ -190,7 +214,7 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
 
   const handleDownloadVerifications = () => {
     downloadExcelFile(
-      'verificaciones-consumo-adelia.csv',
+      `verificaciones-${periodLabel.replaceAll(' ', '-')}.csv`,
       ['Cliente', 'Fecha reserva', 'Hora', 'Modo', 'Total (€)', 'Productos', 'Verificado el'],
       sortedVerifications.map((record) => [
         record.clientName,
@@ -205,336 +229,187 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
   }
 
   return (
-    <div className={styles.wrapper}>
-      <header className={styles.header}>
-        <h2>
-          Informes de productos
-          <InfoHint label="Sobre los informes de productos">
-            Consumo verificado en promociones con gasto mínimo: qué pidieron los clientes y cuánto
-            generó cada producto.
-          </InfoHint>
-        </h2>
-      </header>
+    <div className={styles.page}>
+      <ReportHeader
+        title="Informe de productos"
+        subtitle="Lo que piden tus clientes cuando verifican el consumo con tu código en las promociones con gasto mínimo."
+      />
 
-      <div className={styles.scrollArea}>
-        <div className={styles.controls}>
-          <div className={styles.controlsFilters}>
-            <div className={styles.periodToggle} role="radiogroup" aria-label="Tipo de informe">
-              {GRANULARITY_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={granularity === option.id}
-                  className={`${styles.periodButton} ${
-                    granularity === option.id ? styles.periodButtonActive : ''
-                  }`}
-                  onClick={() => setGranularity(option.id)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+      <ReportPeriodBar
+        config={config}
+        years={availableYears}
+        periodLabel={periodLabel}
+        loading={loading}
+        onChange={setConfig}
+        onRefresh={() => void loadData()}
+      />
 
-            <select
-              className={styles.select}
-              value={year}
-              onChange={(event) => setYear(Number(event.target.value))}
-              aria-label="Año"
-            >
-              {availableYears.map((optionYear) => (
-                <option key={optionYear} value={optionYear}>
-                  {optionYear}
-                </option>
-              ))}
-            </select>
+      {error ? <div className={styles.error} role="alert">{error}</div> : null}
 
-            {granularity === 'monthly' && (
-              <select
-                className={styles.select}
-                value={month}
-                onChange={(event) => setMonth(Number(event.target.value))}
-                aria-label="Mes"
-              >
-                {MONTH_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            )}
+      {loading && records.length === 0 ? (
+        <LoadingState />
+      ) : (
+        <>
+          <KpiGrid columns={4}>
+            <KpiCard
+              icon={Euro}
+              label="Ingresos verificados"
+              value={formatCentsAsEuros(kpis.totalCents)}
+              delta={computeDelta(kpis.totalCents, previousKpis?.totalCents)}
+              deltaLabel={prevLabel}
+              hint={previousKpis ? `vs. ${prevLabel}` : undefined}
+              tone="good"
+            />
+            <KpiCard
+              icon={Package}
+              label="Unidades"
+              value={formatNumber(kpis.unitsSold)}
+              delta={computeDelta(kpis.unitsSold, previousKpis?.unitsSold)}
+              deltaLabel={prevLabel}
+            />
+            <KpiCard
+              icon={BadgeCheck}
+              label="Verificaciones"
+              value={formatNumber(kpis.verificationCount)}
+              delta={computeDelta(kpis.verificationCount, previousKpis?.verificationCount)}
+              deltaLabel={prevLabel}
+              tone="info"
+            />
+            <KpiCard
+              icon={Receipt}
+              label="Ticket medio"
+              value={kpis.verificationCount ? formatCentsAsEuros(averageTicket) : '—'}
+              delta={prevAverageTicket != null && kpis.verificationCount ? computeDelta(averageTicket, prevAverageTicket) : null}
+              deltaLabel={prevLabel}
+              hint="por verificación"
+              tone="warn"
+            />
+          </KpiGrid>
 
-            {granularity === 'quarterly' && (
-              <select
-                className={styles.select}
-                value={quarter}
-                onChange={(event) => setQuarter(Number(event.target.value))}
-                aria-label="Trimestre"
-              >
-                {QUARTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          <ChartsGrid>
+            <ReportCard wide icon={TrendingUp} title="Evolución" subtitle={`Ingresos y unidades · ${periodLabel}`}>
+              <ProductRevenueTrendChart data={trendData} />
+            </ReportCard>
+            <ReportCard icon={Trophy} title="Más pedidos" subtitle="Top productos por unidades">
+              <ProductTopBarChart products={topProducts} metric="quantity" />
+            </ReportCard>
+            <ReportCard icon={Euro} title="Más facturan" subtitle="Top productos por ingresos">
+              <ProductTopBarChart products={topProducts} metric="revenue" />
+            </ReportCard>
+            <ReportCard icon={PieChart} title="Cómo se verifica" subtitle="Detalle por productos o solo el importe">
+              <ProductModeDonut withProducts={modeData.withProducts} totalOnly={modeData.totalOnly} />
+            </ReportCard>
+            <ReportCard icon={Clock} title="Por hora de reserva" subtitle="En qué franjas se piden más productos">
+              <ReservationHourSlotsChart data={hourSlotData} />
+            </ReportCard>
+          </ChartsGrid>
 
-          <div className={styles.controlsSummary}>
-            <button
-              type="button"
-              className={styles.refreshButton}
-              onClick={() => void loadData()}
-              disabled={loading}
-            >
-              {loading ? 'Actualizando…' : 'Actualizar'}
-            </button>
-
-            {!loading || records.length > 0 ? (
-              <div className={styles.kpiInline} aria-label="Resumen del periodo">
-                <span className={`${styles.kpiChip} ${styles.kpiChipTotal}`}>
-                  <span className={styles.kpiLabel}>Verificaciones</span>
-                  <strong className={styles.kpiValue}>{kpis.verificationCount}</strong>
-                </span>
-                <span className={`${styles.kpiChip} ${styles.kpiChipConfirmed}`}>
-                  <span className={styles.kpiLabel}>Ingresos</span>
-                  <strong className={styles.kpiValue}>{formatCentsAsEuros(kpis.totalCents)}</strong>
-                </span>
-                <span className={`${styles.kpiChip} ${styles.kpiChipCancelled}`}>
-                  <span className={styles.kpiLabel}>Unidades</span>
-                  <strong className={styles.kpiValue}>{kpis.unitsSold}</strong>
-                </span>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {error && <div className={styles.error}>{error}</div>}
-
-        {loading && records.length === 0 ? (
-          <div className={styles.loading}>Cargando informes…</div>
-        ) : (
-          <>
-            <div className={styles.chartsGrid}>
-              <section className={`${styles.chartCard} ${styles.chartCardWide}`}>
-                <div className={styles.chartHeader}>
-                  <h3>Tendencia del periodo</h3>
-                  <p className={styles.chartSubtitle}>
-                    Ingresos verificados y unidades vendidas · {periodLabel}
-                  </p>
-                </div>
-                <ProductRevenueTrendChart data={trendData} />
-              </section>
-
-              <section className={styles.chartCard}>
-                <div className={styles.chartHeader}>
-                  <h3>Modo de verificación</h3>
-                  <p className={styles.chartSubtitle}>Detalle por productos vs importe total declarado</p>
-                </div>
-                <ProductModeDonut
-                  withProducts={modeData.withProducts}
-                  totalOnly={modeData.totalOnly}
-                />
-              </section>
-
-              <section className={`${styles.chartCard} ${styles.chartCardWide}`}>
-                <div className={styles.chartHeader}>
-                  <h3>Top productos por unidades</h3>
-                  <p className={styles.chartSubtitle}>Los más elegidos al verificar el consumo</p>
-                </div>
-                <ProductTopBarChart products={topProducts} metric="quantity" />
-              </section>
-
-              <section className={`${styles.chartCard} ${styles.chartCardWide}`}>
-                <div className={styles.chartHeader}>
-                  <h3>Top productos por ingresos</h3>
-                  <p className={styles.chartSubtitle}>Facturación acumulada en verificaciones</p>
-                </div>
-                <ProductTopBarChart products={topProducts} metric="revenue" />
-              </section>
-
-              <section className={`${styles.chartCard} ${styles.chartCardWide}`}>
-                <div className={styles.chartHeader}>
-                  <h3>Unidades por hora de reserva</h3>
-                  <p className={styles.chartSubtitle}>
-                    En qué franjas se concentran los productos verificados · {periodLabel}
-                  </p>
-                </div>
-                <ReservationHourSlotsChart data={hourSlotData} />
-              </section>
-            </div>
-
-            <section className={styles.listSection}>
-              <div className={styles.listHeader}>
-                <div className={styles.listHeaderText}>
-                  <h3>Ranking de productos</h3>
-                  <p className={styles.listMeta}>{periodLabel}</p>
-                </div>
-                <button
-                  type="button"
-                  className={styles.downloadButton}
-                  onClick={handleDownloadProducts}
-                  disabled={sortedProducts.length === 0}
-                >
-                  Descargar Excel
-                </button>
-              </div>
-
-              {sortedProducts.length === 0 ? (
-                <div className={styles.emptyList}>No hay productos verificados en este periodo.</div>
-              ) : (
-                <div className={styles.tableWrap}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <SortableTh
-                          label="Producto"
-                          sortKey="name"
-                          sort={productSort}
-                          onSort={(key) => setProductSort((current) => nextSortState(
-                            current,
-                            key,
-                            PRODUCT_SORT_DEFAULTS[key as ProductSortKey] ?? 'asc',
-                          ))}
-                        />
-                        <SortableTh
-                          label="Unidades"
-                          sortKey="quantity"
-                          sort={productSort}
-                          onSort={(key) => setProductSort((current) => nextSortState(
-                            current,
-                            key,
-                            PRODUCT_SORT_DEFAULTS[key as ProductSortKey] ?? 'asc',
-                          ))}
-                        />
-                        <SortableTh
-                          label="Ingresos"
-                          sortKey="revenue"
-                          sort={productSort}
-                          onSort={(key) => setProductSort((current) => nextSortState(
-                            current,
-                            key,
-                            PRODUCT_SORT_DEFAULTS[key as ProductSortKey] ?? 'asc',
-                          ))}
-                        />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedProducts.map((product) => (
+          <TableCard
+            title="Ranking de productos"
+            meta={`${sortedProducts.length} ${sortedProducts.length === 1 ? 'producto' : 'productos'} · ${periodLabel}`}
+            onDownload={handleDownloadProducts}
+            downloadDisabled={sortedProducts.length === 0}
+          >
+            {sortedProducts.length === 0 ? (
+              <EmptyState
+                icon={ShoppingBasket}
+                title="Sin productos verificados en este periodo"
+                text="Aparecen cuando un cliente verifica el consumo con tu código en una promoción con gasto mínimo."
+              />
+            ) : (
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th scope="col" style={{ width: '3rem' }}>#</th>
+                      <SortableTh label="Producto" sortKey="name" sort={productSort} onSort={onProductSort} />
+                      <SortableTh label="Unidades" sortKey="quantity" sort={productSort} onSort={onProductSort} />
+                      <th scope="col" style={{ width: '30%' }}>Peso</th>
+                      <SortableTh label="Ingresos" sortKey="revenue" sort={productSort} onSort={onProductSort} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedProducts.map((product) => {
+                      const rank = rankByQuantity.get(product.nodeId) ?? 0
+                      return (
                         <tr key={product.nodeId}>
-                          <td>{product.name}</td>
-                          <td>{product.quantity}</td>
-                          <td>{formatCentsAsEuros(product.totalCents)}</td>
+                          <td>
+                            <span className={`${styles.rank} ${rank <= 3 ? styles.rankTop : ''}`}>{rank}</span>
+                          </td>
+                          <td><strong>{product.name}</strong></td>
+                          <td>{formatNumber(product.quantity)}</td>
+                          <td><InlineBar value={product.quantity} max={maxQuantity} /></td>
+                          <td className={styles.nowrap}>{formatCentsAsEuros(product.totalCents)}</td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className={styles.listSection}>
-              <div className={styles.listHeader}>
-                <div className={styles.listHeaderText}>
-                  <h3>Detalle de verificaciones</h3>
-                  <p className={styles.listMeta}>
-                    Cada reserva con consumo validado por PIN · {periodLabel}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={styles.downloadButton}
-                  onClick={handleDownloadVerifications}
-                  disabled={sortedVerifications.length === 0}
-                >
-                  Descargar Excel
-                </button>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
+            )}
+          </TableCard>
 
-              {sortedVerifications.length === 0 ? (
-                <div className={styles.emptyList}>No hay verificaciones de consumo en este periodo.</div>
-              ) : (
-                <div className={styles.tableWrap}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <SortableTh
-                          label="Cliente"
-                          sortKey="clientName"
-                          sort={verificationSort}
-                          onSort={(key) => setVerificationSort((current) => nextSortState(
-                            current,
-                            key,
-                            VERIFICATION_SORT_DEFAULTS[key as VerificationSortKey] ?? 'asc',
-                          ))}
-                        />
-                        <SortableTh
-                          label="Fecha reserva"
-                          sortKey="startTime"
-                          sort={verificationSort}
-                          onSort={(key) => setVerificationSort((current) => nextSortState(
-                            current,
-                            key,
-                            VERIFICATION_SORT_DEFAULTS[key as VerificationSortKey] ?? 'asc',
-                          ))}
-                        />
-                        <th scope="col">Modo</th>
-                        <SortableTh
-                          label="Total"
-                          sortKey="totalCents"
-                          sort={verificationSort}
-                          onSort={(key) => setVerificationSort((current) => nextSortState(
-                            current,
-                            key,
-                            VERIFICATION_SORT_DEFAULTS[key as VerificationSortKey] ?? 'asc',
-                          ))}
-                        />
-                        <th scope="col">Productos</th>
-                        <SortableTh
-                          label="Verificado"
-                          sortKey="verifiedAt"
-                          sort={verificationSort}
-                          onSort={(key) => setVerificationSort((current) => nextSortState(
-                            current,
-                            key,
-                            VERIFICATION_SORT_DEFAULTS[key as VerificationSortKey] ?? 'asc',
-                          ))}
-                        />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedVerifications.map((record) => (
-                        <tr key={record.id}>
-                          <td>{record.clientName || '—'}</td>
-                          <td>
-                            {formatDateSpanish(record.reservationStartTime)}
-                            {' · '}
-                            {formatTimeSpanish(record.reservationStartTime)}
-                          </td>
-                          <td>
+          <TableCard
+            title="Verificaciones de consumo"
+            meta={`Cada reserva con consumo validado con tu código · ${periodLabel}`}
+            search={{ value: query, onChange: setQuery, placeholder: 'Buscar cliente o producto' }}
+            onDownload={handleDownloadVerifications}
+            downloadDisabled={sortedVerifications.length === 0}
+          >
+            {sortedVerifications.length === 0 ? (
+              <EmptyState
+                icon={BadgeCheck}
+                title={query.trim() ? 'Ninguna verificación coincide' : 'Sin verificaciones en este periodo'}
+              />
+            ) : (
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <SortableTh label="Cliente" sortKey="clientName" sort={verificationSort} onSort={onVerificationSort} />
+                      <SortableTh label="Reserva" sortKey="startTime" sort={verificationSort} onSort={onVerificationSort} />
+                      <th scope="col">Modo</th>
+                      <th scope="col">Productos</th>
+                      <SortableTh label="Total" sortKey="totalCents" sort={verificationSort} onSort={onVerificationSort} />
+                      <SortableTh label="Verificado" sortKey="verifiedAt" sort={verificationSort} onSort={onVerificationSort} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedVerifications.map((record) => (
+                      <tr key={record.id}>
+                        <td><strong>{record.clientName || '—'}</strong></td>
+                        <td className={styles.nowrap}>
+                          {formatDateSpanish(record.reservationStartTime)} · {formatTimeSpanish(record.reservationStartTime)}
+                        </td>
+                        <td>
+                          <span className={`${styles.chip} ${record.mode === 'products' ? styles.chipOk : styles.chipInfo}`}>
                             {record.mode === 'products' ? 'Por productos' : 'Importe total'}
-                          </td>
-                          <td>{formatCentsAsEuros(record.totalCents)}</td>
-                          <td className={styles.productsCell}>
-                            {record.lineItems.length > 0
-                              ? record.lineItems.map((item) => (
-                                <span key={`${record.id}-${item.nodeId}`} className={styles.productTag}>
+                          </span>
+                        </td>
+                        <td>
+                          {record.lineItems.length > 0 ? (
+                            <span className={styles.tagList}>
+                              {record.lineItems.map((item) => (
+                                <span key={`${record.id}-${item.nodeId}`} className={styles.tag}>
                                   {item.quantity}× {item.name}
                                 </span>
-                              ))
-                              : '—'}
-                          </td>
-                          <td>{formatDateSpanish(record.verifiedAt)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </>
-        )}
-      </div>
+                              ))}
+                            </span>
+                          ) : (
+                            <span className={styles.muted}>—</span>
+                          )}
+                        </td>
+                        <td className={styles.nowrap}><strong>{formatCentsAsEuros(record.totalCents)}</strong></td>
+                        <td className={`${styles.nowrap} ${styles.muted}`}>{formatDateSpanish(record.verifiedAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TableCard>
+        </>
+      )}
     </div>
   )
 }

@@ -1,6 +1,30 @@
 import { Suspense, lazy, useRef, useState, useEffect, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Star } from 'lucide-react'
+import {
+  Armchair,
+  Bell,
+  BookOpen,
+  CalendarDays,
+  ChartColumn,
+  Clock,
+  Contact,
+  CreditCard,
+  Inbox,
+  LayoutDashboard,
+  LifeBuoy,
+  MailCheck,
+  Medal,
+  MessageSquareText,
+  ShoppingBasket,
+  Smartphone,
+  Star,
+  Store,
+  Tag,
+  Trophy,
+  Users,
+  UsersRound,
+  type LucideIcon,
+} from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import { useAuth } from '../context/AuthContext'
@@ -102,6 +126,37 @@ const KNOWN_TABS = new Set<string>([
   ...REPORTS_SECTIONS.map((section) => section.id),
   ...SETTINGS_SECTIONS.map((section) => section.id),
 ])
+
+/* Icono de cada sección del menú (también en Favoritos). */
+const TAB_ICONS: Partial<Record<CompanyTab, LucideIcon>> = {
+  home: LayoutDashboard,
+  reservations: CalendarDays,
+  'clients-reservations': Users,
+  'clients-promotions': Tag,
+  'clients-reviews': MessageSquareText,
+  'clients-email-received': Inbox,
+  'clients-email-confirmation': MailCheck,
+  'reports-reservations': ChartColumn,
+  'reports-clients': UsersRound,
+  'reports-products': ShoppingBasket,
+  'reports-reviews': Star,
+  'reports-app': Smartphone,
+  contact: Contact,
+  profile: Store,
+  'reservation-settings': Clock,
+  tables: Armchair,
+  menu: BookOpen,
+  plan: CreditCard,
+  'compite-notifications': Bell,
+  'compite-missions': Trophy,
+  'compite-ranking': Medal,
+  help: LifeBuoy,
+}
+
+function NavIcon({ tab }: { tab: CompanyTab }) {
+  const Icon = TAB_ICONS[tab]
+  return Icon ? <Icon size={16} strokeWidth={1.75} aria-hidden="true" className={styles.navIcon} /> : null
+}
 
 /* Favoritos del menú: se guardan en este navegador, uno por local. */
 const MAX_FAVORITES = 8
@@ -385,6 +440,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
         className={`${styles.navSubItem} ${activeTab === section.id ? styles.navSubItemActive : ''}`}
         onClick={() => attemptNavigate(section.id)}
       >
+        <NavIcon tab={section.id} />
         <span className={styles.navSubLabel}>{section.label}</span>
         <span className={styles.navHint}>{section.hint}</span>
       </button>
@@ -475,6 +531,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
                   className={`${styles.navItem} ${activeTab === tab ? styles.navItemActive : ''}`}
                   onClick={() => attemptNavigate(tab)}
                 >
+                  <NavIcon tab={tab} />
                   <span className={styles.navLabel}>{settingsSectionLabel(tab)}</span>
                   <span className={styles.favoriteGroup}>{groupLabelForTab(tab)}</span>
                 </button>,
@@ -489,6 +546,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
               className={`${styles.navItem} ${activeTab === 'home' ? styles.navItemActive : ''}`}
               onClick={() => attemptNavigate('home')}
             >
+              <NavIcon tab="home" />
               <span className={styles.navLabel}>Inicio</span>
               <span className={styles.navHint}>Resumen del día</span>
             </button>
@@ -500,6 +558,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
               className={`${styles.navItem} ${activeTab === 'reservations' ? styles.navItemActive : ''}`}
               onClick={() => attemptNavigate('reservations')}
             >
+              <NavIcon tab="reservations" />
               <span className={styles.navLabel}>Reservas</span>
               <span className={styles.navHint}>Calendario y listado del día</span>
             </button>
@@ -540,6 +599,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
                 }`}
                 onClick={() => attemptNavigate(section.id)}
               >
+                <NavIcon tab={section.id} />
                 <span className={styles.navSubLabel}>{section.label}</span>
                 <span className={styles.navHint}>{section.hint}</span>
               </button>
@@ -562,6 +622,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
               className={`${styles.navItem} ${activeTab === 'help' ? styles.navItemActive : ''}`}
               onClick={() => attemptNavigate('help')}
             >
+              <NavIcon tab="help" />
               <span className={styles.navLabel}>Ayuda</span>
               <span className={styles.navHint}>Tutoriales y preguntas frecuentes</span>
             </button>

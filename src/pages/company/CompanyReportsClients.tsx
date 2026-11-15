@@ -1,9 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { CalendarClock, Hourglass, Repeat, Sparkles, TrendingUp, UserPlus, Users, UsersRound } from 'lucide-react'
 import ClientRetentionChart from '../../components/reports/ClientRetentionChart'
 import ClientTrendChart from '../../components/reports/ClientTrendChart'
 import ReservationWeekdayChart from '../../components/reports/ReservationWeekdayChart'
 import SortableTh from '../../components/reports/SortableTh'
-import InfoHint from '../../components/company/InfoHint'
+import {
+  ChartsGrid,
+  computeDelta,
+  EmptyState,
+  formatNumber,
+  InlineBar,
+  KpiCard,
+  KpiGrid,
+  LoadingState,
+  previousPeriodConfig,
+  previousPeriodLabel,
+  ReportCard,
+  ReportHeader,
+  ReportPeriodBar,
+  reportStyles as styles,
+  TableCard,
+} from '../../components/reports/ReportKit'
 import { getFirestoreErrorMessage, getReservationsByCompany } from '../../services/firestore'
 import { reportYearOptions, yearBounds } from '../../services/firestoreQuery'
 import type { Reservation } from '../../types'
@@ -24,12 +41,10 @@ import {
   filterReservationsInRange,
   formatReportPeriodLabel,
   getReportDateRange,
-  type ReportGranularity,
   type ReportPeriodConfig,
 } from '../../utils/clientReports'
 import { downloadExcelFile, formatExcelDate } from '../../utils/exportSpreadsheet'
 import { formatDateSpanish } from '../../utils/helpers'
-import styles from './CompanyReportsClients.module.css'
 
 type ClientSortKey = 'name' | 'reservations' | 'totalPax' | 'firstVisit' | 'lastVisit'
 
@@ -41,38 +56,31 @@ const CLIENT_SORT_DEFAULTS: Record<ClientSortKey, SortState['direction']> = {
   lastVisit: 'desc',
 }
 
+const PAGE_STEP = 50
+
 interface CompanyReportsClientsProps {
   companyId: string
 }
 
-const GRANULARITY_OPTIONS: { id: ReportGranularity; label: string }[] = [
-  { id: 'annual', label: 'Anual' },
-  { id: 'quarterly', label: 'Trimestral' },
-  { id: 'monthly', label: 'Mensual' },
-]
-
-const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
-  value: index + 1,
-  label: new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(2024, index, 1)),
-}))
-
-const QUARTER_OPTIONS = [
-  { value: 1, label: 'T1 (Ene – Mar)' },
-  { value: 2, label: 'T2 (Abr – Jun)' },
-  { value: 3, label: 'T3 (Jul – Sep)' },
-  { value: 4, label: 'T4 (Oct – Dic)' },
-]
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? '')).toUpperCase()
+}
 
 function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
   const now = new Date()
-  const [granularity, setGranularity] = useState<ReportGranularity>('monthly')
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1)
+  const [config, setConfig] = useState<ReportPeriodConfig>({
+    granularity: 'monthly',
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    quarter: Math.floor(now.getMonth() / 3) + 1,
+  })
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sort, setSort] = useState<SortState>({ key: 'lastVisit', direction: 'desc' })
+  const [query, setQuery] = useState('')
+  const [visibleCount, setVisibleCount] = useState(PAGE_STEP)
 
   const loadReservations = useCallback(async () => {
     if (!companyId) {
@@ -85,7 +93,7 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
     setError(null)
 
     try {
-      const range = yearBounds(year)
+      const range = yearBounds(config.year)
       const data = await getReservationsByCompany(companyId, { from: range.start, to: range.end })
       setReservations(data)
     } catch (err) {
@@ -93,53 +101,59 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
     } finally {
       setLoading(false)
     }
-  }, [companyId, year])
+  }, [companyId, config.year])
 
   useEffect(() => {
     void loadReservations()
   }, [loadReservations])
 
+  useEffect(() => {
+    setVisibleCount(PAGE_STEP)
+  }, [query, sort, config.year])
+
   const availableYears = useMemo(() => reportYearOptions(), [])
 
-  const periodConfig = useMemo<ReportPeriodConfig>(
-    () => ({ granularity, year, month, quarter }),
-    [granularity, year, month, quarter],
+  const periodReservations = useMemo(
+    () => filterReservationsInRange(reservations, getReportDateRange(config)),
+    [reservations, config],
   )
-
-  const periodReservations = useMemo(() => {
-    const range = getReportDateRange(periodConfig)
-    return filterReservationsInRange(reservations, range)
-  }, [reservations, periodConfig])
-
-  const periodEnd = useMemo(() => getReportDateRange(periodConfig).end, [periodConfig])
+  const periodEnd = useMemo(() => getReportDateRange(config).end, [config])
 
   const kpis = useMemo(
-    () => computeClientKpis(periodReservations, reservations, periodConfig),
-    [periodReservations, reservations, periodConfig],
+    () => computeClientKpis(periodReservations, reservations, config),
+    [periodReservations, reservations, config],
   )
+
+  const previousConfig = previousPeriodConfig(config)
+  const previousKpis = useMemo(() => {
+    if (!previousConfig) {
+      return null
+    }
+    const prevReservations = filterReservationsInRange(reservations, getReportDateRange(previousConfig))
+    return computeClientKpis(prevReservations, reservations, previousConfig)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservations, previousConfig?.granularity, previousConfig?.month, previousConfig?.quarter, previousConfig?.year])
+
   const trendData = useMemo(
-    () => computeClientTrendData(periodReservations, reservations, periodConfig),
-    [periodReservations, reservations, periodConfig],
+    () => computeClientTrendData(periodReservations, reservations, config),
+    [periodReservations, reservations, config],
   )
-  const frequencyData = useMemo(
-    () => computeVisitFrequencyData(periodReservations),
-    [periodReservations],
-  )
-  const retentionData = useMemo(
-    () => computeRetentionData(reservations, periodConfig),
-    [reservations, periodConfig],
-  )
-  const recencyData = useMemo(
-    () => computeRecencyData(reservations, periodEnd),
-    [reservations, periodEnd],
-  )
-  const clientsDirectory = useMemo(
-    () => computeClientsDirectory(reservations),
-    [reservations],
+  const frequencyData = useMemo(() => computeVisitFrequencyData(periodReservations), [periodReservations])
+  const retentionData = useMemo(() => computeRetentionData(reservations, config), [reservations, config])
+  const recencyData = useMemo(() => computeRecencyData(reservations, periodEnd), [reservations, periodEnd])
+  const clientsDirectory = useMemo(() => computeClientsDirectory(reservations), [reservations])
+
+  const maxReservations = useMemo(
+    () => Math.max(1, ...clientsDirectory.map((client) => client.reservations)),
+    [clientsDirectory],
   )
 
   const sortedClientsList = useMemo(() => {
-    const list = [...clientsDirectory]
+    const normalized = query.trim().toLowerCase()
+    const list = normalized
+      ? clientsDirectory.filter((client) =>
+        `${client.name} ${client.email} ${client.phone}`.toLowerCase().includes(normalized))
+      : [...clientsDirectory]
 
     list.sort((left, right) => {
       switch (sort.key as ClientSortKey) {
@@ -158,21 +172,22 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
     })
 
     return list
-  }, [clientsDirectory, sort])
+  }, [clientsDirectory, sort, query])
 
   const handleClientSort = useCallback((key: string) => {
-    setSort((current) => nextSortState(
-      current,
-      key,
-      CLIENT_SORT_DEFAULTS[key as ClientSortKey] ?? 'asc',
-    ))
+    setSort((current) => nextSortState(current, key, CLIENT_SORT_DEFAULTS[key as ClientSortKey] ?? 'asc'))
   }, [])
 
-  const periodLabel = formatReportPeriodLabel(periodConfig)
+  const periodLabel = formatReportPeriodLabel(config)
+  const prevLabel = previousPeriodLabel(config)
+  const repeatRate = kpis.total > 0 ? Math.round((kpis.recurring / kpis.total) * 100) : 0
+  const prevRepeatRate = previousKpis && previousKpis.total > 0
+    ? Math.round((previousKpis.recurring / previousKpis.total) * 100)
+    : null
 
   const handleDownloadClients = () => {
     downloadExcelFile(
-      'clientes-adelia.csv',
+      `clientes-${config.year}.csv`,
       ['Nombre', 'Email', 'Teléfono', 'Reservas', 'Comensales', 'Primera visita', 'Última visita'],
       sortedClientsList.map((client) => [
         client.name,
@@ -187,208 +202,157 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
   }
 
   return (
-    <div className={styles.wrapper}>
-      <header className={styles.header}>
-        <h2>
-          Informes de clientes
-          <InfoHint label="Sobre los informes de clientes">
-            Nuevo en su primer mes; recurrente si vuelve en otro mes. Captación, frecuencia,
-            retención y recencia.
-          </InfoHint>
-        </h2>
-      </header>
+    <div className={styles.page}>
+      <ReportHeader
+        title="Informe de clientes"
+        subtitle="Quién llega por primera vez, quién vuelve y cada cuánto. Nuevo: su primer mes; recurrente: vuelve otro mes."
+      />
 
-      <div className={styles.scrollArea}>
-        <div className={styles.controls}>
-          <div className={styles.controlsFilters}>
-            <div className={styles.periodToggle} role="radiogroup" aria-label="Tipo de informe">
-              {GRANULARITY_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={granularity === option.id}
-                  className={`${styles.periodButton} ${
-                    granularity === option.id ? styles.periodButtonActive : ''
-                  }`}
-                  onClick={() => setGranularity(option.id)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+      <ReportPeriodBar
+        config={config}
+        years={availableYears}
+        periodLabel={periodLabel}
+        loading={loading}
+        onChange={setConfig}
+        onRefresh={() => void loadReservations()}
+      />
 
-            <select
-              className={styles.select}
-              value={year}
-              onChange={(event) => setYear(Number(event.target.value))}
-              aria-label="Año"
+      {error ? <div className={styles.error} role="alert">{error}</div> : null}
+
+      {loading && reservations.length === 0 ? (
+        <LoadingState />
+      ) : (
+        <>
+          <KpiGrid columns={4}>
+            <KpiCard
+              icon={Users}
+              label="Clientes"
+              value={formatNumber(kpis.total)}
+              delta={computeDelta(kpis.total, previousKpis?.total)}
+              deltaLabel={prevLabel}
+              hint={previousKpis ? `vs. ${prevLabel}` : 'en el periodo'}
+              tone="info"
+            />
+            <KpiCard
+              icon={UserPlus}
+              label="Nuevos"
+              value={formatNumber(kpis.newClients)}
+              delta={computeDelta(kpis.newClients, previousKpis?.newClients)}
+              deltaLabel={prevLabel}
+              tone="good"
+            />
+            <KpiCard
+              icon={Repeat}
+              label="Recurrentes"
+              value={formatNumber(kpis.recurring)}
+              delta={computeDelta(kpis.recurring, previousKpis?.recurring)}
+              deltaLabel={prevLabel}
+            />
+            <KpiCard
+              icon={Sparkles}
+              label="Tasa de repetición"
+              value={repeatRate}
+              suffix="%"
+              delta={prevRepeatRate != null ? computeDelta(repeatRate, prevRepeatRate) : null}
+              deltaLabel={prevLabel}
+              hint="de los clientes ya habían venido"
+              tone="warn"
+            />
+          </KpiGrid>
+
+          <ChartsGrid>
+            <ReportCard
+              wide
+              icon={TrendingUp}
+              title="Entrada de clientes"
+              subtitle={`Nuevos y recurrentes a lo largo del periodo · ${periodLabel}`}
             >
-              {availableYears.map((optionYear) => (
-                <option key={optionYear} value={optionYear}>
-                  {optionYear}
-                </option>
-              ))}
-            </select>
-
-            {granularity === 'monthly' && (
-              <select
-                className={styles.select}
-                value={month}
-                onChange={(event) => setMonth(Number(event.target.value))}
-                aria-label="Mes"
-              >
-                {MONTH_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {granularity === 'quarterly' && (
-              <select
-                className={styles.select}
-                value={quarter}
-                onChange={(event) => setQuarter(Number(event.target.value))}
-                aria-label="Trimestre"
-              >
-                {QUARTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          <div className={styles.controlsSummary}>
-            <button
-              type="button"
-              className={styles.refreshButton}
-              onClick={() => void loadReservations()}
-              disabled={loading}
+              <ClientTrendChart data={trendData} />
+            </ReportCard>
+            <ReportCard icon={UsersRound} title="Frecuencia de visita" subtitle="Cuántas veces reserva cada cliente">
+              <ReservationWeekdayChart data={frequencyData} />
+            </ReportCard>
+            <ReportCard icon={Hourglass} title="Recencia" subtitle="Hace cuánto volvieron los recurrentes">
+              <ReservationWeekdayChart data={recencyData} />
+            </ReportCard>
+            <ReportCard
+              wide
+              icon={CalendarClock}
+              title="Retención mes a mes"
+              subtitle={`Clientes captados y cuántos vuelven al mes siguiente · ${periodLabel}`}
             >
-              {loading ? 'Actualizando…' : 'Actualizar'}
-            </button>
+              <ClientRetentionChart data={retentionData} />
+            </ReportCard>
+          </ChartsGrid>
 
-            {!loading || reservations.length > 0 ? (
-              <div className={styles.kpiInline} aria-label="Resumen de clientes">
-                <span className={`${styles.kpiChip} ${styles.kpiChipTotal}`}>
-                  <span className={styles.kpiLabel}>Total</span>
-                  <strong className={styles.kpiValue}>{kpis.total}</strong>
-                </span>
-                <span className={`${styles.kpiChip} ${styles.kpiChipNew}`}>
-                  <span className={styles.kpiLabel}>Nuevos</span>
-                  <strong className={styles.kpiValue}>{kpis.newClients}</strong>
-                </span>
-                <span className={`${styles.kpiChip} ${styles.kpiChipRecurring}`}>
-                  <span className={styles.kpiLabel}>Recurrentes</span>
-                  <strong className={styles.kpiValue}>{kpis.recurring}</strong>
-                </span>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {error && <div className={styles.error}>{error}</div>}
-
-        {loading && reservations.length === 0 ? (
-          <div className={styles.loading}>Cargando informes…</div>
-        ) : (
-          <>
-            <div className={styles.chartsGrid}>
-              <section className={`${styles.chartCard} ${styles.chartCardWide}`}>
-                <div className={styles.chartHeader}>
-                  <h3>Entrada de clientes</h3>
-                  <p className={styles.chartSubtitle}>
-                    Cuándo entran nuevos y cuándo vuelven los recurrentes · {periodLabel}
-                  </p>
-                </div>
-                <ClientTrendChart data={trendData} />
-              </section>
-
-              <section className={styles.chartCard}>
-                <div className={styles.chartHeader}>
-                  <h3>Frecuencia de visita</h3>
-                  <p className={styles.chartSubtitle}>Cuántas veces reserva cada cliente en el periodo</p>
-                </div>
-                <ReservationWeekdayChart data={frequencyData} />
-              </section>
-
-              <section className={styles.chartCard}>
-                <div className={styles.chartHeader}>
-                  <h3>Recencia</h3>
-                  <p className={styles.chartSubtitle}>Hace cuánto volvieron los clientes recurrentes</p>
-                </div>
-                <ReservationWeekdayChart data={recencyData} />
-              </section>
-
-              <section className={`${styles.chartCard} ${styles.chartCardWide}`}>
-                <div className={styles.chartHeader}>
-                  <h3>Retención mes a mes</h3>
-                  <p className={styles.chartSubtitle}>
-                    Clientes captados y cuántos vuelven al mes siguiente · {periodLabel}
-                  </p>
-                </div>
-                <ClientRetentionChart data={retentionData} />
-              </section>
-            </div>
-
-            <section className={styles.listSection}>
-              <div className={styles.listHeader}>
-                <div className={styles.listHeaderText}>
-                  <h3>Lista de clientes</h3>
-                  <p className={styles.listMeta}>
-                    {sortedClientsList.length} cliente{sortedClientsList.length === 1 ? '' : 's'} · historial completo
-                  </p>
-                </div>
+          <TableCard
+            title="Clientes del año"
+            meta={`${sortedClientsList.length} ${sortedClientsList.length === 1 ? 'cliente' : 'clientes'} con reservas en ${config.year}`}
+            search={{ value: query, onChange: setQuery, placeholder: 'Buscar cliente, correo o teléfono' }}
+            onDownload={handleDownloadClients}
+            downloadDisabled={sortedClientsList.length === 0}
+            footer={sortedClientsList.length > visibleCount ? (
+              <>
+                <span>Mostrando {visibleCount} de {sortedClientsList.length}</span>
                 <button
                   type="button"
-                  className={styles.downloadButton}
-                  onClick={handleDownloadClients}
-                  disabled={sortedClientsList.length === 0}
+                  className={styles.secondaryButton}
+                  onClick={() => setVisibleCount((count) => count + PAGE_STEP)}
                 >
-                  Descargar Excel
+                  Mostrar más
                 </button>
-              </div>
-
-              {sortedClientsList.length === 0 ? (
-                <div className={styles.emptyList}>No hay clientes registrados todavía.</div>
-              ) : (
-                <div className={styles.tableWrap}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <SortableTh label="Cliente" sortKey="name" sort={sort} onSort={handleClientSort} />
-                        <th scope="col">Email</th>
-                        <th scope="col">Teléfono</th>
-                        <SortableTh label="Reservas" sortKey="reservations" sort={sort} onSort={handleClientSort} />
-                        <SortableTh label="Comensales" sortKey="totalPax" sort={sort} onSort={handleClientSort} />
-                        <SortableTh label="Primera visita" sortKey="firstVisit" sort={sort} onSort={handleClientSort} />
-                        <SortableTh label="Última visita" sortKey="lastVisit" sort={sort} onSort={handleClientSort} />
+              </>
+            ) : undefined}
+          >
+            {sortedClientsList.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title={query.trim() ? 'Ningún cliente coincide' : 'Aún no hay clientes este año'}
+              />
+            ) : (
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <SortableTh label="Cliente" sortKey="name" sort={sort} onSort={handleClientSort} />
+                      <th scope="col">Teléfono</th>
+                      <SortableTh label="Reservas" sortKey="reservations" sort={sort} onSort={handleClientSort} />
+                      <SortableTh label="Comensales" sortKey="totalPax" sort={sort} onSort={handleClientSort} />
+                      <SortableTh label="Primera visita" sortKey="firstVisit" sort={sort} onSort={handleClientSort} />
+                      <SortableTh label="Última visita" sortKey="lastVisit" sort={sort} onSort={handleClientSort} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedClientsList.slice(0, visibleCount).map((client) => (
+                      <tr key={client.key}>
+                        <td>
+                          <span className={styles.personCell}>
+                            <span className={styles.avatar} aria-hidden="true">{initials(client.name)}</span>
+                            <span className={styles.personText}>
+                              <strong>{client.name}</strong>
+                              {client.email ? <span>{client.email}</span> : null}
+                            </span>
+                          </span>
+                        </td>
+                        <td className={`${styles.nowrap} ${styles.muted}`}>{client.phone || '—'}</td>
+                        <td>
+                          <span className={styles.personCell} style={{ minWidth: '8rem' }}>
+                            <strong>{client.reservations}</strong>
+                            <InlineBar value={client.reservations} max={maxReservations} />
+                          </span>
+                        </td>
+                        <td>{client.totalPax}</td>
+                        <td className={`${styles.nowrap} ${styles.muted}`}>{formatDateSpanish(client.firstVisit)}</td>
+                        <td className={styles.nowrap}>{formatDateSpanish(client.lastVisit)}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {sortedClientsList.map((client) => (
-                        <tr key={client.key}>
-                          <td>{client.name}</td>
-                          <td>{client.email || '—'}</td>
-                          <td>{client.phone || '—'}</td>
-                          <td>{client.reservations}</td>
-                          <td>{client.totalPax}</td>
-                          <td>{formatDateSpanish(client.firstVisit)}</td>
-                          <td>{formatDateSpanish(client.lastVisit)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </>
-        )}
-      </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TableCard>
+        </>
+      )}
     </div>
   )
 }
