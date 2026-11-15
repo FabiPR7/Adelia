@@ -22,6 +22,9 @@ function companyStripeRefreshUrl(tab = 'reservation-settings'): string {
  * La clave actual no puede acceder a esa cuenta: se conectó con otra clave (por
  * ejemplo en modo de prueba) o el restaurante revocó el acceso.
  */
+/** Error con mensaje para el restaurante (en español, sin detalles técnicos). */
+export class StripeConnectSetupError extends Error {}
+
 export function isStripeAccountUnavailable(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false
@@ -94,17 +97,25 @@ export async function ensureConnectAccount(
     }
   }
 
-  const account = await stripe.accounts.create({
-    type: 'express',
-    country: 'ES',
-    email: email.trim() || undefined,
-    capabilities: {
-      card_payments: { requested: true },
-      transfers: { requested: true },
+  // Stripe ya no deja crear cuentas conectadas con Accounts v1 (type: 'express'):
+  // se crean con Accounts v2. Leer su estado, el enlace de alta y las fianzas
+  // (cargos directos en la cuenta) siguen funcionando igual con la API v1.
+  const contactEmail = email.trim()
+  if (!contactEmail) {
+    throw new StripeConnectSetupError('Añade un email de contacto en «Contacto» antes de conectar Stripe.')
+  }
+  const account = await stripe.v2.core.accounts.create({
+    contact_email: contactEmail,
+    identity: { country: 'ES' },
+    dashboard: 'express',
+    defaults: {
+      responsibilities: { fees_collector: 'application', losses_collector: 'application' },
     },
-    metadata: {
-      companyId,
+    configuration: {
+      merchant: { capabilities: { card_payments: { requested: true } } },
+      recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
     },
+    metadata: { companyId },
   })
 
   await persistStripeSnapshot(companyId, {

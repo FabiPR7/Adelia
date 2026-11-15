@@ -7,8 +7,7 @@ import {
   ensureConnectAccount,
   isStripeAccountUnavailable,
   readCompanyStripeSnapshot,
-  syncCompanyStripeStatus,
-} from '../stripe/connect.ts'
+  syncCompanyStripeStatus, StripeConnectSetupError } from '../stripe/connect.ts'
 import { ensureCompanyOwner } from '../auth/verifyRequest.ts'
 
 const router = Router()
@@ -99,8 +98,11 @@ router.post('/:companyId/stripe/connect', async (req: Request<Record<string, str
     })
   } catch (error) {
     console.error('Stripe connect error:', error)
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'No se pudo iniciar Stripe Connect.',
+    // Antes se enseñaba al restaurante el error de Stripe tal cual (en inglés y técnico).
+    res.status(error instanceof StripeConnectSetupError ? 400 : 500).json({
+      error: error instanceof StripeConnectSetupError
+        ? error.message
+        : 'No se pudo conectar con Stripe ahora mismo. Inténtalo en unos minutos y, si sigue fallando, escríbenos.',
     })
   }
 })
