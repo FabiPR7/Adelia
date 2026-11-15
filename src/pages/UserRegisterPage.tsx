@@ -20,6 +20,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
 import LegalLinks from '../components/LegalLinks'
 import { personNameError } from '../utils/personName'
+import { GUEST_SIGNUP_STORAGE_KEY, readGuestSignupPrefill } from '../components/booking/GuestSignupCard'
 import styles from './UserCustomerAuth.module.css'
 
 function UserRegisterPage() {
@@ -36,6 +37,15 @@ function UserRegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [acceptedLegal, setAcceptedLegal] = useState(false)
   const [recaptchaReady, setRecaptchaReady] = useState(false)
+
+  // Viene de reservar sin cuenta: se rellenan los datos de esa reserva (mismo correo = la reserva pasa a la cuenta).
+  useEffect(() => {
+    const prefill = readGuestSignupPrefill()
+    if (!prefill) return
+    if (prefill.name && !personNameError(prefill.name)) setDisplayName(prefill.name)
+    if (prefill.email) setEmail(prefill.email)
+    if (prefill.phone) setPhone(prefill.phone)
+  }, [])
 
   useEffect(() => {
     loadRecaptchaScript()
@@ -149,6 +159,11 @@ function UserRegisterPage() {
         recaptchaToken,
         acceptedLegalVersion: LEGAL_ACCEPTANCE_VERSION,
       })
+      try {
+        sessionStorage.removeItem(GUEST_SIGNUP_STORAGE_KEY)
+      } catch {
+        // Nada que limpiar.
+      }
       navigate(`/cuenta/verificar-email?email=${encodeURIComponent(email.trim().toLowerCase())}`, {
         replace: true,
       })

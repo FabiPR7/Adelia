@@ -1,0 +1,93 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 107, 74, 0.25);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 79, 143, 0.1), transparent 60%),
+    #fffaf6;
+  text-align: left;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #e0563a;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--color-brown);
+}
+
+.perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--color-brown);
+}
+
+.perks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.perkIcon {
+  flex-shrink: 0;
+  width: 1.4rem;
+  text-align: center;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff6b4a, #ff4f8f);
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(255, 79, 143, 0.24);
+  transition: transform 0.12s ease;
+}
+
+.cta:active {
+  transform: scale(0.98);
+}
+
+.cta:focus-visible {
+  outline: 2px solid #ff4f8f;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta {
+    transition: none;
+  }
+}

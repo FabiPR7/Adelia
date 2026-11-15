@@ -68,6 +68,7 @@ import {
 } from '../data/inventoryItems'
 import BookingItemOption from '../components/booking/BookingItemOption'
 import { personNameError } from '../utils/personName'
+import GuestSignupCard, { saveGuestSignupPrefill } from '../components/booking/GuestSignupCard'
 import {
   companyAcceptsReservations,
 } from '../data/companyReservationMode'
@@ -124,6 +125,7 @@ function PublicBookingPage() {
   const [calendarOpen, setCalendarOpen] = useState(false)
 
   const [clientName, setClientName] = useState('')
+  const [guestBookedEmail, setGuestBookedEmail] = useState<string | null>(null)
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [pax, setPax] = useState(2)
@@ -765,6 +767,12 @@ function PublicBookingPage() {
       )
 
       setCompletedReservation(isLoggedCustomer ? { id: booking.id, invitedIds: inviteeIds } : null)
+      if (!isLoggedCustomer) {
+        setGuestBookedEmail(bookingEmail.trim().toLowerCase())
+        saveGuestSignupPrefill({ name: bookingName, email: bookingEmail.trim().toLowerCase(), phone: clientPhone })
+      } else {
+        setGuestBookedEmail(null)
+      }
       setStep('done')
       if (company?.id) {
         trackAppEvent(promoId ? 'reservation_from_promo' : 'reservation_from_profile', {
@@ -1014,7 +1022,10 @@ function PublicBookingPage() {
                     alreadyInvitedIds={completedReservation.invitedIds}
                   />
                 ) : null}
-                <button type="button" className={styles.primaryButton} onClick={resetSelection}>
+                {!isLoggedCustomer && guestBookedEmail !== null ? (
+                  <GuestSignupCard email={guestBookedEmail} />
+                ) : null}
+                <button type="button" className={!isLoggedCustomer && guestBookedEmail !== null ? styles.secondaryButton : styles.primaryButton} onClick={resetSelection}>
                   Hacer otra reserva
                 </button>
               </div>
