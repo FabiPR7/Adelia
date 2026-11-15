@@ -25,6 +25,7 @@ import { signInWithPasswordRest } from '../rest-firebase.ts'
 import { isLoginLocked, recordLoginFailure, recordLoginSuccess } from '../security/loginLockout.ts'
 import { requireRecaptcha } from '../security/recaptcha.ts'
 import { takeEmailSend } from '../security/rateLimit.ts'
+import { cleanDisplayName, displayNameError } from '../data/usernames.ts'
 import { requireSpanishPhone } from '../security/phone.ts'
 import { buildCustomerProfileDoc } from '../data/customerProfile.ts'
 import { requireAcceptedLegalVersion } from '../data/legalAcceptance.ts'
@@ -586,7 +587,11 @@ router.post('/customer/register', async (req: Request, res: Response) => {
 
     const email = emailRaw.trim().toLowerCase()
     const password = asPassword(req.body?.password)
-    const displayName = asPlainText(req.body?.displayName, 80, 'El nombre')
+    const displayName = cleanDisplayName(asPlainText(req.body?.displayName, 80, 'El nombre'))
+    const displayNameProblem = displayNameError(displayName)
+    if (displayNameProblem) {
+      throw new InputError(displayNameProblem)
+    }
     const phone = requireSpanishPhone(req.body?.phone)
 
     const created = await adminAuth.createUser({

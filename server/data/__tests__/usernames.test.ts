@@ -39,4 +39,12 @@ describe('nombre visible', () => {
     expect(displayNameError('12345')).not.toBeNull()
     expect(displayNameError('Ana')).toBeNull()
   })
+  it('no admite números ni símbolos raros', () => {
+    expect(displayNameError('soporte123')).toBe('El nombre no puede llevar números.')
+    expect(displayNameError('Ana_López!')).not.toBeNull()
+  })
+  it('admite tildes, ñ, guiones, apóstrofos y puntos', () => {
+    expect(displayNameError('María José Núñez-Ruiz')).toBeNull()
+    expect(displayNameError("D'Angelo J. O’Neill")).toBeNull()
+  })
 })

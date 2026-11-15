@@ -20,6 +20,7 @@ import {
   suggestUsername,
   updateCustomerIdentity,
 } from '../services/customerIdentityApi'
+import { personNameError } from '../utils/personName'
 import styles from './CustomerOnboardingPage.module.css'
 
 function CustomerOnboardingPageContent() {
@@ -100,8 +101,9 @@ function CustomerOnboardingPageContent() {
       return
     }
 
-    if (displayName.replace(/\s+/g, ' ').trim().length < 2) {
-      setError('Escribe tu nombre (al menos 2 letras). Es el que verán tus amigos.')
+    const nameProblem = personNameError(displayName)
+    if (nameProblem) {
+      setError(`${nameProblem} Es el que verán tus amigos.`)
       return
     }
 

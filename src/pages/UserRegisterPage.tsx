@@ -19,6 +19,7 @@ import { LEGAL_ACCEPTANCE_VERSION } from '../content/publicLegal'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import CustomerAuthShell from '../components/CustomerAuthShell'
 import LegalLinks from '../components/LegalLinks'
+import { personNameError } from '../utils/personName'
 import styles from './UserCustomerAuth.module.css'
 
 function UserRegisterPage() {
@@ -106,6 +107,12 @@ function UserRegisterPage() {
   const handleAccountSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
+
+    const nameProblem = personNameError(displayName)
+    if (nameProblem) {
+      setError(nameProblem)
+      return
+    }
 
     if (!isValidSpanishPhone(phone)) {
       setError('Indica un teléfono válido de España (9 dígitos, p. ej. 612 345 678).')

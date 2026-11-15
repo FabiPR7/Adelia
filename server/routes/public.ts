@@ -35,6 +35,7 @@ import { isPromoLockedForBooking,
 } from '../gamification/cancellationPenalty.ts'
 import { InputError, asDateYmd, asId, asInt, asOptionalTrimmed, asPlainText, asSlug } from '../security/validate.ts'
 import { allowPublicCache } from '../security/httpCache.ts'
+import { cleanDisplayName, displayNameError } from '../data/usernames.ts'
 import { getSecurityConfig } from '../security/securityConfig.ts'
 import { requireRecaptcha } from '../security/recaptcha.ts'
 import {
@@ -668,7 +669,11 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
 
     const name = customer
       ? customer.displayName
-      : asPlainText(clientName, 80, 'Tu nombre')
+      : cleanDisplayName(asPlainText(clientName, 80, 'Tu nombre'))
+    const guestNameProblem = customer ? null : displayNameError(name)
+    if (guestNameProblem) {
+      throw new InputError(guestNameProblem)
+    }
     const email = customer
       ? customer.email
       : typeof clientEmail === 'string' ? clientEmail.trim().toLowerCase() : ''

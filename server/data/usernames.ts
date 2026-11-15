@@ -48,9 +48,11 @@ export function cleanDisplayName(value: unknown): string {
     : ''
 }
 
+/** Nombre de persona: letras (con tildes), espacios, guiones, apóstrofos y puntos; sin números. */
 export function displayNameError(name: string): string | null {
-  if (name.length < 2) return 'Escribe tu nombre (al menos 2 letras).'
-  if (!/\p{L}/u.test(name)) return 'Tu nombre tiene que llevar letras.'
+  if ((name.match(/\p{L}/gu) ?? []).length < 2) return 'Escribe tu nombre (al menos 2 letras).'
+  if (/\p{N}/u.test(name)) return 'El nombre no puede llevar números.'
+  if (!/^[\p{L}\p{M} .'’-]+$/u.test(name)) return 'El nombre solo puede llevar letras, espacios y guiones.'
   return null
 }
 

@@ -67,6 +67,7 @@ import {
   inventoryQuantity,
 } from '../data/inventoryItems'
 import BookingItemOption from '../components/booking/BookingItemOption'
+import { personNameError } from '../utils/personName'
 import {
   companyAcceptsReservations,
 } from '../data/companyReservationMode'
@@ -641,8 +642,9 @@ function PublicBookingPage() {
     }
 
     if (!isLoggedCustomer) {
-      if (!isValidClientName(bookingName)) {
-        setError('Indica un nombre válido (mínimo 2 letras).')
+      const nameProblem = isValidClientName(bookingName) ? personNameError(bookingName) : 'Indica un nombre válido (mínimo 2 letras).'
+      if (nameProblem) {
+        setError(nameProblem)
         return
       }
 
@@ -1097,7 +1099,11 @@ function PublicBookingPage() {
                         required
                         minLength={2}
                         maxLength={80}
+                        aria-invalid={/\p{N}/u.test(clientName)}
                       />
+                      {/\p{N}/u.test(clientName) ? (
+                        <span className={styles.fieldError} role="alert">El nombre no puede llevar números.</span>
+                      ) : null}
                     </label>
                     <label>
                       Teléfono
