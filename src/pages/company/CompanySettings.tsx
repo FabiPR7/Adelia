@@ -75,7 +75,21 @@ import {
   validateCompanySchedule,
   validateReservationDepositSettings,
 } from '../../utils/companyValidation'
-import { downloadBookingQrCode } from '../../utils/bookingQr'
+import { buildBrandedQrDataUrl, downloadBookingQrCode } from '../../utils/bookingQr'
+import {
+  Check,
+  Copy,
+  Download,
+  ExternalLink,
+  Globe,
+  Link2,
+  Mail,
+  MapPin,
+  Palette,
+  Phone,
+  QrCode,
+  Store,
+} from 'lucide-react'
 import {
   DEFAULT_DEPOSIT_CANCELLATION_HOURS,
   formatDepositCancellationPolicy,
@@ -439,6 +453,36 @@ const CompanySettings = forwardRef(function CompanySettings(
     }),
     [form?.name, form?.logoUrl, company?.name, company?.logoUrl],
   )
+
+  // Vista previa del QR de reservas (el mismo que se descarga).
+  const [bookingQrPreviewUrl, setBookingQrPreviewUrl] = useState<string | null>(null)
+  const bookingUrlForQr = company ? getPublicBookingUrl(company.slug) : ''
+  const bookingQrConfig = company?.qrBranding.booking
+
+  useEffect(() => {
+    if (!bookingUrlForQr || !bookingQrConfig || activeSection !== 'contact') {
+      return
+    }
+
+    let cancelled = false
+    const renderOptions = resolveBrandedQrOptions(bookingQrConfig, 'booking', qrBrandingContext)
+
+    void buildBrandedQrDataUrl(bookingUrlForQr, renderOptions)
+      .then((dataUrl) => {
+        if (!cancelled) {
+          setBookingQrPreviewUrl(dataUrl)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBookingQrPreviewUrl(null)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [bookingUrlForQr, bookingQrConfig, qrBrandingContext, activeSection])
 
   if (!company || !form) {
     return <p className={styles.loading}>Cargando configuración…</p>
@@ -997,127 +1041,206 @@ const CompanySettings = forwardRef(function CompanySettings(
       <section className={sectionCardClass('contact', activeSection)}>
         <SectionHeader
           title="Contacto"
-          subtitle="Los datos que ven tus clientes y que usamos para avisarte de las reservas."
+          subtitle="Los datos con los que te encuentran y te escriben tus clientes."
         />
 
-        <FormCard
-          title="Datos del restaurante"
-          description="Nombre, forma de contacto y dirección que aparecen en tu ficha."
-        >
-          <div className={`${styles.grid} ${styles.contactGrid}`}>
-            <label className={styles.fullWidth}>
-              Nombre del restaurante
-              <input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Ej. Restaurante Carol"
-              />
-            </label>
-            <label>
-              Email de contacto
-              <input
-                type="email"
-                value={form.contactEmail}
-                onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
-                placeholder="reservas@restaurante.com"
-              />
-            </label>
-            <label>
-              Teléfono
-              <input
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                type="tel"
-                inputMode="tel"
-                placeholder="612 345 678"
-                maxLength={20}
-              />
-            </label>
-            <label>
-              Dirección
-              <input
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                maxLength={200}
-                placeholder="Calle y número"
-              />
-            </label>
-            <label>
-              <span>
-                Web <span className={styles.optional}>(opcional)</span>
-              </span>
-              <input
-                value={form.website}
-                onChange={(e) => setForm({ ...form, website: e.target.value })}
-                placeholder="https://turestaurante.com"
-                maxLength={200}
-              />
-            </label>
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHead}>
+            <h3>Datos del restaurante</h3>
+            <p>Aparecen en tu ficha de Adelia y en los correos de reserva.</p>
           </div>
-        </FormCard>
 
-        <div className={styles.cardRow}>
-          <FormCard
-            title="Logo"
-            description="Cuadrado, en PNG o JPG. Sale en tu ficha, en los correos y en el QR."
-            className={styles.logoCard}
-          >
-            <div className={styles.logoField}>
-              <ImageUploader
-                label="Logo del restaurante"
-                cropAspect={1}
-                hint="Se sube al elegir el archivo."
-                currentImageUrl={form.logoUrl}
-                onImageUploaded={(url) => setForm({ ...form, logoUrl: url })}
-                onImageRemoved={() => setForm({ ...form, logoUrl: '' })}
-              />
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <label htmlFor="contact-name">Nombre del restaurante</label>
+              <span>Tal y como quieres que lo vean.</span>
             </div>
-          </FormCard>
+            <div className={styles.settingsRowField}>
+              <span className={styles.iconInput}>
+                <Store size={16} aria-hidden="true" />
+                <input
+                  id="contact-name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Ej. Restaurante Carol"
+                  autoComplete="organization"
+                />
+              </span>
+            </div>
+          </div>
 
-          <FormCard
-            title="Enlace de reservas"
-            description="Compártelo o imprime el QR para que tus clientes reserven mesa online."
-            className={styles.linkCard}
-          >
-            <div className={styles.clientLinkBox}>
-              <div className={styles.clientLinkRow}>
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <label htmlFor="contact-email">Correo de contacto</label>
+              <span>Los clientes podrán escribirte aquí.</span>
+            </div>
+            <div className={styles.settingsRowField}>
+              <span className={styles.iconInput}>
+                <Mail size={16} aria-hidden="true" />
+                <input
+                  id="contact-email"
+                  type="email"
+                  value={form.contactEmail}
+                  onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
+                  placeholder="reservas@restaurante.com"
+                  autoComplete="email"
+                />
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <label htmlFor="contact-phone">Teléfono</label>
+              <span>Para llamadas y dudas de última hora.</span>
+            </div>
+            <div className={styles.settingsRowField}>
+              <span className={styles.iconInput}>
+                <Phone size={16} aria-hidden="true" />
+                <input
+                  id="contact-phone"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="612 345 678"
+                  maxLength={20}
+                  autoComplete="tel"
+                />
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <label htmlFor="contact-address">Dirección</label>
+              <span>Calle y número. El municipio y el mapa van en Perfil.</span>
+            </div>
+            <div className={styles.settingsRowField}>
+              <span className={styles.iconInput}>
+                <MapPin size={16} aria-hidden="true" />
+                <input
+                  id="contact-address"
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  maxLength={200}
+                  placeholder="Calle Mayor, 12"
+                  autoComplete="street-address"
+                />
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <label htmlFor="contact-web">
+                Página web <span className={styles.optional}>· opcional</span>
+              </label>
+              <span>Si tienes web propia, la enlazamos desde tu ficha.</span>
+            </div>
+            <div className={styles.settingsRowField}>
+              <span className={styles.iconInput}>
+                <Globe size={16} aria-hidden="true" />
+                <input
+                  id="contact-web"
+                  value={form.website}
+                  onChange={(e) => setForm({ ...form, website: e.target.value })}
+                  placeholder="https://turestaurante.com"
+                  maxLength={200}
+                  autoComplete="url"
+                />
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <span className={styles.settingsRowTitle}>Logo</span>
+              <span>Cuadrado, PNG o JPG. Sale en tu ficha, en los correos y en el QR.</span>
+            </div>
+            <div className={styles.settingsRowField}>
+              <div className={styles.logoField}>
+                <ImageUploader
+                  label="Logo del restaurante"
+                  cropAspect={1}
+                  hint="Se sube al elegir el archivo."
+                  currentImageUrl={form.logoUrl}
+                  onImageUploaded={(url) => setForm({ ...form, logoUrl: url })}
+                  onImageRemoved={() => setForm({ ...form, logoUrl: '' })}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHead}>
+            <h3>Enlace de reservas</h3>
+            <p>Compártelo en redes o imprime el QR para que tus clientes reserven mesa online.</p>
+          </div>
+          <div className={styles.shareLayout}>
+            <div className={styles.shareMain}>
+              <span className={styles.fieldTitle}>Tu enlace</span>
+              <div className={styles.copyField}>
+                <Link2 size={16} aria-hidden="true" />
                 <input
                   ref={clientLinkInputRef}
                   type="text"
                   readOnly
                   value={clientBookingUrl}
-                  className={styles.clientLinkInput}
                   aria-label="Enlace para clientes"
                   onFocus={(event) => event.currentTarget.select()}
                   onClick={(event) => event.currentTarget.select()}
                 />
                 <button
                   type="button"
-                  className={styles.copyLinkButton}
+                  className={`${styles.copyFieldButton} ${linkCopied ? styles.copyFieldButtonDone : ''}`}
                   onClick={() => void handleCopyClientLink()}
                 >
-                  {linkCopied ? 'Copiado ✓' : 'Copiar'}
+                  {linkCopied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+                  {linkCopied ? 'Copiado' : 'Copiar'}
                 </button>
               </div>
-              <div className={styles.clientLinkActions}>
+              <div className={styles.shareActions}>
+                <a
+                  className={styles.shareAction}
+                  href={clientBookingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink size={15} aria-hidden="true" />
+                  Ver como cliente
+                </a>
                 <button
                   type="button"
-                  className={styles.customizeQrButton}
+                  className={styles.shareAction}
                   onClick={() => setQrCustomizerOpen(true)}
                 >
+                  <Palette size={15} aria-hidden="true" />
                   Personalizar QR
                 </button>
                 <button
                   type="button"
-                  className={styles.downloadQrButton}
+                  className={styles.shareAction}
                   onClick={() => void handleDownloadClientQr()}
                   disabled={isDownloadingQr}
                 >
+                  <Download size={15} aria-hidden="true" />
                   {isDownloadingQr ? 'Generando…' : 'Descargar QR'}
                 </button>
               </div>
             </div>
-          </FormCard>
+            <div className={styles.qrPreview}>
+              {bookingQrPreviewUrl ? (
+                <img src={bookingQrPreviewUrl} alt="QR de reservas" />
+              ) : (
+                <span className={styles.qrPlaceholder} aria-hidden="true">
+                  <QrCode size={28} />
+                </span>
+              )}
+              <span>QR de reservas</span>
+            </div>
+          </div>
         </div>
 
         {renderSectionSave('contact', 'Guardar contacto', handleSaveContact)}

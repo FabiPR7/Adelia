@@ -346,6 +346,141 @@
   padding: 0.15rem 0 0.2rem;
 }
 
+/* ---------- Favoritos ---------- */
+
+.navRow {
+  position: relative;
+}
+
+.navRow > .navItem,
+.navRow > .navSubItem {
+  padding-right: 2.1rem;
+}
+
+.favStar,
+.favStarTop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #b3aaa0;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.favStar {
+  position: absolute;
+  top: 50%;
+  right: 0.3rem;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 6px;
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.navRow:hover .favStar,
+.favStar:focus-visible {
+  opacity: 1;
+}
+
+.favStar:hover,
+.favStarTop:hover {
+  background: #efebe6;
+  color: #7a4a00;
+}
+
+.favStar:active {
+  transform: translateY(-50%) scale(0.9);
+}
+
+.favStarTop {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+}
+
+.favStarTop:active {
+  transform: scale(0.9);
+}
+
+.favStarOn,
+.favStarOn:hover {
+  opacity: 1;
+  color: #d08a0c;
+}
+
+.favStarOn svg {
+  fill: currentColor;
+}
+
+.favStar:focus-visible,
+.favStarTop:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 1px;
+}
+
+/* En pantallas táctiles no hay «pasar el ratón»: la estrella se ve siempre, suave. */
+@media (hover: none) {
+  .favStar {
+    opacity: 0.55;
+  }
+}
+
+.favorites {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.favoritesTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0 0.65rem;
+  min-height: 30px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.favoritesTitle svg {
+  color: #d08a0c;
+  fill: #d08a0c;
+}
+
+.favoritesEmpty {
+  margin: 0;
+  padding: 0.1rem 0.65rem 0.2rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #a29a91;
+}
+
+.favoriteGroup {
+  margin-left: auto;
+  padding-left: 0.5rem;
+  font-size: 0.6875rem;
+  color: #a29a91;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .favStar,
+  .favStarTop {
+    transition: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .navGroupToggle::after,
   .navSubmenuWrap,

@@ -1,5 +1,6 @@
 import { Suspense, lazy, useRef, useState, useEffect, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Star } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import { useAuth } from '../context/AuthContext'
@@ -90,6 +91,45 @@ function groupLabelForTab(tab: CompanyTab): string {
   return 'Mi restaurante'
 }
 
+const KNOWN_TABS = new Set<string>([
+  'home',
+  'reservations',
+  'help',
+  'reservation-settings',
+  'plan',
+  ...CLIENTS_SECTIONS.map((section) => section.id),
+  ...COMPITE_SECTIONS.map((section) => section.id),
+  ...REPORTS_SECTIONS.map((section) => section.id),
+  ...SETTINGS_SECTIONS.map((section) => section.id),
+])
+
+/* Favoritos del menú: se guardan en este navegador, uno por local. */
+const MAX_FAVORITES = 8
+
+function favoritesStorageKey(companyId: string, demo: boolean): string {
+  return `adelia.panel.favoritos.${demo ? 'demo' : companyId}`
+}
+
+function readFavorites(key: string): CompanyTab[] {
+  try {
+    const raw = window.localStorage.getItem(key)
+    const parsed: unknown = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed)
+      ? parsed.filter((tab): tab is CompanyTab => typeof tab === 'string' && KNOWN_TABS.has(tab)).slice(0, MAX_FAVORITES)
+      : []
+  } catch {
+    return []
+  }
+}
+
+function writeFavorites(key: string, favorites: CompanyTab[]) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(favorites))
+  } catch {
+    // Sin almacenamiento (modo privado): los favoritos duran hasta recargar.
+  }
+}
+
 type SidebarGroupId = 'clients' | 'reports' | 'settings' | 'compite'
 
 function sidebarGroupForTab(tab: CompanyTab): SidebarGroupId | null {
@@ -154,6 +194,24 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
   const [openGroups, setOpenGroups] = useState<Record<SidebarGroupId, boolean>>(CLOSED_GROUPS)
   const [reservationCreateSignal, setReservationCreateSignal] = useState(0)
   const settingsRef = useRef<CompanySettingsHandle>(null)
+  const favoritesKey = company?.id ? favoritesStorageKey(company.id, demo) : null
+  const [favorites, setFavorites] = useState<CompanyTab[]>([])
+
+  useEffect(() => {
+    setFavorites(favoritesKey ? readFavorites(favoritesKey) : [])
+  }, [favoritesKey])
+
+  const toggleFavorite = (tab: CompanyTab) => {
+    setFavorites((current) => {
+      const next = current.includes(tab)
+        ? current.filter((item) => item !== tab)
+        : [...current, tab].slice(-MAX_FAVORITES)
+      if (favoritesKey) {
+        writeFavorites(favoritesKey, next)
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
     if (demo || !company?.id || !isCompiteTab(activeTab)) {
@@ -167,19 +225,8 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
       return
     }
     const tab = searchParams.get('tab')
-    const knownTabs = new Set<string>([
-      'home',
-      'reservations',
-      'help',
-      'reservation-settings',
-      'plan',
-      ...CLIENTS_SECTIONS.map((section) => section.id),
-      ...COMPITE_SECTIONS.map((section) => section.id),
-      ...REPORTS_SECTIONS.map((section) => section.id),
-      ...SETTINGS_SECTIONS.map((section) => section.id),
-    ])
 
-    if (tab && knownTabs.has(tab)) {
+    if (tab && KNOWN_TABS.has(tab)) {
       const nextTab = tab as CompanyTab
       setActiveTab(nextTab)
       if (isSettingsEditorTab(nextTab)) {
@@ -300,6 +347,35 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
   const lockedTabCap = lockedCapabilityForTab(activeTab, planId)
   const compiteLocked = !planAllowsCompite(planId)
 
+  const renderFavStar = (tab: CompanyTab, variant: 'nav' | 'top' = 'nav') => {
+    const isFavorite = favorites.includes(tab)
+    const label = settingsSectionLabel(tab)
+    const action = isFavorite ? `Quitar «${label}» de favoritos` : `Añadir «${label}» a favoritos`
+    return (
+      <button
+        type="button"
+        className={`${variant === 'top' ? styles.favStarTop : styles.favStar} ${isFavorite ? styles.favStarOn : ''}`}
+        aria-pressed={isFavorite}
+        aria-label={action}
+        title={action}
+        onClick={(event) => {
+          event.stopPropagation()
+          toggleFavorite(tab)
+        }}
+      >
+        <Star size={variant === 'top' ? 16 : 14} aria-hidden="true" />
+      </button>
+    )
+  }
+
+  /** Fila del menú: la opción y, a su derecha, la estrella de favoritos. */
+  const navRow = (tab: CompanyTab, content: ReactNode, key: string = tab) => (
+    <div key={key} className={styles.navRow}>
+      {content}
+      {renderFavStar(tab)}
+    </div>
+  )
+
   const renderSubNav = (section: { id: CompanyTab; label: string; hint: string }) => {
     const lockCap = lockedCapabilityForTab(section.id, planId)
     const button = (
@@ -315,7 +391,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
     )
 
     if (!lockCap) {
-      return button
+      return navRow(section.id, button)
     }
 
     return (
@@ -382,23 +458,52 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
         </div>
 
         <nav className={styles.nav} aria-label="Panel principal">
-          <button
-            type="button"
-            className={`${styles.navItem} ${activeTab === 'home' ? styles.navItemActive : ''}`}
-            onClick={() => attemptNavigate('home')}
-          >
-            <span className={styles.navLabel}>Inicio</span>
-            <span className={styles.navHint}>Resumen del día</span>
-          </button>
+          <div className={styles.favorites} aria-label="Favoritos">
+            <p className={styles.favoritesTitle}>
+              <Star size={12} aria-hidden="true" />
+              Favoritos
+            </p>
+            {favorites.length === 0 ? (
+              <p className={styles.favoritesEmpty}>
+                Pulsa la estrella de una sección para tenerla siempre aquí.
+              </p>
+            ) : (
+              favorites.map((tab) => navRow(
+                tab,
+                <button
+                  type="button"
+                  className={`${styles.navItem} ${activeTab === tab ? styles.navItemActive : ''}`}
+                  onClick={() => attemptNavigate(tab)}
+                >
+                  <span className={styles.navLabel}>{settingsSectionLabel(tab)}</span>
+                  <span className={styles.favoriteGroup}>{groupLabelForTab(tab)}</span>
+                </button>,
+                `fav-${tab}`,
+              ))
+            )}
+          </div>
 
-          <button
-            type="button"
-            className={`${styles.navItem} ${activeTab === 'reservations' ? styles.navItemActive : ''}`}
-            onClick={() => attemptNavigate('reservations')}
-          >
-            <span className={styles.navLabel}>Reservas</span>
-            <span className={styles.navHint}>Calendario y listado del día</span>
-          </button>
+          {navRow('home', (
+            <button
+              type="button"
+              className={`${styles.navItem} ${activeTab === 'home' ? styles.navItemActive : ''}`}
+              onClick={() => attemptNavigate('home')}
+            >
+              <span className={styles.navLabel}>Inicio</span>
+              <span className={styles.navHint}>Resumen del día</span>
+            </button>
+          ))}
+
+          {navRow('reservations', (
+            <button
+              type="button"
+              className={`${styles.navItem} ${activeTab === 'reservations' ? styles.navItemActive : ''}`}
+              onClick={() => attemptNavigate('reservations')}
+            >
+              <span className={styles.navLabel}>Reservas</span>
+              <span className={styles.navHint}>Calendario y listado del día</span>
+            </button>
+          ))}
 
           <SidebarNavGroup
             label="Clientes"
@@ -427,9 +532,8 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
             active={inSettingsEditor || inMenu || inPlan}
             onToggle={() => toggleGroup('settings')}
           >
-            {SETTINGS_SECTIONS.map((section) => (
+            {SETTINGS_SECTIONS.map((section) => navRow(section.id, (
               <button
-                key={section.id}
                 type="button"
                 className={`${styles.navSubItem} ${
                   activeTab === section.id ? styles.navSubItemActive : ''
@@ -439,7 +543,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
                 <span className={styles.navSubLabel}>{section.label}</span>
                 <span className={styles.navHint}>{section.hint}</span>
               </button>
-            ))}
+            )))}
           </SidebarNavGroup>
 
           <SidebarNavGroup
@@ -452,14 +556,16 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
             {COMPITE_SECTIONS.map((section) => renderSubNav(section))}
           </SidebarNavGroup>
 
-          <button
-            type="button"
-            className={`${styles.navItem} ${activeTab === 'help' ? styles.navItemActive : ''}`}
-            onClick={() => attemptNavigate('help')}
-          >
-            <span className={styles.navLabel}>Ayuda</span>
-            <span className={styles.navHint}>Tutoriales y preguntas frecuentes</span>
-          </button>
+          {navRow('help', (
+            <button
+              type="button"
+              className={`${styles.navItem} ${activeTab === 'help' ? styles.navItemActive : ''}`}
+              onClick={() => attemptNavigate('help')}
+            >
+              <span className={styles.navLabel}>Ayuda</span>
+              <span className={styles.navHint}>Tutoriales y preguntas frecuentes</span>
+            </button>
+          ))}
         </nav>
 
         <div className={styles.sidebarFooter}>
@@ -493,6 +599,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
             <span className={styles.topBarGroup}>{groupLabelForTab(activeTab)}</span>
             <strong>{settingsSectionLabel(activeTab)}</strong>
           </div>
+          {renderFavStar(activeTab, 'top')}
           <div className={styles.topBarActions}>
             {renderCompiteBell()}
             {demo || activeTab === 'reservations' || !companyAcceptsReservations(company.reservationMode) ? null : (
