@@ -860,6 +860,65 @@ router.post('/customer/forgot-password', async (req: Request, res: Response) => 
   }
 })
 
+/**
+ * Reenviar el correo de confirmación sin sesión (tras registrarse la sesión se
+ * cierra). Responde siempre igual, exista o no la cuenta, y como mucho 3 envíos
+ * por hora a cada dirección.
+ */
+router.post('/customer/resend-verification', async (req: Request, res: Response) => {
+  const started = Date.now()
+  const respondOk = async () => {
+    await settleMinDuration(started, 650)
+    res.json({ success: true })
+  }
+
+  try {
+    if (!canUseAdminSdk) {
+      res.status(503).json({ error: 'Verificación por correo no disponible en este entorno.' })
+      return
+    }
+
+    const emailRaw = typeof req.body?.email === 'string' ? req.body.email : ''
+    if (!emailRaw.trim() || !isValidClientEmail(emailRaw)) {
+      res.status(400).json({ error: 'Indica un correo válido.' })
+      return
+    }
+    const email = emailRaw.trim().toLowerCase()
+
+    const userRecord = await adminAuth.getUserByEmail(email).catch(() => null)
+    if (!userRecord || userRecord.emailVerified || userRecord.disabled) {
+      await respondOk()
+      return
+    }
+    const profile = (await adminDb.collection('users').doc(userRecord.uid).get()).data()
+    if (profile?.role !== 'customer' || !await takeEmailSend('verify-customer', email)) {
+      await respondOk()
+      return
+    }
+
+    const verifyUrl = await adminAuth.generateEmailVerificationLink(email, {
+      url: `${APP_URL}/cuenta/entrar?verified=1`,
+      handleCodeInApp: false,
+    })
+    try {
+      await sendCustomerVerificationEmail({
+        to: email,
+        displayName: userRecord.displayName?.trim() || (profile?.displayName as string | undefined)?.trim() || 'Comensal',
+        verifyUrl,
+      })
+    } catch (sendError) {
+      console.error('customer resend-verification email failed:', sendError)
+      res.status(503).json({ error: 'No se pudo enviar el correo. Inténtalo más tarde.' })
+      return
+    }
+
+    await respondOk()
+  } catch (error) {
+    console.error('customer resend-verification error:', error)
+    res.status(500).json({ error: 'No se pudo procesar la solicitud.' })
+  }
+})
+
 router.get('/reset-password/validate', async (req: Request, res: Response) => {
   try {
     if (!canUseAdminSdk) {

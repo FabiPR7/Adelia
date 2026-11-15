@@ -46,3 +46,16 @@ export async function syncCustomerPhoneVerification(): Promise<void> {
     throw new Error(await readApiError(response, 'No se pudo guardar la verificación del teléfono.'))
   }
 }
+
+/** Reenvía el correo de confirmación sin sesión (la respuesta es la misma exista o no la cuenta). */
+export async function resendCustomerVerificationByEmail(email: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/auth/customer/resend-verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'No se pudo reenviar el correo. Inténtalo más tarde.'))
+  }
+}

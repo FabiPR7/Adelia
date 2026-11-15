@@ -134,6 +134,13 @@ export async function finalizeEmailRegistration(): Promise<void> {
   resetPhoneVerificationSession()
 }
 
+/** Cuenta con el correo sin confirmar: el login lleva a «Confirma tu email» con ese correo. */
+export class EmailNotVerifiedError extends Error {
+  constructor(readonly email: string) {
+    super('Confirma tu email antes de entrar. Revisa tu bandeja (y spam) y vuelve a intentarlo.')
+  }
+}
+
 export async function loginCustomer(email: string, password: string): Promise<User> {
   const identifier = email.trim().toLowerCase()
   await preLoginCustomer(identifier, password)
@@ -150,9 +157,7 @@ export async function loginCustomer(email: string, password: string): Promise<Us
       // Puede fallar por rate limit; igual bloqueamos el acceso.
     })
     await signOut(auth)
-    throw new Error(
-      'Confirma tu email antes de entrar. Revisa tu bandeja (y spam) y vuelve a intentarlo.',
-    )
+    throw new EmailNotVerifiedError(identifier)
   }
 
   if (role !== 'customer') {

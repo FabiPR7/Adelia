@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react
 import { useAuth } from '../context/AuthContext'
 import { auth } from '../config/firebase'
 import { ADELIA_LOGO_URL } from '../constants/brand'
-import { loginCustomer, signInCustomerWithGoogle } from '../services/customerAuth'
+import { EmailNotVerifiedError, loginCustomer, signInCustomerWithGoogle } from '../services/customerAuth'
 import { getUserProfile } from '../services/firestore'
 import { getAuthErrorMessage } from '../services/auth'
 import { getPostLoginPath, resolveSafeRedirect } from '../utils/authProfile'
@@ -77,6 +77,10 @@ function UserLoginPage() {
       await loginCustomer(email, password)
       await finishLogin()
     } catch (err) {
+      if (err instanceof EmailNotVerifiedError) {
+        navigate(`/cuenta/verificar-email?email=${encodeURIComponent(err.email)}`)
+        return
+      }
       setError(getAuthErrorMessage(err))
     } finally {
       setIsLoading(false)
