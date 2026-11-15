@@ -256,3 +256,48 @@
 .hero h2::first-letter {
   text-transform: uppercase;
 }
+
+/* Cambiar entre la lista y la vista por mesas. */
+.viewToggle {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  margin-bottom: 0.75rem;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.viewToggleButton,
+.viewToggleActive {
+  min-height: 32px;
+  padding: 0 0.85rem;
+  border: none;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.viewToggleButton {
+  background: transparent;
+  color: #4a443e;
+}
+
+.viewToggleButton:hover {
+  background: #f6f4f1;
+}
+
+.viewToggleActive {
+  background: var(--color-text);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.viewToggleButton:focus-visible,
+.viewToggleActive:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}

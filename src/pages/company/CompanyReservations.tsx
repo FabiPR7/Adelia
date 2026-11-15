@@ -4,6 +4,7 @@ import Calendar from '../../components/Calendar'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import ReservationFormModal from '../../components/ReservationFormModal'
 import ReservationList from '../../components/ReservationList'
+import ReservationTimeline from '../../components/ReservationTimeline'
 import { useAuth } from '../../context/AuthContext'
 import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import {
@@ -71,6 +72,22 @@ function CompanyReservations({ companyId, createSignal = 0 }: CompanyReservation
     () => new Set(),
   )
   const [attendanceClock, setAttendanceClock] = useState(() => Date.now())
+  // Vista de la lista o por mesas; se recuerda en este navegador.
+  const [view, setView] = useState<'list' | 'tables'>(() => {
+    try {
+      return window.localStorage.getItem('adelia:panel-reservas-vista') === 'tables' ? 'tables' : 'list'
+    } catch {
+      return 'list'
+    }
+  })
+  const changeView = (next: 'list' | 'tables') => {
+    setView(next)
+    try {
+      window.localStorage.setItem('adelia:panel-reservas-vista', next)
+    } catch {
+      // Sin almacenamiento: no se recuerda, sin más.
+    }
+  }
   const [pendingDepositCancelForm, setPendingDepositCancelForm] = useState<ReservationFormData | null>(null)
 
   const durationMinutes = company?.timeSlotMinutes ?? 120
@@ -553,8 +570,39 @@ function CompanyReservations({ companyId, createSignal = 0 }: CompanyReservation
         </aside>
 
         <div className={styles.listPane}>
+          <div className={styles.viewToggle} role="group" aria-label="Vista de reservas">
+            <button
+              type="button"
+              className={view === 'list' ? styles.viewToggleActive : styles.viewToggleButton}
+              aria-pressed={view === 'list'}
+              onClick={() => changeView('list')}
+            >
+              Lista
+            </button>
+            <button
+              type="button"
+              className={view === 'tables' ? styles.viewToggleActive : styles.viewToggleButton}
+              aria-pressed={view === 'tables'}
+              onClick={() => changeView('tables')}
+            >
+              Por mesas
+            </button>
+          </div>
           {isLoading ? (
             <p className={styles.loading}>Cargando reservas…</p>
+          ) : view === 'tables' ? (
+            <ReservationTimeline
+              reservations={reservations}
+              tables={tables}
+              onOpen={demo ? undefined : (reservation) => {
+                const hour = dateToTimeInput(reservation.startTime)
+                if (reservation.status === 'completed' && isReservationStartInPast(selectedDate, hour)) {
+                  handleOpenAttendance(hour)
+                } else {
+                  handleOpenEdit(reservation)
+                }
+              }}
+            />
           ) : (
             <ReservationList
               reservations={reservations}
