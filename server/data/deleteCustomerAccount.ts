@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from './collections.ts'
 import { deleteQueryInBatches } from './deleteQueryInBatches.ts'
 import { releaseUsername } from './usernames.ts'
+import { cancelFutureReservationsOnAccountDeletion } from '../reservations/cancelOnAccountDeletion.ts'
 
 const ANONYMIZE_PAGE = 200
 
@@ -61,6 +62,9 @@ export async function deleteCustomerAccount(uid: string): Promise<void> {
     ? authUser.email.trim().toLowerCase()
     : ''
   const companyIds = new Set<string>()
+
+  // Lo primero: sus reservas futuras se cancelan (el local recibe el aviso).
+  await cancelFutureReservationsOnAccountDeletion(uid, verifiedEmail)
 
   await deleteQueryInBatches(userRef.collection('notifications'))
   await deleteQueryInBatches(
