@@ -948,3 +948,20 @@
   font-weight: 500;
   color: var(--color-text-muted);
 }
+
+/* Cartas del inventario que se pueden usar al reservar. */
+.itemOptions {
+  margin-bottom: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.itemOptionsTitle {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}

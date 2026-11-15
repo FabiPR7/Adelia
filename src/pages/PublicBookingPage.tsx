@@ -63,8 +63,10 @@ import {
 import {
   DEPOSIT_PASS_ITEM_ID,
   EXTRA_PAX_ITEM_ID,
+  getInventoryItem,
   inventoryQuantity,
 } from '../data/inventoryItems'
+import BookingItemOption from '../components/booking/BookingItemOption'
 import {
   companyAcceptsReservations,
 } from '../data/companyReservationMode'
@@ -1154,42 +1156,50 @@ function PublicBookingPage() {
                         }}
                       />
                     </label>
-                    {hasExtraPax ? (
-                      <label className={styles.itemToggle}>
-                        <input
-                          type="checkbox"
-                          checked={useExtraPax}
-                          onChange={(event) => {
-                            const checked = event.target.checked
-                            setUseExtraPax(checked)
-                            if (!selectedTable) {
-                              return
-                            }
-                            if (checked) {
-                              setPax(selectedTable.capacity + 1)
-                            } else {
-                              setPax((current) => Math.min(current, selectedTable.capacity))
-                            }
-                          }}
-                        />
-                        <span>
-                          Usar Invitación extra
-                          {selectedTable
-                            ? ` · la mesa admite ${selectedTable.capacity}; con esta carta puedes sentar ${selectedTable.capacity + 1}`
-                            : ' · +1 comensal sobre la mesa'}
-                        </span>
-                      </label>
-                    ) : null}
-                    {hasDepositPass && company && companyRequiresReservationDeposit(pax, company) ? (
-                      <label className={styles.itemToggle}>
-                        <input
-                          type="checkbox"
-                          checked={useDepositPass}
-                          onChange={(event) => setUseDepositPass(event.target.checked)}
-                        />
-                        <span>Usar Salvoconducto de depósito · esta reserva no retiene fianza</span>
-                      </label>
-                    ) : null}
+                    {(() => {
+                      const extraPaxItem = hasExtraPax ? getInventoryItem(EXTRA_PAX_ITEM_ID) : null
+                      const depositPassItem = hasDepositPass && company && companyRequiresReservationDeposit(pax, company)
+                        ? getInventoryItem(DEPOSIT_PASS_ITEM_ID)
+                        : null
+                      if (!extraPaxItem && !depositPassItem) {
+                        return null
+                      }
+                      return (
+                        <div className={styles.itemOptions}>
+                          <p className={styles.itemOptionsTitle}>Tus cartas para esta reserva</p>
+                          {extraPaxItem ? (
+                            <BookingItemOption
+                              item={extraPaxItem}
+                              quantity={inventoryQuantity(profile?.gamification?.inventory, EXTRA_PAX_ITEM_ID)}
+                              active={useExtraPax}
+                              effect={selectedTable
+                                ? `La mesa admite ${selectedTable.capacity}; con esta carta sientas a ${selectedTable.capacity + 1}.`
+                                : 'Un comensal más de lo que admite la mesa.'}
+                              onToggle={(checked) => {
+                                setUseExtraPax(checked)
+                                if (!selectedTable) {
+                                  return
+                                }
+                                if (checked) {
+                                  setPax(selectedTable.capacity + 1)
+                                } else {
+                                  setPax((current) => Math.min(current, selectedTable.capacity))
+                                }
+                              }}
+                            />
+                          ) : null}
+                          {depositPassItem ? (
+                            <BookingItemOption
+                              item={depositPassItem}
+                              quantity={inventoryQuantity(profile?.gamification?.inventory, DEPOSIT_PASS_ITEM_ID)}
+                              active={useDepositPass}
+                              effect="Reservas sin dejar fianza en tu tarjeta."
+                              onToggle={setUseDepositPass}
+                            />
+                          ) : null}
+                        </div>
+                      )
+                    })()}
                     <label>
                       Descripción (opcional)
                       <textarea
