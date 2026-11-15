@@ -260,6 +260,8 @@ function AdminDashboard() {
         await markCompanyMustChangePassword(result.company.ownerUid, result.company.id)
         void adminApi.logChange('company.create', result.company.id, { name: form.name, planId: form.planId })
         setSuccess(`«${form.name}» creado. Deberá cambiar la contraseña al entrar.`)
+        // Al recargar la lista se queda abierta la ficha del local recién creado.
+        setFocusCompanyId(result.company.id)
       }
       await loadCompanies()
       await refreshProfile()

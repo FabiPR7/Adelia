@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AdminCompany } from '../../types'
 import {
   COMPANY_PLANS,
@@ -112,6 +112,18 @@ function AdminCompaniesWorkspace({
   )
   const [menuBoards, setMenuBoards] = useState<number | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  const editorRef = useRef<HTMLElement | null>(null)
+  // En pantallas estrechas la ficha va debajo de la lista: al elegir o crear, se baja hasta ella.
+  const revealEditor = () => {
+    requestAnimationFrame(() => {
+      const editor = editorRef.current
+      if (!editor) return
+      const top = editor.getBoundingClientRect().top
+      if (top > window.innerHeight * 0.6 || top < 0) {
+        editor.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    })
+  }
 
   const selectedCompany = selectedId && selectedId !== 'new'
     ? companies.find((company) => company.id === selectedId) ?? null
@@ -122,6 +134,7 @@ function AdminCompaniesWorkspace({
       setSelectedId('new')
       setForm(EMPTY_FORM)
       setFormError(null)
+      revealEditor()
     }
   }, [createSignal])
 
@@ -205,11 +218,13 @@ function AdminCompaniesWorkspace({
   const startCreate = () => {
     setSelectedId('new')
     setForm(EMPTY_FORM)
+    revealEditor()
   }
 
   const selectCompany = (company: AdminCompany) => {
     setSelectedId(company.id)
     setForm(formFromCompany(company))
+    revealEditor()
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -360,7 +375,7 @@ function AdminCompaniesWorkspace({
           )}
         </aside>
 
-        <section className={styles.editor}>
+        <section className={styles.editor} ref={editorRef}>
           {selectedId == null && companies.length === 0 && !isLoading ? (
             <div className={styles.emptyEditor}>
               <h3>Aún no hay restaurantes</h3>
