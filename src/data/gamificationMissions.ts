@@ -198,7 +198,7 @@ export let MONTHLY_MISSION_POOL: MissionDefinition[] = [
     name: 'De Barra y Mantel',
     xp: 300,
     cadence: 'monthly',
-    description: 'Completa 1 visita en un bar y 1 en un restaurante',
+    description: 'Completa 1 visita en un bar y 1 en un restaurante distinto',
     icon: '🍻',
     target: 2,
     rotationGroup: 'venue',

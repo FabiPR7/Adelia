@@ -3,6 +3,7 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { adminAuth, adminDb, canUseAdminSdk } from '../firebase-admin.ts'
 import { getUserRoleWithRest, verifyIdTokenWithRest } from '../rest-firebase.ts'
 import { notifyGamificationChanges } from '../notifications/gamificationEvents.ts'
+import { createCustomerNotification } from '../notifications/service.ts'
 
 const router = Router()
 
@@ -62,6 +63,26 @@ router.get('/', async (req: Request, res: Response) => {
     if (!uid) {
       res.status(401).json({ error: 'Debes iniciar sesión como cliente.' })
       return
+    }
+
+    // Felicitación de cumpleaños: el día que toca (hora de España), una vez al año.
+    const birthdaySnap = await adminDb.collection('users').doc(uid).get()
+    const birthday = birthdaySnap.data()?.birthday
+    if (typeof birthday === 'string' && /^\d{2}-\d{2}$/.test(birthday)) {
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', month: '2-digit', day: '2-digit', year: 'numeric' })
+        .format(new Date())
+      if (today.slice(5) === birthday) {
+        const name = String(birthdaySnap.data()?.displayName ?? '').trim().split(' ')[0]
+        await createCustomerNotification(uid, {
+          type: 'birthday',
+          title: `¡Feliz cumpleaños${name ? `, ${name}` : ''}! 🎂`,
+          body: 'Todo el equipo de Adelia te desea un gran día. ¿Lo celebras con una buena mesa?',
+          icon: '🎂',
+          actionUrl: '/app/explorar',
+          actionLabel: 'Buscar sitio',
+          dedupeKey: `birthday-${today.slice(0, 4)}`,
+        }).catch(() => undefined)
+      }
     }
 
     const limit = Math.max(1, Math.min(Math.trunc(Number(req.query.limit)) || 40, 100))

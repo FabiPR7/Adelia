@@ -11,6 +11,7 @@ export type CompanyNotificationType =
   | 'review_received'
   | 'reservation_new'
   | 'reservation_cancelled_by_client'
+  | 'setup_no_tables'
 
 export interface CompanyNotificationPayload {
   type: CompanyNotificationType

@@ -2,8 +2,8 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { findCustomerUidByEmail, resolveCustomerUidForReservation } from '../notifications/service.ts'
-import { consumeInventoryItem, inventoryQty } from './inventory.ts'
-import { CANCEL_SHIELD_ITEM_ID } from './inventoryItems.ts'
+import { consumeInventoryItem, inventoryQty, numberRecord } from './inventory.ts'
+import { CANCEL_SHIELD_ITEM_ID, EXTRA_PAX_ITEM_ID } from './inventoryItems.ts'
 import { cancellationPenaltyRates, promoLockStrikes } from './penaltyConfig.ts'
 
 export const PROMO_LOCK_BOOKING_MESSAGE =
@@ -26,6 +26,47 @@ export interface CancellationPenaltyResult {
   justLocked: boolean
   warning: string
   shielded?: boolean
+  /** Cancelada con 24 h o más de antelación: no cuenta como falta. */
+  free?: boolean
+}
+
+/** Cancelar con al menos estas horas de antelación es gratis (ni XP ni aviso ni escudo). */
+export const FREE_CANCEL_HOURS = 24
+
+const FREE_CANCEL_WARNING =
+  'Cancelación gratis: la has hecho con 24 h o más de antelación. No pierdes puntos ni cuenta como aviso.'
+
+function reservationStartMs(data: Record<string, unknown>): number | null {
+  const value = data.startTime as { toMillis?: () => number; toDate?: () => Date } | Date | undefined
+  if (value instanceof Date) return value.getTime()
+  if (value && typeof value.toMillis === 'function') return value.toMillis()
+  if (value && typeof value.toDate === 'function') return value.toDate().getTime()
+  return null
+}
+
+/** El cliente cancela con 24 h o más: no es falta. Un «no se presentó» nunca lo es. */
+export function isFreeCancellation(data: Record<string, unknown>, at = Date.now()): boolean {
+  if (data.noShow === true) return false
+  const startMs = reservationStartMs(data)
+  return startMs != null && startMs - at >= FREE_CANCEL_HOURS * 60 * 60 * 1000
+}
+
+function freeCancellationResult(state: Record<string, unknown>): CancellationPenaltyResult {
+  const xp = Math.max(0, Math.trunc(numberValue(state.xp)))
+  const strikeCount = Math.max(0, Math.trunc(numberValue(state.cancellationStrikeCount)))
+  return {
+    applied: false,
+    free: true,
+    xpLost: 0,
+    xpBefore: xp,
+    xpAfter: xp,
+    strikeCount,
+    percent: 0,
+    nextPercent: penaltyForStrike(strikeCount + 1).percent,
+    promoLocked: isPromoLockedFromState(state),
+    justLocked: false,
+    warning: FREE_CANCEL_WARNING,
+  }
 }
 
 function numberValue(value: unknown, fallback = 0): number {
@@ -118,6 +159,13 @@ export function parseStoredPenalty(data: Record<string, unknown>): CancellationP
   }
 
   const penalty = raw as Record<string, unknown>
+  if (penalty.free === true) {
+    return freeCancellationResult({
+      xp: numberValue(penalty.xpAfter, numberValue(penalty.xpBefore)),
+      cancellationStrikeCount: numberValue(penalty.strikeCount),
+      promoLocked: penalty.promoLocked === true,
+    })
+  }
   if (penalty.shielded === true) {
     const strikeCount = Math.max(0, Math.trunc(numberValue(penalty.strikeCount)))
     const xp = Math.max(0, Math.trunc(numberValue(penalty.xpAfter, numberValue(penalty.xpBefore))))
@@ -212,6 +260,10 @@ export async function previewCancellationPenalty(
   ])
   const state = readGamificationFromDocs(statsSnap.data(), userSnap.data())
 
+  if (isFreeCancellation(reservation)) {
+    return freeCancellationResult(state)
+  }
+
   if (reservationId && stringArray(state.cancelledReservationIds).includes(reservationId)) {
     return computePendingPenalty({
       ...state,
@@ -291,6 +343,25 @@ export async function applyReservationCancellationPenalty(
         promoLocked: isPromoLockedFromState(state),
         justLocked: false,
       })
+    }
+
+    // Con 24 h o más de antelación es gratis: ni XP, ni aviso, ni se gasta el
+    // Escudo de Mesa, y la Invitación extra que usó en la reserva se le devuelve.
+    if (reservationData.cancelledBy === 'client' && isFreeCancellation(reservationData)) {
+      const result = freeCancellationResult(state)
+      if (reservationData.usedExtraPax === true && reservationData.extraPaxRefunded !== true) {
+        const inventory = { ...numberRecord(state.inventory) }
+        inventory[EXTRA_PAX_ITEM_ID] = (inventory[EXTRA_PAX_ITEM_ID] ?? 0) + 1
+        writeGamification(transaction, userId, { ...state, inventory })
+      }
+      if (reservationSnap.exists) {
+        transaction.update(reservationRef, {
+          xpPenalty: result,
+          xpPenaltyAppliedAt: Timestamp.now(),
+          ...(reservationData.usedExtraPax === true ? { extraPaxRefunded: true } : {}),
+        })
+      }
+      return result
     }
 
     const wantShield = options?.consumeShield === true

@@ -8,6 +8,11 @@ const fake = vi.hoisted(() => ({
   deletedAuthUsers: [] as string[],
 }))
 
+// Cancelar sus reservas futuras usa Stripe y avisos: aquí solo se prueba el borrado.
+vi.mock('../../reservations/cancelOnAccountDeletion.ts', () => ({
+  cancelFutureReservationsOnAccountDeletion: async () => 0,
+}))
+
 vi.mock('../../firebase-admin.ts', async () => {
   const { FieldValue: Field } = await import('firebase-admin/firestore')
 

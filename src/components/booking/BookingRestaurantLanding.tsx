@@ -44,6 +44,8 @@ interface BookingRestaurantLandingProps {
   backHref?: string | null
   backLabel?: string
   onReserve: () => void
+  /** false si el local aún no tiene mesas: no se ofrece reservar. */
+  hasTables?: boolean
 }
 
 function formatTodaySchedule(company: PublicBookingCompany): string | null {
@@ -73,6 +75,7 @@ export default function BookingRestaurantLanding({
   backHref = '/',
   backLabel = '← Menú principal',
   onReserve,
+  hasTables = true,
 }: BookingRestaurantLandingProps) {
   const [routeMapOpen, setRouteMapOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
@@ -83,7 +86,8 @@ export default function BookingRestaurantLanding({
   const locationLine = formatRestaurantLocation(company)
   const restaurantCoords = toGeoCoordinates(company.latitude, company.longitude)
   const mainPhotoIndex = company.mainPhotoIndex ?? 0
-  const acceptsReservations = companyAcceptsReservations(company.reservationMode)
+  // Sin mesas no se puede reservar: no se enseña el botón (el local ya recibe un aviso).
+  const acceptsReservations = companyAcceptsReservations(company.reservationMode) && hasTables
 
   useEffect(() => {
     let cancelled = false
@@ -134,7 +138,9 @@ export default function BookingRestaurantLanding({
     ? rating.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
     : null
   const todaySchedule = formatTodaySchedule(company)
-  const reservationNote = companyRequiresReservation(company.reservationMode)
+  const reservationNote = !hasTables && companyAcceptsReservations(company.reservationMode)
+    ? 'Por ahora no acepta reservas por Adelia. Puedes ir sin reserva.'
+    : companyRequiresReservation(company.reservationMode)
     ? 'Este local trabaja solo con reserva.'
     : acceptsReservations
       ? 'Reserva opcional: también puedes venir sin mesa.'

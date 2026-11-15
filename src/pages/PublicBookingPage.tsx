@@ -857,6 +857,7 @@ function PublicBookingPage() {
         backHref={landingBackHref}
         backLabel={landingBackLabel}
         onReserve={openBookingFlow}
+        hasTables={tables.length > 0}
       />
     )
   }

@@ -11,6 +11,7 @@ import {
   usernameError,
 } from '../data/usernames.ts'
 import { takeUsernameChange } from '../security/rateLimit.ts'
+import { adminDb } from '../firebase-admin.ts'
 
 const router = Router()
 
@@ -81,6 +82,49 @@ router.post('/identity', async (req: Request, res: Response) => {
     }
     const message = error instanceof Error ? error.message : ''
     console.error('identity update error:', error)
+    res.status(authStatus(message) ?? 500).json({ error: authStatus(message) ? message : 'No se pudo guardar.' })
+  }
+})
+
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+/** Cumpleaños como «MM-DD» (sin año: no hace falta y es un dato menos). '' = quitarlo. */
+export function parseBirthday(value: unknown): string | null {
+  if (value === '' || value === null) return ''
+  if (typeof value !== 'string' || !/^\d{2}-\d{2}$/.test(value)) return null
+  const [month, day] = value.split('-').map(Number)
+  if (month < 1 || month > 12 || day < 1 || day > DAYS_IN_MONTH[month - 1]) return null
+  return value
+}
+
+/** Preferencias del perfil: cumpleaños y si sale o no en los rankings públicos. */
+router.post('/preferences', async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    const updates: Record<string, unknown> = {}
+    if (req.body?.birthday !== undefined) {
+      const birthday = parseBirthday(req.body.birthday)
+      if (birthday === null) {
+        res.status(400).json({ error: 'Esa fecha de cumpleaños no es válida.' })
+        return
+      }
+      updates.birthday = birthday
+    }
+    if (req.body?.hideFromRanking !== undefined) {
+      if (typeof req.body.hideFromRanking !== 'boolean') {
+        res.status(400).json({ error: 'Valor no válido.' })
+        return
+      }
+      updates.hideFromRanking = req.body.hideFromRanking
+    }
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: 'No hay nada que guardar.' })
+      return
+    }
+    await adminDb.collection('users').doc(customer.uid).set(updates, { merge: true })
+    res.json({ ok: true, ...updates })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
     res.status(authStatus(message) ?? 500).json({ error: authStatus(message) ? message : 'No se pudo guardar.' })
   }
 })

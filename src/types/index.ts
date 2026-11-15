@@ -47,6 +47,10 @@ export interface AppUser {
   homeLatitude: number | null
   homeLongitude: number | null
   foodPreferences: string[]
+  /** Cumpleaños «MM-DD» (sin año); vacío si no lo ha puesto. */
+  birthday?: string
+  /** No aparecer en los rankings públicos. */
+  hideFromRanking?: boolean
   onboardingCompleted: boolean
   /** Tutorial interactivo de la app cliente (una vez por usuario). */
   productTourCompleted: boolean

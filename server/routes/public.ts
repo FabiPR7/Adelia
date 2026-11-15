@@ -19,6 +19,7 @@ import {
   type DepositCancelOutcome,
 } from '../stripe/deposits.ts'
 import { notifyReservationCancelled } from '../notifications/reservationEvents.ts'
+import { createCompanyNotification } from '../notifications/companyNotifications.ts'
 import { evaluateClientCancellation } from '../reservations/cancellation.ts'
 import { cancelInvitesForReservation, createReservationInvites } from '../reservations/invites.ts'
 import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../reservations/bookReservation.ts'
@@ -556,6 +557,19 @@ router.get('/:slug', async (req: Request<Record<string, string>>, res: Response)
     }
 
     const tables = await loadBookableTables(company.id, company.planId)
+    if (tables.length === 0) {
+      // Su ficha no ofrece «Reservar» hasta que tenga mesas: se le avisa (una vez por semana).
+      const week = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000))
+      void createCompanyNotification(company.id, {
+        type: 'setup_no_tables',
+        title: 'Tus clientes no pueden reservar',
+        body: 'Tu ficha no muestra «Reservar» porque aún no tienes mesas. Añádelas en Mesas y los clientes podrán reservar.',
+        icon: '🪑',
+        actionTab: 'tables',
+        actionLabel: 'Añadir mesas',
+        dedupeKey: `setup-no-tables-${week}`,
+      }).catch(() => undefined)
+    }
 
     allowPublicCache(res, 60)
     res.json({ company, tables })
@@ -944,6 +958,11 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
     }
 
     const reservationRef = adminDb.collection('reservations').doc()
+    if (useExtraPax) {
+      // Para devolver la carta si cancela con 24 h o más de antelación.
+      reservationData.usedExtraPax = true
+    }
+
     let consumedInventory: Record<string, number> | null = null
 
     try {

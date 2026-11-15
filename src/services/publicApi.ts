@@ -324,6 +324,8 @@ export interface PublicCancelXpPenalty {
   xpAfter: number
   xpBefore: number
   shielded?: boolean
+  /** Cancelada con 24 h o más: no cuenta como falta. */
+  free?: boolean
 }
 
 export interface PublicCancelResult {

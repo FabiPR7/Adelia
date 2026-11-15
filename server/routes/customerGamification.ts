@@ -317,6 +317,10 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       if (!userSnap?.exists || userData?.role !== 'customer' || userData?.blocked === true) {
         return []
       }
+      // Quien eligió no salir en el ranking no aparece para los demás (él sí ve su puesto).
+      if (userData.hideFromRanking === true && docSnap.id !== customer.uid) {
+        return []
+      }
       const country = String(userData.homeCountry ?? userData.country ?? 'España')
       if (scope === 'country' && country !== selfCountry) {
         return []

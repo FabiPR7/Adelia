@@ -551,16 +551,7 @@ function evaluateMission(
       return { current, completed: current >= mission.target }
     }
     case 'bar_y_restaurante_mes': {
-      const bar = monthVisits.some((visit) => venueTypesIncludeKind(
-        context.restaurantVenueTypes.get(visit.companyId) ?? [],
-        'bar',
-      ))
-      const restaurant = monthVisits.some((visit) => venueTypesIncludeKind(
-        context.restaurantVenueTypes.get(visit.companyId) ?? [],
-        'restaurant',
-      ))
-      const current = Number(bar) + Number(restaurant)
-      return { current, completed: bar && restaurant }
+      return barAndRestaurantProgress(monthVisits, context.restaurantVenueTypes)
     }
     case 'productos_mes': {
       const current = monthConsumptions.filter(
@@ -1028,4 +1019,25 @@ export function processGamificationRewards(
     activeLadderPromotionByCompany: next.activeLadderPromotionByCompany,
     ladderCompletionsByCompany: next.ladderCompletionsByCompany,
   }
+}
+
+/**
+ * «De Barra y Mantel»: una visita a un bar y otra a un restaurante DISTINTOS.
+ * Un local que es las dos cosas vale como uno u otro, pero no completa la
+ * misión él solo.
+ */
+export function barAndRestaurantProgress(
+  visits: Array<{ companyId: string }>,
+  venueTypesByCompany: Map<string, string[]>,
+): { current: number; completed: boolean } {
+  const barIds = new Set<string>()
+  const restaurantIds = new Set<string>()
+  for (const visit of visits) {
+    const types = venueTypesByCompany.get(visit.companyId) ?? []
+    if (venueTypesIncludeKind(types, 'bar')) barIds.add(visit.companyId)
+    if (venueTypesIncludeKind(types, 'restaurant')) restaurantIds.add(visit.companyId)
+  }
+  const completed = [...barIds].some((barId) => [...restaurantIds].some((restaurantId) => restaurantId !== barId))
+  const current = completed ? 2 : barIds.size > 0 || restaurantIds.size > 0 ? 1 : 0
+  return { current, completed }
 }

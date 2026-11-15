@@ -305,6 +305,8 @@ function mapUserProfileRecord(
     homeLatitude: typeof data.homeLatitude === 'number' ? data.homeLatitude : null,
     homeLongitude: typeof data.homeLongitude === 'number' ? data.homeLongitude : null,
     foodPreferences: Array.isArray(data.foodPreferences) ? (data.foodPreferences as string[]) : [],
+    birthday: typeof data.birthday === 'string' ? data.birthday : '',
+    hideFromRanking: data.hideFromRanking === true,
     onboardingCompleted:
       data.onboardingCompleted === true
       || (data.onboardingCompleted == null && Boolean(data.displayName)),

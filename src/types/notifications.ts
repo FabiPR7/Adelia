@@ -1,5 +1,6 @@
 export type NotificationType =
   | 'reservation_received'
+  | 'birthday'
   | 'reservation_confirmed'
   | 'reservation_cancelled_by_client'
   | 'reservation_cancelled_by_restaurant'
@@ -53,6 +54,7 @@ export interface NotificationData {
   justLocked?: boolean
   warning?: string
   shielded?: boolean
+  free?: boolean
 }
 
 export interface CustomerNotification {

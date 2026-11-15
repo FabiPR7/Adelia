@@ -4,6 +4,7 @@ import { adminAuth, adminDb } from '../firebase-admin.ts'
 
 export type NotificationType =
   | 'reservation_received'
+  | 'birthday'
   | 'reservation_confirmed'
   | 'reservation_cancelled_by_client'
   | 'reservation_cancelled_by_restaurant'

@@ -14,13 +14,14 @@ import { getLevelRankingStripTheme } from '../../utils/levelRankingStripThemes'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
 import LegalLinks from '../../components/LegalLinks'
 import SupportMessageModal from '../../components/SupportMessageModal'
+import CustomerPreferencesCard from '../../components/CustomerPreferencesCard'
 import { cleanReviewExcerpt } from '../../utils/reviewCommentTags'
 import styles from './CustomerProfileTab.module.css'
 
 const QUICK_ACCENTS = ['coral', 'gold', 'magenta', 'sunset'] as const
 
 function CustomerProfileTab() {
-  const { profile, user } = useAuth()
+  const { profile, user, refreshProfile } = useAuth()
   const { favoriteSlugs, isUpdatingFavorite, toggleFavorite } = useFavoriteRestaurants()
   const {
     loading,
@@ -310,6 +311,12 @@ function CustomerProfileTab() {
             </div>
           )}
         </section>
+
+        <CustomerPreferencesCard
+          birthday={profile?.birthday ?? ''}
+          hideFromRanking={profile?.hideFromRanking === true}
+          onSaved={refreshProfile}
+        />
 
         <div className={styles.legalRow}>
           <LegalLinks from="/app/perfil" />

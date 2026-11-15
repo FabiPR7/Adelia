@@ -172,7 +172,12 @@ function PublicCancelReservation() {
           ) : resultMessage ? (
             <>
               <p className={styles.success}>{resultMessage}</p>
-              {resultPenalty?.shielded ? (
+              {resultPenalty?.free ? (
+                <div className={styles.xpPenaltyHint}>
+                  <p className={styles.xpPenaltyLoss}>Cancelación gratis</p>
+                  <p>{resultPenalty.warning}</p>
+                </div>
+              ) : resultPenalty?.shielded ? (
                 <div className={styles.xpPenaltyHint}>
                   <p className={styles.xpPenaltyLoss}>Escudo de Mesa usado</p>
                   <p>{resultPenalty.warning}</p>
@@ -216,7 +221,12 @@ function PublicCancelReservation() {
                   {depositWarning}
                 </p>
               ) : null}
-              {cancelPreview?.xpPenalty && !useShield ? (
+              {cancelPreview?.xpPenalty?.free ? (
+                <p className={styles.xpPenaltyHint}>
+                  Cancelas con 24 h o más de antelación: es gratis. No pierdes puntos, no cuenta como
+                  aviso y, si usaste una Invitación extra, te la devolvemos.
+                </p>
+              ) : cancelPreview?.xpPenalty && !useShield ? (
                 <p className={styles.xpPenaltyWarning}>
                   {formatCancelPenaltyPreview(cancelPreview.xpPenalty)}
                   {' '}
@@ -228,11 +238,12 @@ function PublicCancelReservation() {
                 </p>
               ) : (
                 <p className={styles.xpPenaltyHint}>
-                  Si esta reserva está vinculada a una cuenta Adelia, cancelar te restará puntos de
-                  experiencia (12% la primera vez, y cada vez más).
+                  Cancelar con 24 h o más de antelación es gratis. Con menos, si la reserva está
+                  vinculada a una cuenta Adelia, te restará puntos de experiencia (12% la primera
+                  vez, y cada vez más).
                 </p>
               )}
-              {(cancelPreview?.cancelShieldCount ?? 0) > 0 ? (
+              {(cancelPreview?.cancelShieldCount ?? 0) > 0 && !cancelPreview?.xpPenalty?.free ? (
                 <label className={styles.shieldToggle}>
                   <input
                     type="checkbox"

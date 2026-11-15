@@ -74,3 +74,38 @@ describe('penalización por cancelar', () => {
     expect(store.written?.cancellationStrikeCount).toBe(1)
   })
 })
+
+describe('cancelación gratis con 24 h o más', () => {
+  const inHours = (hours: number) => new Date(Date.now() + hours * 60 * 60 * 1000)
+
+  beforeEach(() => {
+    store.state = { xp: 1000, inventory: { escudo_mesa: 1 }, cancellationStrikeCount: 0 }
+    store.written = null
+  })
+
+  it('con 48 h de antelación no quita XP, no suma aviso ni gasta el escudo', async () => {
+    store.reservation = { status: 'cancelled', cancelledBy: 'client', customerUid: 'cliente-1', startTime: inHours(48), cancelShieldRequested: true }
+
+    const result = await applyReservationCancellationPenalty('r1', store.reservation)
+    expect(result?.free).toBe(true)
+    expect(result?.xpLost).toBe(0)
+    expect(store.written).toBeNull()
+  })
+
+  it('devuelve la Invitación extra si la usó', async () => {
+    store.reservation = { status: 'cancelled', cancelledBy: 'client', customerUid: 'cliente-1', startTime: inHours(30), usedExtraPax: true }
+
+    await applyReservationCancellationPenalty('r1', store.reservation)
+    expect((store.written?.inventory as Record<string, number>).invitacion_extra).toBe(1)
+  })
+
+  it('con menos de 24 h sigue contando como falta', async () => {
+    store.state = { xp: 1000, inventory: {}, cancellationStrikeCount: 0 }
+    store.reservation = { status: 'cancelled', cancelledBy: 'client', customerUid: 'cliente-1', startTime: inHours(5), usedExtraPax: true }
+
+    const result = await applyReservationCancellationPenalty('r1', store.reservation)
+    expect(result?.free).toBeUndefined()
+    expect(store.written?.cancellationStrikeCount).toBe(1)
+    expect((store.written?.inventory as Record<string, number>).invitacion_extra).toBeUndefined()
+  })
+})
