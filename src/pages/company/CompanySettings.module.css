@@ -1,3 +1,10 @@
+/*
+ * Mi restaurante (Contacto, Perfil, Reservas y horario, Mesas).
+ * Estilo del panel tipo CRM: Inter, neutros, tarjetas blancas con borde fino,
+ * un solo acento teja para la acción principal. Los tokens vienen de
+ * CompanyDashboard.module.css (.page).
+ */
+
 .loading {
   color: var(--color-text-muted);
   padding: 2rem;
@@ -7,156 +14,201 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
+  min-width: 0;
 }
 
-.error,
-.success {
-  padding: 0.75rem 1rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-.formFeedback {
-  position: sticky;
-  top: 0;
-  z-index: 30;
+/* ---------- Sección (una por pestaña) ---------- */
+
+.sectionCard {
+  display: none;
 }
 
-.error {
-  background: rgba(181, 74, 74, 0.08);
-  border: 1px solid rgba(181, 74, 74, 0.25);
-  color: var(--color-error);
-}
-
-.success {
-  background: rgba(92, 74, 58, 0.08);
-  border: 1px solid var(--color-border);
-  color: var(--color-brown);
-}
-
-.card {
-  background: var(--color-white);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
-}
-
-.cardHeader h2 {
-  font-family: var(--font-display);
-  font-size: 1.375rem;
-  color: var(--color-brown);
-  margin-bottom: 0.25rem;
-}
-
-.cardHeader p {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-  margin-bottom: 1.25rem;
-}
-
-.profileLayout {
+.sectionCardActive {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
+  max-width: 64rem;
 }
 
-.profileBlock h3 {
-  margin: 0 0 0.45rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-brown);
+.tablesSection.sectionCardActive {
+  max-width: none;
 }
 
-.locationSplit {
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.sectionHeaderText {
+  min-width: 0;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+.sectionSubtitle {
+  margin: 0.25rem 0 0;
+  max-width: 62ch;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.sectionHeaderAside {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ---------- Tarjetas del formulario ---------- */
+
+.formCard {
+  min-width: 0;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--elev-1);
+}
+
+.formCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.formCardHeaderText {
+  min-width: 0;
+}
+
+.formCardHeaderText h3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.formCardHeaderText p {
+  margin: 0.2rem 0 0;
+  max-width: 68ch;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.formCardActions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.formCardBody {
+  padding: 1.25rem;
+  min-width: 0;
+}
+
+.cardRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 16.5rem);
-  gap: 0.85rem 1rem;
+  grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr);
+  gap: 1rem;
   align-items: start;
 }
 
-.locationFields {
+/* ---------- Campos ---------- */
+
+:where(.form) label {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  min-width: 0;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text);
 }
 
-.locationFieldsRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-.locationFields input {
-  padding: 0.48rem 0.6rem;
-  font-size: 0.875rem;
-}
-
-.mapSquareBlock {
-  min-width: 0;
-}
-
-.priceHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.4rem;
-}
-
-.priceLabel {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-brown);
-}
-
-.priceHint {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-}
-
-.priceRow {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.4rem;
-}
-
-.priceChip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.1rem;
-  padding: 0.4rem 0.3rem;
+/* Todo dentro de :where() para no pisar los estilos propios de cada bloque (p. ej. la tabla de mesas). */
+:where(.form input:not([type='checkbox']):not([type='radio']):not([type='file']), .form textarea, .form select) {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: #fff;
-  color: var(--color-brown);
-  cursor: pointer;
+  border-radius: 8px;
+  background: var(--color-white);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 400;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.priceChip strong {
-  font-size: 0.92rem;
+:where(.form) textarea {
+  min-height: 6rem;
+  line-height: 1.5;
+  resize: vertical;
 }
 
-.priceChip span {
-  font-size: 0.62rem;
+:where(.form) input::placeholder,
+:where(.form) textarea::placeholder {
+  color: #a8a29e;
+}
+
+:where(.form input:not([type='checkbox']):not([type='radio']):hover, .form textarea:hover, .form select:hover) {
+  border-color: #d6d0c8;
+}
+
+:where(.form input:not([type='checkbox']):not([type='radio']):focus-visible, .form textarea:focus-visible, .form select:focus-visible) {
+  outline: none;
+  border-color: var(--color-accent-strong);
+  box-shadow: 0 0 0 3px var(--color-accent-wash);
+}
+
+:where(.form) input:disabled,
+:where(.form) select:disabled {
+  background: var(--color-cream);
   color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
-.priceChipOn {
-  border-color: rgba(196, 168, 130, 0.85);
-  background: rgba(196, 168, 130, 0.18);
+:where(.form) input[type='checkbox'],
+:where(.form) input[type='radio'] {
+  accent-color: var(--color-text);
 }
 
-.profileMedia {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.85rem;
+.optional {
+  font-weight: 400;
+  color: var(--color-text-muted);
 }
 
 .grid {
@@ -169,308 +221,520 @@
   min-width: 0;
 }
 
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.fieldCounter {
+  align-self: flex-end;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Avisos ---------- */
+
+.formFeedback {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.error,
+.success {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.75rem 0.7rem 1rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  box-shadow: var(--elev-2);
+}
+
+.error {
+  background: var(--color-danger-bg);
+  border: 1px solid #efcfcf;
+  color: #9a2a2a;
+}
+
+.success {
+  background: var(--color-ok-bg);
+  border: 1px solid #c6e2d3;
+  color: var(--color-ok);
+}
+
+.feedbackClose {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: -0.2rem 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 1.125rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.feedbackClose:hover {
+  opacity: 1;
+  background: rgba(28, 25, 23, 0.06);
+}
+
+/* ---------- Botones ---------- */
+
+.saveButton,
+.saveMapButton,
+.addButton,
+.copyLinkButton,
+.customizeQrButton,
+.downloadQrButton,
+.tablesFilterClear,
+.mapAddButton,
+.mapDeleteButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-white);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.saveMapButton:hover:not(:disabled),
+.addButton:hover:not(:disabled),
+.copyLinkButton:hover:not(:disabled),
+.customizeQrButton:hover:not(:disabled),
+.downloadQrButton:hover:not(:disabled),
+.tablesFilterClear:hover:not(:disabled),
+.mapAddButton:hover:not(:disabled),
+.mapDeleteButton:hover:not(:disabled) {
+  background: var(--color-cream);
+  border-color: #d6d0c8;
+}
+
+.saveButton {
+  min-height: 2.5rem;
+  padding: 0 1.125rem;
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
+  color: #fff;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: #7a3718;
+  border-color: #7a3718;
+}
+
+.saveMapButton {
+  min-height: 2.5rem;
+}
+
+.saveButton:active:not(:disabled),
+.saveMapButton:active:not(:disabled),
+.addButton:active:not(:disabled),
+.copyLinkButton:active:not(:disabled),
+.customizeQrButton:active:not(:disabled),
+.downloadQrButton:active:not(:disabled),
+.mapAddButton:active:not(:disabled),
+.mapDeleteButton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.saveButton:focus-visible,
+.saveMapButton:focus-visible,
+.addButton:focus-visible,
+.copyLinkButton:focus-visible,
+.customizeQrButton:focus-visible,
+.downloadQrButton:focus-visible,
+.tablesFilterClear:focus-visible,
+.mapAddButton:focus-visible,
+.mapDeleteButton:focus-visible,
+.mapTab:focus-visible,
+.priceChip:focus-visible,
+.tablesDeleteButton:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.saveButton:disabled,
+.saveMapButton:disabled,
+.addButton:disabled,
+.downloadQrButton:disabled,
+.mapAddButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mapDeleteButton {
+  color: #9a2a2a;
+}
+
+.mapDeleteButton:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  border-color: #efcfcf;
+}
+
+/* ---------- Barra de guardar (fija al pie) ---------- */
+
+.saveBar {
+  position: sticky;
+  bottom: 0.75rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+  padding: 0.625rem 0.625rem 0.625rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--elev-2);
+  backdrop-filter: blur(6px);
+}
+
+.saveStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.saveStatusDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #3f9a6b;
+  flex-shrink: 0;
+}
+
+.saveBarDirty .saveStatus {
+  color: var(--color-warn);
+  font-weight: 600;
+}
+
+.saveBarDirty .saveStatusDot {
+  background: #d08a0c;
+}
+
+.saveBarActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ---------- Contacto ---------- */
+
+.logoField {
+  min-width: 0;
+}
+
 .clientLinkBox {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.85rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-cream);
-}
-
-.clientLinkLabel {
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--color-brown);
-}
-
-.mapFieldLabel {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--color-brown);
-}
-
-.mapFieldHint {
-  margin: 0.2rem 0 0.65rem;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: var(--color-text-muted);
+  gap: 0.75rem;
 }
 
 .clientLinkRow {
   display: flex;
   gap: 0.5rem;
   align-items: stretch;
-  flex-wrap: wrap;
 }
 
 .clientLinkActions {
   display: flex;
   gap: 0.5rem;
-  flex-shrink: 0;
   flex-wrap: wrap;
 }
 
-.clientLink,
-.clientLinkInput {
+:where(.form) .clientLinkInput {
   flex: 1;
   min-width: 0;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-white);
-  color: var(--color-brown);
+  background: var(--color-cream);
+  color: var(--color-text);
   font-size: 0.8125rem;
-  word-break: break-all;
-  text-decoration: none;
-}
-
-.clientLinkInput {
-  font: inherit;
+  font-variant-numeric: tabular-nums;
   cursor: text;
   -webkit-user-select: all;
   user-select: all;
 }
 
 .copyLinkButton {
-  padding: 0.55rem 0.85rem;
-  border: 1px solid var(--color-brown);
-  border-radius: var(--radius-sm);
-  background: var(--color-brown);
-  color: var(--color-white);
+  min-height: 2.5rem;
+  min-width: 6rem;
+}
+
+/* ---------- Perfil ---------- */
+
+.profileLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profileBlock {
+  min-width: 0;
+}
+
+.profileBlock + .profileBlock {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.descriptionField {
   font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
 }
 
-.copyLinkButton:hover {
-  filter: brightness(1.05);
+.locationSplit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 17rem);
+  gap: 1rem 1.25rem;
+  align-items: start;
 }
 
-.customizeQrButton {
-  padding: 0.55rem 0.85rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-cream);
-  color: var(--color-brown);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
+.locationFields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
-.customizeQrButton:hover {
-  background: var(--color-white);
-}
-
-.downloadQrButton {
-  padding: 0.55rem 0.85rem;
-  border: 1px solid var(--color-brown);
-  border-radius: var(--radius-sm);
-  background: var(--color-white);
-  color: var(--color-brown);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.downloadQrButton:hover:not(:disabled) {
-  background: var(--color-cream);
-}
-
-.downloadQrButton:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.clientLinkHint {
-  margin: 0;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
-.fullWidth {
-  grid-column: 1 / -1;
+.locationFieldsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
 }
 
 .cityField {
   min-width: 0;
 }
 
-:where(.form) label {
+.mapSquareBlock {
+  min-width: 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.priceHeader {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-brown-light);
-}
-
-:where(.form) input,
-:where(.form) textarea {
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 0.9375rem;
-  color: var(--color-text);
-  background: var(--color-white);
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-:where(.form) input:focus {
-  outline: 2px solid rgba(196, 168, 130, 0.45);
-  border-color: var(--color-sand);
-}
-
-:where(.form) input:disabled {
-  opacity: 0.5;
-  background: var(--color-cream);
-}
-
-.logoPreview {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: var(--color-cream);
-  border-radius: var(--radius-sm);
-  display: inline-flex;
-}
-
-.logoPreview img {
-  max-height: 64px;
-  max-width: 160px;
-  object-fit: contain;
-}
-
-.inlineField {
-  max-width: 280px;
-  margin-bottom: 1.25rem;
-}
-
-.reservationMode {
-  margin: 0 0 1.25rem;
-  padding: 0;
-  border: 0;
-}
-
-.reservationModeLegend {
-  padding: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-brown);
-  margin-bottom: 0.55rem;
-}
-
-.reservationModeOptions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.reservationModeOption {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.85rem;
-  border-radius: 999px;
-  border: 1px solid rgba(61, 42, 31, 0.14);
-  background: #fffdf9;
-  cursor: pointer;
-  font-size: 0.9rem;
-  color: #3d2a1f;
-}
-
-.reservationModeOption input {
-  width: 0.95rem;
-  height: 0.95rem;
-  margin: 0;
-  accent-color: #7a4a2b;
-}
-
-.reservationModeOptionOn {
-  border-color: rgba(122, 74, 43, 0.55);
-  background: rgba(196, 154, 90, 0.16);
-}
-
-.reservationModeHint {
-  margin: 0.5rem 0 0;
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-}
-
-.turns h3 {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-brown);
-  margin-bottom: 0.75rem;
-}
-
-.turnRow {
-  display: grid;
-  grid-template-columns: 1fr 120px auto 120px;
-  align-items: center;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
 }
 
-.turnRow span {
-  color: var(--color-text-muted);
-  text-align: center;
-}
-
-.scheduleBlock {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.depositBlock {
-  margin-top: 0.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.depositBlockHeader {
-  margin-bottom: 1rem;
-}
-
-.depositBlockHeader h3 {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-brown);
-  margin: 0 0 0.35rem;
-}
-
-.depositBlockHeader .scheduleHint {
-  margin: 0;
-}
-
-.depositSettings {
-  margin-top: 1.25rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.depositSettingsHeader h4 {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-brown);
-  margin: 0 0 0.35rem;
-}
-
-.depositLockedHint {
-  margin: 0;
+.priceLabel {
   font-size: 0.8125rem;
-  line-height: 1.5;
-  color: #8b4a32;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
-.depositSwitchInlineDisabled {
+.priceHint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.priceRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.priceChip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  min-height: 3.25rem;
+  padding: 0.5rem 0.375rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-white);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.priceChip:hover {
+  background: var(--color-cream);
+}
+
+.priceChip strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.priceChip span {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+.priceChipOn,
+.priceChipOn:hover {
+  border-color: var(--color-text);
+  background: var(--color-sand-wash);
+  box-shadow: inset 0 0 0 1px var(--color-text);
+}
+
+.profileMedia {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+/* Visibilidad */
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.statusChipOn {
+  background: var(--color-ok-bg);
+  color: var(--color-ok);
+}
+
+.statusChipOff {
+  background: var(--color-danger-bg);
+  color: #9a2a2a;
+}
+
+.visibilityCardOff {
+  border-color: #efcfcf;
+}
+
+.visibilityBlock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+.visibilityText {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* ---------- Interruptores (fianza, visibilidad, mapa) ---------- */
+
+.depositSwitchInline,
+.visibilitySwitchInline,
+.mapSwitchInline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.depositSwitchText,
+.visibilitySwitchText,
+.mapSwitchText {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.depositSwitch,
+.visibilitySwitch,
+.mapSwitch {
+  position: relative;
+  display: inline-block;
+  width: 2.5rem;
+  height: 1.375rem;
+  flex-shrink: 0;
+}
+
+.depositSwitchInput,
+.visibilitySwitchInput,
+.mapSwitchInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.depositSwitchSlider,
+.visibilitySwitchSlider,
+.mapSwitchSlider {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #d6d0c8;
+  transition: background-color 0.18s ease;
+}
+
+.depositSwitchSlider::before,
+.visibilitySwitchSlider::before,
+.mapSwitchSlider::before {
+  content: '';
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  left: 0.1875rem;
+  top: 0.1875rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 0.18s ease;
+}
+
+.depositSwitchInput:focus-visible + .depositSwitchSlider,
+.visibilitySwitchInput:focus-visible + .visibilitySwitchSlider,
+.mapSwitchInput:focus-visible + .mapSwitchSlider {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.depositSwitchInput:checked + .depositSwitchSlider,
+.visibilitySwitchInput:checked + .visibilitySwitchSlider,
+.mapSwitchInput:checked + .mapSwitchSlider {
+  background: #3f9a6b;
+}
+
+.depositSwitchInput:checked + .depositSwitchSlider::before,
+.visibilitySwitchInput:checked + .visibilitySwitchSlider::before,
+.mapSwitchInput:checked + .mapSwitchSlider::before {
+  transform: translateX(1.125rem);
+}
+
+.depositSwitchInlineDisabled,
+.visibilitySwitchInlineDisabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -479,161 +743,204 @@
   pointer-events: none;
 }
 
+.lockedField {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ---------- Reservas y horario ---------- */
+
+.reservationMode {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.reservationModeOptions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-cream);
+}
+
+:where(.form) .reservationModeOption {
+  position: relative;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
+  border-radius: 7px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.reservationModeOption input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.reservationModeOption:hover {
+  color: var(--color-text);
+}
+
+.reservationModeOption:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 1px;
+}
+
+:where(.form) .reservationModeOptionOn {
+  background: var(--color-white);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: var(--elev-1), 0 0 0 1px var(--color-border);
+}
+
+:where(.form) .inlineField {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.inlineFieldText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-weight: 600;
+}
+
+.inlineFieldText small {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.inputWithUnit {
+  position: relative;
+  flex-shrink: 0;
+  width: 7.5rem;
+}
+
+:where(.form) .inputWithUnit input {
+  padding-right: 2.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.inputWithUnit > span {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+/* Fianzas */
+
+.depositSettings {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
 .depositSettingsHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 1rem;
 }
 
-.depositSettingsHeader h3 {
+.depositSettingsHeader h4 {
+  margin: 0 0 0.25rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-brown);
-  margin: 0 0 0.35rem;
+  color: var(--color-text);
 }
 
-.depositSettingsHeader .scheduleHint {
+.depositLockedHint {
   margin: 0;
-}
-
-.depositSwitchInline {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-shrink: 0;
-  cursor: pointer;
-  user-select: none;
-  padding-top: 0.15rem;
-}
-
-.depositSwitchText {
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-brown);
+  line-height: 1.5;
+  color: var(--color-warn);
 }
 
-.depositSwitch {
-  position: relative;
-  display: inline-block;
-  width: 2.5rem;
-  height: 1.375rem;
-  flex-shrink: 0;
-}
-
-.depositSwitchInput {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
-}
-
-.depositSwitchSlider {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  background: rgba(61, 50, 41, 0.18);
-  transition: background 0.2s ease;
-}
-
-.depositSwitchSlider::before {
-  content: '';
-  position: absolute;
-  width: 1rem;
-  height: 1rem;
-  left: 0.1875rem;
-  top: 0.1875rem;
-  border-radius: 50%;
-  background: var(--color-white);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-  transition: transform 0.2s ease;
-}
-
-.depositSwitchInput:focus-visible + .depositSwitchSlider {
-  outline: 2px solid rgba(92, 74, 58, 0.35);
-  outline-offset: 2px;
-}
-
-.depositSwitchInput:checked + .depositSwitchSlider {
-  background: var(--color-brown);
-}
-
-.depositSwitchInput:checked + .depositSwitchSlider::before {
-  transform: translateX(1.125rem);
+.scheduleHint {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
 }
 
 .depositRow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem;
-  max-width: 840px;
-}
-
-@media (max-width: 900px) {
-  .depositRow {
-    grid-template-columns: 1fr;
-    max-width: 320px;
-  }
+  gap: 1rem;
 }
 
 .depositField {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-brown);
-}
-
-.depositField input {
-  width: 100%;
-}
-
-.depositField input:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  min-width: 0;
 }
 
 .depositPreview {
-  margin: 0.75rem 0 0;
-  max-width: 36rem;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--color-cream);
   font-size: 0.8125rem;
   line-height: 1.5;
   color: var(--color-text-muted);
 }
 
 .depositPreview strong {
-  color: var(--color-brown);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
-.scheduleBlock h3 {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-brown);
-  margin: 0 0 0.35rem;
-}
-
-.scheduleHint {
-  margin: 0 0 0.75rem;
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-  line-height: 1.45;
-}
+/* Horario */
 
 .scheduleTable {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   overflow: hidden;
-  background: var(--color-white);
+}
+
+.scheduleTableHead,
+.scheduleTableRow {
+  display: grid;
+  grid-template-columns: 9rem 5.5rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}
+
+.scheduleTableHead {
+  background: var(--color-cream);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 .scheduleTableRow {
-  display: grid;
-  grid-template-columns: 6.75rem 4.75rem minmax(0, 1fr);
-  gap: 0.65rem;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
+  min-height: 3.25rem;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -641,68 +948,72 @@
   border-bottom: none;
 }
 
-.scheduleTableRow:nth-child(even) {
-  background: color-mix(in srgb, var(--color-cream) 55%, var(--color-white));
-}
-
 .scheduleTableRowMulti {
   align-items: start;
-  padding-top: 0.55rem;
-  padding-bottom: 0.55rem;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
 }
 
 .scheduleTableRowInactive {
-  opacity: 0.58;
+  background: #fbfaf8;
 }
 
-.scheduleDayCell {
-  display: flex;
+:where(.form) .scheduleDayCell {
+  flex-direction: row;
   align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  font-size: 0.8125rem;
+  gap: 0.625rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text);
+  cursor: pointer;
 }
 
 .scheduleDayCell input {
-  width: auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
   flex-shrink: 0;
 }
 
-.scheduleTurnsCell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  margin: 0;
+.scheduleTableRowInactive .scheduleDayCell {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+:where(.form) .scheduleTurnsCell {
+  gap: 0;
   min-width: 0;
 }
 
 .scheduleTurnsLabel {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
 }
 
-.scheduleTurnsCell select {
-  width: 100%;
-  padding: 0.32rem 0.35rem;
+:where(.form) .scheduleTurnsCell select {
+  min-height: 2.125rem;
+  padding: 0.25rem 0.5rem;
   font-size: 0.8125rem;
 }
 
 .scheduleHoursCell {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.375rem;
   min-width: 0;
+}
+
+.scheduleClosed {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
 }
 
 .scheduleTimeRange {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
   min-width: 0;
 }
 
@@ -711,28 +1022,28 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 1.1rem;
-  height: 1.1rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-brown) 12%, var(--color-white));
-  border: 1px solid color-mix(in srgb, var(--color-brown) 18%, transparent);
-  font-size: 0.625rem;
-  font-weight: 700;
-  color: var(--color-brown);
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--color-beige);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
-.scheduleTimeRange input[type='time'] {
-  width: 6.35rem;
-  min-width: 0;
-  padding: 0.32rem 0.35rem;
+:where(.form) .scheduleTimeRange input[type='time'] {
+  width: 7.25rem;
+  min-height: 2.125rem;
+  padding: 0.25rem 0.5rem;
   font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .scheduleTimeSep {
   flex-shrink: 0;
   color: var(--color-text-muted);
   font-size: 0.75rem;
-  line-height: 1;
 }
 
 .dayNameShort {
@@ -743,97 +1054,173 @@
   min-width: 0;
 }
 
-.tableList {
-  list-style: none;
+/* ---------- Mesas y mapas ---------- */
+
+.tableStats {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+}
+
+.tableStat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-white);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.tableStat strong {
+  color: var(--color-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tablesLayout {
+  display: grid;
+  grid-template-columns: minmax(19rem, 24rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.tablesListPanel {
+  min-width: 0;
+}
+
+.tablesListPanel .formCardBody {
+  padding: 1rem;
+}
+
+.tablesFilters {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+:where(.form) .tablesFilterField {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0;
+}
+
+:where(.form) .tablesFilterFieldNarrow {
+  flex: 0 0 9rem;
+}
+
+:where(.form) .tablesFilterField input,
+:where(.form) .tablesFilterField select {
+  min-height: 2.25rem;
+  font-size: 0.8125rem;
 }
 
 .tablesGrid {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   overflow: hidden;
-  margin-bottom: 0.75rem;
 }
 
 .tablesGridHeader,
 .tablesGridRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 36px;
+  grid-template-columns: minmax(0, 1fr) 64px 36px;
   align-items: stretch;
+}
+
+.tablesGridRowWithMap {
+  grid-template-columns: minmax(0, 1fr) 60px minmax(5.5rem, 0.9fr) 36px;
 }
 
 .tablesGridHeader {
   background: var(--color-cream);
   border-bottom: 1px solid var(--color-border);
   font-size: 0.6875rem;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-brown-light);
+  color: var(--color-text-muted);
 }
 
 .tablesGridHeader span {
   min-width: 0;
-  padding: 0.45rem 0.65rem;
-  border-right: 1px solid var(--color-border);
-  /* En móvil la columna es estrecha: el título no puede invadir la de al lado. */
+  padding: 0.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tablesGridHeader span:last-child,
-.tablesGridRow > *:last-child {
-  border-right: none;
-}
-
 .tablesGridHeaderAction {
-  padding: 0.45rem 0.35rem !important;
+  padding: 0.5rem 0.25rem !important;
 }
 
 .tablesGridRow {
   border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.15s ease;
 }
 
 .tablesGridRow:last-child {
   border-bottom: none;
 }
 
-.tablesGridCell {
+.tablesGridRow:hover {
+  background: #fbfaf8;
+}
+
+.tablesGridRowOver {
+  background: #fbfaf8;
+}
+
+.tablesGridRowOver .tablesGridCell {
+  color: var(--color-text-muted);
+}
+
+:where(.form) .tablesGridCell {
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.625rem;
   border: none;
   border-radius: 0;
-  border-right: 1px solid var(--color-border);
-  padding: 0.45rem 0.65rem;
-  background: var(--color-white);
+  background: transparent;
   font-size: 0.875rem;
-  min-width: 0;
+  box-shadow: none;
 }
 
-.tablesGridCellNumber {
+:where(.form) .tablesGridCellNumber {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
   text-align: center;
-  padding-left: 0.35rem;
-  padding-right: 0.35rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.tablesGridCell:focus {
+:where(.form) .tablesGridCellSelect {
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+:where(.form) .tablesGridCell:hover {
+  border-color: transparent;
+}
+
+:where(.form) .tablesGridCell:focus-visible {
   outline: none;
-  background: rgba(196, 168, 130, 0.1);
-  box-shadow: inset 0 0 0 2px rgba(196, 168, 130, 0.45);
+  background: var(--color-white);
+  box-shadow: inset 0 0 0 2px var(--color-accent-strong);
 }
 
 .tablesDeleteButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: var(--color-white);
-  color: var(--color-error);
-  cursor: pointer;
   padding: 0;
-  min-height: 100%;
+  border: none;
+  background: transparent;
+  color: #a8a29e;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .tablesDeleteButton svg {
@@ -843,7 +1230,8 @@
 }
 
 .tablesDeleteButton:hover:not(:disabled) {
-  background: rgba(181, 74, 74, 0.08);
+  color: #9a2a2a;
+  background: var(--color-danger-bg);
 }
 
 .tablesDeleteButton:disabled {
@@ -851,153 +1239,38 @@
   cursor: not-allowed;
 }
 
-.removeButton,
-.addButton {
-  border: 1px solid var(--color-border);
-  background: var(--color-white);
-  color: var(--color-brown);
-  border-radius: var(--radius-sm);
-  padding: 0.45rem 0.75rem;
-  font-size: 0.8125rem;
-  cursor: pointer;
-}
-
-.removeButton:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.addButton {
-  background: var(--color-cream);
-  width: 100%;
-  margin-bottom: 0.75rem;
-}
-
-.sectionActions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.25rem;
-}
-
-.tablesListPanel .sectionActions {
-  margin-top: 0;
-}
-
-.tablesSection {
-  padding-top: 1rem;
-}
-
-.tablesHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.65rem;
-}
-
-.tablesHeaderText h2 {
-  font-family: var(--font-display);
-  font-size: 1.375rem;
-  color: var(--color-brown);
-  margin-bottom: 0.2rem;
-}
-
-.tablesHeaderText p {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-  margin: 0;
-}
-
-.mapSwitchInline {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-shrink: 0;
-  cursor: pointer;
-  user-select: none;
-  padding-top: 0.15rem;
-}
-
-.tablesLayout {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.tablesListPanel {
-  min-width: 0;
-}
-
-.tablesFilters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: flex-end;
-  margin-bottom: 0.65rem;
-}
-
-.tablesFilterField {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  flex: 1;
-  min-width: 120px;
-}
-
-.tablesFilterLabel {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-brown-light);
-}
-
-.tablesFilterField input,
-.tablesFilterField select {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 0.45rem 0.55rem;
-  font-size: 0.8125rem;
-  background: var(--color-white);
-  min-width: 0;
-}
-
-.tablesFilterField input:focus,
-.tablesFilterField select:focus {
-  outline: none;
-  border-color: var(--color-brown-light);
-  box-shadow: 0 0 0 2px rgba(196, 168, 130, 0.25);
-}
-
-.tablesFilterClear {
-  border: 1px solid var(--color-border);
-  background: var(--color-white);
-  color: var(--color-brown);
-  border-radius: var(--radius-sm);
-  padding: 0.45rem 0.65rem;
-  font-size: 0.8125rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.tablesFilterClear:hover {
-  background: var(--color-cream);
-}
-
 .tablesFilterEmpty {
-  padding: 1rem 0.75rem;
+  margin: 0;
+  padding: 1.25rem 0.75rem;
   text-align: center;
   font-size: 0.8125rem;
   color: var(--color-text-muted);
-  margin: 0;
-  border-top: 1px solid var(--color-border);
 }
+
+.planOverLimit {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid #f3dfb4;
+  border-radius: 8px;
+  background: var(--color-warn-bg);
+  color: var(--color-warn);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* Mapa */
 
 .mapPanel {
   min-width: 0;
+  position: sticky;
+  top: 0.5rem;
+}
+
+.mapPanel .formCardBody {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.875rem;
+  padding: 1rem;
 }
 
 .mapTabs {
@@ -1009,67 +1282,60 @@
 .mapTabList {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.375rem;
 }
 
 .mapTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+  padding: 0 0.75rem;
   border: 1px solid var(--color-border);
-  background: var(--color-white);
-  color: var(--color-brown);
   border-radius: 999px;
-  padding: 0.32rem 0.7rem;
-  font-size: 0.75rem;
-  font-weight: 700;
+  background: var(--color-white);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.mapTabActive {
-  background: var(--color-brown);
-  border-color: var(--color-brown);
-  color: var(--color-white);
+.mapTab:hover {
+  color: var(--color-text);
+  background: var(--color-cream);
+}
+
+.mapTabActive,
+.mapTabActive:hover {
+  border-color: var(--color-text);
+  background: var(--color-text);
+  color: #fff;
+  font-weight: 600;
 }
 
 .mapTabInactive {
-  opacity: 0.72;
-  font-weight: 600;
   border-style: dashed;
 }
 
-.mapTabActive.mapTabInactive {
-  opacity: 0.92;
+.mapTabDot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: #c8bfb4;
+  flex-shrink: 0;
 }
 
-.mapTabActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+.mapTabDotOn {
+  background: #3f9a6b;
 }
 
-.mapAddButton,
-.mapDeleteButton {
-  border: 1px solid var(--color-border);
-  background: var(--color-cream);
-  color: var(--color-brown);
+.mapAddButton {
+  min-height: 2rem;
+  border-style: dashed;
   border-radius: 999px;
-  padding: 0.28rem 0.65rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.mapDeleteButton {
-  color: var(--color-error);
-}
-
-.mapNameField {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--color-brown-light);
-  flex: 1;
-  min-width: 0;
+  color: var(--color-text-muted);
 }
 
 .mapMetaRow {
@@ -1079,513 +1345,150 @@
   gap: 0.75rem 1rem;
 }
 
-.mapMetaRow .mapSwitchInline {
-  padding-top: 0;
-  padding-bottom: 0.15rem;
-}
-
-.mapEnabledHint {
-  margin: 0;
-  font-size: 0.75rem;
-  line-height: 1.35;
-  color: var(--color-text-muted);
-  font-weight: 500;
-}
-
-.lockedField {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.mapNameField input {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 0.45rem 0.6rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-brown);
-}
-
-.tablesGridRowWithMap {
-  grid-template-columns: minmax(0, 1fr) 72px minmax(5.5rem, 0.9fr) 36px;
-}
-
-.tablesGridCellSelect {
+:where(.form) .mapNameField {
+  flex: 1 1 14rem;
   min-width: 0;
-  width: 100%;
-  cursor: pointer;
-  appearance: auto;
-}
-
-.mapSwitchLabel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-  cursor: pointer;
-  user-select: none;
-}
-
-.mapSwitchText {
+  gap: 0.375rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--color-brown-light);
+  color: var(--color-text-muted);
 }
 
-.mapSwitch {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 22px;
-  flex-shrink: 0;
-}
-
-.mapSwitchInput {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.mapSwitchSlider {
-  position: absolute;
-  inset: 0;
-  background: #c8bdb0;
-  border-radius: 999px;
-  transition: background 0.2s ease;
-}
-
-.mapSwitchSlider::before {
-  content: '';
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  left: 3px;
-  top: 3px;
-  background: var(--color-white);
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease;
-}
-
-.mapSwitchInput:focus-visible + .mapSwitchSlider {
-  outline: 2px solid rgba(92, 74, 58, 0.45);
-  outline-offset: 2px;
-}
-
-.mapSwitchInput:checked + .mapSwitchSlider {
-  background: var(--color-brown);
-}
-
-.mapSwitchInput:checked + .mapSwitchSlider::before {
-  transform: translateX(18px);
+.mapMetaRow .lockedField {
+  min-height: 2.5rem;
 }
 
 .mapPlaceholder {
   margin: 0;
-  padding: 0.75rem;
+  padding: 1rem;
   border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   background: var(--color-cream);
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   text-align: center;
-  line-height: 1.35;
+  line-height: 1.45;
 }
 
-.mapActions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.35rem;
-}
+/* ---------- Pantallas medianas ---------- */
 
-.saveMapButton {
-  padding: 0.65rem 1.25rem;
-  border: 1px solid var(--color-brown);
-  border-radius: var(--radius-sm);
-  background: var(--color-white);
-  color: var(--color-brown);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.saveMapButton:hover:not(:disabled) {
-  background: var(--color-cream);
-}
-
-.saveMapButton:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.sectionActions .saveButton {
-  padding: 0.65rem 1.25rem;
-  font-size: 0.875rem;
-}
-
-.saveButton {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--color-brown);
-  color: var(--color-white);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.saveButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.sectionCard {
-  display: none;
-}
-
+/* Se mide el ancho de la propia sección (no de la ventana): así funciona igual
+   en el panel, con el menú abierto o cerrado, y en la demo de la web de planes. */
 .sectionCardActive {
-  display: block;
-  min-width: 0;
+  container-type: inline-size;
 }
 
-.dayNameShort {
-  display: none;
-}
-
-.visibilityBlock {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.25rem;
-  margin-top: 1.5rem;
-  padding: 1rem 1.15rem;
-  border: 1px solid rgba(61, 50, 41, 0.14);
-  border-radius: var(--radius-md);
-  background: var(--color-white);
-}
-
-.visibilityBlockOff {
-  border-color: rgba(181, 74, 74, 0.4);
-  background: var(--color-danger-bg);
-}
-
-.visibilityText {
-  min-width: 0;
-}
-
-.visibilityText h3 {
-  margin: 0 0 0.25rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-brown);
-}
-
-.visibilityText p {
-  margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--color-brown-light);
-  max-width: 52ch;
-}
-
-.visibilityBlockOff .visibilityText p {
-  color: var(--color-error);
-}
-
-.visibilitySwitchInline {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
-  cursor: pointer;
-  user-select: none;
-  padding-top: 0.1rem;
-}
-
-.visibilitySwitchInlineDisabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.visibilitySwitchText {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-brown);
-}
-
-.visibilitySwitch {
-  position: relative;
-  display: inline-block;
-  width: 2.5rem;
-  height: 1.375rem;
-  flex-shrink: 0;
-}
-
-.visibilitySwitchInput {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
-}
-
-.visibilitySwitchSlider {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  background: rgba(61, 50, 41, 0.18);
-  transition: background 0.2s ease;
-}
-
-.visibilitySwitchSlider::before {
-  content: '';
-  position: absolute;
-  width: 1rem;
-  height: 1rem;
-  left: 0.1875rem;
-  top: 0.1875rem;
-  border-radius: 50%;
-  background: var(--color-white);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-  transition: transform 0.2s ease;
-}
-
-.visibilitySwitchInput:focus-visible + .visibilitySwitchSlider {
-  outline: 2px solid rgba(92, 74, 58, 0.35);
-  outline-offset: 2px;
-}
-
-.visibilitySwitchInput:checked + .visibilitySwitchSlider {
-  background: var(--color-brown);
-}
-
-.visibilitySwitchInput:checked + .visibilitySwitchSlider::before {
-  transform: translateX(1.125rem);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .visibilitySwitchSlider,
-  .visibilitySwitchSlider::before {
-    transition: none;
-  }
-}
-
-@media (max-width: 560px) {
-  .visibilityBlock {
-    flex-direction: column;
-    gap: 0.85rem;
-  }
-}
-
-@media (min-width: 901px) {
-  .tablesSection {
-    padding-top: 0.85rem;
-  }
-
-  .tablesHeader {
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-
-  .tablesHeaderText p {
-    display: none;
-  }
-
-  .tablesHeaderText h2 {
-    margin-bottom: 0;
-    font-size: 1.125rem;
-  }
-
+@container (max-width: 780px) {
   .tablesLayout {
-    display: grid;
-    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
-    gap: 1rem;
-    align-items: start;
+    grid-template-columns: 1fr;
   }
 
   .mapPanel {
-    position: sticky;
-    top: 0.5rem;
-    max-height: calc(100vh - 6rem);
-    overflow: auto;
-    padding-left: 1rem;
-    border-left: 1px solid var(--color-border);
+    position: static;
   }
 
-  .mapPlaceholder {
-    min-height: 120px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .cardRow {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 900px) {
-  .form {
-    gap: 0.65rem;
-    padding-bottom: 1rem;
-  }
-
-  .card {
-    padding: 0.85rem 0.75rem;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .cardHeader h2 {
-    font-size: 1rem;
-    margin-bottom: 0;
-  }
-
-  .cardHeader p {
-    display: none;
-  }
-
-  .cardHeader {
-    margin-bottom: 0.75rem;
-  }
-
-  .contactGrid {
+  .depositRow {
     grid-template-columns: 1fr;
-    gap: 0.65rem;
+    max-width: 22rem;
+  }
+}
+
+/* ---------- Móvil ---------- */
+
+@media (max-width: 640px) {
+  .form,
+  .sectionCardActive {
+    gap: 0.75rem;
   }
 
-  .contactGrid label,
-  .contactGrid .fullWidth,
-  .contactGrid .logoField {
-    grid-column: 1 / -1;
-    min-width: 0;
+  .sectionTitle {
+    font-size: 1.25rem;
   }
 
-  .locationSplit {
+  .sectionSubtitle {
+    font-size: 0.8125rem;
+  }
+
+  .formCardHeader {
+    padding: 0.875rem 1rem;
+  }
+
+  .formCardBody {
+    padding: 1rem;
+  }
+
+  .grid,
+  .locationSplit,
+  .profileMedia {
     grid-template-columns: 1fr;
   }
 
   .mapSquareBlock {
-    max-width: 18rem;
-  }
-
-  .profileMedia {
-    grid-template-columns: 1fr;
+    max-width: 20rem;
   }
 
   .priceRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 0.55rem;
-  }
-
-  :where(.form) label {
-    font-size: 0.75rem;
-    gap: 0.3rem;
-    min-width: 0;
-  }
-
-  :where(.form) input {
-    padding: 0.55rem 0.65rem;
+  :where(.form input:not([type='checkbox']):not([type='radio']):not([type='file']), .form textarea, .form select) {
     font-size: 1rem;
   }
 
-  .logoField {
-    width: 100%;
-    min-width: 0;
+  .clientLinkRow {
+    flex-direction: column;
   }
 
-  .inlineField {
-    max-width: none;
-    margin-bottom: 0.65rem;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.65rem;
+  .clientLinkActions > button {
+    flex: 1 1 0;
   }
 
-  .inlineField input {
-    width: 5.5rem;
-    flex-shrink: 0;
-    max-width: 5.5rem;
+  .visibilityBlock,
+  .depositSettingsHeader {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .turns h3 {
-    font-size: 0.75rem;
-    margin-bottom: 0.45rem;
+  .reservationModeOptions {
+    display: flex;
   }
 
-  .turnRow {
-    grid-template-columns: 1fr 1fr auto 1fr;
-    gap: 0.3rem;
-    padding: 0.45rem 0.55rem;
-    background: var(--color-cream);
-    border-radius: var(--radius-sm);
-    margin-bottom: 0.35rem;
+  :where(.form) .reservationModeOption {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 
-  .turnRow input:first-child {
-    grid-column: 1 / -1;
-    font-weight: 600;
+  :where(.form) .inlineField {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
-  .turnRow input[type='time'] {
-    padding: 0.4rem 0.35rem;
-    font-size: 0.8125rem;
+  .scheduleTableHead {
+    display: none;
   }
 
   .scheduleTableRow {
-    grid-template-columns: 3rem minmax(0, 1fr);
-    gap: 0.35rem 0.45rem;
-    padding: 0.45rem 0.55rem;
+    grid-template-columns: 4.25rem 3.75rem minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.5rem 0.625rem;
   }
 
-  .scheduleDayCell {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    align-self: start;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.15rem;
-    padding-top: 0.15rem;
-    font-size: 0.75rem;
-  }
-
-  .scheduleDayCell input {
-    margin-bottom: 0.1rem;
-  }
-
-  .scheduleTurnsCell {
-    grid-column: 2;
-    flex-direction: row;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .scheduleTurnsLabel {
-    flex-shrink: 0;
-  }
-
-  .scheduleTurnsCell select {
-    width: 3.25rem;
-    padding: 0.3rem 0.25rem;
-  }
-
-  .scheduleHoursCell {
-    grid-column: 2;
+  :where(.form) .scheduleTimeRange input[type='time'] {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.8125rem;
   }
 
   .scheduleTimeRange {
-    flex-wrap: wrap;
-  }
-
-  .scheduleTimeRange input[type='time'] {
-    flex: 1 1 5.5rem;
-    width: auto;
-    max-width: calc(50% - 0.75rem);
-    padding: 0.35rem 0.3rem;
-    font-size: 0.75rem;
+    gap: 0.25rem;
   }
 
   .dayNameFull {
@@ -1594,55 +1497,56 @@
 
   .dayNameShort {
     display: inline;
-    font-weight: 600;
   }
 
-  .scheduleTableRowMulti .scheduleDayCell {
-    grid-row: 1 / -1;
+  .tableStats {
+    width: 100%;
   }
 
-  .tablesGridHeader,
-  .tablesGridRow {
-    grid-template-columns: minmax(0, 1fr) 56px 34px;
+  .tablesFilters {
+    flex-wrap: wrap;
+  }
+
+  :where(.form) .tablesFilterFieldNarrow {
+    flex: 1 1 8rem;
   }
 
   .tablesGridRowWithMap {
-    grid-template-columns: minmax(0, 1fr) 66px minmax(4.5rem, 0.95fr) 34px;
+    grid-template-columns: minmax(0, 1fr) 52px minmax(4.5rem, 0.95fr) 34px;
   }
 
-  .tablesGridHeader span {
-    padding-left: 0.45rem;
-    padding-right: 0.45rem;
-  }
-
-  .tablesGridCell {
+  :where(.form) .tablesGridCell {
     font-size: 0.9375rem;
-    padding: 0.5rem 0.55rem;
   }
 
-  .addButton {
+  .saveBar {
+    bottom: 0.5rem;
     padding: 0.5rem;
-    font-size: 0.8125rem;
   }
 
-  .sectionActions {
-    justify-content: stretch;
+  .saveStatus {
+    padding-left: 0.375rem;
   }
 
-  .sectionActions .saveButton {
+  .saveBarActions {
     width: 100%;
-    padding: 0.75rem 1rem;
+  }
+
+  .saveBarActions > button {
+    flex: 1 1 auto;
   }
 }
 
-/* Más mesas de las que permite el plan (p. ej. tras bajar de plan). */
-.planOverLimit {
-  margin: 0.5rem 0 0.75rem;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid rgba(180, 120, 20, 0.3);
-  border-radius: var(--radius-sm);
-  background: #fff7e6;
-  color: #7a4b00;
-  font-size: 0.82rem;
-  line-height: 1.45;
+@media (prefers-reduced-motion: reduce) {
+  .depositSwitchSlider,
+  .depositSwitchSlider::before,
+  .visibilitySwitchSlider,
+  .visibilitySwitchSlider::before,
+  .mapSwitchSlider,
+  .mapSwitchSlider::before,
+  .saveButton,
+  .saveMapButton,
+  .addButton {
+    transition: none;
+  }
 }

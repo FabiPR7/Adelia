@@ -1,11 +1,10 @@
-import { Suspense, lazy, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react'
+import { Suspense, lazy, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import ImageUploader from '../../components/ImageUploader'
 import CharacteristicPicker from '../../components/CharacteristicPicker'
 import CityAutocomplete from '../../components/CityAutocomplete'
 import LocationMapPicker from '../../components/LocationMapPicker'
 import MediaGalleryUploader from '../../components/MediaGalleryUploader'
 import ProfileToggleGrid from '../../components/ProfileToggleGrid'
-import InfoHint from '../../components/company/InfoHint'
 import { useAuth } from '../../context/AuthContext'
 import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import { parseCompanyPlanId, getCompanyPlan } from '../../data/companyPlans'
@@ -128,9 +127,58 @@ const SCHEDULE_DAY_SHORT: Record<(typeof SCHEDULE_DAY_KEYS)[number], string> = {
 }
 
 function sectionCardClass(section: SettingsSection, activeSection: SettingsSection) {
-  return `${styles.card} ${styles.sectionCard} ${
+  return `${styles.sectionCard} ${
     activeSection === section ? styles.sectionCardActive : ''
   }`
+}
+
+/** Cabecera de cada parte de «Mi restaurante»: título grande y subtítulo gris. */
+function SectionHeader({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string
+  subtitle: string
+  children?: ReactNode
+}) {
+  return (
+    <header className={styles.sectionHeader}>
+      <div className={styles.sectionHeaderText}>
+        <h2 className={styles.sectionTitle}>{title}</h2>
+        <p className={styles.sectionSubtitle}>{subtitle}</p>
+      </div>
+      {children ? <div className={styles.sectionHeaderAside}>{children}</div> : null}
+    </header>
+  )
+}
+
+/** Tarjeta blanca con un bloque del formulario (título, explicación y campos). */
+function FormCard({
+  title,
+  description,
+  actions,
+  className,
+  children,
+}: {
+  title: ReactNode
+  description?: ReactNode
+  actions?: ReactNode
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <div className={`${styles.formCard} ${className ?? ''}`}>
+      <div className={styles.formCardHeader}>
+        <div className={styles.formCardHeaderText}>
+          <h3>{title}</h3>
+          {description ? <p>{description}</p> : null}
+        </div>
+        {actions ? <div className={styles.formCardActions}>{actions}</div> : null}
+      </div>
+      <div className={styles.formCardBody}>{children}</div>
+    </div>
+  )
 }
 
 const MIN_TIME_SLOT_MINUTES = 15
@@ -788,23 +836,50 @@ const CompanySettings = forwardRef(function CompanySettings(
 
   const isAnySaving = savingSection !== null || isSavingMap
 
+  const isDirty = (section: SettingsSection) =>
+    Boolean(
+      editorState
+        && savedSnapshots
+        && isSettingsSectionDirty(section, editorState, savedSnapshots[section]),
+    )
+
+  /** Barra fija al pie de cada parte: estado de los cambios y botón Guardar. */
   const renderSectionSave = (
     section: SettingsSection,
     label: string,
     onSave: () => Promise<boolean> | boolean,
-  ) =>
-    demo ? null : (
-    <div className={styles.sectionActions}>
-      <button
-        type="button"
-        className={styles.saveButton}
-        onClick={() => void Promise.resolve(onSave())}
-        disabled={isAnySaving}
-      >
-        {savingSection === section ? 'Guardando…' : label}
-      </button>
-    </div>
-  )
+    extraActions?: ReactNode,
+  ) => {
+    if (demo) {
+      return null
+    }
+
+    const dirty = isDirty(section)
+
+    return (
+      <div className={`${styles.saveBar} ${dirty ? styles.saveBarDirty : ''}`}>
+        <span className={styles.saveStatus} role="status">
+          <span className={styles.saveStatusDot} aria-hidden="true" />
+          {savingSection === section
+            ? 'Guardando cambios…'
+            : dirty
+              ? 'Tienes cambios sin guardar'
+              : 'Todo guardado'}
+        </span>
+        <div className={styles.saveBarActions}>
+          {extraActions}
+          <button
+            type="button"
+            className={styles.saveButton}
+            onClick={() => void Promise.resolve(onSave())}
+            disabled={isAnySaving}
+          >
+            {savingSection === section ? 'Guardando…' : label}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const handleSaveMapOnly = async () => {
     if (!form) {
@@ -864,6 +939,9 @@ const CompanySettings = forwardRef(function CompanySettings(
     form.floorPlans.find((plan) => plan.id === (selectedMapId || form.floorPlans[0]?.id))
     ?? form.floorPlans[0]
 
+  const totalSeats = tables.reduce((sum, table) => sum + (Number(table.capacity) || 0), 0)
+  const activeMapCount = form.floorPlans.filter((plan) => plan.enabled).length
+
   const handleDownloadClientQr = async () => {
     if (!company) {
       return
@@ -887,82 +965,141 @@ const CompanySettings = forwardRef(function CompanySettings(
     <div className={styles.form}>
       {(error || success) && (
         <div className={styles.formFeedback}>
-          {error && <div className={styles.error}>{error}</div>}
-          {success && <div className={styles.success}>{success}</div>}
+          {error && (
+            <div className={styles.error} role="alert">
+              <span>{error}</span>
+              <button
+                type="button"
+                className={styles.feedbackClose}
+                onClick={() => setError(null)}
+                aria-label="Cerrar aviso"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          {success && (
+            <div className={styles.success} role="status">
+              <span>{success}</span>
+              <button
+                type="button"
+                className={styles.feedbackClose}
+                onClick={() => setSuccess(null)}
+                aria-label="Cerrar aviso"
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       <section className={sectionCardClass('contact', activeSection)}>
-        <header className={styles.cardHeader}>
-          <h2>
-            Contacto y ubicación
-            <InfoHint label="Sobre contacto y ubicación">Datos visibles para clientes y reservas.</InfoHint>
-          </h2>
-        </header>
-        <div className={`${styles.grid} ${styles.contactGrid}`}>
-          <label className={styles.fullWidth}>
-            Nombre del restaurante
-            <input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Ej. Restaurante Carol"
-            />
-          </label>
-          <label>
-            Email de contacto
-            <input
-              type="email"
-              value={form.contactEmail}
-              onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
-              placeholder="reservas@restaurante.com"
-            />
-          </label>
-          <label>
-            Teléfono
-            <input
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              type="tel"
-              inputMode="tel"
-              placeholder="612 345 678"
-              maxLength={20}
-            />
-          </label>
-          <label>
-            Dirección
-            <input
-              value={form.location}
-              onChange={(e) => setForm({ ...form, location: e.target.value })}
-              maxLength={200}
-              placeholder="Calle y número"
-            />
-          </label>
-          <label className={styles.fullWidth}>
-            Web (opcional)
-            <input
-              value={form.website}
-              onChange={(e) => setForm({ ...form, website: e.target.value })}
-              placeholder="https://turestaurante.com"
-              maxLength={200}
-            />
-          </label>
-          <div className={`${styles.fullWidth} ${styles.clientLinkBox}`}>
-            <span className={styles.clientLinkLabel}>Enlace para clientes</span>
-            <div className={styles.clientLinkRow}>
+        <SectionHeader
+          title="Contacto"
+          subtitle="Los datos que ven tus clientes y que usamos para avisarte de las reservas."
+        />
+
+        <FormCard
+          title="Datos del restaurante"
+          description="Nombre, forma de contacto y dirección que aparecen en tu ficha."
+        >
+          <div className={`${styles.grid} ${styles.contactGrid}`}>
+            <label className={styles.fullWidth}>
+              Nombre del restaurante
               <input
-                ref={clientLinkInputRef}
-                type="text"
-                readOnly
-                value={clientBookingUrl}
-                className={styles.clientLinkInput}
-                aria-label="Enlace para clientes"
-                onFocus={(event) => event.currentTarget.select()}
-                onClick={(event) => event.currentTarget.select()}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Ej. Restaurante Carol"
               />
-              <div className={styles.clientLinkActions}>
-                <button type="button" className={styles.copyLinkButton} onClick={() => void handleCopyClientLink()}>
-                  {linkCopied ? 'Copiado' : 'Copiar'}
+            </label>
+            <label>
+              Email de contacto
+              <input
+                type="email"
+                value={form.contactEmail}
+                onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
+                placeholder="reservas@restaurante.com"
+              />
+            </label>
+            <label>
+              Teléfono
+              <input
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                type="tel"
+                inputMode="tel"
+                placeholder="612 345 678"
+                maxLength={20}
+              />
+            </label>
+            <label>
+              Dirección
+              <input
+                value={form.location}
+                onChange={(e) => setForm({ ...form, location: e.target.value })}
+                maxLength={200}
+                placeholder="Calle y número"
+              />
+            </label>
+            <label>
+              <span>
+                Web <span className={styles.optional}>(opcional)</span>
+              </span>
+              <input
+                value={form.website}
+                onChange={(e) => setForm({ ...form, website: e.target.value })}
+                placeholder="https://turestaurante.com"
+                maxLength={200}
+              />
+            </label>
+          </div>
+        </FormCard>
+
+        <div className={styles.cardRow}>
+          <FormCard
+            title="Logo"
+            description="Cuadrado, en PNG o JPG. Sale en tu ficha, en los correos y en el QR."
+            className={styles.logoCard}
+          >
+            <div className={styles.logoField}>
+              <ImageUploader
+                label="Logo del restaurante"
+                cropAspect={1}
+                hint="Se sube al elegir el archivo."
+                currentImageUrl={form.logoUrl}
+                onImageUploaded={(url) => setForm({ ...form, logoUrl: url })}
+                onImageRemoved={() => setForm({ ...form, logoUrl: '' })}
+              />
+            </div>
+          </FormCard>
+
+          <FormCard
+            title="Enlace de reservas"
+            description="Compártelo o imprime el QR para que tus clientes reserven mesa online."
+            className={styles.linkCard}
+          >
+            <div className={styles.clientLinkBox}>
+              <div className={styles.clientLinkRow}>
+                <input
+                  ref={clientLinkInputRef}
+                  type="text"
+                  readOnly
+                  value={clientBookingUrl}
+                  className={styles.clientLinkInput}
+                  aria-label="Enlace para clientes"
+                  onFocus={(event) => event.currentTarget.select()}
+                  onClick={(event) => event.currentTarget.select()}
+                />
+                <button
+                  type="button"
+                  className={styles.copyLinkButton}
+                  onClick={() => void handleCopyClientLink()}
+                >
+                  {linkCopied ? 'Copiado ✓' : 'Copiar'}
                 </button>
+              </div>
+              <div className={styles.clientLinkActions}>
                 <button
                   type="button"
                   className={styles.customizeQrButton}
@@ -980,169 +1117,163 @@ const CompanySettings = forwardRef(function CompanySettings(
                 </button>
               </div>
             </div>
-            <p className={styles.clientLinkHint}>
-              Comparte el enlace o imprime el QR para que tus clientes reserven mesa online.
-            </p>
-          </div>
-          <div className={`${styles.fullWidth} ${styles.logoField}`}>
-            <ImageUploader
-              label="Logo del restaurante"
-              cropAspect={1}
-              hint="PNG o JPG. Se sube a Cloudinary al seleccionar el archivo."
-              currentImageUrl={form.logoUrl}
-              onImageUploaded={(url) => setForm({ ...form, logoUrl: url })}
-              onImageRemoved={() => setForm({ ...form, logoUrl: '' })}
-            />
-          </div>
+          </FormCard>
         </div>
+
         {renderSectionSave('contact', 'Guardar contacto', handleSaveContact)}
       </section>
 
       <section className={sectionCardClass('profile', activeSection)}>
-        <header className={styles.cardHeader}>
-          <h2>
-            Perfil del local
-            <InfoHint label="Sobre el perfil del local">
-              Ubicación compacta, tipo de local, servicios y hasta 10 características.
-            </InfoHint>
-          </h2>
-        </header>
+        <SectionHeader
+          title="Perfil del local"
+          subtitle="Cómo te encuentran y cómo te ven los clientes en Adelia."
+        />
 
-        <div className={styles.profileLayout}>
-          <div className={styles.profileBlock}>
-            <h3>Ubicación</h3>
-            <div className={styles.locationSplit}>
-              <div className={styles.locationFields}>
-                <div className={styles.cityField}>
-                  <CityAutocomplete
-                    value={selectedMunicipality}
-                    onChange={(city) => {
-                      setSelectedMunicipality(city)
-                      setForm({
-                        ...form,
-                        municipality: city?.name ?? '',
-                        country: city?.country || form.country,
-                      })
-                    }}
-                    label="Municipio"
-                    placeholder="Ej. Madrid"
-                    variant="form"
-                    compact
-                  />
-                </div>
-                <div className={styles.locationFieldsRow}>
-                  <label>
-                    Código postal
-                    <input
-                      value={form.postalCode}
-                      onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-                      placeholder="28001"
-                      inputMode="numeric"
-                      maxLength={10}
-                    />
-                  </label>
-                  <label>
-                    País
-                    <input
-                      value={form.country}
-                      onChange={(e) => setForm({ ...form, country: e.target.value })}
-                      placeholder="España"
-                      maxLength={60}
-                    />
-                  </label>
-                </div>
-                <p className={styles.mapFieldHint}>
-                  Obligatorio para aparecer en Adelia. Marca la entrada exacta en el mapa.
-                </p>
-              </div>
-              <div className={styles.mapSquareBlock}>
-                <LocationMapPicker
-                  compact
-                  square
-                  value={toGeoCoordinates(form.latitude, form.longitude)}
-                  geocodeQuery={[form.location, form.municipality, form.country].filter(Boolean).join(', ')}
-                  onChange={(coords) => {
+        <FormCard
+          title="Ubicación"
+          description="Obligatoria para aparecer en Adelia. Marca en el mapa la entrada exacta."
+        >
+          <div className={styles.locationSplit}>
+            <div className={styles.locationFields}>
+              <div className={styles.cityField}>
+                <CityAutocomplete
+                  value={selectedMunicipality}
+                  onChange={(city) => {
+                    setSelectedMunicipality(city)
                     setForm({
                       ...form,
-                      latitude: coords.lat,
-                      longitude: coords.lng,
+                      municipality: city?.name ?? '',
+                      country: city?.country || form.country,
                     })
                   }}
+                  label="Municipio"
+                  placeholder="Ej. Madrid"
+                  variant="form"
+                  compact
                 />
               </div>
+              <div className={styles.locationFieldsRow}>
+                <label>
+                  Código postal
+                  <input
+                    value={form.postalCode}
+                    onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+                    placeholder="28001"
+                    inputMode="numeric"
+                    maxLength={10}
+                  />
+                </label>
+                <label>
+                  País
+                  <input
+                    value={form.country}
+                    onChange={(e) => setForm({ ...form, country: e.target.value })}
+                    placeholder="España"
+                    maxLength={60}
+                  />
+                </label>
+              </div>
+            </div>
+            <div className={styles.mapSquareBlock}>
+              <LocationMapPicker
+                compact
+                square
+                value={toGeoCoordinates(form.latitude, form.longitude)}
+                geocodeQuery={[form.location, form.municipality, form.country].filter(Boolean).join(', ')}
+                onChange={(coords) => {
+                  setForm({
+                    ...form,
+                    latitude: coords.lat,
+                    longitude: coords.lng,
+                  })
+                }}
+              />
             </div>
           </div>
+        </FormCard>
 
-          <div className={styles.profileBlock}>
-            <ProfileToggleGrid
-              label="Tipo de local"
-              hint="Elige hasta 3. Un sitio puede ser restaurante y bar a la vez."
-              options={COMPANY_VENUE_TYPES}
-              selected={form.venueTypes}
-              maxSelected={MAX_COMPANY_VENUE_TYPES}
-              onChange={(venueTypes) => setForm({ ...form, venueTypes })}
-            />
-          </div>
-
-          <div className={styles.profileBlock}>
-            <div className={styles.priceHeader}>
-              <span className={styles.priceLabel}>Precio medio</span>
-              <span className={styles.priceHint}>Opcional. Lo verán los clientes.</span>
+        <FormCard
+          title="Cómo es tu local"
+          description="Ayuda a los clientes a encontrarte en las búsquedas y filtros."
+        >
+          <div className={styles.profileLayout}>
+            <div className={styles.profileBlock}>
+              <ProfileToggleGrid
+                label="Tipo de local"
+                hint="Elige hasta 3. Un sitio puede ser restaurante y bar a la vez."
+                options={COMPANY_VENUE_TYPES}
+                selected={form.venueTypes}
+                maxSelected={MAX_COMPANY_VENUE_TYPES}
+                onChange={(venueTypes) => setForm({ ...form, venueTypes })}
+              />
             </div>
-            <div className={styles.priceRow} role="group" aria-label="Rango de precio">
-              {COMPANY_PRICE_RANGES.map((option) => {
-                const isOn = form.priceRange === option.id
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={`${styles.priceChip} ${isOn ? styles.priceChipOn : ''}`}
-                    aria-pressed={isOn}
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        priceRange: isOn ? '' : option.id,
-                      })
-                    }
-                  >
-                    <strong>{option.label}</strong>
-                    <span>{option.hint}</span>
-                  </button>
-                )
-              })}
+
+            <div className={styles.profileBlock}>
+              <div className={styles.priceHeader}>
+                <span className={styles.priceLabel}>Precio medio</span>
+                <span className={styles.priceHint}>Opcional. Lo verán los clientes.</span>
+              </div>
+              <div className={styles.priceRow} role="group" aria-label="Rango de precio">
+                {COMPANY_PRICE_RANGES.map((option) => {
+                  const isOn = form.priceRange === option.id
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`${styles.priceChip} ${isOn ? styles.priceChipOn : ''}`}
+                      aria-pressed={isOn}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          priceRange: isOn ? '' : option.id,
+                        })
+                      }
+                    >
+                      <strong>{option.label}</strong>
+                      <span>{option.hint}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
+
+            <div className={styles.profileBlock}>
+              <ProfileToggleGrid
+                label="Servicios"
+                hint="Activa solo lo que tiene tu local: parking, wifi, pagos, accesibilidad…"
+                options={COMPANY_AMENITIES}
+                selected={form.amenities}
+                onChange={(amenities) => setForm({ ...form, amenities })}
+              />
+            </div>
+
+            <div className={styles.profileBlock}>
+              <CharacteristicPicker
+                options={COMPANY_CHARACTERISTIC_OPTIONS}
+                selected={form.characteristics}
+                maxSelected={MAX_COMPANY_CHARACTERISTICS}
+                onChange={(characteristics) => setForm({ ...form, characteristics })}
+              />
+            </div>
+
+            <label className={`${styles.profileBlock} ${styles.descriptionField}`}>
+              Descripción
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                rows={4}
+                maxLength={2000}
+                placeholder="Qué hace especial a tu restaurante…"
+              />
+              <span className={styles.fieldCounter}>{form.description.length} / 2000</span>
+            </label>
           </div>
+        </FormCard>
 
-          <div className={styles.profileBlock}>
-            <ProfileToggleGrid
-              label="Servicios"
-              hint="Activa solo lo que tiene tu local: parking, wifi, pagos, accesibilidad…"
-              options={COMPANY_AMENITIES}
-              selected={form.amenities}
-              onChange={(amenities) => setForm({ ...form, amenities })}
-            />
-          </div>
-
-          <div className={styles.profileBlock}>
-            <CharacteristicPicker
-              options={COMPANY_CHARACTERISTIC_OPTIONS}
-              selected={form.characteristics}
-              maxSelected={MAX_COMPANY_CHARACTERISTICS}
-              onChange={(characteristics) => setForm({ ...form, characteristics })}
-            />
-          </div>
-
-          <label className={styles.profileBlock}>
-            Descripción
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={3}
-              maxLength={2000}
-              placeholder="Qué hace especial a tu restaurante…"
-            />
-          </label>
-
+        <FormCard
+          title="Fotos y vídeos"
+          description="La foto principal es la que sale en las búsquedas y en tu ficha."
+        >
           <div className={styles.profileMedia}>
             <MediaGalleryUploader
               label="Fotos del local"
@@ -1167,455 +1298,495 @@ const CompanySettings = forwardRef(function CompanySettings(
               onChange={(videos) => setForm({ ...form, videos })}
             />
           </div>
-        </div>
-        {renderSectionSave('profile', 'Guardar perfil', handleSaveProfile)}
+        </FormCard>
 
         {demo ? null : (
-          <div
-            className={`${styles.visibilityBlock} ${
-              company.deactivated ? styles.visibilityBlockOff : ''
-            }`}
-          >
-            <div className={styles.visibilityText}>
-              <h3>
+          <FormCard
+            title={
+              <>
                 Visibilidad del restaurante
-                <InfoHint label="Sobre la visibilidad">
-                  Si lo desactivas, tu restaurante desaparece de «Descubrir», y tu página de
-                  reservas y tus promociones dejan de estar disponibles para los clientes. Tú
-                  conservas el acceso al panel y puedes reactivarlo cuando quieras.
-                </InfoHint>
-              </h3>
-              <p>
+                <span
+                  className={`${styles.statusChip} ${
+                    company.deactivated ? styles.statusChipOff : styles.statusChipOn
+                  }`}
+                >
+                  {company.deactivated ? 'Desactivado' : 'Activo'}
+                </span>
+              </>
+            }
+            className={company.deactivated ? styles.visibilityCardOff : undefined}
+          >
+            <div className={styles.visibilityBlock}>
+              <p className={styles.visibilityText}>
                 {company.deactivatedByAdmin
                   ? 'Adelia ha desactivado tu restaurante. Escríbenos a soporte para volver a activarlo.'
                   : company.deactivated
-                  ? 'Desactivado: los clientes no pueden encontrarte, ver tu carta ni reservar.'
-                  : 'Activo: los clientes pueden encontrarte, ver tu carta y reservar.'}
+                  ? 'Los clientes no pueden encontrarte, ver tu carta ni reservar. Tú conservas el acceso al panel.'
+                  : 'Los clientes pueden encontrarte, ver tu carta y reservar. Si lo desactivas, desapareces de «Descubrir» y se paran las reservas y las promociones.'}
               </p>
+              <label
+                className={`${styles.visibilitySwitchInline} ${
+                  visibilitySaving ? styles.visibilitySwitchInlineDisabled : ''
+                }`}
+              >
+                <span className={styles.visibilitySwitchText}>
+                  {company.deactivated ? 'Activar' : 'Visible'}
+                </span>
+                <span className={styles.visibilitySwitch}>
+                  <input
+                    type="checkbox"
+                    className={styles.visibilitySwitchInput}
+                    checked={!company.deactivated}
+                    disabled={visibilitySaving || company.deactivatedByAdmin === true}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        void applyVisibility(false)
+                      } else {
+                        setDeactivateDialogOpen(true)
+                      }
+                    }}
+                  />
+                  <span className={styles.visibilitySwitchSlider} aria-hidden="true" />
+                </span>
+              </label>
             </div>
-            <label
-              className={`${styles.visibilitySwitchInline} ${
-                visibilitySaving ? styles.visibilitySwitchInlineDisabled : ''
-              }`}
-            >
-              <span className={styles.visibilitySwitchText}>
-                {company.deactivated ? 'Activar' : 'Activo'}
-              </span>
-              <span className={styles.visibilitySwitch}>
-                <input
-                  type="checkbox"
-                  className={styles.visibilitySwitchInput}
-                  checked={!company.deactivated}
-                  disabled={visibilitySaving || company.deactivatedByAdmin === true}
-                  onChange={(event) => {
-                    if (event.target.checked) {
-                      void applyVisibility(false)
-                    } else {
-                      setDeactivateDialogOpen(true)
-                    }
-                  }}
-                />
-                <span className={styles.visibilitySwitchSlider} aria-hidden="true" />
-              </span>
-            </label>
-          </div>
+          </FormCard>
         )}
+
+        {renderSectionSave('profile', 'Guardar perfil', handleSaveProfile)}
       </section>
 
       <section className={sectionCardClass('reservation-settings', activeSection)}>
-        <header className={styles.cardHeader}>
-          <h2>
-            Reservas y horario
-            <InfoHint label="Sobre reservas y horario">
-              Cómo aceptas reservas, duración, fianza por comensales y días de apertura.
-            </InfoHint>
-          </h2>
-        </header>
-        <fieldset className={styles.reservationMode}>
-          <legend className={styles.reservationModeLegend}>Reserva</legend>
-          <div className={styles.reservationModeOptions} role="radiogroup" aria-label="Modo de reserva">
-            {COMPANY_RESERVATION_MODE_OPTIONS.map((option) => {
-              const selected = form.reservationMode === option.id
+        <SectionHeader
+          title="Reservas y horario"
+          subtitle="Cómo aceptas reservas, cuánto dura cada una, la fianza y los días que abres."
+        />
+
+        <FormCard
+          title="Cómo se reserva"
+          description={reservationModeHint(form.reservationMode)}
+        >
+          <fieldset className={styles.reservationMode}>
+            <legend className={styles.srOnly}>Modo de reserva</legend>
+            <div className={styles.reservationModeOptions} role="radiogroup" aria-label="Modo de reserva">
+              {COMPANY_RESERVATION_MODE_OPTIONS.map((option) => {
+                const selected = form.reservationMode === option.id
+                return (
+                  <label
+                    key={option.id}
+                    className={`${styles.reservationModeOption} ${selected ? styles.reservationModeOptionOn : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="reservation-mode"
+                      value={option.id}
+                      checked={selected}
+                      onChange={() => setForm({ ...form, reservationMode: option.id })}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </fieldset>
+          {form.reservationMode !== 'none' ? (
+            <label className={styles.inlineField}>
+              <span className={styles.inlineFieldText}>
+                Duración de cada reserva
+                <small>Entre {MIN_TIME_SLOT_MINUTES} y {MAX_TIME_SLOT_MINUTES} minutos. La mesa queda ocupada ese tiempo.</small>
+              </span>
+              <span className={styles.inputWithUnit}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={timeSlotMinutesInput}
+                  onChange={(e) => {
+                    const digits = sanitizeTimeSlotMinutesInput(e.target.value)
+
+                    if (!digits) {
+                      setTimeSlotMinutesInput('')
+                      return
+                    }
+
+                    const parsed = Math.min(MAX_TIME_SLOT_MINUTES, Number(digits))
+                    setTimeSlotMinutesInput(String(parsed))
+                    setForm({ ...form, timeSlotMinutes: parsed })
+                  }}
+                  placeholder="120"
+                  aria-label="Duración de cada reserva en minutos"
+                />
+                <span aria-hidden="true">min</span>
+              </span>
+            </label>
+          ) : null}
+        </FormCard>
+
+        {form.reservationMode !== 'none' ? (
+          <FormCard
+            title="Fianzas con Stripe"
+            description="Conecta Stripe y activa la fianza por reserva. Solo se cobra si el cliente cancela tarde o no viene."
+          >
+            {company ? (
+              <CompanyStripeConnectPanel
+                companyId={company.id}
+                autoRefresh={activeSection === 'reservation-settings'}
+                onStatusChange={(status, loading) => {
+                  setStripeStatus(status)
+                  setStripeStatusLoading(loading)
+                }}
+              />
+            ) : null}
+
+            <div className={styles.depositSettings}>
+              <div className={styles.depositSettingsHeader}>
+                <div>
+                  <h4>Fianza por reserva</h4>
+                  {!allowsDeposits ? (
+                    <p className={styles.depositLockedHint}>
+                      Las fianzas están en el plan {requiredPlanName('deposits')}.
+                    </p>
+                  ) : !canEnableDeposits ? (
+                    <p className={styles.depositLockedHint}>
+                      {stripeStatusLoading
+                        ? 'Comprobando estado de Stripe…'
+                        : 'Completa la conexión con Stripe para poder activar las fianzas.'}
+                    </p>
+                  ) : (
+                    <p className={styles.scheduleHint}>
+                      Si una reserva alcanza el número mínimo de comensales, se pedirá fianza por
+                      persona.
+                    </p>
+                  )}
+                </div>
+                <div className={styles.lockedField}>
+                  <label
+                    className={`${styles.depositSwitchInline} ${
+                      !canEnableDeposits ? styles.depositSwitchInlineDisabled : ''
+                    }`}
+                    title={
+                      canEnableDeposits
+                        ? undefined
+                        : !allowsDeposits
+                          ? `Las fianzas están en el plan ${requiredPlanName('deposits')}`
+                          : 'Completa la conexión con Stripe para activar fianzas'
+                    }
+                  >
+                    <span className={styles.depositSwitchText}>Activar fianzas</span>
+                    <span className={styles.depositSwitch}>
+                      <input
+                        type="checkbox"
+                        className={styles.depositSwitchInput}
+                        checked={form.depositEnabled && canEnableDeposits}
+                        disabled={!canEnableDeposits}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            depositEnabled: event.target.checked,
+                            depositCancellationHours: event.target.checked
+                              ? (form.depositCancellationHours ?? DEFAULT_DEPOSIT_CANCELLATION_HOURS)
+                              : form.depositCancellationHours,
+                          })
+                        }
+                      />
+                      <span className={styles.depositSwitchSlider} aria-hidden="true" />
+                    </span>
+                  </label>
+                  {!allowsDeposits ? (
+                    <PlanLockHint feature="activar las fianzas" capabilityId="deposits" />
+                  ) : null}
+                </div>
+              </div>
+
+              {form.depositEnabled && canEnableDeposits ? (
+                <>
+                  <div className={styles.depositRow}>
+                    <label className={styles.depositField}>
+                      Comensales desde los que se pide fianza
+                      <input
+                        type="number"
+                        min={0}
+                        max={500}
+                        value={form.depositMinPax ?? ''}
+                        onChange={(event) => {
+                          const raw = event.target.value.trim()
+
+                          if (!raw) {
+                            setForm({
+                              ...form,
+                              depositMinPax: null,
+                            })
+                            return
+                          }
+
+                          const parsed = Math.min(500, Math.max(0, Number(raw)))
+
+                          setForm({
+                            ...form,
+                            depositMinPax: parsed > 0 ? Math.trunc(parsed) : null,
+                          })
+                        }}
+                        placeholder="Ej. 15"
+                      />
+                    </label>
+                    <label className={styles.depositField}>
+                      Fianza por comensal (€)
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={
+                          form.depositPerGuestCents != null
+                            ? (form.depositPerGuestCents / 100).toFixed(2).replace('.', ',')
+                            : ''
+                        }
+                        onChange={(event) => {
+                          const normalized = event.target.value.trim().replace(',', '.')
+
+                          if (!normalized) {
+                            setForm({ ...form, depositPerGuestCents: null })
+                            return
+                          }
+
+                          const euros = Number(normalized)
+
+                          if (!Number.isFinite(euros) || euros < 0) {
+                            return
+                          }
+
+                          setForm({
+                            ...form,
+                            depositPerGuestCents: Math.min(500_00, Math.round(euros * 100)),
+                          })
+                        }}
+                        placeholder="Ej. 10,00"
+                      />
+                    </label>
+                    <label className={styles.depositField}>
+                      Cancelación sin cargo (horas antes)
+                      <input
+                        type="number"
+                        min={1}
+                        max={720}
+                        value={form.depositCancellationHours ?? ''}
+                        onChange={(event) => {
+                          const raw = event.target.value.trim()
+
+                          if (!raw) {
+                            setForm({ ...form, depositCancellationHours: null })
+                            return
+                          }
+
+                          const parsed = Math.min(720, Math.max(1, Number(raw)))
+
+                          setForm({
+                            ...form,
+                            depositCancellationHours: Number.isFinite(parsed)
+                              ? Math.trunc(parsed)
+                              : null,
+                          })
+                        }}
+                        placeholder="Ej. 12"
+                      />
+                    </label>
+                  </div>
+                  {form.depositMinPax && form.depositPerGuestCents ? (
+                    <p className={styles.depositPreview}>
+                      Ejemplo: una reserva de {form.depositMinPax + 5} comensales pediría{' '}
+                      <strong>
+                        {((form.depositPerGuestCents * (form.depositMinPax + 5)) / 100)
+                          .toFixed(2)
+                          .replace('.', ',')}{' '}
+                        €
+                      </strong>{' '}
+                      de fianza ({((form.depositPerGuestCents) / 100).toFixed(2).replace('.', ',')}{' '}
+                      € × {form.depositMinPax + 5} comensales).
+                      {form.depositCancellationHours ? (
+                        <>
+                          {' '}
+                          {formatDepositCancellationPolicy(form.depositCancellationHours)}
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          </FormCard>
+        ) : null}
+
+        <FormCard
+          title="Horario semanal"
+          description={`Marca los días que abres y hasta ${MAX_SCHEDULE_PERIODS} tramos por día (por ejemplo, 12:00–16:00 y 20:00–00:00). Los tramos no pueden cruzarse.`}
+        >
+          <div className={styles.scheduleTable}>
+            <div className={styles.scheduleTableHead} aria-hidden="true">
+              <span>Día</span>
+              <span>Tramos</span>
+              <span>Horario</span>
+            </div>
+            {SCHEDULE_DAY_KEYS.map((dayKey) => {
+              const day = form.schedule[dayKey]
+              const periods = getDaySchedulePeriods(day)
+              const periodCount = getDaySchedulePeriodCount(day)
+
               return (
-                <label
-                  key={option.id}
-                  className={`${styles.reservationModeOption} ${selected ? styles.reservationModeOptionOn : ''}`}
+                <div
+                  key={dayKey}
+                  className={`${styles.scheduleTableRow} ${
+                    periodCount > 1 ? styles.scheduleTableRowMulti : ''
+                  } ${!day.active ? styles.scheduleTableRowInactive : ''}`}
                 >
-                  <input
-                    type="radio"
-                    name="reservation-mode"
-                    value={option.id}
-                    checked={selected}
-                    onChange={() => setForm({ ...form, reservationMode: option.id })}
-                  />
-                  <span>{option.label}</span>
-                </label>
+                  <label className={styles.scheduleDayCell}>
+                    <input
+                      type="checkbox"
+                      checked={day.active}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          schedule: {
+                            ...form.schedule,
+                            [dayKey]: { ...day, active: e.target.checked },
+                          },
+                        })
+                      }
+                    />
+                    <span className={styles.dayNameFull}>{SCHEDULE_DAY_LABELS[dayKey]}</span>
+                    <span className={styles.dayNameShort}>{SCHEDULE_DAY_SHORT[dayKey]}</span>
+                  </label>
+
+                  <label className={styles.scheduleTurnsCell}>
+                    <span className={styles.scheduleTurnsLabel}>Tramos</span>
+                    <select
+                      disabled={!day.active}
+                      value={periodCount}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          schedule: {
+                            ...form.schedule,
+                            [dayKey]: resizeDaySchedulePeriods(day, Number(e.target.value)),
+                          },
+                        })
+                      }
+                    >
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                      <option value={3}>3</option>
+                    </select>
+                  </label>
+
+                  <div className={styles.scheduleHoursCell}>
+                    {!day.active ? (
+                      <span className={styles.scheduleClosed}>Cerrado</span>
+                    ) : (
+                      periods.map((period, periodIndex) => (
+                        <div key={periodIndex} className={styles.scheduleTimeRange}>
+                          {periodCount > 1 ? (
+                            <span className={styles.scheduleTimeBadge}>{periodIndex + 1}</span>
+                          ) : null}
+                          <input
+                            type="time"
+                            value={period.open}
+                            aria-label={`Apertura turno ${periodIndex + 1}, ${SCHEDULE_DAY_LABELS[dayKey]}`}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                schedule: {
+                                  ...form.schedule,
+                                  [dayKey]: updateDaySchedulePeriod(
+                                    day,
+                                    periodIndex,
+                                    'open',
+                                    e.target.value,
+                                  ),
+                                },
+                              })
+                            }
+                          />
+                          <span className={styles.scheduleTimeSep} aria-hidden="true">—</span>
+                          <input
+                            type="time"
+                            value={period.close}
+                            aria-label={`Cierre turno ${periodIndex + 1}, ${SCHEDULE_DAY_LABELS[dayKey]}`}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                schedule: {
+                                  ...form.schedule,
+                                  [dayKey]: updateDaySchedulePeriod(
+                                    day,
+                                    periodIndex,
+                                    'close',
+                                    e.target.value,
+                                  ),
+                                },
+                              })
+                            }
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               )
             })}
           </div>
-          <p className={styles.reservationModeHint}>{reservationModeHint(form.reservationMode)}</p>
-        </fieldset>
-        {form.reservationMode !== 'none' ? (
-          <label className={styles.inlineField}>
-            Duración de cada reserva (minutos)
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={timeSlotMinutesInput}
-              onChange={(e) => {
-                const digits = sanitizeTimeSlotMinutesInput(e.target.value)
+        </FormCard>
 
-                if (!digits) {
-                  setTimeSlotMinutesInput('')
-                  return
-                }
-
-                const parsed = Math.min(MAX_TIME_SLOT_MINUTES, Number(digits))
-                setTimeSlotMinutesInput(String(parsed))
-                setForm({ ...form, timeSlotMinutes: parsed })
-              }}
-              placeholder="120"
-            />
-          </label>
-        ) : null}
-
-        {form.reservationMode !== 'none' ? (
-        <div className={styles.depositBlock}>
-          <header className={styles.depositBlockHeader}>
-            <h3>Fianzas con Stripe</h3>
-            <p className={styles.scheduleHint}>
-              Conecta Stripe y, cuando esté listo, activa las fianzas por reserva. Solo se cobrarán
-              si el cliente cancela o no confirma su asistencia.
-            </p>
-          </header>
-
-          {company ? (
-            <CompanyStripeConnectPanel
-              companyId={company.id}
-              autoRefresh={activeSection === 'reservation-settings'}
-              onStatusChange={(status, loading) => {
-                setStripeStatus(status)
-                setStripeStatusLoading(loading)
-              }}
-            />
-          ) : null}
-
-          <div className={styles.depositSettings}>
-            <div className={styles.depositSettingsHeader}>
-              <div>
-                <h4>Fianza por reserva</h4>
-                {!allowsDeposits ? (
-                  <p className={styles.depositLockedHint}>
-                    Las fianzas están en el plan {requiredPlanName('deposits')}.
-                  </p>
-                ) : !canEnableDeposits ? (
-                  <p className={styles.depositLockedHint}>
-                    {stripeStatusLoading
-                      ? 'Comprobando estado de Stripe…'
-                      : 'Completa la conexión con Stripe para poder activar las fianzas.'}
-                  </p>
-                ) : (
-                  <p className={styles.scheduleHint}>
-                    Si una reserva alcanza el número mínimo de comensales, se pedirá fianza por
-                    persona.
-                  </p>
-                )}
-              </div>
-              <div className={styles.lockedField}>
-                <label
-                  className={`${styles.depositSwitchInline} ${
-                    !canEnableDeposits ? styles.depositSwitchInlineDisabled : ''
-                  }`}
-                  title={
-                    canEnableDeposits
-                      ? undefined
-                      : !allowsDeposits
-                        ? `Las fianzas están en el plan ${requiredPlanName('deposits')}`
-                        : 'Completa la conexión con Stripe para activar fianzas'
-                  }
-                >
-                <span className={styles.depositSwitchText}>Activar fianzas</span>
-                <span className={styles.depositSwitch}>
-                  <input
-                    type="checkbox"
-                    className={styles.depositSwitchInput}
-                    checked={form.depositEnabled && canEnableDeposits}
-                    disabled={!canEnableDeposits}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        depositEnabled: event.target.checked,
-                        depositCancellationHours: event.target.checked
-                          ? (form.depositCancellationHours ?? DEFAULT_DEPOSIT_CANCELLATION_HOURS)
-                          : form.depositCancellationHours,
-                      })
-                    }
-                  />
-                  <span className={styles.depositSwitchSlider} aria-hidden="true" />
-                </span>
-              </label>
-                {!allowsDeposits ? (
-                  <PlanLockHint feature="activar las fianzas" capabilityId="deposits" />
-                ) : null}
-              </div>
-            </div>
-
-            {form.depositEnabled && canEnableDeposits ? (
-              <>
-                <div className={styles.depositRow}>
-                  <label className={styles.depositField}>
-                    Comensales desde los que se pide fianza
-                    <input
-                      type="number"
-                      min={0}
-                      max={500}
-                      value={form.depositMinPax ?? ''}
-                      onChange={(event) => {
-                        const raw = event.target.value.trim()
-
-                        if (!raw) {
-                          setForm({
-                            ...form,
-                            depositMinPax: null,
-                          })
-                          return
-                        }
-
-                        const parsed = Math.min(500, Math.max(0, Number(raw)))
-
-                        setForm({
-                          ...form,
-                          depositMinPax: parsed > 0 ? Math.trunc(parsed) : null,
-                        })
-                      }}
-                      placeholder="Ej. 15"
-                    />
-                  </label>
-                  <label className={styles.depositField}>
-                    Fianza por comensal (€)
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={
-                        form.depositPerGuestCents != null
-                          ? (form.depositPerGuestCents / 100).toFixed(2).replace('.', ',')
-                          : ''
-                      }
-                      onChange={(event) => {
-                        const normalized = event.target.value.trim().replace(',', '.')
-
-                        if (!normalized) {
-                          setForm({ ...form, depositPerGuestCents: null })
-                          return
-                        }
-
-                        const euros = Number(normalized)
-
-                        if (!Number.isFinite(euros) || euros < 0) {
-                          return
-                        }
-
-                        setForm({
-                          ...form,
-                          depositPerGuestCents: Math.min(500_00, Math.round(euros * 100)),
-                        })
-                      }}
-                      placeholder="Ej. 10,00"
-                    />
-                  </label>
-                  <label className={styles.depositField}>
-                    Cancelación sin cargo (horas antes)
-                    <input
-                      type="number"
-                      min={1}
-                      max={720}
-                      value={form.depositCancellationHours ?? ''}
-                      onChange={(event) => {
-                        const raw = event.target.value.trim()
-
-                        if (!raw) {
-                          setForm({ ...form, depositCancellationHours: null })
-                          return
-                        }
-
-                        const parsed = Math.min(720, Math.max(1, Number(raw)))
-
-                        setForm({
-                          ...form,
-                          depositCancellationHours: Number.isFinite(parsed)
-                            ? Math.trunc(parsed)
-                            : null,
-                        })
-                      }}
-                      placeholder="Ej. 12"
-                    />
-                  </label>
-                </div>
-                {form.depositMinPax && form.depositPerGuestCents ? (
-                  <p className={styles.depositPreview}>
-                    Ejemplo: una reserva de {form.depositMinPax + 5} comensales pediría{' '}
-                    <strong>
-                      {((form.depositPerGuestCents * (form.depositMinPax + 5)) / 100)
-                        .toFixed(2)
-                        .replace('.', ',')}{' '}
-                      €
-                    </strong>{' '}
-                    de fianza ({((form.depositPerGuestCents) / 100).toFixed(2).replace('.', ',')}{' '}
-                    € × {form.depositMinPax + 5} comensales).
-                    {form.depositCancellationHours ? (
-                      <>
-                        {' '}
-                        {formatDepositCancellationPolicy(form.depositCancellationHours)}
-                      </>
-                    ) : null}
-                  </p>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        </div>
-        ) : null}
-
-        <div className={styles.scheduleBlock}>
-          <h3>Horario semanal</h3>
-          <p className={styles.scheduleHint}>
-            Marca los días activos y hasta {MAX_SCHEDULE_PERIODS} tramos por día (por ejemplo,
-            12:00–16:00 y 20:00–00:00). Los tramos no pueden cruzarse.
-          </p>
-          <div className={styles.scheduleTable}>
-          {SCHEDULE_DAY_KEYS.map((dayKey) => {
-            const day = form.schedule[dayKey]
-            const periods = getDaySchedulePeriods(day)
-            const periodCount = getDaySchedulePeriodCount(day)
-
-            return (
-              <div
-                key={dayKey}
-                className={`${styles.scheduleTableRow} ${
-                  periodCount > 1 ? styles.scheduleTableRowMulti : ''
-                } ${!day.active ? styles.scheduleTableRowInactive : ''}`}
-              >
-                <label className={styles.scheduleDayCell}>
-                  <input
-                    type="checkbox"
-                    checked={day.active}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        schedule: {
-                          ...form.schedule,
-                          [dayKey]: { ...day, active: e.target.checked },
-                        },
-                      })
-                    }
-                  />
-                  <span className={styles.dayNameFull}>{SCHEDULE_DAY_LABELS[dayKey]}</span>
-                  <span className={styles.dayNameShort}>{SCHEDULE_DAY_SHORT[dayKey]}</span>
-                </label>
-
-                <label className={styles.scheduleTurnsCell}>
-                  <span className={styles.scheduleTurnsLabel}>Tramos</span>
-                  <select
-                    disabled={!day.active}
-                    value={periodCount}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        schedule: {
-                          ...form.schedule,
-                          [dayKey]: resizeDaySchedulePeriods(day, Number(e.target.value)),
-                        },
-                      })
-                    }
-                  >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                  </select>
-                </label>
-
-                <div className={styles.scheduleHoursCell}>
-                  {periods.map((period, periodIndex) => (
-                    <div key={periodIndex} className={styles.scheduleTimeRange}>
-                      {periodCount > 1 ? (
-                        <span className={styles.scheduleTimeBadge}>{periodIndex + 1}</span>
-                      ) : null}
-                      <input
-                        type="time"
-                        disabled={!day.active}
-                        value={period.open}
-                        aria-label={`Apertura turno ${periodIndex + 1}, ${SCHEDULE_DAY_LABELS[dayKey]}`}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            schedule: {
-                              ...form.schedule,
-                              [dayKey]: updateDaySchedulePeriod(
-                                day,
-                                periodIndex,
-                                'open',
-                                e.target.value,
-                              ),
-                            },
-                          })
-                        }
-                      />
-                      <span className={styles.scheduleTimeSep} aria-hidden="true">—</span>
-                      <input
-                        type="time"
-                        disabled={!day.active}
-                        value={period.close}
-                        aria-label={`Cierre turno ${periodIndex + 1}, ${SCHEDULE_DAY_LABELS[dayKey]}`}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            schedule: {
-                              ...form.schedule,
-                              [dayKey]: updateDaySchedulePeriod(
-                                day,
-                                periodIndex,
-                                'close',
-                                e.target.value,
-                              ),
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-          </div>
-        </div>
         {renderSectionSave('reservation-settings', 'Guardar reservas y horario', handleSaveReservations)}
       </section>
 
       <section className={`${sectionCardClass('tables', activeSection)} ${styles.tablesSection}`}>
-        <header className={styles.tablesHeader}>
-          <div className={styles.tablesHeaderText}>
-            <h2>Mesas</h2>
-            <p>Nombre, capacidad y mapa de cada mesa. Activa solo los mapas que quieras mostrar al reservar.</p>
+        <SectionHeader
+          title="Mesas y mapas"
+          subtitle="Nombre, plazas y mapa de cada mesa. Activa solo los mapas que quieras enseñar al reservar."
+        >
+          <div className={styles.tableStats}>
+            <span className={styles.tableStat}>
+              <strong>{tables.length}</strong> {tables.length === 1 ? 'mesa' : 'mesas'}
+            </span>
+            <span className={styles.tableStat}>
+              <strong>{totalSeats}</strong> plazas
+            </span>
+            <span className={styles.tableStat}>
+              <strong>{activeMapCount}</strong> de {form.floorPlans.length}{' '}
+              {form.floorPlans.length === 1 ? 'mapa activo' : 'mapas activos'}
+            </span>
           </div>
-        </header>
+        </SectionHeader>
 
         <div className={styles.tablesLayout}>
-          <div className={styles.tablesListPanel}>
+          <FormCard
+            title="Listado de mesas"
+            className={styles.tablesListPanel}
+            actions={
+              demo ? null : (
+                <LockedControl
+                  locked={!canAddTable}
+                  feature="añadir más mesas"
+                  capabilityId="tables"
+                  requiredPlanId={planRequiredForCount('tables', tables.length + 1)}
+                >
+                  <button type="button" className={styles.addButton} onClick={addTable}>
+                    + Añadir mesa
+                  </button>
+                </LockedControl>
+              )
+            }
+          >
             <div className={styles.tablesFilters}>
               <label className={styles.tablesFilterField}>
-                <span className={styles.tablesFilterLabel}>Buscar mesa</span>
+                <span className={styles.srOnly}>Buscar mesa</span>
                 <input
                   type="search"
                   value={tableSearchQuery}
                   onChange={(e) => setTableSearchQuery(e.target.value)}
-                  placeholder="Nombre de mesa…"
+                  placeholder="Buscar mesa…"
                   aria-label="Buscar mesa por nombre"
                 />
               </label>
-              <label className={styles.tablesFilterField}>
-                <span className={styles.tablesFilterLabel}>Capacidad</span>
+              <label className={`${styles.tablesFilterField} ${styles.tablesFilterFieldNarrow}`}>
+                <span className={styles.srOnly}>Capacidad</span>
                 <select
                   value={tableCapacityFilter}
                   onChange={(e) => setTableCapacityFilter(e.target.value)}
@@ -1653,13 +1824,17 @@ const CompanySettings = forwardRef(function CompanySettings(
                 <p className={styles.tablesFilterEmpty}>
                   {hasTableFilters
                     ? 'Ninguna mesa coincide con los filtros.'
-                    : 'No hay mesas. Añade la primera con el botón de abajo.'}
+                    : 'No hay mesas. Añade la primera con «+ Añadir mesa».'}
                 </p>
               ) : (
                 filteredTableEntries.map(({ table, index }) => (
                   <div
                     key={table.id ?? `new-${index}`}
-                    className={`${styles.tablesGridRow} ${styles.tablesGridRowWithMap}`}
+                    className={`${styles.tablesGridRow} ${styles.tablesGridRowWithMap} ${
+                      typeof maxTables === 'number' && maxTables > 0 && index >= maxTables
+                        ? styles.tablesGridRowOver
+                        : ''
+                    }`}
                     role="row"
                   >
                     <input
@@ -1701,7 +1876,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                         </option>
                       ))}
                     </select>
-                    {demo ? null : (
+                    {demo ? <span aria-hidden="true" /> : (
                     <button
                       type="button"
                       className={styles.tablesDeleteButton}
@@ -1725,26 +1900,21 @@ const CompanySettings = forwardRef(function CompanySettings(
             {!demo && typeof maxTables === 'number' && maxTables > 0 && tables.length > maxTables ? (
               <p className={styles.planOverLimit} role="status">
                 Tu plan permite {maxTables} mesas reservables: los clientes solo pueden reservar las {maxTables} primeras
-                de la lista. Las otras {tables.length - maxTables} se guardan, pero no salen al reservar. Pasa
+                de la lista. Las otras {tables.length - maxTables} (en gris) se guardan, pero no salen al reservar. Pasa
                 a {requiredPlanName('tables', planRequiredForCount('tables', tables.length))} o elimina las que no uses.
               </p>
             ) : null}
-            {demo ? null : (
-            <LockedControl
-              locked={!canAddTable}
-              feature="añadir más mesas"
-              capabilityId="tables"
-              requiredPlanId={planRequiredForCount('tables', tables.length + 1)}
-            >
-              <button type="button" className={styles.addButton} onClick={addTable}>
-                + Añadir mesa
-              </button>
-            </LockedControl>
-            )}
-            {renderSectionSave('tables', 'Guardar mesas', handleSaveTables)}
-          </div>
+          </FormCard>
 
-          <div className={styles.mapPanel}>
+          <FormCard
+            title="Mapa del local"
+            description={
+              selectedPlan?.enabled
+                ? 'Los clientes verán este mapa al reservar.'
+                : 'El mapa se guarda, pero los clientes no lo verán hasta que lo actives.'
+            }
+            className={styles.mapPanel}
+          >
             {activeSection === 'tables' ? (
               <>
                 <div className={styles.mapTabs}>
@@ -1760,33 +1930,24 @@ const CompanySettings = forwardRef(function CompanySettings(
                           className={`${styles.mapTab} ${selected ? styles.mapTabActive : ''} ${plan.enabled ? '' : styles.mapTabInactive}`}
                           onClick={() => setSelectedMapId(plan.id)}
                         >
+                          <span
+                            className={`${styles.mapTabDot} ${plan.enabled ? styles.mapTabDotOn : ''}`}
+                            aria-hidden="true"
+                          />
                           {plan.name}
-                          {plan.enabled ? '' : ' · inactivo'}
+                          {plan.enabled ? '' : <span className={styles.srOnly}> (inactivo)</span>}
                         </button>
                       )
                     })}
-                  </div>
-                  <div className={styles.mapTabActions}>
                     {demo ? null : (
-                      <>
-                    <button
-                      type="button"
-                      className={styles.mapAddButton}
-                      onClick={addFloorPlan}
-                      disabled={form.floorPlans.length >= maxFloorPlans}
-                    >
-                      + Añadir mapa
-                    </button>
-                    {form.floorPlans.length > 1 ? (
                       <button
                         type="button"
-                        className={styles.mapDeleteButton}
-                        onClick={() => removeSelectedMap()}
+                        className={styles.mapAddButton}
+                        onClick={addFloorPlan}
+                        disabled={form.floorPlans.length >= maxFloorPlans}
                       >
-                        Quitar mapa
+                        + Añadir mapa
                       </button>
-                    ) : null}
-                      </>
                     )}
                   </div>
                 </div>
@@ -1839,12 +2000,16 @@ const CompanySettings = forwardRef(function CompanySettings(
                       ) : null}
                     </div>
                   ) : null}
+                  {!demo && form.floorPlans.length > 1 ? (
+                    <button
+                      type="button"
+                      className={styles.mapDeleteButton}
+                      onClick={() => removeSelectedMap()}
+                    >
+                      Quitar mapa
+                    </button>
+                  ) : null}
                 </div>
-                <p className={styles.mapEnabledHint}>
-                  {selectedPlan?.enabled
-                    ? 'Los clientes verán este mapa al reservar.'
-                    : 'El mapa se guarda, pero los clientes no lo verán hasta que lo actives.'}
-                </p>
                 <Suspense fallback={<p className={styles.mapPlaceholder}>Cargando mapa…</p>}>
                   {selectedPlan ? (
                     <FloorPlanEditor
@@ -1872,26 +2037,29 @@ const CompanySettings = forwardRef(function CompanySettings(
                     />
                   ) : null}
                 </Suspense>
-                <div className={styles.mapActions}>
-                  {demo ? null : (
-                  <button
-                    type="button"
-                    className={styles.saveMapButton}
-                    onClick={() => void handleSaveMapOnly()}
-                    disabled={isSavingMap || isAnySaving}
-                  >
-                    {isSavingMap ? 'Guardando mapa…' : 'Guardar mapa'}
-                  </button>
-                  )}
-                </div>
               </>
             ) : (
               <p className={styles.mapPlaceholder}>
                 Elige un mapa, ponle nombre y actívalo solo si quieres que los clientes lo vean al reservar.
               </p>
             )}
-          </div>
+          </FormCard>
         </div>
+
+        {renderSectionSave(
+          'tables',
+          'Guardar mesas',
+          handleSaveTables,
+          <button
+            type="button"
+            className={styles.saveMapButton}
+            onClick={() => void handleSaveMapOnly()}
+            disabled={isSavingMap || isAnySaving}
+            title="Guarda solo la colocación del mapa, sin tocar el listado de mesas"
+          >
+            {isSavingMap ? 'Guardando mapa…' : 'Guardar solo el mapa'}
+          </button>,
+        )}
       </section>
 
       <ConfirmDialog
