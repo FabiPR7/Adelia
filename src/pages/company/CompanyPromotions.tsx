@@ -1,4 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type InputHTMLAttributes, type ReactNode } from 'react'
+import {
+  Check,
+  Euro,
+  Eye,
+  Gift,
+  Info,
+  KeyRound,
+  Layers,
+  Pause,
+  Pencil,
+  Percent,
+  Play,
+  Plus,
+  QrCode,
+  RefreshCw,
+  Search,
+  Shuffle,
+  Sparkles,
+  Tag,
+  Tags,
+  Trash2,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import ImageUploader from '../../components/ImageUploader'
 import PromotionPhotoCollage from '../../components/promotions/PromotionPhotoCollage'
@@ -157,6 +181,7 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'soldout'>('all')
 
   // Escape cierra el panel lateral (salvo que haya otra ventana encima).
   useEffect(() => {
@@ -556,13 +581,37 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
     return counts
   }, { reservation_ladder: 0, time_limited: 0, attendance: 0 })
 
-  const normalizedSearch = searchQuery.trim().toLowerCase()
-  const visiblePromotions = normalizedSearch
-    ? filteredPromotions.filter((promotion) => promotion.title.toLowerCase().includes(normalizedSearch))
-    : filteredPromotions
+  const promotionStatus = (promotion: CompanyPromotion): 'active' | 'paused' | 'soldout' => {
+    if (!promotion.active) {
+      return 'paused'
+    }
+    const max = promotion.maxRedemptions
+    return max != null && max > 0 && (promotion.currentRedemptions ?? 0) >= max ? 'soldout' : 'active'
+  }
 
-  const activeCount = promotions.filter((promotion) => promotion.active).length
+  const normalizedSearch = searchQuery.trim().toLowerCase()
+  const visiblePromotions = filteredPromotions.filter((promotion) => {
+    if (normalizedSearch && !promotion.title.toLowerCase().includes(normalizedSearch)) {
+      return false
+    }
+    return statusFilter === 'all' || promotionStatus(promotion) === statusFilter
+  })
+
+  const activeCount = promotions.filter((promotion) => promotionStatus(promotion) === 'active').length
+  const pausedCount = promotions.filter((promotion) => promotionStatus(promotion) === 'paused').length
+  const soldOutCount = promotions.filter((promotion) => promotionStatus(promotion) === 'soldout').length
+  const limitedPromotions = promotions.filter((promotion) => promotion.maxRedemptions != null && promotion.maxRedemptions > 0)
+  const spotsUsed = limitedPromotions.reduce((sum, promotion) => sum + (promotion.currentRedemptions ?? 0), 0)
+  const spotsTotal = limitedPromotions.reduce((sum, promotion) => sum + (promotion.maxRedemptions ?? 0), 0)
   const editingPromotion = editingId ? promotions.find((item) => item.id === editingId) ?? null : null
+  const previewRules = describePromotionRules({ ...form, type: selectedType })
+
+  const STATUS_FILTERS: { id: typeof statusFilter; label: string }[] = [
+    { id: 'all', label: 'Todas' },
+    { id: 'active', label: 'Activas' },
+    { id: 'paused', label: 'Pausadas' },
+    { id: 'soldout', label: 'Agotadas' },
+  ]
 
   return (
     <div className={styles.wrapper}>
@@ -570,8 +619,8 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
         <div className={styles.headerText}>
           <h2 className={styles.title}>Promociones</h2>
           <p className={styles.subtitle}>
-            Ofertas por visitas, por franja horaria o con cupo. Los clientes las ven en tu ficha y las
-            canjean en el local con tu código.
+            Crea ofertas por visitas, por franja horaria o con cupo. Tus clientes las ven en tu ficha y
+            las canjean en el local con tu código.
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -581,7 +630,8 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
             onClick={() => void loadPromotions()}
             disabled={loading}
           >
-            {loading ? 'Actualizando…' : 'Actualizar'}
+            <RefreshCw size={15} aria-hidden="true" className={loading ? styles.spin : undefined} />
+            Actualizar
           </button>
           <LockedControl
             locked={!canCreatePromo || !selectedTypeAllowed}
@@ -591,25 +641,66 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
           >
             {demo ? null : (
               <button type="button" className={styles.primaryButton} onClick={openCreate}>
-                + Nueva promoción
+                <Plus size={16} aria-hidden="true" />
+                Nueva promoción
               </button>
             )}
           </LockedControl>
         </div>
       </header>
 
+      <div className={styles.kpis}>
+        <div className={styles.kpi}>
+          <span className={styles.kpiLabel}>Activas</span>
+          <span className={styles.kpiValue}>
+            {activeCount}
+            <small>de {promotions.length}</small>
+          </span>
+          <span className={styles.kpiHint}>Visibles para tus clientes</span>
+        </div>
+        <div className={styles.kpi}>
+          <span className={styles.kpiLabel}>Plazas ocupadas</span>
+          <span className={styles.kpiValue}>
+            {spotsTotal > 0 ? spotsUsed : '—'}
+            {spotsTotal > 0 ? <small>de {spotsTotal}</small> : null}
+          </span>
+          <span className={styles.kpiHint}>
+            {spotsTotal > 0 ? 'En las promociones con plazas limitadas' : 'Ninguna tiene plazas limitadas'}
+          </span>
+        </div>
+        <div className={styles.kpi}>
+          <span className={styles.kpiLabel}>Agotadas</span>
+          <span className={`${styles.kpiValue} ${soldOutCount > 0 ? styles.kpiWarn : ''}`}>{soldOutCount}</span>
+          <span className={styles.kpiHint}>
+            {soldOutCount > 0 ? 'Amplía plazas o crea otra' : 'Ninguna sin plazas'}
+          </span>
+        </div>
+        <div className={styles.kpi}>
+          <span className={styles.kpiLabel}>Pausadas</span>
+          <span className={styles.kpiValue}>{pausedCount}</span>
+          <span className={styles.kpiHint}>Guardadas, pero ocultas</span>
+        </div>
+      </div>
+
       <section className={styles.pinCard} aria-labelledby="promotion-pin-title">
+        <span className={styles.pinIcon} aria-hidden="true">
+          <KeyRound size={18} />
+        </span>
         <div className={styles.pinIntro}>
           <h3 id="promotion-pin-title">Código de canje</h3>
-          <p>El cliente lo escribe en el local para validar la promoción y el gasto mínimo.</p>
+          <p>
+            {pinLoading
+              ? 'Cargando código…'
+              : formatPromotionPinRotationHint(pinRotation, pinNextRotationAt)}
+          </p>
+          {pinError && <p className={styles.inlineError}>{pinError}</p>}
+          {pinSavedMessage && <p className={styles.inlineSuccess}>{pinSavedMessage}</p>}
         </div>
 
-        {pinLoading ? (
-          <p className={styles.pinLoading}>Cargando código…</p>
-        ) : (
+        {pinLoading ? null : (
           <div className={styles.pinControls}>
             <label className={styles.pinField}>
-              <span className={styles.srOnly}>Código actual</span>
+              <span className={styles.fieldLabel}>Código</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -620,12 +711,11 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                   setPinCode(normalizePromotionPinCode(event.target.value))
                   setPinSavedMessage(null)
                 }}
-                placeholder="1234"
-                aria-label="Código de canje"
+                placeholder="0000"
               />
             </label>
             <label className={styles.pinRotationField}>
-              <span>Cambio automático</span>
+              <span className={styles.fieldLabel}>Cambio automático</span>
               <select
                 value={pinRotation}
                 onChange={(event) => {
@@ -644,102 +734,127 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
               <div className={styles.pinActions}>
                 <button
                   type="button"
-                  className={styles.secondaryButton}
+                  className={styles.iconButton}
                   onClick={() => setPinCode(generatePromotionPinCode())}
                   disabled={pinSaving}
+                  title="Generar un código al azar"
+                  aria-label="Generar un código al azar"
                 >
-                  Generar otro
+                  <Shuffle size={16} aria-hidden="true" />
                 </button>
                 <button
                   type="button"
-                  className={styles.primaryButton}
+                  className={styles.secondaryButton}
                   onClick={() => void handleSavePin(false)}
                   disabled={pinSaving}
                 >
-                  {pinSaving ? 'Guardando…' : 'Guardar código'}
+                  {pinSaving ? 'Guardando…' : 'Guardar'}
                 </button>
               </div>
             )}
           </div>
         )}
-
-        {!pinLoading ? (
-          <div className={styles.pinFooter}>
-            <p className={styles.pinHint}>{formatPromotionPinRotationHint(pinRotation, pinNextRotationAt)}</p>
-            {pinError && <p className={styles.inlineError}>{pinError}</p>}
-            {pinSavedMessage && <p className={styles.inlineSuccess}>✓ {pinSavedMessage}</p>}
-          </div>
-        ) : null}
       </section>
 
       <section className={styles.listCard}>
-        <div className={styles.listToolbar}>
-          <div className={styles.typeTabs} role="tablist" aria-label="Tipo de promoción">
-            {PROMOTION_TYPES.map((type) => {
-              const typeLocked = !planAllowsPromotionType(planId, type)
-              const button = (
-                <button
-                  key={type}
-                  type="button"
-                  role="tab"
-                  aria-selected={selectedType === type}
-                  className={`${styles.typeTab} ${selectedType === type ? styles.typeTabActive : ''}`}
-                  onClick={() => handleTypeChange(type)}
-                  title={PROMOTION_TYPE_HINTS[type]}
-                >
-                  {PROMOTION_TYPE_LABELS[type]}
-                  <span className={styles.typeTabCount}>{typeCounts[type]}</span>
-                </button>
-              )
+        <div className={styles.tabsBar} role="tablist" aria-label="Tipo de promoción">
+          {PROMOTION_TYPES.map((type) => {
+            const typeLocked = !planAllowsPromotionType(planId, type)
+            const button = (
+              <button
+                key={type}
+                type="button"
+                role="tab"
+                aria-selected={selectedType === type}
+                className={`${styles.tab} ${selectedType === type ? styles.tabActive : ''}`}
+                onClick={() => handleTypeChange(type)}
+              >
+                {PROMOTION_TYPE_LABELS[type]}
+                <span className={styles.tabCount}>{typeCounts[type]}</span>
+              </button>
+            )
 
-              if (!typeLocked) {
-                return button
-              }
+            if (!typeLocked) {
+              return button
+            }
 
-              return (
-                <LockedControl
-                  key={type}
-                  locked
-                  feature={PROMOTION_TYPE_LABELS[type].toLowerCase()}
-                  capabilityId={promotionTypeCapability(type)}
-                >
-                  {button}
-                </LockedControl>
-              )
-            })}
-          </div>
-          <div className={styles.listToolbarRight}>
-            <span className={styles.activeSummary}>
-              <strong>{activeCount}</strong> {activeCount === 1 ? 'activa' : 'activas'} de {promotions.length}
-            </span>
-            <input
-              type="search"
-              className={styles.searchInput}
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Buscar promoción…"
-              aria-label="Buscar promoción por título"
-            />
-          </div>
+            return (
+              <LockedControl
+                key={type}
+                locked
+                feature={PROMOTION_TYPE_LABELS[type].toLowerCase()}
+                capabilityId={promotionTypeCapability(type)}
+              >
+                {button}
+              </LockedControl>
+            )
+          })}
         </div>
 
-        <p className={styles.typeHint}>{PROMOTION_TYPE_HINTS[selectedType]}</p>
+        <div className={styles.listToolbar}>
+          <label className={styles.searchField}>
+            <Search size={15} aria-hidden="true" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Buscar por nombre…"
+              aria-label="Buscar promoción por nombre"
+            />
+          </label>
+          <div className={styles.statusFilter} role="group" aria-label="Filtrar por estado">
+            {STATUS_FILTERS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`${styles.statusFilterButton} ${statusFilter === option.id ? styles.statusFilterButtonOn : ''}`}
+                aria-pressed={statusFilter === option.id}
+                onClick={() => setStatusFilter(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className={styles.typeHint}>
+            <Info size={14} aria-hidden="true" />
+            {PROMOTION_TYPE_HINTS[selectedType]}
+          </p>
+        </div>
 
         {error && <div className={styles.errorBanner} role="alert">{error}</div>}
         {formError && !drawerOpen && <div className={styles.errorBanner} role="alert">{formError}</div>}
 
         {loading && promotions.length === 0 ? (
-          <div className={styles.stateBox}>Cargando promociones…</div>
+          <div className={styles.stateBox}>
+            <span className={styles.stateSpinner} aria-hidden="true" />
+            Cargando promociones…
+          </div>
         ) : visiblePromotions.length === 0 ? (
           <div className={styles.stateBox}>
-            {normalizedSearch ? (
-              <p>Ninguna promoción coincide con «{searchQuery.trim()}».</p>
+            <span className={styles.stateIcon} aria-hidden="true">
+              <Tag size={20} />
+            </span>
+            {normalizedSearch || statusFilter !== 'all' ? (
+              <>
+                <p className={styles.stateTitle}>Nada con estos filtros</p>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => {
+                    setSearchQuery('')
+                    setStatusFilter('all')
+                  }}
+                >
+                  Quitar filtros
+                </button>
+              </>
             ) : (
               <>
-                <p className={styles.stateTitle}>Aún no tienes promociones de este tipo</p>
+                <p className={styles.stateTitle}>Aún no tienes promociones de «{PROMOTION_TYPE_LABELS[selectedType]}»</p>
                 <p>{PROMOTION_TYPE_HINTS[selectedType]}</p>
                 {demo || !canCreatePromo ? null : (
                   <button type="button" className={styles.primaryButton} onClick={openCreate}>
+                    <Plus size={16} aria-hidden="true" />
                     Crear la primera
                   </button>
                 )}
@@ -754,7 +869,7 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                   <th scope="col">Promoción</th>
                   <th scope="col" className={styles.colRules}>Condiciones</th>
                   <th scope="col" className={styles.colSpots}>Plazas</th>
-                  <th scope="col">Estado</th>
+                  <th scope="col" className={styles.colStatus}>Estado</th>
                   <th scope="col" className={styles.colActions}>
                     <span className={styles.srOnly}>Acciones</span>
                   </th>
@@ -764,16 +879,20 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                 {visiblePromotions.map((promotion) => {
                   const max = promotion.maxRedemptions
                   const used = promotion.currentRedemptions ?? 0
-                  const soldOut = promotion.active && max != null && max > 0 && used >= max
+                  const status = promotionStatus(promotion)
                   const percent = max != null && max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0
-                  const rules = describePromotionRules(promotion).filter(
-                    (rule) => !/plaza/i.test(rule),
-                  )
+                  const rules = describePromotionRules(promotion).filter((rule) => !/plaza/i.test(rule))
 
                   return (
                     <tr
                       key={promotion.id}
                       className={editingId === promotion.id ? styles.rowSelected : undefined}
+                      onClick={(event) => {
+                        if ((event.target as HTMLElement).closest('button')) {
+                          return
+                        }
+                        openEdit(promotion)
+                      }}
                     >
                       <td>
                         <button
@@ -796,17 +915,20 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                       </td>
                       <td className={styles.colRules}>
                         <span className={styles.ruleChips}>
-                          {rules.slice(0, 3).map((rule) => (
+                          {rules.slice(0, 2).map((rule) => (
                             <em key={rule}>{rule}</em>
                           ))}
-                          {rules.length > 3 ? <em>+{rules.length - 3}</em> : null}
+                          {rules.length > 2 ? (
+                            <em title={rules.slice(2).join(' · ')}>+{rules.length - 2}</em>
+                          ) : null}
                         </span>
                       </td>
                       <td className={styles.colSpots}>
                         {max != null && max > 0 ? (
                           <span className={styles.spots}>
                             <span className={styles.spotsText}>
-                              <strong>{used}</strong> / {max}
+                              <strong>{used}</strong> de {max}
+                              <span className={styles.spotsPercent}>{percent}%</span>
                             </span>
                             <span
                               className={`${styles.spotsBar} ${percent >= 80 ? styles.spotsBarHigh : ''}`}
@@ -823,17 +945,10 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                           <span className={styles.muted}>Sin límite</span>
                         )}
                       </td>
-                      <td>
-                        <span
-                          className={`${styles.statusChip} ${
-                            !promotion.active
-                              ? styles.statusPaused
-                              : soldOut
-                                ? styles.statusSoldOut
-                                : styles.statusActive
-                          }`}
-                        >
-                          {!promotion.active ? 'Pausada' : soldOut ? 'Agotada' : 'Activa'}
+                      <td className={styles.colStatus}>
+                        <span className={`${styles.statusChip} ${styles[`status_${status}`]}`}>
+                          <span className={styles.statusDot} aria-hidden="true" />
+                          {status === 'paused' ? 'Pausada' : status === 'soldout' ? 'Agotada' : 'Activa'}
                         </span>
                       </td>
                       <td className={styles.colActions}>
@@ -841,21 +956,25 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                           {demo ? null : (
                             <button
                               type="button"
-                              className={styles.rowButton}
+                              className={styles.iconButton}
                               onClick={() => void handleToggleActive(promotion)}
                               disabled={togglingId === promotion.id}
+                              title={promotion.active ? 'Pausar' : 'Activar'}
+                              aria-label={`${promotion.active ? 'Pausar' : 'Activar'} ${promotion.title}`}
                             >
-                              {togglingId === promotion.id
-                                ? '…'
-                                : promotion.active ? 'Pausar' : 'Activar'}
+                              {promotion.active
+                                ? <Pause size={15} aria-hidden="true" />
+                                : <Play size={15} aria-hidden="true" />}
                             </button>
                           )}
                           <button
                             type="button"
-                            className={styles.rowButton}
+                            className={styles.iconButton}
                             onClick={() => openEdit(promotion)}
+                            title={demo ? 'Ver' : 'Editar'}
+                            aria-label={`${demo ? 'Ver' : 'Editar'} ${promotion.title}`}
                           >
-                            {demo ? 'Ver' : 'Editar'}
+                            <Pencil size={15} aria-hidden="true" />
                           </button>
                         </div>
                       </td>
@@ -864,6 +983,10 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                 })}
               </tbody>
             </table>
+            <div className={styles.tableFooter}>
+              {visiblePromotions.length} de {typeCounts[selectedType]}{' '}
+              {typeCounts[selectedType] === 1 ? 'promoción' : 'promociones'}
+            </div>
           </div>
         )}
       </section>
@@ -878,524 +1001,512 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
             aria-labelledby="promotion-drawer-title"
           >
             <header className={styles.drawerHeader}>
-              <div>
-                <p className={styles.drawerEyebrow}>{PROMOTION_TYPE_LABELS[selectedType]}</p>
+              <div className={styles.drawerHeaderText}>
+                <p className={styles.drawerEyebrow}>
+                  {editingId ? 'Editar promoción' : 'Nueva promoción'} · {PROMOTION_TYPE_LABELS[selectedType]}
+                </p>
                 <h3 id="promotion-drawer-title">
-                  {editingId ? (editingPromotion?.title || 'Editar promoción') : 'Nueva promoción'}
+                  {form.title.trim() || (editingId ? editingPromotion?.title : '') || 'Sin título'}
                 </h3>
               </div>
               <button
                 type="button"
-                className={styles.drawerClose}
+                className={styles.iconButton}
                 onClick={closeDrawer}
                 aria-label="Cerrar"
+                title="Cerrar (Esc)"
               >
-                ×
+                <X size={18} aria-hidden="true" />
               </button>
             </header>
 
-            <div className={styles.drawerBody}>
-              <section className={styles.formSection}>
-                <h4 className={styles.formSectionTitle}>Oferta</h4>
-                <div className={styles.sectionGrid}>
-                  <div className={`${styles.formField} ${styles.formFieldWide}`}>
-                    <div className={styles.titleRow}>
-                      <label htmlFor="promotion-title">Título</label>
-                      <button
-                        type="button"
-                        className={styles.linkButton}
-                        onClick={() => setForm({
-                          ...form,
-                          title: suggestPromotionTitle(form.offer, previewProductRefs),
-                        })}
-                      >
-                        Sugerir título
-                      </button>
+            <div className={styles.drawerMain}>
+              <div className={styles.drawerBody}>
+                <section className={styles.formSection}>
+                  <header className={styles.formSectionHead}>
+                    <span className={styles.stepNumber}>1</span>
+                    <div>
+                      <h4>Oferta</h4>
+                      <p>Lo que gana el cliente y cómo se anuncia.</p>
                     </div>
-                    <input
-                      id="promotion-title"
-                      value={form.title}
-                      onChange={(event) => setForm({ ...form, title: event.target.value })}
-                      placeholder="Ej. 2×1 en cañas seleccionadas"
-                    />
-                  </div>
+                  </header>
 
-                  <div className={`${styles.formField} ${styles.formFieldWide}`}>
-                    <label htmlFor="promotion-description">Descripción</label>
-                    <textarea
-                      id="promotion-description"
-                      value={form.description}
-                      onChange={(event) => setForm({ ...form, description: event.target.value })}
-                      placeholder="Explica el premio y las condiciones"
-                    />
-                  </div>
-
-                  <div className={`${styles.formField} ${styles.formFieldWide}`}>
-                    <label htmlFor="promotion-offer-kind">Tipo de oferta</label>
-                    <select
-                      id="promotion-offer-kind"
-                      value={form.offer.kind}
-                      onChange={(event) => {
-                        const kind = event.target.value as PromotionOfferKind
-                        setForm({
-                          ...form,
-                          offer: defaultPromotionOffer(kind),
-                        })
-                      }}
-                    >
-                      {PROMOTION_OFFER_KINDS.map((kind) => (
-                        <option key={kind} value={kind}>
-                          {PROMOTION_OFFER_KIND_LABELS[kind]}
-                        </option>
-                      ))}
-                    </select>
-                    <p className={styles.fieldHint}>{PROMOTION_OFFER_KIND_HINTS[form.offer.kind]}</p>
-                  </div>
-
-                  {form.offer.kind === 'bundle' && (
-                    <>
-                      <div className={styles.formField}>
-                        <label htmlFor="promotion-bundle-get">Unidades que lleva</label>
-                        <input
-                          id="promotion-bundle-get"
-                          type="number"
-                          min={2}
-                          value={form.offer.bundleGet ?? 2}
-                          onChange={(event) => setForm({
+                  <div className={styles.fieldStack}>
+                    <div className={styles.field}>
+                      <div className={styles.fieldLabelRow}>
+                        <label htmlFor="promotion-title" className={styles.fieldLabel}>Título</label>
+                        <button
+                          type="button"
+                          className={styles.linkButton}
+                          onClick={() => setForm({
                             ...form,
-                            offer: {
-                              ...form.offer,
-                              bundleGet: Math.max(2, Number(event.target.value) || 2),
-                            },
+                            title: suggestPromotionTitle(form.offer, previewProductRefs),
                           })}
-                        />
+                        >
+                          <Sparkles size={13} aria-hidden="true" />
+                          Sugerir
+                        </button>
                       </div>
-                      <div className={styles.formField}>
-                        <label htmlFor="promotion-bundle-pay">Unidades que paga</label>
-                        <input
-                          id="promotion-bundle-pay"
-                          type="number"
-                          min={1}
-                          value={form.offer.bundlePay ?? 1}
-                          onChange={(event) => setForm({
-                            ...form,
-                            offer: {
-                              ...form.offer,
-                              bundlePay: Math.max(1, Number(event.target.value) || 1),
-                            },
-                          })}
-                        />
-                      </div>
-                    </>
-                  )}
+                      <input
+                        id="promotion-title"
+                        value={form.title}
+                        onChange={(event) => setForm({ ...form, title: event.target.value })}
+                        placeholder="Ej. 2×1 en cañas seleccionadas"
+                      />
+                    </div>
 
-                  {(form.offer.kind === 'discount' || form.offer.kind === 'second_unit') && (
-                    <div className={styles.formField}>
-                      <label htmlFor="promotion-discount">
-                        {form.offer.kind === 'second_unit' ? 'Descuento 2ª unidad (%)' : 'Descuento (%)'}
+                    <div className={styles.field}>
+                      <label htmlFor="promotion-description" className={styles.fieldLabel}>
+                        Descripción
                       </label>
-                      <input
-                        id="promotion-discount"
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={form.offer.discountPercent ?? 20}
-                        onChange={(event) => setForm({
-                          ...form,
-                          offer: {
-                            ...form.offer,
-                            discountPercent: Math.min(100, Math.max(1, Number(event.target.value) || 1)),
-                          },
-                        })}
+                      <textarea
+                        id="promotion-description"
+                        value={form.description}
+                        onChange={(event) => setForm({ ...form, description: event.target.value })}
+                        placeholder="Explica el premio y las condiciones con tus palabras"
                       />
                     </div>
-                  )}
 
-                  {form.offer.kind === 'fixed_price' && (
-                    <div className={styles.formField}>
-                      <label htmlFor="promotion-fixed-price">Precio fijo (€)</label>
-                      <input
-                        id="promotion-fixed-price"
-                        type="number"
-                        min={0.01}
-                        step={0.01}
-                        value={((form.offer.fixedPriceCents ?? 1000) / 100).toFixed(2)}
-                        onChange={(event) => setForm({
-                          ...form,
-                          offer: {
-                            ...form.offer,
-                            fixedPriceCents: Math.max(1, Math.round(Number(event.target.value) * 100) || 1),
-                          },
+                    <div className={styles.field}>
+                      <span className={styles.fieldLabel} id="promotion-offer-kind-label">Tipo de oferta</span>
+                      <div
+                        className={styles.offerGrid}
+                        role="radiogroup"
+                        aria-labelledby="promotion-offer-kind-label"
+                      >
+                        {PROMOTION_OFFER_KINDS.map((kind) => {
+                          const Icon = OFFER_KIND_ICONS[kind]
+                          const selected = form.offer.kind === kind
+                          return (
+                            <button
+                              key={kind}
+                              type="button"
+                              role="radio"
+                              aria-checked={selected}
+                              className={`${styles.offerOption} ${selected ? styles.offerOptionOn : ''}`}
+                              onClick={() => {
+                                if (!selected) {
+                                  setForm({ ...form, offer: defaultPromotionOffer(kind) })
+                                }
+                              }}
+                            >
+                              <span className={styles.offerIcon} aria-hidden="true">
+                                <Icon size={16} />
+                              </span>
+                              <span className={styles.offerLabel}>{PROMOTION_OFFER_KIND_LABELS[kind]}</span>
+                              {selected ? (
+                                <span className={styles.offerCheck} aria-hidden="true">
+                                  <Check size={12} strokeWidth={3} />
+                                </span>
+                              ) : null}
+                            </button>
+                          )
                         })}
-                      />
+                      </div>
+                      <p className={styles.fieldHelp}>{PROMOTION_OFFER_KIND_HINTS[form.offer.kind]}</p>
                     </div>
-                  )}
 
-                  {form.offer.kind === 'custom' && (
-                    <div className={styles.formField}>
-                      <label htmlFor="promotion-custom-label">Etiqueta destacada</label>
-                      <input
-                        id="promotion-custom-label"
-                        value={form.offer.customLabel}
-                        onChange={(event) => setForm({
-                          ...form,
-                          offer: { ...form.offer, customLabel: event.target.value },
-                        })}
-                        placeholder="Ej. 2×1, -20%, GRATIS"
-                      />
+                    {form.offer.kind === 'bundle' && (
+                      <div className={styles.fieldRow}>
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-bundle-get" className={styles.fieldLabel}>Se lleva</label>
+                          <UnitInput
+                            id="promotion-bundle-get"
+                            unit="uds."
+                            type="number"
+                            min={2}
+                            value={form.offer.bundleGet ?? 2}
+                            onChange={(event) => setForm({
+                              ...form,
+                              offer: {
+                                ...form.offer,
+                                bundleGet: Math.max(2, Number(event.target.value) || 2),
+                              },
+                            })}
+                          />
+                        </div>
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-bundle-pay" className={styles.fieldLabel}>Paga</label>
+                          <UnitInput
+                            id="promotion-bundle-pay"
+                            unit="uds."
+                            type="number"
+                            min={1}
+                            value={form.offer.bundlePay ?? 1}
+                            onChange={(event) => setForm({
+                              ...form,
+                              offer: {
+                                ...form.offer,
+                                bundlePay: Math.max(1, Number(event.target.value) || 1),
+                              },
+                            })}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {(form.offer.kind === 'discount' || form.offer.kind === 'second_unit') && (
+                      <div className={styles.fieldRow}>
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-discount" className={styles.fieldLabel}>
+                            {form.offer.kind === 'second_unit' ? 'Descuento en la 2ª unidad' : 'Descuento'}
+                          </label>
+                          <UnitInput
+                            id="promotion-discount"
+                            unit="%"
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={form.offer.discountPercent ?? 20}
+                            onChange={(event) => setForm({
+                              ...form,
+                              offer: {
+                                ...form.offer,
+                                discountPercent: Math.min(100, Math.max(1, Number(event.target.value) || 1)),
+                              },
+                            })}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {form.offer.kind === 'fixed_price' && (
+                      <div className={styles.fieldRow}>
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-fixed-price" className={styles.fieldLabel}>Precio especial</label>
+                          <UnitInput
+                            id="promotion-fixed-price"
+                            unit="€"
+                            type="number"
+                            min={0.01}
+                            step={0.01}
+                            value={((form.offer.fixedPriceCents ?? 1000) / 100).toFixed(2)}
+                            onChange={(event) => setForm({
+                              ...form,
+                              offer: {
+                                ...form.offer,
+                                fixedPriceCents: Math.max(1, Math.round(Number(event.target.value) * 100) || 1),
+                              },
+                            })}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {form.offer.kind === 'custom' && (
+                      <div className={styles.fieldRow}>
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-custom-label" className={styles.fieldLabel}>
+                            Etiqueta destacada
+                          </label>
+                          <input
+                            id="promotion-custom-label"
+                            value={form.offer.customLabel}
+                            onChange={(event) => setForm({
+                              ...form,
+                              offer: { ...form.offer, customLabel: event.target.value },
+                            })}
+                            placeholder="Ej. 2×1, -20%, GRATIS"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className={styles.formSection}>
+                  <header className={styles.formSectionHead}>
+                    <span className={styles.stepNumber}>2</span>
+                    <div>
+                      <h4>Productos e imagen</h4>
+                      <p>Elige productos de tu carta: si tienen foto, la imagen se crea sola.</p>
                     </div>
-                  )}
-                </div>
-              </section>
-
-              <section className={styles.formSection}>
-                <h4 className={styles.formSectionTitle}>Productos e imagen</h4>
-                <p className={styles.formSectionHint}>
-                  Elige productos de la carta: si tienen foto, la imagen de la promoción se crea sola.
-                </p>
-                <div className={styles.mediaLayout}>
-                  <div className={styles.productsColumn}>
+                  </header>
+                  <div className={styles.fieldStack}>
                     <PromotionProductPicker
                       menuNodes={menuNodes}
                       selectedIds={form.productIds}
                       onChange={(productIds) => setForm({ ...form, productIds })}
                     />
-                  </div>
-
-                  <aside className={styles.photoColumn}>
-                    <div className={styles.photoCard}>
-                      <span className={styles.photoCardLabel}>Vista previa</span>
-                      <PromotionPhotoCollage
-                        productRefs={previewProductRefs}
-                        fallbackPhotoUrl={form.photoUrl}
-                        size="preview"
-                        alt={form.title}
-                      />
-                      <div className={styles.photoCardActions}>
-                        <button
-                          type="button"
-                          className={styles.secondaryButton}
-                          onClick={() => setQrCustomizerOpen(true)}
-                          disabled={!editingId || !promotionLandingUrl}
-                          title={editingId ? 'Crear y personalizar el QR de esta promoción' : 'Guarda la promoción para crear el QR'}
-                        >
-                          Crear QR
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.secondaryButton}
-                          onClick={() => setScanPreviewOpen(true)}
-                          disabled={!scanPreviewPromotion}
-                        >
-                          Visualizar
-                        </button>
-                      </div>
-                      {qrPreviewUrl ? (
-                        <img
-                          src={qrPreviewUrl}
-                          alt="QR de la promoción"
-                          className={styles.promoQrPreview}
-                        />
-                      ) : null}
-                      <p className={styles.photoCardHint}>
-                        {!editingId
-                          ? 'Guarda la promoción para crear su QR. «Visualizar» enseña cómo se ve al escanearlo.'
-                          : previewProductRefs.length === 0
-                            ? 'Añade productos con foto o sube una imagen.'
-                            : previewProductRefs.length === 1
-                              ? 'Foto del producto elegido.'
-                              : previewProductRefs.length > 4
-                                ? `Collage con ${previewProductRefs.length} productos.`
-                                : 'Collage con las fotos disponibles.'}
-                      </p>
-                    </div>
-
                     {(form.offer.kind === 'custom' || previewProductRefs.length === 0) && (
                       <div className={styles.photoUploaderWrap}>
                         <ImageUploader
-                          label="Foto manual"
-                          hint="Opcional si hay productos con foto"
+                          label="Foto propia"
+                          hint="Opcional si eliges productos con foto"
                           currentImageUrl={form.photoUrl}
                           onImageUploaded={(url) => setForm({ ...form, photoUrl: url })}
                           onImageRemoved={() => setForm({ ...form, photoUrl: '' })}
                         />
                       </div>
                     )}
-                  </aside>
-                </div>
-              </section>
+                  </div>
+                </section>
 
-              <section className={styles.formSection}>
-                <h4 className={styles.formSectionTitle}>Condiciones</h4>
-                <p className={styles.formSectionHint}>
-                  {selectedType === 'reservation_ladder' && 'Qué tiene que hacer el cliente para conseguir el premio.'}
-                  {selectedType === 'time_limited' && 'La franja horaria en la que se puede usar.'}
-                  {selectedType === 'attendance' && 'Horario, plazas y tiempo para llegar.'}
-                </p>
-
-                {selectedType === 'reservation_ladder' && (
-                  <div className={styles.optionList}>
-                    <label className={styles.switchRow}>
-                      <span className={styles.switchText}>
-                        <strong>Pedir reservas o consumos</strong>
-                        <small>Cada reserva o consumo verificado suma para el premio.</small>
-                      </span>
-                      <span className={styles.switch}>
-                        <input
-                          type="checkbox"
-                          checked={form.requiresReservation}
-                          onChange={(event) => setForm({
-                            ...form,
-                            requiresReservation: event.target.checked,
-                          })}
-                        />
-                        <span aria-hidden="true" />
-                      </span>
-                    </label>
-                    <div className={styles.optionDetail}>
-                      <div className={styles.formField}>
-                        <label htmlFor="promotion-reservations">Reservas o consumos necesarios</label>
-                        <input
-                          id="promotion-reservations"
-                          type="number"
-                          min={form.requiresReservation ? 1 : 0}
-                          value={form.requiredReservations ?? ''}
-                          onChange={(event) => {
-                            const raw = event.target.value
-                            setForm({
-                              ...form,
-                              requiredReservations: raw === '' ? null : Number(raw),
-                            })
-                          }}
-                          placeholder={form.requiresReservation ? 'Ej. 3' : '0 o vacío'}
-                        />
-                      </div>
-                      <p className={styles.fieldHint}>
-                        Solo puede haber una oferta activa por cada número de reservas o consumos.
+                <section className={styles.formSection}>
+                  <header className={styles.formSectionHead}>
+                    <span className={styles.stepNumber}>3</span>
+                    <div>
+                      <h4>Condiciones</h4>
+                      <p>
+                        {selectedType === 'reservation_ladder' && 'Qué tiene que hacer el cliente para conseguir el premio.'}
+                        {selectedType === 'time_limited' && 'La franja horaria en la que se puede usar.'}
+                        {selectedType === 'attendance' && 'Horario, plazas y tiempo para llegar.'}
                       </p>
                     </div>
+                  </header>
 
-                    <label className={styles.switchRow}>
-                      <span className={styles.switchText}>
-                        <strong>Canjear solo en una franja horaria</strong>
-                        <small>
-                          {form.claimWindowEnabled
-                            ? `Las visitas cuentan a cualquier hora, pero el premio solo se reclama de ${form.activeFromTime || '…'} a ${form.activeToTime || '…'}.`
-                            : 'Por ejemplo, el postre gratis solo al mediodía.'}
-                        </small>
-                      </span>
-                      <span className={styles.switch}>
-                        <input
-                          type="checkbox"
-                          checked={form.claimWindowEnabled}
-                          onChange={(event) => setForm({ ...form, claimWindowEnabled: event.target.checked })}
-                        />
-                        <span aria-hidden="true" />
-                      </span>
-                    </label>
-                    {form.claimWindowEnabled ? (
-                      <div className={`${styles.optionDetail} ${styles.sectionGrid}`}>
-                        <div className={styles.formField}>
-                          <label htmlFor="promotion-claim-from">Desde</label>
+                  <div className={styles.fieldStack}>
+                    {(selectedType === 'time_limited' || selectedType === 'attendance') && (
+                      <div className={styles.fieldRow}>
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-from" className={styles.fieldLabel}>Desde</label>
                           <input
-                            id="promotion-claim-from"
+                            id="promotion-from"
                             type="time"
                             value={form.activeFromTime}
                             onChange={(event) => setForm({ ...form, activeFromTime: event.target.value })}
                           />
                         </div>
-                        <div className={styles.formField}>
-                          <label htmlFor="promotion-claim-to">Hasta</label>
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-to" className={styles.fieldLabel}>Hasta</label>
                           <input
-                            id="promotion-claim-to"
+                            id="promotion-to"
                             type="time"
                             value={form.activeToTime}
                             onChange={(event) => setForm({ ...form, activeToTime: event.target.value })}
                           />
                         </div>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-
-                {(selectedType === 'time_limited' || selectedType === 'attendance') && (
-                  <div className={styles.sectionGrid}>
-                    <div className={styles.formField}>
-                      <label htmlFor="promotion-from">Activa desde</label>
-                      <input
-                        id="promotion-from"
-                        type="time"
-                        value={form.activeFromTime}
-                        onChange={(event) => setForm({ ...form, activeFromTime: event.target.value })}
-                      />
-                    </div>
-                    <div className={styles.formField}>
-                      <label htmlFor="promotion-to">Activa hasta</label>
-                      <input
-                        id="promotion-to"
-                        type="time"
-                        value={form.activeToTime}
-                        onChange={(event) => setForm({ ...form, activeToTime: event.target.value })}
-                      />
-                    </div>
-                    {selectedType === 'attendance' && (
-                      <div className={`${styles.formField} ${styles.formFieldWide}`}>
-                        <label htmlFor="promotion-arrival">Tiempo máximo para llegar (min)</label>
-                        <input
-                          id="promotion-arrival"
-                          type="number"
-                          min={1}
-                          value={form.arrivalWindowMinutes ?? 30}
-                          onChange={(event) => setForm({
-                            ...form,
-                            arrivalWindowMinutes: Math.max(1, Number(event.target.value) || 1),
-                          })}
-                        />
-                        <p className={styles.fieldHint}>
-                          Si el cliente no confirma su llegada a tiempo, la plaza se libera sola.
-                        </p>
+                        {selectedType === 'attendance' && (
+                          <div className={styles.field}>
+                            <label htmlFor="promotion-arrival" className={styles.fieldLabel}>Tiempo para llegar</label>
+                            <UnitInput
+                              id="promotion-arrival"
+                              unit="min"
+                              type="number"
+                              min={1}
+                              value={form.arrivalWindowMinutes ?? 30}
+                              onChange={(event) => setForm({
+                                ...form,
+                                arrivalWindowMinutes: Math.max(1, Number(event.target.value) || 1),
+                              })}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
+                    {selectedType === 'attendance' && (
+                      <p className={styles.fieldHelp}>
+                        Si el cliente no confirma su llegada a tiempo, la plaza se libera sola.
+                      </p>
+                    )}
 
-                <div className={`${styles.optionList} ${styles.optionListSpaced}`}>
-                  <label className={styles.switchRow}>
-                    <span className={styles.switchText}>
-                      <strong>Limitar plazas en total</strong>
-                      <small>
-                        {form.maxRedemptions != null
-                          ? `Al usarse las ${form.maxRedemptions} plazas saldrá como «Agotada».`
-                          : 'Sin límite: puede usarla todo el que quiera.'}
-                      </small>
-                    </span>
-                    <span className={styles.switch}>
-                      <input
-                        type="checkbox"
+                    <div className={styles.optionList}>
+                      {selectedType === 'reservation_ladder' && (
+                        <>
+                          <OptionRow
+                            title="Pedir reservas o consumos"
+                            description="Cada reserva o consumo verificado suma para el premio."
+                            checked={form.requiresReservation}
+                            onChange={(checked) => setForm({ ...form, requiresReservation: checked })}
+                          >
+                            <div className={styles.field}>
+                              <label htmlFor="promotion-reservations" className={styles.fieldLabel}>
+                                Necesarios para el premio
+                              </label>
+                              <UnitInput
+                                id="promotion-reservations"
+                                unit="visitas"
+                                type="number"
+                                min={form.requiresReservation ? 1 : 0}
+                                value={form.requiredReservations ?? ''}
+                                onChange={(event) => {
+                                  const raw = event.target.value
+                                  setForm({
+                                    ...form,
+                                    requiredReservations: raw === '' ? null : Number(raw),
+                                  })
+                                }}
+                                placeholder="3"
+                              />
+                              <p className={styles.fieldHelp}>
+                                Solo puede haber una oferta activa por cada número de visitas.
+                              </p>
+                            </div>
+                          </OptionRow>
+
+                          <OptionRow
+                            title="Canjear solo en una franja horaria"
+                            description="Las visitas cuentan siempre; el premio solo se reclama en esa franja."
+                            checked={form.claimWindowEnabled}
+                            onChange={(checked) => setForm({ ...form, claimWindowEnabled: checked })}
+                          >
+                            <div className={styles.fieldRow}>
+                              <div className={styles.field}>
+                                <label htmlFor="promotion-claim-from" className={styles.fieldLabel}>Desde</label>
+                                <input
+                                  id="promotion-claim-from"
+                                  type="time"
+                                  value={form.activeFromTime}
+                                  onChange={(event) => setForm({ ...form, activeFromTime: event.target.value })}
+                                />
+                              </div>
+                              <div className={styles.field}>
+                                <label htmlFor="promotion-claim-to" className={styles.fieldLabel}>Hasta</label>
+                                <input
+                                  id="promotion-claim-to"
+                                  type="time"
+                                  value={form.activeToTime}
+                                  onChange={(event) => setForm({ ...form, activeToTime: event.target.value })}
+                                />
+                              </div>
+                            </div>
+                          </OptionRow>
+                        </>
+                      )}
+
+                      <OptionRow
+                        title="Limitar plazas"
+                        description="Solo para los primeros clientes. Al acabarse sale como «Agotada»."
                         checked={form.maxRedemptions != null}
-                        onChange={(event) => setForm({
+                        onChange={(checked) => setForm({
                           ...form,
-                          maxRedemptions: event.target.checked ? (form.maxRedemptions ?? 10) : null,
+                          maxRedemptions: checked ? (form.maxRedemptions ?? 10) : null,
                         })}
-                      />
-                      <span aria-hidden="true" />
-                    </span>
-                  </label>
-                  {form.maxRedemptions != null ? (
-                    <div className={styles.optionDetail}>
-                      <div className={styles.formField}>
-                        <label htmlFor="promotion-max">Plazas en total</label>
-                        <input
-                          id="promotion-max"
-                          type="number"
-                          min={1}
-                          inputMode="numeric"
-                          value={form.maxRedemptions}
-                          onChange={(event) => setForm({
-                            ...form,
-                            maxRedemptions: Math.max(1, Math.floor(Number(event.target.value) || 1)),
-                          })}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
+                      >
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-max" className={styles.fieldLabel}>Plazas en total</label>
+                          <UnitInput
+                            id="promotion-max"
+                            unit="plazas"
+                            type="number"
+                            min={1}
+                            inputMode="numeric"
+                            value={form.maxRedemptions ?? ''}
+                            onChange={(event) => setForm({
+                              ...form,
+                              maxRedemptions: Math.max(1, Math.floor(Number(event.target.value) || 1)),
+                            })}
+                          />
+                        </div>
+                      </OptionRow>
 
-                  <label className={styles.switchRow}>
-                    <span className={styles.switchText}>
-                      <strong>Limitar usos por cliente</strong>
-                      <small>
-                        {form.maxClaimsPerCustomer != null
-                          ? `Cada cliente podrá usarla ${form.maxClaimsPerCustomer === 1 ? 'una sola vez' : `${form.maxClaimsPerCustomer} veces`}.`
-                          : 'Sin límite: cada cliente puede usarla siempre que vuelva.'}
-                      </small>
-                    </span>
-                    <span className={styles.switch}>
-                      <input
-                        type="checkbox"
+                      <OptionRow
+                        title="Limitar usos por cliente"
+                        description="Por ejemplo, 1 para una promoción de primera visita."
                         checked={form.maxClaimsPerCustomer != null}
-                        onChange={(event) => setForm({
+                        onChange={(checked) => setForm({
                           ...form,
-                          maxClaimsPerCustomer: event.target.checked ? (form.maxClaimsPerCustomer ?? 1) : null,
+                          maxClaimsPerCustomer: checked ? (form.maxClaimsPerCustomer ?? 1) : null,
                         })}
-                      />
-                      <span aria-hidden="true" />
-                    </span>
-                  </label>
-                  {form.maxClaimsPerCustomer != null ? (
-                    <div className={styles.optionDetail}>
-                      <div className={styles.formField}>
-                        <label htmlFor="promotion-per-customer">Veces por cliente</label>
-                        <input
-                          id="promotion-per-customer"
-                          type="number"
-                          min={1}
-                          inputMode="numeric"
-                          value={form.maxClaimsPerCustomer}
-                          onChange={(event) => setForm({
-                            ...form,
-                            maxClaimsPerCustomer: Math.max(1, Math.floor(Number(event.target.value) || 1)),
-                          })}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
+                      >
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-per-customer" className={styles.fieldLabel}>Usos por cliente</label>
+                          <UnitInput
+                            id="promotion-per-customer"
+                            unit={form.maxClaimsPerCustomer === 1 ? 'vez' : 'veces'}
+                            type="number"
+                            min={1}
+                            inputMode="numeric"
+                            value={form.maxClaimsPerCustomer ?? ''}
+                            onChange={(event) => setForm({
+                              ...form,
+                              maxClaimsPerCustomer: Math.max(1, Math.floor(Number(event.target.value) || 1)),
+                            })}
+                          />
+                        </div>
+                      </OptionRow>
 
-                  <label className={styles.switchRow}>
-                    <span className={styles.switchText}>
-                      <strong>Gasto mínimo</strong>
-                      <small>El cliente tiene que gastar al menos este importe para usarla.</small>
-                    </span>
-                    <span className={styles.switch}>
-                      <input
-                        type="checkbox"
+                      <OptionRow
+                        title="Gasto mínimo"
+                        description="El cliente tiene que gastar al menos este importe."
                         checked={form.minimumSpendEnabled}
-                        onChange={(event) => setForm({
+                        onChange={(checked) => setForm({
                           ...form,
-                          minimumSpendEnabled: event.target.checked,
-                          minimumSpendCents: event.target.checked
-                            ? (form.minimumSpendCents ?? 1200)
-                            : null,
+                          minimumSpendEnabled: checked,
+                          minimumSpendCents: checked ? (form.minimumSpendCents ?? 1200) : null,
                         })}
-                      />
-                      <span aria-hidden="true" />
-                    </span>
-                  </label>
-                  {form.minimumSpendEnabled ? (
-                    <div className={styles.optionDetail}>
-                      <div className={styles.formField}>
-                        <label htmlFor="promotion-min-spend">Importe mínimo (€)</label>
-                        <input
-                          id="promotion-min-spend"
-                          type="number"
-                          min={0}
-                          step={0.5}
-                          value={((form.minimumSpendCents ?? 0) / 100).toFixed(2)}
-                          onChange={(event) => setForm({
-                            ...form,
-                            minimumSpendCents: Math.max(
-                              0,
-                              Math.round(Number(event.target.value) * 100) || 0,
-                            ),
-                          })}
-                        />
-                      </div>
+                      >
+                        <div className={styles.field}>
+                          <label htmlFor="promotion-min-spend" className={styles.fieldLabel}>Importe mínimo</label>
+                          <UnitInput
+                            id="promotion-min-spend"
+                            unit="€"
+                            type="number"
+                            min={0}
+                            step={0.5}
+                            value={((form.minimumSpendCents ?? 0) / 100).toFixed(2)}
+                            onChange={(event) => setForm({
+                              ...form,
+                              minimumSpendCents: Math.max(0, Math.round(Number(event.target.value) * 100) || 0),
+                            })}
+                          />
+                        </div>
+                      </OptionRow>
                     </div>
-                  ) : null}
-                </div>
-
-                <div className={styles.rulesPreview} aria-live="polite">
-                  <p className={styles.rulesPreviewTitle}>Así lo verá el cliente</p>
-                  <div className={styles.ruleChips}>
-                    {describePromotionRules({ ...form, type: selectedType }).map((rule) => (
-                      <em key={rule}>{rule}</em>
-                    ))}
                   </div>
-                  <p className={styles.rulesPreviewHint}>
-                    Si no puede usarla en ese momento (fuera de horario, sin plazas o sin usos), la verá
-                    con un candado y el motivo.
-                  </p>
+                </section>
+              </div>
+
+              <aside className={styles.previewPane} aria-label="Vista previa">
+                <p className={styles.previewLabel}>Así lo verá el cliente</p>
+                <div className={styles.previewCard}>
+                  <div className={styles.previewMedia}>
+                    <PromotionPhotoCollage
+                      productRefs={previewProductRefs}
+                      fallbackPhotoUrl={form.photoUrl}
+                      size="preview"
+                      alt={form.title}
+                    />
+                    <span className={styles.previewBadge}>{formatPromotionOfferSummary(form.offer)}</span>
+                  </div>
+                  <div className={styles.previewBody}>
+                    <strong>{form.title.trim() || 'Título de la promoción'}</strong>
+                    <p>{form.description.trim() || 'Aquí saldrá la descripción.'}</p>
+                    <span className={styles.ruleChips}>
+                      {previewRules.map((rule) => (
+                        <em key={rule}>{rule}</em>
+                      ))}
+                    </span>
+                  </div>
                 </div>
-              </section>
+                <p className={styles.previewHint}>
+                  Si no puede usarla en ese momento (fuera de horario, sin plazas o sin usos), la verá con
+                  un candado y el motivo.
+                </p>
+
+                <div className={styles.qrBlock}>
+                  <div className={styles.qrHead}>
+                    <QrCode size={16} aria-hidden="true" />
+                    <span>QR de la promoción</span>
+                  </div>
+                  {qrPreviewUrl ? (
+                    <img src={qrPreviewUrl} alt="QR de la promoción" className={styles.promoQrPreview} />
+                  ) : (
+                    <p className={styles.previewHint}>
+                      {editingId ? 'Generando QR…' : 'Guarda la promoción para crear su QR.'}
+                    </p>
+                  )}
+                  <div className={styles.qrActions}>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => setQrCustomizerOpen(true)}
+                      disabled={!editingId || !promotionLandingUrl}
+                    >
+                      Personalizar QR
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => setScanPreviewOpen(true)}
+                      disabled={!scanPreviewPromotion}
+                    >
+                      <Eye size={15} aria-hidden="true" />
+                      Ver al escanear
+                    </button>
+                  </div>
+                </div>
+              </aside>
             </div>
 
             <footer className={styles.drawerFooter}>
@@ -1413,7 +1524,10 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                       />
                       <span aria-hidden="true" />
                     </span>
-                    <span>{form.active ? 'Activa' : 'Pausada'}</span>
+                    <span className={styles.activeSwitchText}>
+                      <strong>{form.active ? 'Activa' : 'Pausada'}</strong>
+                      <small>{form.active ? 'Visible para tus clientes' : 'Oculta hasta que la actives'}</small>
+                    </span>
                   </label>
                   <div className={styles.drawerFooterActions}>
                     {editingId && (
@@ -1427,11 +1541,12 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                         }}
                         disabled={saving}
                       >
+                        <Trash2 size={15} aria-hidden="true" />
                         Eliminar
                       </button>
                     )}
                     <button type="button" className={styles.secondaryButton} onClick={closeDrawer}>
-                      Cerrar
+                      Cancelar
                     </button>
                     <button
                       type="button"
@@ -1484,6 +1599,56 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
       ) : null}
     </div>
   )
+}
+
+/** Campo numérico con su unidad pegada a la derecha (€, %, min, plazas…). */
+function UnitInput({ unit, ...props }: InputHTMLAttributes<HTMLInputElement> & { unit: string }) {
+  return (
+    <span className={styles.inputGroup}>
+      <input {...props} />
+      <span className={styles.inputUnit} aria-hidden="true">{unit}</span>
+    </span>
+  )
+}
+
+/** Fila de opción con interruptor; al activarla despliega sus campos. */
+function OptionRow({
+  title,
+  description,
+  checked,
+  onChange,
+  children,
+}: {
+  title: string
+  description: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+  children?: ReactNode
+}) {
+  return (
+    <div className={`${styles.optionRow} ${checked ? styles.optionRowOn : ''}`}>
+      <label className={styles.switchRow}>
+        <span className={styles.switchText}>
+          <strong>{title}</strong>
+          <small>{description}</small>
+        </span>
+        <span className={styles.switch}>
+          <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+          <span aria-hidden="true" />
+        </span>
+      </label>
+      {checked && children ? <div className={styles.optionDetail}>{children}</div> : null}
+    </div>
+  )
+}
+
+const OFFER_KIND_ICONS: Record<PromotionOfferKind, LucideIcon> = {
+  bundle: Layers,
+  discount: Percent,
+  fixed_price: Euro,
+  second_unit: Tags,
+  free_item: Gift,
+  custom: Sparkles,
 }
 
 export default CompanyPromotions
