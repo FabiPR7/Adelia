@@ -225,7 +225,10 @@ function PublicBookingPage() {
     return () => {
       cancelled = true
     }
-  }, [step, company, slug, pax, useDepositPass, selectedDate, selectedTime])
+    // Solo lo que afecta a la fianza: con el objeto company entero se pedía dos veces
+    // (al recargar sus datos) y el formulario se quedaba con un pago ya anulado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, company?.id, company?.depositEnabled, company?.depositMinPax, company?.depositPerGuestCents, slug, pax, useDepositPass, selectedDate, selectedTime])
 
   useEffect(() => {
     let cancelled = false

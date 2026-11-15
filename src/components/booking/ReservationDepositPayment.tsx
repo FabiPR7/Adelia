@@ -59,7 +59,7 @@ function LockIcon() {
 const DepositPaymentFields = forwardRef<
   ReservationDepositPaymentHandle,
   Omit<ReservationDepositPaymentProps, 'clientSecret' | 'stripeAccountId'>
->(function DepositPaymentFields({ amountCents, pax, perGuestCents, cancellationHours, onReadyChange }, ref) {
+>(function DepositPaymentFields({ amountCents, pax, perGuestCents, cancellationHours, onReadyChange, onError }, ref) {
   const stripe = useStripe()
   const elements = useElements()
 
@@ -69,8 +69,8 @@ const DepositPaymentFields = forwardRef<
 
   useImperativeHandle(ref, () => ({
     confirmDeposit: async () => {
-      if (!stripe || !elements) {
-        throw new Error('El formulario de pago aún no está listo.')
+      if (!stripe || !elements || !elements.getElement('payment')) {
+        throw new Error('El formulario de pago aún no está listo. Espera un momento o recarga la página.')
       }
 
       const result = await stripe.confirmPayment({
@@ -119,6 +119,13 @@ const DepositPaymentFields = forwardRef<
 
         <div className={styles.paymentFields}>
           <PaymentElement
+            // Si Stripe no puede cargar el formulario, se dice (antes quedaba vacío y el
+            // botón fallaba con un error técnico en inglés).
+            onLoadError={() => {
+              onReadyChange?.(false)
+              onError?.('No se pudo cargar el pago de la fianza. Recarga la página e inténtalo de nuevo.')
+            }}
+            onReady={() => onError?.(null)}
             options={{
               layout: 'tabs',
               wallets: {
@@ -229,7 +236,8 @@ const ReservationDepositPayment = forwardRef<
   }
 
   return (
-    <Elements stripe={stripePromise} options={options}>
+    // key: si cambia la fianza (nuevo pago), el formulario se monta de nuevo con ella.
+    <Elements key={clientSecret} stripe={stripePromise} options={options}>
       <DepositPaymentFields
         ref={ref}
         amountCents={amountCents}
