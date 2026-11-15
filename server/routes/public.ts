@@ -24,7 +24,7 @@ import { cancelInvitesForReservation, createReservationInvites } from '../reserv
 import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../reservations/bookReservation.ts'
 import { readCompanyOps } from '../data/companyOps.ts'
 import { madridDayRange } from '../utils/madridDateTime.ts'
-import { clampEnabledMaps, parseStoredPlanId, planAllowsDeposits } from '../company/planLimits.ts'
+import { clampEnabledMaps, parseStoredPlanId, planAllowsDeposits, planMaxTables } from '../company/planLimits.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { consumeInventoryItem, numberRecord } from '../gamification/inventory.ts'
 import { DEPOSIT_PASS_ITEM_ID, EXTRA_PAX_ITEM_ID } from '../gamification/inventoryItems.ts'
@@ -125,6 +125,30 @@ function stringList(value: unknown, max: number) {
     return [] as string[]
   }
   return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, max)
+}
+
+/**
+ * Mesas reservables, en el orden del local. Si tiene más de las que permite su
+ * plan (por ejemplo, tras bajar de plan), solo se ofrecen las primeras; el resto
+ * se conserva por si vuelve a subir.
+ */
+async function loadBookableTables(companyId: string, planIdRaw: unknown) {
+  const snapshot = await adminDb
+    .collection('tables')
+    .where('companyId', '==', companyId)
+    .limit(80)
+    .get()
+  const tables = snapshot.docs
+    .map((item) => ({
+      id: item.id,
+      name: item.data().name as string,
+      capacity: (item.data().capacity as number) ?? 2,
+      sortOrder: (item.data().sortOrder as number) ?? 0,
+      floorPlanId: typeof item.data().floorPlanId === 'string' ? item.data().floorPlanId : '',
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'))
+  const max = planMaxTables(parseStoredPlanId(planIdRaw))
+  return max == null ? tables : tables.slice(0, max)
 }
 
 function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
@@ -531,21 +555,7 @@ router.get('/:slug', async (req: Request<Record<string, string>>, res: Response)
       return
     }
 
-    const tablesSnapshot = await adminDb
-      .collection('tables')
-      .where('companyId', '==', company.id)
-      .limit(80)
-      .get()
-
-    const tables = tablesSnapshot.docs
-      .map((item) => ({
-        id: item.id,
-        name: item.data().name as string,
-        capacity: (item.data().capacity as number) ?? 2,
-        sortOrder: (item.data().sortOrder as number) ?? 0,
-        floorPlanId: typeof item.data().floorPlanId === 'string' ? item.data().floorPlanId : '',
-      }))
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'))
+    const tables = await loadBookableTables(company.id, company.planId)
 
     allowPublicCache(res, 60)
     res.json({ company, tables })
@@ -724,6 +734,11 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
 
     if (!tableSnap.exists || tableSnap.data()?.companyId !== company.id) {
       res.status(400).json({ error: 'Mesa no válida.' })
+      return
+    }
+    // Solo las mesas que entran en el plan del local se pueden reservar.
+    if (!(await loadBookableTables(company.id, company.planId)).some((item) => item.id === table)) {
+      res.status(400).json({ error: 'Esta mesa no está disponible para reservar. Elige otra.' })
       return
     }
 

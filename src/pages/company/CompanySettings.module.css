@@ -1634,3 +1634,15 @@
     padding: 0.75rem 1rem;
   }
 }
+
+/* Más mesas de las que permite el plan (p. ej. tras bajar de plan). */
+.planOverLimit {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(180, 120, 20, 0.3);
+  border-radius: var(--radius-sm);
+  background: #fff7e6;
+  color: #7a4b00;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}

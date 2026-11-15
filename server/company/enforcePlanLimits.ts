@@ -62,27 +62,9 @@ export async function applyPlanFeatureLimits(companyId: string, planId: StoredPl
     companyRef.collection('menuBoards').limit(50).get(),
   ])
 
-  if (planId === 'free') {
-    const batch = adminDb.batch()
-    let writes = 0
-    for (const docSnap of promosSnap.docs) {
-      if (docSnap.data().active === true) {
-        batch.update(docSnap.ref, { active: false, updatedAt: FieldValue.serverTimestamp() })
-        writes += 1
-      }
-    }
-    for (const docSnap of boardsSnap.docs) {
-      if (docSnap.data().active !== false) {
-        batch.update(docSnap.ref, { active: false, updatedAt: FieldValue.serverTimestamp() })
-        writes += 1
-      }
-    }
-    if (writes > 0) {
-      await batch.commit()
-    }
-    return
-  }
-
+  // Mismo criterio para todos los planes (también Mesa): se quedan activas las que
+  // caben (las más antiguas) y el resto se pausa, sin borrar nada. Antes, al bajar
+  // a Mesa se apagaban todas las cartas aunque Mesa permite una.
   const promoWrites: FirebaseFirestore.DocumentReference[] = []
   const keptPromoIds = new Set<string>()
   for (const type of planPromoTypes()) {

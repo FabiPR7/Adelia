@@ -115,3 +115,8 @@ export function clampEnabledMaps<T extends { enabled?: unknown }>(plans: T[], pl
     return kept > max ? { ...plan, enabled: false } : plan
   })
 }
+
+/** Mesas reservables del plan (`null` = sin límite). Las que sobran se guardan pero no se reservan. */
+export function planMaxTables(planId: StoredPlanId): number | null {
+  return capabilityMax(planId, 'tables')
+}

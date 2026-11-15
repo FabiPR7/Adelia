@@ -1722,6 +1722,13 @@ const CompanySettings = forwardRef(function CompanySettings(
                 ))
               )}
             </div>
+            {!demo && typeof maxTables === 'number' && maxTables > 0 && tables.length > maxTables ? (
+              <p className={styles.planOverLimit} role="status">
+                Tu plan permite {maxTables} mesas reservables: los clientes solo pueden reservar las {maxTables} primeras
+                de la lista. Las otras {tables.length - maxTables} se guardan, pero no salen al reservar. Pasa
+                a {requiredPlanName('tables', planRequiredForCount('tables', tables.length))} o elimina las que no uses.
+              </p>
+            ) : null}
             {demo ? null : (
             <LockedControl
               locked={!canAddTable}
