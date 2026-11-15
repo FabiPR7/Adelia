@@ -6,6 +6,7 @@ import { getCompanyReviews } from '../../services/companyReviews'
 import type { CompanyTab, Reservation, RestaurantTable } from '../../types'
 import type { CompanyPromotion } from '../../types/company'
 import type { CompanyReview } from '../../types/review'
+import { cleanReviewExcerpt } from '../../utils/reviewCommentTags'
 import styles from './CompanyHome.module.css'
 
 interface CompanyHomeProps {
@@ -500,7 +501,8 @@ function CompanyHome({ companyId, onOpenTab }: CompanyHomeProps) {
                       <span className={styles.starsOff}>{'★'.repeat(5 - Math.round(review.rating))}</span>
                     </span>
                   </div>
-                  {review.comment ? <p className={styles.reviewText}>{review.comment}</p> : null}
+                  {/* Los productos y promos etiquetados vienen como [[p|…|nombre]]: se muestra solo el nombre. */}
+                  {review.comment ? <p className={styles.reviewText}>{cleanReviewExcerpt(review.comment)}</p> : null}
                   {review.ownerReply ? (
                     <span className={styles.replied}>Respondida</span>
                   ) : (

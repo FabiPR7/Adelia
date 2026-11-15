@@ -4,6 +4,7 @@ import ReviewCommentBody from '../../components/ReviewCommentBody'
 import { useAuth } from '../../context/AuthContext'
 import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import { getCompanyReviews, submitCompanyReviewReply } from '../../services/companyReviews'
+import { cleanReviewExcerpt } from '../../utils/reviewCommentTags'
 import { getFirestoreErrorMessage } from '../../services/firestore'
 import type { AdelinaSlotState, CompanyReview, CompanyReviewOwnerReply } from '../../types/review'
 import { computeAverageReviewRating, getAdelinaSlotStates, ADELINA_RATING_SLOTS, MAX_REVIEW_REPLY_LENGTH } from '../../types/review'
@@ -159,7 +160,7 @@ function ReviewCard({ review, companyId, companyName, companySlug, onReplySaved 
           className={styles.reviewText}
         />
       ) : (
-        <p className={styles.reviewText}>{review.comment}</p>
+        <p className={styles.reviewText}>{cleanReviewExcerpt(review.comment)}</p>
       )}
 
       {review.mediaItems.length > 0 ? (
