@@ -5,6 +5,7 @@ import { COLLECTIONS } from '../data/collections.ts'
 import { readCompanyGamificationState } from '../gamification/companyProgress.ts'
 import { getCompanyLevelForXp } from '../gamification/companyCatalog.ts'
 import { companyGamificationRef } from '../notifications/companyNotifications.ts'
+import { computeLeague, currentMonthKey, isMonthKey, prestigeForLevel, trophiesForCompany } from '../league/monthlyLeague.ts'
 import {
   companyGamificationPayload,
   syncCompanyGamificationDoc,
@@ -134,6 +135,56 @@ router.get('/gamification/ranking', async (req: Request, res: Response) => {
       return
     }
     res.status(message.includes('sesión') ? 401 : 500).json({ error: message })
+  }
+})
+
+
+/**
+ * Liga Adelia del local: sus puestos en las 4 clasificaciones del mes (su ciudad
+ * y España), el top 10 de cada una, su nivel con el rango de prestigio y sus trofeos.
+ */
+router.get('/league', async (req: Request, res: Response) => {
+  try {
+    const account = await verifyCompanyAccount(req)
+    const month = isMonthKey(req.query.month) ? req.query.month : currentMonthKey()
+    const indexSnap = await adminDb.collection('restaurantIndex').where('companyId', '==', account.companyId).limit(1).get()
+    const indexData = indexSnap.docs[0]?.data() ?? {}
+    const cityKey = String(indexData.municipalityKey ?? indexData.municipality ?? '').toLowerCase()
+    const cityName = String(indexData.municipality ?? '')
+    const [cityBoards, spainBoards, statsSnap, trophies] = await Promise.all([
+      cityKey ? computeLeague(month, cityKey) : Promise.resolve(null),
+      computeLeague(month, null),
+      companyGamificationRef(account.companyId).get(),
+      trophiesForCompany(account.companyId).catch(() => []),
+    ])
+    const shape = (boards: Awaited<ReturnType<typeof computeLeague>> | null) => boards?.map((board) => {
+      const meIndex = board.entries.findIndex((entry) => entry.companyId === account.companyId)
+      const me = meIndex >= 0 ? board.entries[meIndex] : null
+      const ahead = meIndex > 0 ? board.entries[meIndex - 1] : null
+      return {
+        id: board.id,
+        name: board.name,
+        rule: board.rule,
+        unit: board.unit,
+        total: board.entries.length,
+        top: board.entries.slice(0, 10).map((entry) => ({ ...entry, isMe: entry.companyId === account.companyId })),
+        me: me ? { rank: me.rank, display: me.display, score: me.score } : null,
+        ahead: ahead && me ? { name: ahead.name, rank: ahead.rank, gap: Math.max(0, Math.ceil((ahead.score - me.score) * 100) / 100) } : null,
+      }
+    }) ?? null
+    const xp = Number(statsSnap.data()?.xp) || 0
+    const level = getCompanyLevelForXp(xp)
+    res.json({
+      month,
+      currentMonth: currentMonthKey(),
+      city: cityKey ? { name: cityName, boards: shape(cityBoards) } : null,
+      spain: { boards: shape(spainBoards) },
+      level: { level: level.level, title: level.title, xp, prestige: prestigeForLevel(level.level) },
+      trophies,
+    })
+  } catch (error) {
+    console.error('company league error:', error)
+    res.status(500).json({ error: 'No se pudo cargar la liga.' })
   }
 })
 

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import { listPublicDiscoveryRestaurants, type DiscoveryQuery } from '../data/restaurantIndex.ts'
 import { allowPublicCache } from '../security/httpCache.ts'
+import { computeLeague, currentMonthKey, leagueRestaurants, prestigeForLevel, type LeagueEntry } from '../league/monthlyLeague.ts'
 
 const router = Router()
 
@@ -46,6 +47,45 @@ router.get('/', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Public discovery error:', error)
     res.status(500).json({ error: 'No se pudo cargar el listado de restaurantes.' })
+  }
+})
+
+
+/**
+ * «Lo mejor del mes» para los clientes: podio de cada liga en su ciudad (o en
+ * España si en su ciudad aún no hay datos), la revelación y las casas ilustres.
+ */
+router.get('/league', async (req: Request, res: Response) => {
+  try {
+    const month = currentMonthKey()
+    const cityKey = typeof req.query.city === 'string' ? req.query.city.trim().toLowerCase().slice(0, 80) : ''
+    let boards = cityKey ? await computeLeague(month, cityKey) : null
+    let scope: 'city' | 'spain' = 'city'
+    if (!boards || boards.every((board) => board.entries.length === 0)) {
+      boards = await computeLeague(month, null)
+      scope = 'spain'
+    }
+    const strip = (entry: LeagueEntry) => ({
+      companyId: entry.companyId, name: entry.name, slug: entry.slug, municipality: entry.municipality,
+      photoUrl: entry.photoUrl, level: entry.level, levelTitle: entry.levelTitle,
+      prestige: prestigeForLevel(entry.level), rank: entry.rank, display: entry.display,
+    })
+    const all = await leagueRestaurants(month, scope === 'city' ? cityKey : null)
+    const illustrious = all
+      .filter((entry) => entry.level >= 7)
+      .sort((a, b) => b.level - a.level)
+      .slice(0, 8)
+      .map((restaurant) => ({ ...strip({ ...restaurant, rank: 0, score: 0, display: '', noShows: 0 }) }))
+    allowPublicCache(res, 300)
+    res.json({
+      month,
+      scope,
+      boards: boards.map((board) => ({ id: board.id, name: board.name, unit: board.unit, podium: board.entries.slice(0, 3).map(strip) })),
+      illustrious,
+    })
+  } catch (error) {
+    console.error('public league error:', error)
+    res.status(500).json({ error: 'No se pudo cargar.' })
   }
 })
 

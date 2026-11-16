@@ -1,0 +1,300 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin: 1.5rem 0;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.kicker {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-ink, #a63c18);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-brown);
+}
+
+.title::first-letter {
+  text-transform: uppercase;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabOn,
+.tabOff {
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.tabOn {
+  border: 1px solid var(--color-brown);
+  background: var(--color-brown);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.tabOff {
+  border: 1px solid var(--color-border);
+  background: #ffffff;
+  color: var(--color-brown);
+}
+
+.tabOn:focus-visible,
+.tabOff:focus-visible,
+.step:focus-visible,
+.rising:focus-visible,
+.house:focus-visible {
+  outline: 2px solid var(--color-accent-strong, #c2461f);
+  outline-offset: 2px;
+}
+
+.podium {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  align-items: end;
+  max-width: 560px;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.4rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: #ffffff;
+  color: var(--color-brown);
+  text-decoration: none;
+  text-align: center;
+  transition: transform 0.15s ease;
+}
+
+.step:hover {
+  transform: translateY(-2px);
+}
+
+.photo,
+.risingPhoto,
+.housePhoto {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #c9a57a, #8b6b4a);
+  background-position: center;
+  background-size: cover;
+}
+
+.step1 .photo {
+  height: 120px;
+}
+
+.step2 .photo {
+  height: 92px;
+}
+
+.step3 .photo {
+  height: 74px;
+}
+
+.step1 {
+  border-color: #e8d6a8;
+  background: #fffdf7;
+}
+
+.medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-top: -22px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.medal1 {
+  background: #f2c46b;
+  color: #5c3a00;
+}
+
+.medal2 {
+  background: #d9dee6;
+  color: #3f4b5c;
+}
+
+.medal3 {
+  background: #e8c7ae;
+  color: #6b3416;
+}
+
+.name {
+  font-weight: 700;
+  font-size: 0.875rem;
+  line-height: 1.2;
+}
+
+.meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.rising {
+  display: flex;
+  gap: 0.9rem;
+  max-width: 560px;
+  padding: 0.85rem;
+  border-radius: 18px;
+  background: var(--night-bg, #241c15);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.risingPhoto {
+  flex: 0 0 84px;
+  height: 84px;
+  border-radius: 14px;
+}
+
+.risingText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.risingBadge {
+  align-self: flex-start;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: #f2c46b;
+  color: #4a3000;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.risingName {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.risingMeta {
+  font-size: 0.8125rem;
+  color: #d9cfc4;
+}
+
+.illustrious {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.illustriousHead h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.illustriousHead span {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.illustriousRow {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.house {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 0 0 150px;
+  padding: 0.5rem;
+  border: 1px solid #e8d6a8;
+  border-radius: 16px;
+  background: #fffdf7;
+  color: var(--color-brown);
+  text-decoration: none;
+}
+
+.housePhoto {
+  height: 90px;
+}
+
+.levelChip {
+  align-self: flex-start;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.prestige_bronze {
+  background: #f3e3d3;
+  color: #7a3f1d;
+}
+
+.prestige_silver {
+  background: #e9edf2;
+  color: #3f4b5c;
+}
+
+.prestige_gold {
+  background: #fff1d2;
+  color: #6b4a00;
+}
+
+.prestige_diamond {
+  background: #e3f0f4;
+  color: #0e5566;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step,
+  .tabOn,
+  .tabOff {
+    transition: none;
+  }
+}

@@ -33,6 +33,7 @@ import {
 } from '../../utils/publicDiscovery'
 import { getLocationErrorMessage, requestUserLocation } from '../../utils/requestUserLocation'
 import type { DiscoveryVenueKind } from '../../data/companyProfileFacilities'
+import BestOfMonthSection from '../../components/discovery/BestOfMonthSection'
 import styles from './CustomerExploreTab.module.css'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
@@ -422,6 +423,8 @@ function CustomerExploreTab() {
                 />
               </div>
             </section>
+
+            <BestOfMonthSection city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''} />
 
             {secondary.length > 0 ? (
               <section className={styles.carouselSection}>

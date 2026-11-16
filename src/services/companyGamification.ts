@@ -144,3 +144,72 @@ export async function fetchCompanyRanking(): Promise<{
   }
   return companyApi('/gamification/ranking')
 }
+
+/* ── Liga Adelia (clasificaciones del mes) ───────────────────────────── */
+
+export type LeagueId = 'reservations' | 'promotions' | 'rating' | 'rising'
+
+export interface LeagueRow {
+  companyId: string
+  name: string
+  slug: string
+  municipality: string
+  photoUrl: string
+  level: number
+  levelTitle: string
+  rank: number
+  score: number
+  display: string
+  isMe: boolean
+}
+
+export interface LeagueBoardView {
+  id: LeagueId
+  name: string
+  rule: string
+  unit: string
+  total: number
+  top: LeagueRow[]
+  me: { rank: number; display: string; score: number } | null
+  ahead: { name: string; rank: number; gap: number } | null
+}
+
+export interface CompanyLeagueView {
+  month: string
+  currentMonth: string
+  city: { name: string; boards: LeagueBoardView[] | null } | null
+  spain: { boards: LeagueBoardView[] | null }
+  level: { level: number; title: string; xp: number; prestige: { id: 'bronze' | 'silver' | 'gold' | 'diamond'; label: string } }
+  trophies: Array<{ month: string; league: LeagueId; rank: number; scope: 'city' | 'spain' }>
+}
+
+function demoLeague(): CompanyLeagueView {
+  const row = (rank: number, name: string, display: string, level: number, isMe = false): LeagueRow => ({
+    companyId: name, name, slug: '', municipality: 'Madrid', photoUrl: '', level, levelTitle: '', rank, score: Number(display) || 0, display, isMe,
+  })
+  const board = (id: LeagueId, name: string, unit: string, rule: string, rows: LeagueRow[], meRank: number): LeagueBoardView => ({
+    id, name, unit, rule, total: rows.length, top: rows,
+    me: { rank: meRank, display: rows[meRank - 1]?.display ?? '', score: 0 },
+    ahead: meRank > 1 ? { name: rows[meRank - 2].name, rank: meRank - 1, gap: 6 } : null,
+  })
+  const boards = [
+    board('reservations', 'Más reservas', 'asistencias', 'Reservas marcadas como «asistió» este mes', [row(1, 'Sushi Ginza', '100', 7), row(2, 'Tu restaurante', '94', 6, true), row(3, 'Megami Ramen', '88', 5)], 2),
+    board('promotions', 'Más promos', 'premios', 'Premios canjeados con PIN este mes', [row(1, 'Open Café', '31', 5), row(2, 'Logic', '25', 3), row(3, 'Tu restaurante', '18', 6, true)], 3),
+    board('rating', 'Mejor valorado', 'puntos', 'Media de las reseñas del mes por cuántas hay (mínimo 5)', [row(1, 'La Cumbre', '4,8 ★ · 21', 9), row(2, 'Tu restaurante', '4,6 ★ · 12', 6, true)], 2),
+    board('rising', 'Revelación', 'asistencias', 'Lo que más crece frente al mes anterior, o el mejor local nuevo', [row(1, 'Wok Premium', '+240 %', 2)], 0),
+  ]
+  boards[3].me = null
+  return {
+    month: '2026-11', currentMonth: '2026-11',
+    city: { name: 'Madrid', boards }, spain: { boards },
+    level: { level: 6, title: 'Estrella de la Villa', xp: 3926, prestige: { id: 'silver', label: 'Plata' } },
+    trophies: [{ month: '2026-10', league: 'reservations', rank: 1, scope: 'city' }],
+  }
+}
+
+export async function fetchCompanyLeague(month?: string): Promise<CompanyLeagueView> {
+  if (isCompanyDemoSession()) {
+    return demoLeague()
+  }
+  return companyApi(`/league${month ? `?month=${encodeURIComponent(month)}` : ''}`)
+}
