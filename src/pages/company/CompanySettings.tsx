@@ -41,7 +41,7 @@ import {
   updateCompanyFloorPlans,
   updateCompanySettings,
 } from '../../services/firestore'
-import type { Company, CompanySettingsPayload, SettingsSection, TableInput } from '../../types'
+import type { Company, CompanySchedule, CompanySettingsPayload, DaySchedule, SchedulePeriod, SettingsSection, TableInput } from '../../types'
 import {
   createNamedFloorPlan,
   defaultFloorPlan,
@@ -55,11 +55,11 @@ import {
 } from '../../types/company'
 import { copyTextToClipboard, defaultSchedule, getPublicBookingUrl, selectInputText, slugify } from '../../utils/helpers'
 import {
-  getDaySchedulePeriodCount,
   getDaySchedulePeriods,
   MAX_SCHEDULE_PERIODS,
   normalizeCompanySchedule,
   resizeDaySchedulePeriods,
+  syncDayScheduleFields,
   updateDaySchedulePeriod,
 } from '../../utils/schedule'
 import { toGeoCoordinates } from '../../utils/mapCoordinates'
@@ -95,6 +95,17 @@ import {
   Phone,
   QrCode,
   Store,
+  CalendarCheck,
+  CalendarClock,
+  CalendarDays,
+  CopyCheck,
+  DoorOpen,
+  Plus,
+  ShieldCheck,
+  Timer,
+  Wallet,
+  X,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   DEFAULT_DEPOSIT_CANCELLATION_HOURS,
@@ -110,6 +121,7 @@ import {
   COMPANY_RESERVATION_MODE_OPTIONS,
   parseCompanyReservationMode,
   reservationModeHint,
+  type CompanyReservationMode,
 } from '../../data/companyReservationMode'
 import {
   applySectionSnapshot,
@@ -269,12 +281,110 @@ function emptyTable(index: number, floorPlanId = ''): TableInput {
   }
 }
 
+const RESERVATION_MODE_META: Record<
+  CompanyReservationMode,
+  { title: string; short: string; icon: LucideIcon }
+> = {
+  required: { title: 'Solo con reserva', short: 'Obligatorias', icon: CalendarCheck },
+  optional: { title: 'Con o sin reserva', short: 'Opcionales', icon: CalendarClock },
+  none: { title: 'Sin reservas', short: 'Desactivadas', icon: DoorOpen },
+}
+
+const DURATION_PRESETS = [60, 90, 120, 150, 180]
+
+function formatMinutesShort(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  if (hours === 0) {
+    return `${rest} min`
+  }
+  return rest ? `${hours} h ${rest}` : `${hours} h`
+}
+
+function formatMinutesLong(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  if (hours === 0) {
+    return `${rest} min`
+  }
+  return rest ? `${hours} h ${rest} min` : `${hours} h`
+}
+
+function formatEuroCents(cents: number): string {
+  return (cents / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
+}
+
+function timeToDayMinutes(time: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time)
+  if (!match) {
+    return null
+  }
+  return Number(match[1]) * 60 + Number(match[2])
+}
+
+/** Posición de un tramo en la barra de 24 h (en %), o null si está incompleto. */
+function periodRange(period: SchedulePeriod): { left: number; width: number } | null {
+  const open = timeToDayMinutes(period.open)
+  const close = timeToDayMinutes(period.close)
+  if (open === null || close === null || close <= open) {
+    return null
+  }
+  return { left: (open / 1440) * 100, width: ((close - open) / 1440) * 100 }
+}
+
+/** Añade un tramo. Si el día va de mediodía a noche, lo parte en comidas y cenas. */
+function addSchedulePeriod(day: DaySchedule): DaySchedule {
+  const periods = getDaySchedulePeriods(day)
+  if (periods.length === 1) {
+    const [only] = periods
+    if (only.open && only.close && only.open < '16:00' && only.close > '20:00') {
+      return syncDayScheduleFields({
+        active: day.active,
+        periods: [
+          { open: only.open, close: '16:00' },
+          { open: '20:00', close: only.close },
+        ],
+      })
+    }
+  }
+  return resizeDaySchedulePeriods(day, periods.length + 1)
+}
+
+function computeScheduleSummary(schedule: CompanySchedule) {
+  let openDays = 0
+  let weeklyMinutes = 0
+  for (const key of SCHEDULE_DAY_KEYS) {
+    const day = schedule[key]
+    if (!day?.active) {
+      continue
+    }
+    openDays += 1
+    for (const period of getDaySchedulePeriods(day)) {
+      const open = timeToDayMinutes(period.open)
+      const close = timeToDayMinutes(period.close)
+      if (open !== null && close !== null && close > open) {
+        weeklyMinutes += close - open
+      }
+    }
+  }
+  return { openDays, weeklyMinutes }
+}
+
 const CompanySettings = forwardRef(function CompanySettings(
   { activeSection }: CompanySettingsProps,
   ref: Ref<CompanySettingsHandle>,
 ) {
   const { company, refreshCompany } = useAuth()
   const demo = useCompanyDemo()
+  const [copiedDay, setCopiedDay] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!copiedDay) {
+      return undefined
+    }
+    const timer = window.setTimeout(() => setCopiedDay(null), 1800)
+    return () => window.clearTimeout(timer)
+  }, [copiedDay])
   const planId = parseCompanyPlanId(company?.planId)
   const allowsDeposits = planAllowsDeposits(planId)
   const allowsFloorPlan = planAllowsFloorPlan(planId)
@@ -1634,148 +1744,233 @@ const CompanySettings = forwardRef(function CompanySettings(
           subtitle="Cómo aceptas reservas, cuánto dura cada una, la fianza y los días que abres."
         />
 
-        <FormCard
-          title="Cómo se reserva"
-          description={reservationModeHint(form.reservationMode)}
-        >
-          <fieldset className={styles.reservationMode}>
-            <legend className={styles.srOnly}>Modo de reserva</legend>
-            <div className={styles.reservationModeOptions} role="radiogroup" aria-label="Modo de reserva">
-              {COMPANY_RESERVATION_MODE_OPTIONS.map((option) => {
-                const selected = form.reservationMode === option.id
-                return (
-                  <label
-                    key={option.id}
-                    className={`${styles.reservationModeOption} ${selected ? styles.reservationModeOptionOn : ''}`}
-                  >
-                    <input
-                      type="radio"
-                      name="reservation-mode"
-                      value={option.id}
-                      checked={selected}
-                      onChange={() => setForm({ ...form, reservationMode: option.id })}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </fieldset>
+        <div className={styles.tableKpis}>
+          <div className={styles.tableKpi}>
+            <span className={styles.tableKpiTop}>
+              Reservas
+              <span className={styles.tableKpiIcon} aria-hidden="true"><CalendarCheck size={15} /></span>
+            </span>
+            <strong>{RESERVATION_MODE_META[form.reservationMode].short}</strong>
+            <span className={styles.tableKpiHint}>{reservationModeHint(form.reservationMode)}</span>
+          </div>
+          <div className={styles.tableKpi}>
+            <span className={styles.tableKpiTop}>
+              Duración
+              <span className={styles.tableKpiIcon} aria-hidden="true"><Timer size={15} /></span>
+            </span>
+            <strong>{form.reservationMode === 'none' ? '—' : formatMinutesShort(form.timeSlotMinutes ?? 0)}</strong>
+            <span className={styles.tableKpiHint}>
+              {form.reservationMode === 'none' ? 'No aceptas reservas' : 'La mesa queda ocupada ese tiempo'}
+            </span>
+          </div>
+          <div className={styles.tableKpi}>
+            <span className={styles.tableKpiTop}>
+              Abres
+              <span className={styles.tableKpiIcon} aria-hidden="true"><CalendarDays size={15} /></span>
+            </span>
+            <strong>
+              {computeScheduleSummary(form.schedule).openDays}
+              <small>de 7 días</small>
+            </strong>
+            <span className={styles.tableKpiHint}>
+              {computeScheduleSummary(form.schedule).weeklyMinutes > 0
+                ? `${formatMinutesLong(computeScheduleSummary(form.schedule).weeklyMinutes)} a la semana`
+                : 'Sin horario todavía'}
+            </span>
+          </div>
+          <div className={styles.tableKpi}>
+            <span className={styles.tableKpiTop}>
+              Fianza
+              <span className={styles.tableKpiIcon} aria-hidden="true"><ShieldCheck size={15} /></span>
+            </span>
+            <strong>{(form.depositEnabled && canEnableDeposits) ? 'Activa' : 'No'}</strong>
+            <span className={styles.tableKpiHint}>
+              {(form.depositEnabled && canEnableDeposits) && form.depositPerGuestCents
+                ? `${formatEuroCents(form.depositPerGuestCents)} por persona${form.depositMinPax ? ` desde ${form.depositMinPax}` : ''}`
+                : 'No se pide fianza'}
+            </span>
+          </div>
+        </div>
+
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHead}>
+            <h3>Cómo se reserva</h3>
+            <p>Elige si tus clientes tienen que reservar, si pueden hacerlo o si no aceptas reservas.</p>
+          </div>
+
+          <div className={styles.modeCards} role="radiogroup" aria-label="Modo de reserva">
+            {COMPANY_RESERVATION_MODE_OPTIONS.map((option) => {
+              const selected = form.reservationMode === option.id
+              const meta = RESERVATION_MODE_META[option.id]
+              const Icon = meta.icon
+              return (
+                <label
+                  key={option.id}
+                  className={`${styles.modeCard} ${selected ? styles.modeCardOn : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="reservation-mode"
+                    value={option.id}
+                    checked={selected}
+                    onChange={() => setForm({ ...form, reservationMode: option.id })}
+                  />
+                  <span className={styles.modeCardIcon} aria-hidden="true"><Icon size={18} /></span>
+                  <span className={styles.modeCardText}>
+                    <strong>{meta.title}</strong>
+                    <span>{option.hint}</span>
+                  </span>
+                  <span className={styles.modeCardRadio} aria-hidden="true" />
+                </label>
+              )
+            })}
+          </div>
+
           {form.reservationMode !== 'none' ? (
-            <label className={styles.inlineField}>
-              <span className={styles.inlineFieldText}>
-                Duración de cada reserva
-                <small>Entre {MIN_TIME_SLOT_MINUTES} y {MAX_TIME_SLOT_MINUTES} minutos. La mesa queda ocupada ese tiempo.</small>
-              </span>
-              <span className={styles.inputWithUnit}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={timeSlotMinutesInput}
-                  onChange={(e) => {
-                    const digits = sanitizeTimeSlotMinutesInput(e.target.value)
+            <div className={styles.settingsRow}>
+              <div className={styles.settingsRowLabel}>
+                <label htmlFor="reservation-duration">Duración de cada reserva</label>
+                <span>
+                  Entre {MIN_TIME_SLOT_MINUTES} y {MAX_TIME_SLOT_MINUTES} minutos. La mesa queda ocupada ese
+                  tiempo.
+                </span>
+              </div>
+              <div className={`${styles.settingsRowField} ${styles.durationField}`}>
+                <div className={styles.durationPresets} role="group" aria-label="Duraciones habituales">
+                  {DURATION_PRESETS.map((minutes) => {
+                    const on = form.timeSlotMinutes === minutes && timeSlotMinutesInput === String(minutes)
+                    return (
+                      <button
+                        key={minutes}
+                        type="button"
+                        className={`${styles.filterChip} ${on ? styles.filterChipOn : ''}`}
+                        aria-pressed={on}
+                        onClick={() => {
+                          setTimeSlotMinutesInput(String(minutes))
+                          setForm({ ...form, timeSlotMinutes: minutes })
+                        }}
+                      >
+                        {formatMinutesShort(minutes)}
+                      </button>
+                    )
+                  })}
+                </div>
+                <span className={styles.inputWithUnit}>
+                  <input
+                    id="reservation-duration"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={timeSlotMinutesInput}
+                    onChange={(e) => {
+                      const digits = sanitizeTimeSlotMinutesInput(e.target.value)
 
-                    if (!digits) {
-                      setTimeSlotMinutesInput('')
-                      return
-                    }
+                      if (!digits) {
+                        setTimeSlotMinutesInput('')
+                        return
+                      }
 
-                    const parsed = Math.min(MAX_TIME_SLOT_MINUTES, Number(digits))
-                    setTimeSlotMinutesInput(String(parsed))
-                    setForm({ ...form, timeSlotMinutes: parsed })
-                  }}
-                  placeholder="120"
-                  aria-label="Duración de cada reserva en minutos"
-                />
-                <span aria-hidden="true">min</span>
-              </span>
-            </label>
-          ) : null}
-        </FormCard>
+                      const parsed = Math.min(MAX_TIME_SLOT_MINUTES, Number(digits))
+                      setTimeSlotMinutesInput(String(parsed))
+                      setForm({ ...form, timeSlotMinutes: parsed })
+                    }}
+                    placeholder="120"
+                  />
+                  <span aria-hidden="true">min</span>
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className={styles.modeNote}>
+              Tu ficha seguirá visible, pero el botón será «Ver restaurante» en lugar de «Reservar».
+            </p>
+          )}
+        </div>
 
         {form.reservationMode !== 'none' ? (
-          <FormCard
-            title="Fianzas con Stripe"
-            description="Conecta Stripe y activa la fianza por reserva. Solo se cobra si el cliente cancela tarde o no viene."
-          >
-            {company ? (
-              <CompanyStripeConnectPanel
-                companyId={company.id}
-                autoRefresh={activeSection === 'reservation-settings'}
-                onStatusChange={(status, loading) => {
-                  setStripeStatus(status)
-                  setStripeStatusLoading(loading)
-                }}
-              />
-            ) : null}
-
-            <div className={styles.depositSettings}>
-              <div className={styles.depositSettingsHeader}>
-                <div>
-                  <h4>Fianza por reserva</h4>
-                  {!allowsDeposits ? (
-                    <p className={styles.depositLockedHint}>
-                      Las fianzas están en el plan {requiredPlanName('deposits')}.
-                    </p>
-                  ) : !canEnableDeposits ? (
-                    <p className={styles.depositLockedHint}>
-                      {stripeStatusLoading
-                        ? 'Comprobando estado de Stripe…'
-                        : 'Completa la conexión con Stripe para poder activar las fianzas.'}
-                    </p>
-                  ) : (
-                    <p className={styles.scheduleHint}>
-                      Si una reserva alcanza el número mínimo de comensales, se pedirá fianza por
-                      persona.
-                    </p>
-                  )}
-                </div>
-                <div className={styles.lockedField}>
-                  <label
-                    className={`${styles.depositSwitchInline} ${
-                      !canEnableDeposits ? styles.depositSwitchInlineDisabled : ''
-                    }`}
-                    title={
-                      canEnableDeposits
-                        ? undefined
-                        : !allowsDeposits
-                          ? `Las fianzas están en el plan ${requiredPlanName('deposits')}`
-                          : 'Completa la conexión con Stripe para activar fianzas'
-                    }
-                  >
-                    <span className={styles.depositSwitchText}>Activar fianzas</span>
-                    <span className={styles.depositSwitch}>
-                      <input
-                        type="checkbox"
-                        className={styles.depositSwitchInput}
-                        checked={form.depositEnabled && canEnableDeposits}
-                        disabled={!canEnableDeposits}
-                        onChange={(event) =>
-                          setForm({
-                            ...form,
-                            depositEnabled: event.target.checked,
-                            depositCancellationHours: event.target.checked
-                              ? (form.depositCancellationHours ?? DEFAULT_DEPOSIT_CANCELLATION_HOURS)
-                              : form.depositCancellationHours,
-                          })
-                        }
-                      />
-                      <span className={styles.depositSwitchSlider} aria-hidden="true" />
-                    </span>
-                  </label>
-                  {!allowsDeposits ? (
-                    <PlanLockHint feature="activar las fianzas" capabilityId="deposits" />
-                  ) : null}
-                </div>
+          <div className={styles.settingsCard}>
+            <div className={`${styles.settingsCardHead} ${styles.settingsCardHeadRow}`}>
+              <div>
+                <h3>Fianza por reserva</h3>
+                <p>
+                  Para grupos grandes. Solo se cobra si el cliente cancela tarde o no viene. Se gestiona con
+                  Stripe.
+                </p>
               </div>
+              <div className={styles.lockedField}>
+                <label
+                  className={`${styles.depositSwitchInline} ${
+                    !canEnableDeposits ? styles.depositSwitchInlineDisabled : ''
+                  }`}
+                  title={
+                    canEnableDeposits
+                      ? undefined
+                      : !allowsDeposits
+                        ? `Las fianzas están en el plan ${requiredPlanName('deposits')}`
+                        : 'Completa la conexión con Stripe para activar fianzas'
+                  }
+                >
+                  <span className={styles.depositSwitchText}>{(form.depositEnabled && canEnableDeposits) ? 'Activada' : 'Activar'}</span>
+                  <span className={styles.depositSwitch}>
+                    <input
+                      type="checkbox"
+                      className={styles.depositSwitchInput}
+                      checked={(form.depositEnabled && canEnableDeposits)}
+                      disabled={!canEnableDeposits}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          depositEnabled: event.target.checked,
+                          depositCancellationHours: event.target.checked
+                            ? (form.depositCancellationHours ?? DEFAULT_DEPOSIT_CANCELLATION_HOURS)
+                            : form.depositCancellationHours,
+                        })
+                      }
+                    />
+                    <span className={styles.depositSwitchSlider} aria-hidden="true" />
+                  </span>
+                </label>
+                {!allowsDeposits ? (
+                  <PlanLockHint feature="activar las fianzas" capabilityId="deposits" />
+                ) : null}
+              </div>
+            </div>
 
-              {form.depositEnabled && canEnableDeposits ? (
-                <>
-                  <div className={styles.depositRow}>
-                    <label className={styles.depositField}>
-                      Comensales desde los que se pide fianza
+            <div className={styles.stripeBlock}>
+              {company ? (
+                <CompanyStripeConnectPanel
+                  companyId={company.id}
+                  autoRefresh={activeSection === 'reservation-settings'}
+                  onStatusChange={(status, loading) => {
+                    setStripeStatus(status)
+                    setStripeStatusLoading(loading)
+                  }}
+                />
+              ) : null}
+              {!allowsDeposits ? (
+                <p className={styles.depositLockedHint}>
+                  Las fianzas están en el plan {requiredPlanName('deposits')}.
+                </p>
+              ) : !canEnableDeposits ? (
+                <p className={styles.depositLockedHint}>
+                  {stripeStatusLoading
+                    ? 'Comprobando estado de Stripe…'
+                    : 'Completa la conexión con Stripe para poder activar las fianzas.'}
+                </p>
+              ) : null}
+            </div>
+
+            {(form.depositEnabled && canEnableDeposits) ? (
+              <>
+                <div className={styles.settingsRow}>
+                  <div className={styles.settingsRowLabel}>
+                    <label htmlFor="deposit-min-pax">A partir de cuántas personas</label>
+                    <span>Las reservas más pequeñas no pagan fianza.</span>
+                  </div>
+                  <div className={styles.settingsRowField}>
+                    <span className={`${styles.inputWithUnit} ${styles.inputWithUnitWide}`}>
                       <input
+                        id="deposit-min-pax"
                         type="number"
                         min={0}
                         max={500}
@@ -1784,10 +1979,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                           const raw = event.target.value.trim()
 
                           if (!raw) {
-                            setForm({
-                              ...form,
-                              depositMinPax: null,
-                            })
+                            setForm({ ...form, depositMinPax: null })
                             return
                           }
 
@@ -1798,12 +1990,22 @@ const CompanySettings = forwardRef(function CompanySettings(
                             depositMinPax: parsed > 0 ? Math.trunc(parsed) : null,
                           })
                         }}
-                        placeholder="Ej. 15"
+                        placeholder="15"
                       />
-                    </label>
-                    <label className={styles.depositField}>
-                      Fianza por comensal (€)
+                      <span aria-hidden="true">personas</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className={styles.settingsRow}>
+                  <div className={styles.settingsRowLabel}>
+                    <label htmlFor="deposit-per-guest">Fianza por persona</label>
+                    <span>Se multiplica por el número de comensales.</span>
+                  </div>
+                  <div className={styles.settingsRowField}>
+                    <span className={`${styles.inputWithUnit} ${styles.inputWithUnitWide}`}>
                       <input
+                        id="deposit-per-guest"
                         type="text"
                         inputMode="decimal"
                         value={
@@ -1830,12 +2032,22 @@ const CompanySettings = forwardRef(function CompanySettings(
                             depositPerGuestCents: Math.min(500_00, Math.round(euros * 100)),
                           })
                         }}
-                        placeholder="Ej. 10,00"
+                        placeholder="10,00"
                       />
-                    </label>
-                    <label className={styles.depositField}>
-                      Cancelación sin cargo (horas antes)
+                      <span aria-hidden="true">€</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className={styles.settingsRow}>
+                  <div className={styles.settingsRowLabel}>
+                    <label htmlFor="deposit-hours">Cancelación sin cargo</label>
+                    <span>Hasta cuántas horas antes puede cancelar sin perder la fianza.</span>
+                  </div>
+                  <div className={styles.settingsRowField}>
+                    <span className={`${styles.inputWithUnit} ${styles.inputWithUnitWide}`}>
                       <input
+                        id="deposit-hours"
                         type="number"
                         min={1}
                         max={720}
@@ -1857,153 +2069,188 @@ const CompanySettings = forwardRef(function CompanySettings(
                               : null,
                           })
                         }}
-                        placeholder="Ej. 12"
+                        placeholder="24"
                       />
-                    </label>
+                      <span aria-hidden="true">horas antes</span>
+                    </span>
                   </div>
-                  {form.depositMinPax && form.depositPerGuestCents ? (
-                    <p className={styles.depositPreview}>
-                      Ejemplo: una reserva de {form.depositMinPax + 5} comensales pediría{' '}
-                      <strong>
-                        {((form.depositPerGuestCents * (form.depositMinPax + 5)) / 100)
-                          .toFixed(2)
-                          .replace('.', ',')}{' '}
-                        €
-                      </strong>{' '}
-                      de fianza ({((form.depositPerGuestCents) / 100).toFixed(2).replace('.', ',')}{' '}
-                      € × {form.depositMinPax + 5} comensales).
+                </div>
+
+                {form.depositMinPax && form.depositPerGuestCents ? (
+                  <div className={styles.depositExample}>
+                    <span className={styles.depositExampleIcon} aria-hidden="true"><Wallet size={16} /></span>
+                    <p>
+                      <strong>Ejemplo:</strong> una reserva de {form.depositMinPax + 5} personas paga{' '}
+                      <strong>{formatEuroCents(form.depositPerGuestCents * (form.depositMinPax + 5))}</strong>{' '}
+                      de fianza ({formatEuroCents(form.depositPerGuestCents)} × {form.depositMinPax + 5}).
                       {form.depositCancellationHours ? (
-                        <>
-                          {' '}
-                          {formatDepositCancellationPolicy(form.depositCancellationHours)}
-                        </>
+                        <> {formatDepositCancellationPolicy(form.depositCancellationHours)}</>
                       ) : null}
                     </p>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-          </FormCard>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </div>
         ) : null}
 
-        <FormCard
-          title="Horario semanal"
-          description={`Marca los días que abres y hasta ${MAX_SCHEDULE_PERIODS} tramos por día (por ejemplo, 12:00–16:00 y 20:00–00:00). Los tramos no pueden cruzarse.`}
-        >
-          <div className={styles.scheduleTable}>
-            <div className={styles.scheduleTableHead} aria-hidden="true">
-              <span>Día</span>
-              <span>Tramos</span>
-              <span>Horario</span>
+        <div className={styles.settingsCard}>
+          <div className={`${styles.settingsCardHead} ${styles.settingsCardHeadRow}`}>
+            <div>
+              <h3>Horario semanal</h3>
+              <p>
+                Hasta {MAX_SCHEDULE_PERIODS} tramos por día (por ejemplo, comidas y cenas). Los tramos no pueden
+                cruzarse.
+              </p>
+            </div>
+            <div className={styles.scheduleLegend} aria-hidden="true">
+              <span><i className={styles.scheduleLegendOpen} /> Abierto</span>
+              <span><i className={styles.scheduleLegendClosed} /> Cerrado</span>
+            </div>
+          </div>
+
+          <div className={styles.weekList}>
+            <div className={styles.weekRuler} aria-hidden="true">
+              <span />
+              <span />
+              <span className={styles.weekRulerTicks}>
+                {['0h', '6h', '12h', '18h', '24h'].map((tick) => (
+                  <i key={tick}>{tick}</i>
+                ))}
+              </span>
+              <span />
             </div>
             {SCHEDULE_DAY_KEYS.map((dayKey) => {
               const day = form.schedule[dayKey]
               const periods = getDaySchedulePeriods(day)
-              const periodCount = getDaySchedulePeriodCount(day)
+              const periodCount = periods.length
+              const dayLabel = SCHEDULE_DAY_LABELS[dayKey]
+              const setDay = (next: DaySchedule) =>
+                setForm({ ...form, schedule: { ...form.schedule, [dayKey]: next } })
 
               return (
                 <div
                   key={dayKey}
-                  className={`${styles.scheduleTableRow} ${
-                    periodCount > 1 ? styles.scheduleTableRowMulti : ''
-                  } ${!day.active ? styles.scheduleTableRowInactive : ''}`}
+                  className={`${styles.weekRow} ${!day.active ? styles.weekRowClosed : ''}`}
                 >
-                  <label className={styles.scheduleDayCell}>
-                    <input
-                      type="checkbox"
-                      checked={day.active}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          schedule: {
-                            ...form.schedule,
-                            [dayKey]: { ...day, active: e.target.checked },
-                          },
-                        })
-                      }
-                    />
-                    <span className={styles.dayNameFull}>{SCHEDULE_DAY_LABELS[dayKey]}</span>
+                  <label className={styles.weekDay}>
+                    <span className={styles.daySwitch}>
+                      <input
+                        type="checkbox"
+                        checked={day.active}
+                        aria-label={`Abrir el ${dayLabel.toLowerCase()}`}
+                        onChange={(e) => setDay({ ...day, active: e.target.checked })}
+                      />
+                      <span aria-hidden="true" />
+                    </span>
+                    <span className={styles.dayNameFull}>{dayLabel}</span>
                     <span className={styles.dayNameShort}>{SCHEDULE_DAY_SHORT[dayKey]}</span>
                   </label>
 
-                  <label className={styles.scheduleTurnsCell}>
-                    <span className={styles.scheduleTurnsLabel}>Tramos</span>
-                    <select
-                      disabled={!day.active}
-                      value={periodCount}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          schedule: {
-                            ...form.schedule,
-                            [dayKey]: resizeDaySchedulePeriods(day, Number(e.target.value)),
-                          },
-                        })
-                      }
-                    >
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                      <option value={3}>3</option>
-                    </select>
-                  </label>
-
-                  <div className={styles.scheduleHoursCell}>
+                  <div className={styles.weekPeriods}>
                     {!day.active ? (
-                      <span className={styles.scheduleClosed}>Cerrado</span>
+                      <span className={styles.weekClosedPill}>Cerrado</span>
                     ) : (
-                      periods.map((period, periodIndex) => (
-                        <div key={periodIndex} className={styles.scheduleTimeRange}>
-                          {periodCount > 1 ? (
-                            <span className={styles.scheduleTimeBadge}>{periodIndex + 1}</span>
-                          ) : null}
-                          <input
-                            type="time"
-                            value={period.open}
-                            aria-label={`Apertura turno ${periodIndex + 1}, ${SCHEDULE_DAY_LABELS[dayKey]}`}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                schedule: {
-                                  ...form.schedule,
-                                  [dayKey]: updateDaySchedulePeriod(
-                                    day,
-                                    periodIndex,
-                                    'open',
-                                    e.target.value,
-                                  ),
-                                },
-                              })
-                            }
-                          />
-                          <span className={styles.scheduleTimeSep} aria-hidden="true">—</span>
-                          <input
-                            type="time"
-                            value={period.close}
-                            aria-label={`Cierre turno ${periodIndex + 1}, ${SCHEDULE_DAY_LABELS[dayKey]}`}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                schedule: {
-                                  ...form.schedule,
-                                  [dayKey]: updateDaySchedulePeriod(
-                                    day,
-                                    periodIndex,
-                                    'close',
-                                    e.target.value,
-                                  ),
-                                },
-                              })
-                            }
-                          />
-                        </div>
-                      ))
+                      <>
+                        {periods.map((period, periodIndex) => (
+                          <div key={periodIndex} className={styles.periodPill}>
+                            <input
+                              type="time"
+                              value={period.open}
+                              aria-label={`Apertura tramo ${periodIndex + 1}, ${dayLabel}`}
+                              onChange={(e) =>
+                                setDay(updateDaySchedulePeriod(day, periodIndex, 'open', e.target.value))
+                              }
+                            />
+                            <span aria-hidden="true">–</span>
+                            <input
+                              type="time"
+                              value={period.close}
+                              aria-label={`Cierre tramo ${periodIndex + 1}, ${dayLabel}`}
+                              onChange={(e) =>
+                                setDay(updateDaySchedulePeriod(day, periodIndex, 'close', e.target.value))
+                              }
+                            />
+                            {periodCount > 1 ? (
+                              <button
+                                type="button"
+                                className={styles.periodRemove}
+                                aria-label={`Quitar tramo ${periodIndex + 1} del ${dayLabel.toLowerCase()}`}
+                                title="Quitar tramo"
+                                onClick={() =>
+                                  setDay(
+                                    syncDayScheduleFields({
+                                      active: day.active,
+                                      periods: periods.filter((_, index) => index !== periodIndex),
+                                    }),
+                                  )
+                                }
+                              >
+                                <X size={13} aria-hidden />
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                        {periodCount < MAX_SCHEDULE_PERIODS ? (
+                          <button
+                            type="button"
+                            className={styles.periodAdd}
+                            onClick={() => setDay(addSchedulePeriod(day))}
+                          >
+                            <Plus size={13} aria-hidden /> Tramo
+                          </button>
+                        ) : null}
+                      </>
                     )}
                   </div>
+
+                  <div
+                    className={styles.weekBar}
+                    role="img"
+                    aria-label={
+                      day.active
+                        ? `${dayLabel}: ${periods.map((p) => `${p.open || '?'}–${p.close || '?'}`).join(', ')}`
+                        : `${dayLabel}: cerrado`
+                    }
+                  >
+                    {day.active
+                      ? periods.map((period, periodIndex) => {
+                          const range = periodRange(period)
+                          return range ? (
+                            <span
+                              key={periodIndex}
+                              style={{ left: `${range.left}%`, width: `${range.width}%` }}
+                            />
+                          ) : null
+                        })
+                      : null}
+                  </div>
+
+                  <button
+                    type="button"
+                    className={styles.weekCopy}
+                    title={`Copiar el horario del ${dayLabel.toLowerCase()} a todos los días`}
+                    aria-label={`Copiar el horario del ${dayLabel.toLowerCase()} a todos los días`}
+                    onClick={() => {
+                      const nextSchedule = { ...form.schedule }
+                      for (const key of SCHEDULE_DAY_KEYS) {
+                        nextSchedule[key] = syncDayScheduleFields({
+                          active: day.active,
+                          periods: periods.map((p) => ({ ...p })),
+                        })
+                      }
+                      setForm({ ...form, schedule: nextSchedule })
+                      setCopiedDay(dayKey)
+                    }}
+                  >
+                    {copiedDay === dayKey ? <CopyCheck size={15} aria-hidden /> : <Copy size={15} aria-hidden />}
+                    <span>{copiedDay === dayKey ? 'Copiado' : 'A todos'}</span>
+                  </button>
                 </div>
               )
             })}
           </div>
-        </FormCard>
+        </div>
 
         {renderSectionSave('reservation-settings', 'Guardar reservas y horario', handleSaveReservations)}
       </section>

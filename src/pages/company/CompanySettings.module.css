@@ -2296,3 +2296,551 @@
     position: static;
   }
 }
+
+/* ===================== Reservas y horario ===================== */
+
+.settingsCardHeadRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+}
+
+.settingsCardHeadRow > div:first-child {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.modeCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 1.125rem 1.5rem;
+  border-bottom: 1px solid #f0ece7;
+}
+
+.modeCard {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.875rem 2.5rem 0.875rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modeCards .modeCard {
+  flex-direction: row;
+  margin: 0;
+}
+
+.modeCard input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modeCard:hover {
+  border-color: #d6cec4;
+}
+
+.modeCard:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.modeCardOn,
+.modeCardOn:hover {
+  border-color: var(--color-accent-strong);
+  background: #fbf5f1;
+  box-shadow: 0 0 0 1px var(--color-accent-strong);
+}
+
+.modeCardIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9px;
+  background: #f3f0ec;
+  color: var(--color-text-muted);
+}
+
+.modeCardOn .modeCardIcon {
+  background: #f3e3d9;
+  color: var(--color-accent-strong);
+}
+
+.modeCardText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.modeCardText strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.modeCardText span {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.modeCardRadio {
+  position: absolute;
+  top: 0.875rem;
+  right: 0.875rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 1.5px solid #cfc7bd;
+  border-radius: 50%;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.modeCardOn .modeCardRadio {
+  border: 5px solid var(--color-accent-strong);
+}
+
+.modeNote {
+  margin: 0;
+  padding: 1rem 1.5rem 1.125rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.durationField {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+  max-width: none;
+}
+
+.durationPresets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.inputWithUnitWide {
+  width: 12rem;
+}
+
+:where(.form) .inputWithUnitWide input {
+  padding-right: 6.5rem;
+}
+
+.stripeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.125rem 1.5rem;
+  border-bottom: 1px solid #f0ece7;
+}
+
+.stripeBlock .depositLockedHint {
+  margin: 0;
+}
+
+.depositExample {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 0 1.5rem 1.25rem;
+  padding: 0.875rem 1rem;
+  border-radius: 10px;
+  background: #f6f3ee;
+}
+
+.depositExampleIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-accent-strong);
+}
+
+.depositExample p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.depositExample strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.scheduleLegend {
+  display: flex;
+  gap: 0.875rem;
+  padding-top: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.scheduleLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.scheduleLegend i {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.5rem;
+  border-radius: 3px;
+}
+
+.scheduleLegendOpen {
+  background: #3f9a6b;
+}
+
+.scheduleLegendClosed {
+  background: #ece8e2;
+}
+
+.weekList {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 1.5rem 0.75rem;
+}
+
+.weekRuler,
+.weekRow {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr) minmax(7rem, 13rem) 5.5rem;
+  align-items: center;
+  gap: 1rem;
+}
+
+.weekRuler {
+  padding: 0.25rem 0;
+}
+
+.weekRulerTicks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.625rem;
+  color: #a29a91;
+  font-variant-numeric: tabular-nums;
+}
+
+.weekRulerTicks i {
+  font-style: normal;
+}
+
+.weekRow {
+  min-height: 3.5rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid #f0ece7;
+}
+
+.weekDay {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.weekList .weekDay {
+  flex-direction: row;
+  margin: 0;
+}
+
+.weekRowClosed .weekDay {
+  color: var(--color-text-muted);
+}
+
+.daySwitch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 2.125rem;
+  height: 1.25rem;
+}
+
+.daySwitch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.daySwitch > span {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #d9d2c9;
+  pointer-events: none;
+  transition: background-color 0.18s ease;
+}
+
+.daySwitch > span::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.18s ease;
+}
+
+.daySwitch input:checked + span {
+  background: #3f9a6b;
+}
+
+.daySwitch input:checked + span::after {
+  transform: translateX(0.875rem);
+}
+
+.daySwitch input:focus-visible + span {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.weekPeriods {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.periodPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  height: 2.125rem;
+  padding: 0 0.25rem 0 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-text-muted);
+}
+
+.periodPill:focus-within {
+  border-color: #bdb3a7;
+}
+
+:where(.form) .periodPill input {
+  width: auto;
+  min-width: 0;
+  height: 1.875rem;
+  padding: 0 0.2rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.periodRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #a29a91;
+  cursor: pointer;
+}
+
+.periodRemove:hover {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.periodAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 2.125rem;
+  padding: 0 0.625rem;
+  border: 1px dashed #d6cec4;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.periodAdd:hover {
+  border-color: #bdb3a7;
+  color: var(--color-text);
+}
+
+.weekClosedPill {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  border-radius: 999px;
+  background: #f3f0ec;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.weekBar {
+  position: relative;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: #ece8e2;
+  overflow: hidden;
+}
+
+.weekBar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.9) 1px, transparent 1px);
+  background-size: 25% 100%;
+  background-position: -0.5px 0;
+  pointer-events: none;
+}
+
+.weekBar > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: #3f9a6b;
+}
+
+.weekCopy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.weekRow:hover .weekCopy,
+.weekCopy:focus-visible {
+  opacity: 1;
+}
+
+.weekCopy:hover {
+  border-color: var(--color-border);
+  background: #fff;
+  color: var(--color-text);
+}
+
+.periodAdd:focus-visible,
+.periodRemove:focus-visible,
+.weekCopy:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+@media (hover: none) {
+  .weekCopy {
+    opacity: 1;
+  }
+}
+
+@container (max-width: 820px) {
+  .weekRuler,
+  .weekRow {
+    grid-template-columns: 8rem minmax(0, 1fr) 5.5rem;
+  }
+
+  .weekRuler > :nth-child(3),
+  .weekBar {
+    display: none;
+  }
+}
+
+@container (max-width: 780px) {
+  .modeCards {
+    grid-template-columns: 1fr;
+  }
+
+  .weekList {
+    padding: 0.25rem 1rem 0.5rem;
+  }
+
+  .weekRuler {
+    display: none;
+  }
+
+  .weekRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+  }
+
+  .weekRuler + .weekRow {
+    border-top: 0;
+  }
+
+  .weekPeriods {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .weekCopy {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .modeCards,
+  .stripeBlock,
+  .modeNote {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .depositExample {
+    margin: 0 1rem 1rem;
+  }
+
+  .inputWithUnitWide {
+    width: 100%;
+  }
+}
