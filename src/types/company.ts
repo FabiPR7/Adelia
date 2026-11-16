@@ -846,7 +846,25 @@ export interface MenuTemplateConfig {
   showPhotos: boolean
   showAllergens: boolean
   showDescriptions: boolean
+  /** Texto corto bajo el nombre de la carta (p. ej. «Cocina de mercado»). */
+  tagline?: string
+  /** Barra fija con las categorías para saltar entre ellas. */
+  showCategoryNav?: boolean
+  /** Buscador y filtro «sin alérgenos» para el cliente. */
+  showSearch?: boolean
+  /** Aspecto de los platos: con fondo suave, solo con borde o sin caja. */
+  cardStyle?: MenuCardStyle
+  /** Espaciado: cómodo o compacto. */
+  density?: MenuDensity
+  /** Cabecera de la carta centrada o alineada a la izquierda. */
+  headerAlign?: 'left' | 'center'
+  /** Forma de las fotos en la vista de lista. */
+  photoShape?: MenuPhotoShape
 }
+
+export type MenuCardStyle = 'soft' | 'outline' | 'plain'
+export type MenuDensity = 'comfortable' | 'compact'
+export type MenuPhotoShape = 'rounded' | 'square' | 'circle'
 
 export interface MenuBoard {
   id: string

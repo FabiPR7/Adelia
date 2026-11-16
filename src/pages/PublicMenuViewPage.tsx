@@ -96,16 +96,22 @@ function PublicMenuViewPage() {
     ? `/reservar/${slug}?reservar=1`
     : `/reservar/${slug}`
 
+  const toolbarLinks = (
+    <>
+      <Link to={menuHref} className={styles.backLink}>
+        <span aria-hidden="true">←</span> Cartas
+      </Link>
+      <Link to={reserveHref} className={styles.reserveLink}>
+        {restaurantReserveCtaShortLabel(company.reservationMode)}
+      </Link>
+    </>
+  )
+
   return (
     <div className={styles.page}>
-      <header className={styles.toolbar}>
-        <Link to={menuHref} className={styles.backLink}>
-          ← Cartas
-        </Link>
-        <Link to={reserveHref} className={styles.reserveLink}>
-          {restaurantReserveCtaShortLabel(company.reservationMode)}
-        </Link>
-      </header>
+      {hasMenuPdf(board) ? (
+        <header className={styles.toolbar}>{toolbarLinks}</header>
+      ) : null}
 
       {hasMenuPdf(board) ? (
         <main className={styles.pdfMain}>
@@ -123,6 +129,7 @@ function PublicMenuViewPage() {
           restaurantName={company.name}
           fullscreen
           highlightProductId={highlightProductId}
+          toolbar={toolbarLinks}
         />
       )}
 

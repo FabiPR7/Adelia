@@ -51,6 +51,13 @@ function mapTemplate(data: Record<string, unknown>): MenuTemplateConfig {
     showPhotos: data.showPhotos !== false,
     showAllergens: data.showAllergens !== false,
     showDescriptions: data.showDescriptions !== false,
+    tagline: typeof data.tagline === 'string' ? data.tagline.slice(0, 80) : '',
+    showCategoryNav: data.showCategoryNav !== false,
+    showSearch: data.showSearch !== false,
+    cardStyle: data.cardStyle === 'outline' || data.cardStyle === 'plain' ? data.cardStyle : 'soft',
+    density: data.density === 'compact' ? 'compact' : 'comfortable',
+    headerAlign: data.headerAlign === 'left' ? 'left' : 'center',
+    photoShape: data.photoShape === 'square' || data.photoShape === 'circle' ? data.photoShape : 'rounded',
   }
 }
 

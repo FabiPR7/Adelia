@@ -16,6 +16,7 @@ import {
   FolderPlus,
   GripVertical,
   Info,
+  LayoutGrid,
   LayoutList,
   Link2,
   Palette,
@@ -547,7 +548,18 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
       return
     }
 
-    setTemplateDraft(clampMenuTemplateForPlan({ ...preset.config }, planId))
+    // La plantilla cambia colores y fuente; las opciones de estilo (subtítulo, barra de
+    // categorías, buscador, forma de los platos…) se mantienen.
+    setTemplateDraft((current) => clampMenuTemplateForPlan({
+      ...preset.config,
+      tagline: current.tagline,
+      showCategoryNav: current.showCategoryNav,
+      showSearch: current.showSearch,
+      cardStyle: current.cardStyle,
+      density: current.density,
+      headerAlign: current.headerAlign,
+      photoShape: current.photoShape,
+    }, planId))
   }
 
   const handlePdfFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1141,7 +1153,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
         </div>
       ) : null}
 
-      <div className={styles.layout}>
+      <div className={`${styles.layout} ${editorTab === 'design' && selectedBoard ? styles.layoutDesign : ''}`}>
         <aside className={styles.boardSidebar} aria-label="Cartas">
           <div className={styles.boardSidebarHead}>
             <h3>Cartas</h3>
@@ -1526,32 +1538,153 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                           </select>
                         </label>
                         <div className={styles.lockedField}>
-                          <label className={styles.designField}>
+                          <div className={styles.designField}>
                             <span>Disposición</span>
-                            <select
-                              value={templateDraft.layout}
-                              onChange={(event) => {
-                                const layout = event.target.value as MenuTemplateConfig['layout']
-                                if (layout === 'grid' && !canUseGrid) {
-                                  return
-                                }
-                                setTemplateDraft({ ...templateDraft, layout })
-                              }}
-                            >
-                              {MENU_LAYOUT_OPTIONS.map((option) => (
-                                <option
-                                  key={option.id}
-                                  value={option.id}
-                                  disabled={option.id === 'grid' && !canUseGrid}
-                                >
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                            <div className={styles.segmented} role="radiogroup" aria-label="Disposición de la carta">
+                              {MENU_LAYOUT_OPTIONS.map((option) => {
+                                const locked = option.id === 'grid' && !canUseGrid
+                                const on = templateDraft.layout === option.id
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={on}
+                                    disabled={locked}
+                                    className={`${styles.segmentedButton} ${on ? styles.segmentedButtonOn : ''}`}
+                                    onClick={() => setTemplateDraft({
+                                      ...templateDraft,
+                                      layout: option.id as MenuTemplateConfig['layout'],
+                                    })}
+                                  >
+                                    {option.id === 'grid' ? <LayoutGrid size={14} aria-hidden="true" /> : <LayoutList size={14} aria-hidden="true" />}
+                                    {option.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
                           {!canUseGrid ? (
                             <PlanLockHint feature="la disposición en cuadrícula" capabilityId="menu_photos" />
                           ) : null}
+                        </div>
+                      </section>
+
+                      <section className={styles.designSection}>
+                        <h3>Estilo de la carta</h3>
+                        <label className={styles.designField}>
+                          <span>Texto bajo el título</span>
+                          <input
+                            className={styles.designTextInput}
+                            value={templateDraft.tagline ?? ''}
+                            maxLength={80}
+                            placeholder="Ej. Cocina de mercado desde 1998"
+                            onChange={(event) => setTemplateDraft({ ...templateDraft, tagline: event.target.value })}
+                          />
+                        </label>
+                        <div className={styles.designField}>
+                          <span>Cabecera</span>
+                          <div className={styles.segmented} role="radiogroup" aria-label="Alineación de la cabecera">
+                            {([['center', 'Centrada'], ['left', 'A la izquierda']] as const).map(([value, label]) => (
+                              <button
+                                key={value}
+                                type="button"
+                                role="radio"
+                                aria-checked={(templateDraft.headerAlign ?? 'center') === value}
+                                className={`${styles.segmentedButton} ${(templateDraft.headerAlign ?? 'center') === value ? styles.segmentedButtonOn : ''}`}
+                                onClick={() => setTemplateDraft({ ...templateDraft, headerAlign: value })}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className={styles.designField}>
+                          <span>Platos</span>
+                          <div className={styles.segmented} role="radiogroup" aria-label="Aspecto de los platos">
+                            {([['soft', 'Con fondo'], ['outline', 'Con borde'], ['plain', 'Sin caja']] as const).map(([value, label]) => (
+                              <button
+                                key={value}
+                                type="button"
+                                role="radio"
+                                aria-checked={(templateDraft.cardStyle ?? 'soft') === value}
+                                className={`${styles.segmentedButton} ${(templateDraft.cardStyle ?? 'soft') === value ? styles.segmentedButtonOn : ''}`}
+                                onClick={() => setTemplateDraft({ ...templateDraft, cardStyle: value })}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className={styles.designField}>
+                          <span>Espaciado</span>
+                          <div className={styles.segmented} role="radiogroup" aria-label="Espaciado">
+                            {([['comfortable', 'Cómodo'], ['compact', 'Compacto']] as const).map(([value, label]) => (
+                              <button
+                                key={value}
+                                type="button"
+                                role="radio"
+                                aria-checked={(templateDraft.density ?? 'comfortable') === value}
+                                className={`${styles.segmentedButton} ${(templateDraft.density ?? 'comfortable') === value ? styles.segmentedButtonOn : ''}`}
+                                onClick={() => setTemplateDraft({ ...templateDraft, density: value })}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {templateDraft.layout === 'list' ? (
+                          <div className={styles.designField}>
+                            <span>Fotos en la lista</span>
+                            <div className={styles.segmented} role="radiogroup" aria-label="Forma de las fotos">
+                              {([['rounded', 'Redondeadas'], ['square', 'Cuadradas'], ['circle', 'Círculo']] as const).map(([value, label]) => (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={(templateDraft.photoShape ?? 'rounded') === value}
+                                  className={`${styles.segmentedButton} ${(templateDraft.photoShape ?? 'rounded') === value ? styles.segmentedButtonOn : ''}`}
+                                  onClick={() => setTemplateDraft({ ...templateDraft, photoShape: value })}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </section>
+
+                      <section className={styles.designSection}>
+                        <h3>Ayudas para el cliente</h3>
+                        <div className={styles.switchList}>
+                          <label className={styles.switchRow}>
+                            <span className={styles.switchText}>
+                              <strong>Barra de categorías</strong>
+                              <small>Fija arriba para saltar entre secciones</small>
+                            </span>
+                            <span className={styles.switch}>
+                              <input
+                                type="checkbox"
+                                checked={templateDraft.showCategoryNav !== false}
+                                onChange={(event) => setTemplateDraft({ ...templateDraft, showCategoryNav: event.target.checked })}
+                              />
+                              <span aria-hidden="true" />
+                            </span>
+                          </label>
+                          <label className={styles.switchRow}>
+                            <span className={styles.switchText}>
+                              <strong>Buscador y alérgenos</strong>
+                              <small>Buscar platos y ocultar los que lleven un alérgeno</small>
+                            </span>
+                            <span className={styles.switch}>
+                              <input
+                                type="checkbox"
+                                checked={templateDraft.showSearch !== false}
+                                onChange={(event) => setTemplateDraft({ ...templateDraft, showSearch: event.target.checked })}
+                              />
+                              <span aria-hidden="true" />
+                            </span>
+                          </label>
                         </div>
                       </section>
 

@@ -1,7 +1,7 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { MenuBoard, MenuNode, MenuTemplateConfig } from '../../types/company'
-import { getMenuAllergenIcon, getMenuAllergenLabel } from '../../data/menuAllergens'
+import { getMenuAllergenIcon, getMenuAllergenLabel, MENU_ALLERGEN_OPTIONS } from '../../data/menuAllergens'
 import { buildMenuTree, formatMenuPrice, type MenuTreeNode } from '../../utils/menuTree'
 import {
   formatMenuCategoryAvailability,
@@ -17,68 +17,45 @@ interface MenuPreviewProps {
   embedded?: boolean
   fullscreen?: boolean
   highlightProductId?: string | null
+  /** Barra superior (volver, reservar…) que se pinta con los colores de la carta. */
+  toolbar?: ReactNode
 }
 
-function renderProductRow(
-  products: MenuTreeNode[],
-  template: MenuTemplateConfig,
-  highlightProductId?: string | null,
-) {
-  const items = products
-    .map((product) => renderProduct(product, template, highlightProductId))
-    .filter(Boolean)
+/* Fuentes muy de rótulo: se usan para títulos, pero el texto corrido va en Inter para leerse bien. */
+const DISPLAY_ONLY_FONTS = ['Bebas Neue', 'Oswald']
 
-  if (items.length === 0) {
-    return null
-  }
-
-  if (template.layout === 'grid') {
-    return (
-      <div className={styles.layoutGridTrack}>
-        <div className={styles.layoutGridScroll}>{items}</div>
-      </div>
-    )
-  }
-
-  return <div className={styles.layoutList}>{items}</div>
+interface Filters {
+  query: string
+  excluded: string[]
 }
 
-function renderFamily(
-  node: MenuTreeNode,
-  template: MenuTemplateConfig,
-  highlightProductId?: string | null,
-) {
-  const isSubfamily = Boolean(node.parentId)
-  const childFamilies = node.children.filter((child) => child.nodeType === 'family')
-  const childProducts = node.children.filter((child) => child.nodeType === 'product')
-  const availabilityLabel = formatMenuCategoryAvailability(node.availability)
-  const isAvailable = isMenuCategoryAvailable(node.availability)
+function normalize(text: string): string {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
 
-  return (
-    <section
-      key={node.id}
-      className={`${styles.familyBlock} ${isSubfamily ? styles.familyBlockSub : ''} ${
-        node.availability.enabled && !isAvailable ? styles.familyBlockUnavailable : ''
-      }`}
-      style={{ marginLeft: `${node.depth * 0.85}rem` }}
-    >
-      <div className={styles.familyHeading}>
-        <h3 className={isSubfamily ? styles.subfamilyTitle : styles.familyTitle}>{node.name}</h3>
-        {availabilityLabel ? (
-          <span className={styles.familyAvailability}>{availabilityLabel}</span>
-        ) : null}
-      </div>
-      {childFamilies.map((child) => renderFamily(child, template, highlightProductId))}
-      {node.availability.enabled && !isAvailable ? (
-        <p className={styles.familyUnavailableNote}>
-          Fuera de horario. Disponible {availabilityLabel}.
-        </p>
-      ) : null}
-      {isAvailable && childProducts.length > 0
-        ? renderProductRow(childProducts, template, highlightProductId)
-        : null}
-    </section>
-  )
+function productMatches(node: MenuTreeNode, filters: Filters): boolean {
+  if (!node.active) {
+    return false
+  }
+  if (filters.excluded.length > 0 && node.allergens.some((allergen) => filters.excluded.includes(allergen))) {
+    return false
+  }
+  if (filters.query) {
+    const haystack = normalize(`${node.name} ${node.description}`)
+    return haystack.includes(filters.query)
+  }
+  return true
+}
+
+function countVisibleProducts(node: MenuTreeNode, filters: Filters): number {
+  if (node.nodeType === 'product') {
+    return productMatches(node, filters) ? 1 : 0
+  }
+  return node.children.reduce((sum, child) => sum + countVisibleProducts(child, filters), 0)
+}
+
+function slugId(node: MenuTreeNode): string {
+  return `menu-family-${node.id}`
 }
 
 function ProductPhotoLightbox({
@@ -109,232 +86,119 @@ function ProductPhotoLightbox({
       aria-modal="true"
       aria-label={`Foto de ${name}`}
     >
-      <div
-        className={styles.photoLightboxPanel}
-        onClick={(event) => event.stopPropagation()}
-      >
+      <div className={styles.photoLightboxPanel} onClick={(event) => event.stopPropagation()}>
+        <img src={imageUrl} alt={name} className={styles.photoLightboxImage} />
         <div className={styles.photoLightboxHeader}>
           <p className={styles.photoLightboxTitle}>{name}</p>
-          <button
-            type="button"
-            className={styles.photoLightboxClose}
-            onClick={onClose}
-            aria-label="Cerrar"
-          >
+          <button type="button" className={styles.photoLightboxClose} onClick={onClose} aria-label="Cerrar">
             ×
           </button>
         </div>
-        <img
-          src={imageUrl}
-          alt={name}
-          className={styles.photoLightboxImage}
-        />
       </div>
     </div>,
     document.body,
   )
 }
 
-function ListAllergenIcons({ allergens }: { allergens: string[] }) {
-  const [activeAllergen, setActiveAllergen] = useState<string | null>(null)
-
-  return (
-    <div className={styles.listAllergens}>
-      {allergens.map((allergen) => {
-        const isActive = activeAllergen === allergen
-        const label = getMenuAllergenLabel(allergen)
-
-        return (
-          <button
-            key={allergen}
-            type="button"
-            className={`${styles.listAllergenBtn} ${isActive ? styles.listAllergenBtnActive : ''}`}
-            onClick={() => setActiveAllergen(isActive ? null : allergen)}
-            aria-label={label}
-            aria-pressed={isActive}
-            title={label}
-          >
-            <span className={styles.listAllergenIcon} aria-hidden="true">
-              {getMenuAllergenIcon(allergen)}
-            </span>
-            {isActive ? <span className={styles.listAllergenLabel}>{label}</span> : null}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function AllergenTooltipIcons({ allergens }: { allergens: string[] }) {
-  const [activeAllergen, setActiveAllergen] = useState<string | null>(null)
+/** Iconos de alérgenos: al tocar uno se ve su nombre un momento. */
+function AllergenIcons({ allergens }: { allergens: string[] }) {
+  const [active, setActive] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!activeAllergen) {
+    if (!active) {
       return undefined
     }
-
-    const timer = window.setTimeout(() => setActiveAllergen(null), 2200)
+    const timer = window.setTimeout(() => setActive(null), 2200)
     return () => window.clearTimeout(timer)
-  }, [activeAllergen])
+  }, [active])
 
   return (
-    <div className={styles.gridAllergens}>
+    <span className={styles.allergens}>
       {allergens.map((allergen) => {
         const label = getMenuAllergenLabel(allergen)
-        const isActive = activeAllergen === allergen
-
+        const isActive = active === allergen
         return (
-          <div key={allergen} className={styles.gridAllergenWrap}>
+          <span key={allergen} className={styles.allergenWrap}>
             <button
               type="button"
-              className={`${styles.gridAllergenBtn} ${isActive ? styles.gridAllergenBtnActive : ''}`}
-              onClick={() => setActiveAllergen(isActive ? null : allergen)}
+              className={`${styles.allergenBtn} ${isActive ? styles.allergenBtnActive : ''}`}
+              onClick={() => setActive(isActive ? null : allergen)}
               aria-label={label}
+              title={label}
             >
-              <span className={styles.gridAllergenIcon} aria-hidden="true">
-                {getMenuAllergenIcon(allergen)}
-              </span>
+              <span aria-hidden="true">{getMenuAllergenIcon(allergen)}</span>
             </button>
             {isActive ? (
-              <span className={styles.allergenTooltip} role="tooltip">
-                {label}
-              </span>
+              <span className={styles.allergenTooltip} role="tooltip">{label}</span>
             ) : null}
-          </div>
+          </span>
         )
       })}
-    </div>
+    </span>
   )
 }
 
-function MenuGridProduct({
-  node,
-  template,
-  highlightProductId,
-}: {
-  node: MenuTreeNode
-  template: MenuTemplateConfig
-  highlightProductId?: string | null
-}) {
-  const image = node.photoUrl
-    ? optimizeCloudinaryUrl(node.photoUrl, CLOUDINARY_DISPLAY.menuProductGrid)
-    : ''
-
-  const hasPhoto = Boolean(node.photoUrl?.trim())
-  const showPhoto = template.showPhotos && hasPhoto && Boolean(image)
-  const priceLabel = node.priceCents != null
-    ? formatMenuPrice(node.priceCents, node.priceCurrency)
-    : null
-
+function PhotoPlaceholder() {
   return (
-    <article
-      id={`product-${node.id}`}
-      className={`${styles.productCard} ${highlightProductId === node.id ? styles.productHighlighted : ''}`}
-    >
-      {showPhoto ? (
-        <img
-          src={image}
-          alt=""
-          className={`${styles.productPhoto} ${styles.productPhotoGrid}`}
-        />
-      ) : null}
-      <div className={styles.productGridBody}>
-        <h4 className={styles.productGridTitle}>{node.name}</h4>
-        {template.showDescriptions && node.description ? (
-          <p className={styles.productDescription}>{node.description}</p>
-        ) : null}
-        <div className={styles.productGridFooter}>
-          {template.showAllergens && node.allergens.length > 0 ? (
-            <AllergenTooltipIcons allergens={node.allergens} />
-          ) : null}
-          {priceLabel ? (
-            <span className={styles.productGridPrice}>{priceLabel}</span>
-          ) : null}
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function MenuListProduct({
-  node,
-  template,
-  highlightProductId,
-}: {
-  node: MenuTreeNode
-  template: MenuTemplateConfig
-  highlightProductId?: string | null
-}) {
-  const [photoOpen, setPhotoOpen] = useState(false)
-
-  const lightboxImage = node.photoUrl
-    ? optimizeCloudinaryUrl(node.photoUrl, CLOUDINARY_DISPLAY.menuProductLightbox)
-    : ''
-  const hasPhoto = Boolean(node.photoUrl?.trim())
-  const priceLabel = node.priceCents != null
-    ? formatMenuPrice(node.priceCents, node.priceCurrency)
-    : null
-
-  const cameraIcon = (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={styles.placeholderIcon}>
       <path
-        d="M6.2 3.5h3.6l.85 1.75H13c.83 0 1.5.67 1.5 1.5v5.75c0 .83-.67 1.5-1.5 1.5H3c-.83 0-1.5-.67-1.5-1.5V6.75c0-.83.67-1.5 1.5-1.5h2.35L6.2 3.5zM8 6.35a2.65 2.65 0 100 5.3 2.65 2.65 0 000-5.3zm0 1.25a1.4 1.4 0 110 2.8 1.4 1.4 0 010-2.8z"
-        fill="currentColor"
+        d="M7 2v8a2 2 0 0 0 2 2v10M11 2v8M15 2c-1.5 1.5-2 3.5-2 6 0 2 1 3 2 3v11"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   )
+}
 
-  const photoControl = hasPhoto ? (
-    <button
-      type="button"
-      className={`${styles.productPhotoBtn} ${styles.productPhotoBtnActive}`}
-      onClick={() => setPhotoOpen(true)}
-      title="Ver foto"
-      aria-label={`Ver foto de ${node.name}`}
-    >
-      {cameraIcon}
-    </button>
-  ) : (
-    <span
-      className={`${styles.productPhotoBtn} ${styles.productPhotoBtnEmpty}`}
-      title="Sin foto"
-      aria-label="Sin foto"
-    >
-      {cameraIcon}
-    </span>
-  )
+interface ProductProps {
+  node: MenuTreeNode
+  template: MenuTemplateConfig
+  highlighted: boolean
+  unavailable: boolean
+}
+
+function MenuListProduct({ node, template, highlighted, unavailable }: ProductProps) {
+  const [photoOpen, setPhotoOpen] = useState(false)
+  const hasPhoto = template.showPhotos && Boolean(node.photoUrl?.trim())
+  const thumb = hasPhoto ? optimizeCloudinaryUrl(node.photoUrl, CLOUDINARY_DISPLAY.menuProductGrid) : ''
+  const priceLabel = node.priceCents != null ? formatMenuPrice(node.priceCents, node.priceCurrency) : null
 
   return (
     <>
       <article
-        key={node.id}
         id={`product-${node.id}`}
-        className={`${styles.productCard} ${highlightProductId === node.id ? styles.productHighlighted : ''}`}
+        className={`${styles.listItem} ${highlighted ? styles.productHighlighted : ''} ${unavailable ? styles.productUnavailable : ''}`}
       >
-        <div className={styles.productListRow}>
-          <div className={styles.productPhotoCol}>{photoControl}</div>
-          <div className={styles.productMain}>
-            <h4 className={styles.productTitleRow}>
-              <span>{node.name}</span>
-            </h4>
-            {template.showDescriptions && node.description ? (
-              <p className={styles.productDescription}>{node.description}</p>
-            ) : null}
-          </div>
-          <div className={styles.productAside}>
-            {priceLabel ? (
-              <span className={styles.productPrice}>{priceLabel}</span>
-            ) : null}
+        <div className={styles.listText}>
+          <h4 className={styles.productName}>{node.name}</h4>
+          {template.showDescriptions && node.description ? (
+            <p className={styles.productDescription}>{node.description}</p>
+          ) : null}
+          <div className={styles.listMeta}>
+            {priceLabel ? <span className={styles.productPrice}>{priceLabel}</span> : null}
             {template.showAllergens && node.allergens.length > 0 ? (
-              <ListAllergenIcons allergens={node.allergens} />
+              <AllergenIcons allergens={node.allergens} />
             ) : null}
           </div>
         </div>
+        {hasPhoto ? (
+          <button
+            type="button"
+            className={styles.listThumb}
+            onClick={() => setPhotoOpen(true)}
+            aria-label={`Ver foto de ${node.name}`}
+          >
+            <img src={thumb} alt="" loading="lazy" />
+          </button>
+        ) : null}
       </article>
-      {photoOpen && hasPhoto ? (
+      {photoOpen ? (
         <ProductPhotoLightbox
           name={node.name}
-          imageUrl={lightboxImage}
+          imageUrl={optimizeCloudinaryUrl(node.photoUrl, CLOUDINARY_DISPLAY.menuProductLightbox)}
           onClose={() => setPhotoOpen(false)}
         />
       ) : null}
@@ -342,20 +206,56 @@ function MenuListProduct({
   )
 }
 
-function renderProduct(
-  node: MenuTreeNode,
-  template: MenuTemplateConfig,
-  highlightProductId?: string | null,
-) {
-  if (!node.active) {
-    return null
-  }
+function MenuGridProduct({ node, template, highlighted, unavailable }: ProductProps) {
+  const [photoOpen, setPhotoOpen] = useState(false)
+  const hasPhoto = Boolean(node.photoUrl?.trim())
+  const image = hasPhoto ? optimizeCloudinaryUrl(node.photoUrl, CLOUDINARY_DISPLAY.menuProductGrid) : ''
+  const priceLabel = node.priceCents != null ? formatMenuPrice(node.priceCents, node.priceCurrency) : null
 
-  if (template.layout === 'list') {
-    return <MenuListProduct key={node.id} node={node} template={template} highlightProductId={highlightProductId} />
-  }
-
-  return <MenuGridProduct key={node.id} node={node} template={template} highlightProductId={highlightProductId} />
+  return (
+    <>
+      <article
+        id={`product-${node.id}`}
+        className={`${styles.gridCard} ${highlighted ? styles.productHighlighted : ''} ${unavailable ? styles.productUnavailable : ''}`}
+      >
+        {template.showPhotos ? (
+          hasPhoto ? (
+            <button
+              type="button"
+              className={styles.gridMedia}
+              onClick={() => setPhotoOpen(true)}
+              aria-label={`Ver foto de ${node.name}`}
+            >
+              <img src={image} alt="" loading="lazy" />
+            </button>
+          ) : (
+            <div className={`${styles.gridMedia} ${styles.gridMediaEmpty}`} aria-hidden="true">
+              <PhotoPlaceholder />
+            </div>
+          )
+        ) : null}
+        <div className={styles.gridBody}>
+          <h4 className={styles.productName}>{node.name}</h4>
+          {template.showDescriptions && node.description ? (
+            <p className={styles.productDescription}>{node.description}</p>
+          ) : null}
+          <div className={styles.gridFooter}>
+            {priceLabel ? <span className={styles.productPrice}>{priceLabel}</span> : <span />}
+            {template.showAllergens && node.allergens.length > 0 ? (
+              <AllergenIcons allergens={node.allergens} />
+            ) : null}
+          </div>
+        </div>
+      </article>
+      {photoOpen ? (
+        <ProductPhotoLightbox
+          name={node.name}
+          imageUrl={optimizeCloudinaryUrl(node.photoUrl, CLOUDINARY_DISPLAY.menuProductLightbox)}
+          onClose={() => setPhotoOpen(false)}
+        />
+      ) : null}
+    </>
+  )
 }
 
 function MenuPreview({
@@ -365,25 +265,80 @@ function MenuPreview({
   embedded = false,
   fullscreen = false,
   highlightProductId = null,
+  toolbar,
 }: MenuPreviewProps) {
   const template = board.template
-  const tree = buildMenuTree(nodes.filter((node) => node.boardId === board.id))
-
+  const isGrid = template.layout === 'grid'
+  const tree = useMemo(() => buildMenuTree(nodes.filter((node) => node.boardId === board.id)), [nodes, board.id])
   const rootProducts = tree.filter((node) => node.nodeType === 'product')
   const rootFamilies = tree.filter((node) => node.nodeType === 'family')
+
+  const showSearch = template.showSearch !== false
+  const showCategoryNav = template.showCategoryNav !== false
+  const [query, setQuery] = useState('')
+  const [excluded, setExcluded] = useState<string[]>([])
+  const [allergenPanelOpen, setAllergenPanelOpen] = useState(false)
+  const [activeFamily, setActiveFamily] = useState<string | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  const filters: Filters = { query: normalize(query.trim()), excluded }
+  const filtering = Boolean(filters.query) || excluded.length > 0
+
+  const usedAllergens = useMemo(() => {
+    const used = new Set(nodes.filter((node) => node.boardId === board.id).flatMap((node) => node.allergens))
+    return MENU_ALLERGEN_OPTIONS.filter((option) => used.has(option.id))
+  }, [nodes, board.id])
+
+  const totalProducts = useMemo(
+    () => nodes.filter((node) => node.boardId === board.id && node.nodeType === 'product' && node.active).length,
+    [nodes, board.id],
+  )
+
+  const visibleFamilies = rootFamilies.filter((family) => countVisibleProducts(family, filters) > 0)
+  const visibleRootProducts = rootProducts.filter((node) => productMatches(node, filters))
+  const resultCount = filtering
+    ? visibleFamilies.reduce((sum, family) => sum + countVisibleProducts(family, filters), 0) + visibleRootProducts.length
+    : totalProducts
 
   useEffect(() => {
     if (!highlightProductId) {
       return
     }
-
     const element = document.getElementById(`product-${highlightProductId}`)
-    if (!element) {
-      return
-    }
-
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [highlightProductId, nodes, board.id])
+
+  // Marca en la barra de categorías la sección que se está viendo.
+  useEffect(() => {
+    if (!showCategoryNav || typeof IntersectionObserver === 'undefined') {
+      return undefined
+    }
+    const sections = visibleFamilies
+      .map((family) => document.getElementById(slugId(family)))
+      .filter((element): element is HTMLElement => Boolean(element))
+    if (sections.length === 0) {
+      return undefined
+    }
+    const scrollRoot = embedded ? rootRef.current?.closest('[class*="phoneMockupScreen"]') ?? null : null
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting)
+        if (visible.length > 0) {
+          visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+          setActiveFamily(visible[0].target.id)
+        }
+      },
+      { root: scrollRoot, rootMargin: '-25% 0px -65% 0px' },
+    )
+    sections.forEach((section) => observer.observe(section))
+    return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCategoryNav, embedded, visibleFamilies.map((family) => family.id).join('|')])
+
+  const fontFamily = template.fontFamily
+  const bodyFont = DISPLAY_ONLY_FONTS.some((font) => fontFamily.includes(font))
+    ? "'Inter', system-ui, sans-serif"
+    : fontFamily
 
   const themeStyle = {
     '--menu-bg': template.backgroundColor,
@@ -393,31 +348,225 @@ function MenuPreview({
     '--menu-family': template.familyColor,
     '--menu-subfamily': template.subfamilyColor,
     '--menu-price': template.priceColor,
-    '--menu-font': template.fontFamily,
+    '--menu-font': fontFamily,
+    '--menu-body-font': bodyFont,
     '--menu-bg-image-opacity': String(template.backgroundImageOpacity / 100),
   } as CSSProperties
 
+  const renderProducts = (products: MenuTreeNode[], unavailable: boolean) => {
+    const items = products.filter((product) => productMatches(product, filters))
+    if (items.length === 0) {
+      return null
+    }
+    return (
+      <div className={isGrid ? styles.gridLayout : styles.listLayout}>
+        {items.map((product) => (isGrid ? (
+          <MenuGridProduct
+            key={product.id}
+            node={product}
+            template={template}
+            highlighted={highlightProductId === product.id}
+            unavailable={unavailable}
+          />
+        ) : (
+          <MenuListProduct
+            key={product.id}
+            node={product}
+            template={template}
+            highlighted={highlightProductId === product.id}
+            unavailable={unavailable}
+          />
+        )))}
+      </div>
+    )
+  }
+
+  const renderFamily = (node: MenuTreeNode, parentUnavailable = false): ReactNode => {
+    // Sin platos que enseñar (vacía o filtrada): no se pinta la sección.
+    if (countVisibleProducts(node, filters) === 0) {
+      return null
+    }
+    const isSubfamily = Boolean(node.parentId)
+    const childFamilies = node.children.filter((child) => child.nodeType === 'family')
+    const childProducts = node.children.filter((child) => child.nodeType === 'product')
+    const availabilityLabel = formatMenuCategoryAvailability(node.availability)
+    const ownUnavailable = node.availability.enabled && !isMenuCategoryAvailable(node.availability)
+    const unavailable = parentUnavailable || ownUnavailable
+    const count = countVisibleProducts(node, filters)
+
+    return (
+      <section
+        key={node.id}
+        id={isSubfamily ? undefined : slugId(node)}
+        className={isSubfamily ? styles.subfamily : styles.family}
+      >
+        <header className={isSubfamily ? styles.subfamilyHeading : styles.familyHeading}>
+          <h3 className={isSubfamily ? styles.subfamilyTitle : styles.familyTitle}>{node.name}</h3>
+          {!isSubfamily && count > 0 ? <span className={styles.familyCount}>{count}</span> : null}
+          {availabilityLabel ? (
+            <span className={`${styles.familyAvailability} ${ownUnavailable ? styles.familyAvailabilityOff : ''}`}>
+              {ownUnavailable ? `Disponible ${availabilityLabel}` : availabilityLabel}
+            </span>
+          ) : null}
+        </header>
+        {ownUnavailable ? (
+          <p className={styles.unavailableNote}>
+            Ahora mismo fuera de horario. Puedes ver los platos; se sirven {availabilityLabel}.
+          </p>
+        ) : null}
+        {renderProducts(childProducts, unavailable)}
+        {childFamilies.map((child) => renderFamily(child, unavailable))}
+      </section>
+    )
+  }
+
+  const toggleExcluded = (allergen: string) => {
+    setExcluded((current) => (current.includes(allergen)
+      ? current.filter((item) => item !== allergen)
+      : [...current, allergen]))
+  }
+
+  const scrollToFamily = (id: string) => {
+    const element = document.getElementById(id)
+    element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setActiveFamily(id)
+  }
+
   return (
     <div
-      className={`${styles.preview} ${embedded ? styles.previewEmbedded : ''} ${
-        fullscreen ? styles.previewFullscreen : ''
-      } ${
-        template.layout === 'list' ? styles.previewListLayout : ''
-      } ${template.layout === 'grid' ? styles.previewGridLayout : ''}`}
+      ref={rootRef}
+      className={[
+        styles.preview,
+        embedded ? styles.previewEmbedded : '',
+        fullscreen ? styles.previewFullscreen : '',
+        isGrid ? styles.previewGrid : styles.previewList,
+        styles[`card_${template.cardStyle ?? 'soft'}`],
+        template.density === 'compact' ? styles.compact : '',
+        styles[`photo_${template.photoShape ?? 'rounded'}`],
+      ].filter(Boolean).join(' ')}
       style={themeStyle}
     >
       {template.backgroundImageUrl ? (
         <img src={template.backgroundImageUrl} alt="" className={styles.bgImage} />
       ) : null}
+
+      {toolbar ? <div className={styles.topBar}>{toolbar}</div> : null}
+
       <div className={styles.previewInner}>
-        <header className={styles.previewHeader}>
+        <header className={`${styles.hero} ${template.headerAlign === 'left' ? styles.heroLeft : ''}`}>
           {restaurantName ? <p className={styles.restaurantName}>{restaurantName}</p> : null}
-          <h2>{board.name}</h2>
+          <h2 className={styles.boardName}>{board.name}</h2>
+          {template.tagline ? <p className={styles.tagline}>{template.tagline}</p> : null}
+          <span className={styles.heroRule} aria-hidden="true" />
         </header>
 
-        {rootFamilies.map((family) => renderFamily(family, template, highlightProductId))}
+        {showSearch && totalProducts > 0 ? (
+          <div className={styles.tools}>
+            <label className={styles.searchField}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <path d="m20 20-3.5-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Buscar un plato…"
+                aria-label="Buscar en la carta"
+              />
+            </label>
+            {usedAllergens.length > 0 ? (
+              <button
+                type="button"
+                className={`${styles.filterButton} ${excluded.length > 0 ? styles.filterButtonOn : ''}`}
+                onClick={() => setAllergenPanelOpen((open) => !open)}
+                aria-expanded={allergenPanelOpen}
+              >
+                Alérgenos{excluded.length > 0 ? ` · ${excluded.length}` : ''}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
-        {rootProducts.length > 0 ? renderProductRow(rootProducts, template, highlightProductId) : null}
+        {showSearch && allergenPanelOpen && usedAllergens.length > 0 ? (
+          <div className={styles.allergenPanel}>
+            <p>Oculta los platos que lleven:</p>
+            <div className={styles.allergenChips}>
+              {usedAllergens.map((option) => {
+                const on = excluded.includes(option.id)
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`${styles.allergenChip} ${on ? styles.allergenChipOn : ''}`}
+                    aria-pressed={on}
+                    onClick={() => toggleExcluded(option.id)}
+                  >
+                    <span aria-hidden="true">{option.icon}</span>
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+            {excluded.length > 0 ? (
+              <button type="button" className={styles.clearLink} onClick={() => setExcluded([])}>
+                Quitar filtro
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showCategoryNav && visibleFamilies.length > 1 ? (
+          <nav className={styles.categoryNav} aria-label="Categorías de la carta">
+            <div className={styles.categoryNavScroll}>
+              {visibleFamilies.map((family) => {
+                const id = slugId(family)
+                return (
+                  <button
+                    key={family.id}
+                    type="button"
+                    className={`${styles.categoryChip} ${activeFamily === id ? styles.categoryChipOn : ''}`}
+                    onClick={() => scrollToFamily(id)}
+                  >
+                    {family.name}
+                  </button>
+                )
+              })}
+            </div>
+          </nav>
+        ) : null}
+
+        {filtering ? (
+          <p className={styles.resultNote}>
+            {resultCount === 0
+              ? 'Ningún plato coincide.'
+              : `${resultCount} ${resultCount === 1 ? 'plato' : 'platos'}`}
+            <button
+              type="button"
+              className={styles.clearLink}
+              onClick={() => {
+                setQuery('')
+                setExcluded([])
+              }}
+            >
+              Ver toda la carta
+            </button>
+          </p>
+        ) : null}
+
+        <div className={styles.sections}>
+          {visibleFamilies.map((family) => renderFamily(family))}
+          {visibleRootProducts.length > 0 ? (
+            <section className={styles.family}>
+              {visibleFamilies.length > 0 ? (
+                <header className={styles.familyHeading}>
+                  <h3 className={styles.familyTitle}>Más</h3>
+                </header>
+              ) : null}
+              {renderProducts(rootProducts, false)}
+            </section>
+          ) : null}
+        </div>
 
         {rootFamilies.length === 0 && rootProducts.length === 0 ? (
           <p className={styles.empty}>Añade familias o productos para ver la carta.</p>
