@@ -1,0 +1,141 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 1120px;
+}
+
+.loading {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 0.95rem;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.secondaryButton:hover {
+  background: #f6f4f1;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li + li {
+  border-top: 1px solid #f1ede8;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.85rem 0.5rem;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.item:hover {
+  background: #faf9f7;
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #f3f1ee;
+  color: #4a443e;
+}
+
+.unread .icon {
+  background: #fbf1ea;
+  color: var(--color-accent-strong);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.itemHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.itemHead strong {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.unread .itemHead strong {
+  font-weight: 600;
+}
+
+.itemHead time {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.body {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.action {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-accent-strong);
+}
+
+.dot {
+  flex: 0 0 8px;
+  height: 8px;
+  margin-top: 0.4rem;
+  border-radius: 999px;
+  background: var(--color-accent-strong);
+}
+
+.chevron {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  color: #b8b0a7;
+}

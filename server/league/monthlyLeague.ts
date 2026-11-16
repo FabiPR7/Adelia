@@ -328,7 +328,11 @@ export async function closedMonthResults(month: string): Promise<Record<string, 
     const again = await ref.get()
     return again.data() ?? result
   }
-  await awardLeaguePrizes(month, cityBoards).catch((error) => console.error('league prizes error:', error))
+  // Solo el mes que acaba de cerrar da premios: un mes antiguo que se guarda tarde
+  // (por ejemplo al consultarlo por primera vez) solo deja trofeos.
+  if (month === previousMonthKey(currentMonthKey())) {
+    await awardLeaguePrizes(month, cityBoards).catch((error) => console.error('league prizes error:', error))
+  }
   return result
 }
 
