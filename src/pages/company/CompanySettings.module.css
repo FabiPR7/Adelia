@@ -1437,7 +1437,7 @@
 }
 
 .tablesGridRowWithMap {
-  grid-template-columns: minmax(0, 1fr) 60px minmax(5.5rem, 0.9fr) 36px;
+  grid-template-columns: minmax(0, 1fr) 6.25rem minmax(5.5rem, 0.9fr) 36px;
 }
 
 .tablesGridHeader {
@@ -1817,7 +1817,7 @@
   }
 
   .tablesGridRowWithMap {
-    grid-template-columns: minmax(0, 1fr) 52px minmax(4.5rem, 0.95fr) 34px;
+    grid-template-columns: minmax(0, 1fr) 5.5rem minmax(4.5rem, 0.95fr) 34px;
   }
 
   :where(.form) .tablesGridCell {
@@ -1853,5 +1853,434 @@
   .saveMapButton,
   .addButton {
     transition: none;
+  }
+}
+
+/* ===================== Perfil: completado y filas ===================== */
+
+.completeness {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding: 1.125rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff 0%, #fbf8f4 100%);
+  box-shadow: var(--elev-1);
+}
+
+.completenessHead {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  flex: 1 1 20rem;
+}
+
+.completenessHead h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.completenessHead p {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.completenessRing {
+  --pct: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: conic-gradient(#3f9a6b calc(var(--pct) * 1%), #ece8e2 0);
+}
+
+.completenessRing::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.completenessRing strong {
+  position: relative;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.completenessList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  flex: 2 1 26rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.completenessList li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.75rem;
+  padding: 0 0.65rem 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.completenessList li > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+}
+
+.checkDone {
+  background: var(--color-ok-bg);
+  color: var(--color-ok);
+}
+
+.checkDone > span {
+  background: #3f9a6b;
+  color: #fff;
+}
+
+.checkTodo {
+  background: #f1efec;
+  color: var(--color-text-muted);
+}
+
+.checkTodo > span {
+  border: 1.5px dashed #c8bfb4;
+}
+
+.rowStatusOk,
+.rowStatusTodo {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.375rem;
+  font-size: 0.75rem !important;
+  font-weight: 600;
+}
+
+.rowStatusOk {
+  color: var(--color-ok) !important;
+}
+
+.rowStatusTodo {
+  color: var(--color-warn) !important;
+}
+
+.settingsRowFieldWide {
+  max-width: none;
+}
+
+.mapWide {
+  min-width: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.embeddedPicker {
+  min-width: 0;
+}
+
+.fieldCounterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+}
+
+.fieldHintWarn {
+  font-size: 0.75rem;
+  color: var(--color-warn);
+}
+
+.settingsRowField .locationFieldsRow {
+  margin-top: 0.75rem;
+}
+
+/* ===================== Mesas: cifras, filtros y plazas ===================== */
+
+.tableKpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.tableKpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--elev-1);
+}
+
+.tableKpiTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.tableKpiIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 8px;
+  background: #f3f0ec;
+  color: var(--color-text-muted);
+}
+
+.tableKpi > strong {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.tableKpi > strong small {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--color-text-muted);
+}
+
+.tableKpiHint {
+  font-size: 0.75rem;
+  color: #a29a91;
+}
+
+.tableKpiBar {
+  display: block;
+  height: 5px;
+  margin-top: 0.2rem;
+  border-radius: 999px;
+  background: #efebe6;
+  overflow: hidden;
+}
+
+.tableKpiBar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #3f9a6b;
+}
+
+.tableKpiBar > .tableKpiBarOver {
+  background: #d08a0c;
+}
+
+.sizeBreakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-height: 1.85rem;
+  align-items: center;
+}
+
+.sizeBreakdown > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1rem;
+  padding: 0.125rem 0.45rem;
+  border-radius: 6px;
+  background: #f3f0ec;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sizeBreakdown strong {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+:where(.form) .tablesSearch {
+  position: relative;
+  flex-direction: row;
+  align-items: center;
+  color: #a29a91;
+}
+
+.tablesSearch > svg {
+  position: absolute;
+  left: 0.7rem;
+  pointer-events: none;
+}
+
+:where(.form) .tablesSearch input {
+  padding-left: 2.1rem;
+}
+
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.625rem;
+}
+
+.filterChipsLabel {
+  margin-right: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.875rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.filterChip > span:last-child:not(:first-child) {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #a29a91;
+  font-variant-numeric: tabular-nums;
+}
+
+.filterChip:hover {
+  color: var(--color-text);
+  border-color: #d6d0c8;
+}
+
+.filterChipSmall {
+  min-width: 2.25rem;
+  justify-content: center;
+  padding: 0 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.filterChipOn,
+.filterChipOn:hover {
+  border-color: var(--color-text);
+  background: var(--color-text);
+  color: #fff;
+  font-weight: 600;
+}
+
+.filterChipOn > span:last-child:not(:first-child) {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.filterChip:focus-visible,
+.stepper button:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.stepper {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.stepper button {
+  flex: 0 0 1.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background-color 0.12s ease, color 0.12s ease;
+}
+
+.tablesGridRow:hover .stepper button,
+.stepper:focus-within button {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .stepper button {
+    opacity: 1;
+  }
+}
+
+.stepper button:hover:not(:disabled) {
+  background: #f3f0ec;
+  color: var(--color-text);
+}
+
+.stepper button:disabled {
+  opacity: 0 !important;
+  cursor: default;
+}
+
+:where(.form) .stepper .tablesGridCell {
+  flex: 1;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  -moz-appearance: textfield;
+}
+
+.stepper .tablesGridCell::-webkit-outer-spin-button,
+.stepper .tablesGridCell::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+@container (max-width: 780px) {
+  .tableKpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .completeness {
+    padding: 1rem 1.125rem;
   }
 }

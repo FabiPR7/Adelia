@@ -81,7 +81,13 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Armchair,
   Globe,
+  LayoutGrid,
+  Map as MapIcon,
+  Search,
+  Users,
+  Image as ImageIcon,
   Link2,
   Mail,
   MapPin,
@@ -284,6 +290,7 @@ const CompanySettings = forwardRef(function CompanySettings(
   const [success, setSuccess] = useState<string | null>(null)
   const [tableSearchQuery, setTableSearchQuery] = useState('')
   const [tableCapacityFilter, setTableCapacityFilter] = useState('')
+  const [tableMapFilter, setTableMapFilter] = useState('')
   const [selectedMapId, setSelectedMapId] = useState('')
   // Confirmación propia para quitar un mapa (window.confirm lo bloquean muchos navegadores).
   const [removeMapConfirm, setRemoveMapConfirm] = useState<{ removedName: string; fallbackName: string } | null>(null)
@@ -370,12 +377,14 @@ const CompanySettings = forwardRef(function CompanySettings(
         const matchesName = !query || table.name.toLowerCase().includes(query)
         const matchesCapacity =
           !tableCapacityFilter || table.capacity === Number(tableCapacityFilter)
+        const tableMap = table.floorPlanId || form?.floorPlans[0]?.id || ''
+        const matchesMap = !tableMapFilter || tableMap === tableMapFilter
 
-        return matchesName && matchesCapacity
+        return matchesName && matchesCapacity && matchesMap
       })
-  }, [tables, tableSearchQuery, tableCapacityFilter])
+  }, [tables, tableSearchQuery, tableCapacityFilter, tableMapFilter, form?.floorPlans])
 
-  const hasTableFilters = Boolean(tableSearchQuery.trim() || tableCapacityFilter)
+  const hasTableFilters = Boolean(tableSearchQuery.trim() || tableCapacityFilter || tableMapFilter)
 
   useEffect(() => {
     if (!company) {
@@ -986,6 +995,35 @@ const CompanySettings = forwardRef(function CompanySettings(
   const totalSeats = tables.reduce((sum, table) => sum + (Number(table.capacity) || 0), 0)
   const activeMapCount = form.floorPlans.filter((plan) => plan.enabled).length
 
+  // Qué le falta al perfil para estar completo (solo orienta; no bloquea nada).
+  const profileChecks = [
+    { label: 'Logo', done: Boolean(form.logoUrl.trim()) },
+    { label: 'Punto en el mapa', done: form.latitude != null && form.longitude != null },
+    { label: 'Tipo de local', done: form.venueTypes.length > 0 },
+    { label: 'Precio medio', done: Boolean(form.priceRange) },
+    { label: '3 servicios o más', done: form.amenities.length >= 3 },
+    { label: '3 características o más', done: form.characteristics.length >= 3 },
+    { label: 'Descripción de 80 letras o más', done: form.description.trim().length >= 80 },
+    { label: '3 fotos o más', done: form.photos.length >= 3 },
+  ]
+  const profileCompleteness = {
+    items: profileChecks,
+    percent: Math.round((profileChecks.filter((item) => item.done).length / profileChecks.length) * 100),
+  }
+
+  // Mesas: por tamaño y por mapa, para los filtros rápidos.
+  const capacityGroups = [...tables.reduce((map, table) => {
+    map.set(table.capacity, (map.get(table.capacity) ?? 0) + 1)
+    return map
+  }, new Map<number, number>())].sort((a, b) => a[0] - b[0])
+  const tablesPerMap = form.floorPlans.map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    enabled: plan.enabled,
+    count: tables.filter((table) => (table.floorPlanId || form.floorPlans[0]?.id) === plan.id).length,
+  }))
+  const averageSeats = tables.length ? totalSeats / tables.length : 0
+
   const handleDownloadClientQr = async () => {
     if (!company) {
       return
@@ -1252,12 +1290,44 @@ const CompanySettings = forwardRef(function CompanySettings(
           subtitle="Cómo te encuentran y cómo te ven los clientes en Adelia."
         />
 
-        <FormCard
-          title="Ubicación"
-          description="Obligatoria para aparecer en Adelia. Marca en el mapa la entrada exacta."
-        >
-          <div className={styles.locationSplit}>
-            <div className={styles.locationFields}>
+        <div className={styles.completeness}>
+          <div className={styles.completenessHead}>
+            <span className={styles.completenessRing} style={{ ['--pct' as string]: `${profileCompleteness.percent}` }}>
+              <strong>{profileCompleteness.percent}%</strong>
+            </span>
+            <div>
+              <h3>
+                {profileCompleteness.percent === 100 ? '¡Perfil completo!' : `Perfil completo al ${profileCompleteness.percent} %`}
+              </h3>
+              <p>
+                {profileCompleteness.percent === 100
+                  ? 'Tienes todo lo que los clientes miran antes de reservar.'
+                  : 'Los locales con el perfil completo aparecen mejor en las búsquedas y reciben más reservas.'}
+              </p>
+            </div>
+          </div>
+          <ul className={styles.completenessList}>
+            {profileCompleteness.items.map((item) => (
+              <li key={item.label} className={item.done ? styles.checkDone : styles.checkTodo}>
+                <span aria-hidden="true">{item.done ? <Check size={13} strokeWidth={3} /> : null}</span>
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHead}>
+            <h3>Ubicación</h3>
+            <p>Obligatoria para aparecer en Adelia y en el mapa de la app.</p>
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <span className={styles.settingsRowTitle}>Municipio</span>
+              <span>Elígelo de la lista para que te encuentren al buscar por ciudad.</span>
+            </div>
+            <div className={styles.settingsRowField}>
               <div className={styles.cityField}>
                 <CityAutocomplete
                   value={selectedMunicipality}
@@ -1297,45 +1367,72 @@ const CompanySettings = forwardRef(function CompanySettings(
                 </label>
               </div>
             </div>
-            <div className={styles.mapSquareBlock}>
-              <LocationMapPicker
-                compact
-                square
-                value={toGeoCoordinates(form.latitude, form.longitude)}
-                geocodeQuery={[form.location, form.municipality, form.country].filter(Boolean).join(', ')}
-                onChange={(coords) => {
-                  setForm({
-                    ...form,
-                    latitude: coords.lat,
-                    longitude: coords.lng,
-                  })
-                }}
-              />
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <span className={styles.settingsRowTitle}>Punto en el mapa</span>
+              <span>Arrastra el marcador hasta la puerta del local. Así llegan sin perderse.</span>
+              {form.latitude != null && form.longitude != null ? (
+                <span className={styles.rowStatusOk}>
+                  <MapPin size={13} aria-hidden="true" /> Ubicación marcada
+                </span>
+              ) : (
+                <span className={styles.rowStatusTodo}>
+                  <MapPin size={13} aria-hidden="true" /> Sin marcar
+                </span>
+              )}
+            </div>
+            <div className={styles.settingsRowField}>
+              <div className={styles.mapWide}>
+                <LocationMapPicker
+                  compact
+                  value={toGeoCoordinates(form.latitude, form.longitude)}
+                  geocodeQuery={[form.location, form.municipality, form.country].filter(Boolean).join(', ')}
+                  onChange={(coords) => {
+                    setForm({
+                      ...form,
+                      latitude: coords.lat,
+                      longitude: coords.lng,
+                    })
+                  }}
+                />
+              </div>
             </div>
           </div>
-        </FormCard>
+        </div>
 
-        <FormCard
-          title="Cómo es tu local"
-          description="Ayuda a los clientes a encontrarte en las búsquedas y filtros."
-        >
-          <div className={styles.profileLayout}>
-            <div className={styles.profileBlock}>
-              <ProfileToggleGrid
-                label="Tipo de local"
-                hint="Elige hasta 3. Un sitio puede ser restaurante y bar a la vez."
-                options={COMPANY_VENUE_TYPES}
-                selected={form.venueTypes}
-                maxSelected={MAX_COMPANY_VENUE_TYPES}
-                onChange={(venueTypes) => setForm({ ...form, venueTypes })}
-              />
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHead}>
+            <h3>Cómo es tu local</h3>
+            <p>Lo usan los filtros de la app: cuanto más completo, más te encuentran.</p>
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <span className={styles.settingsRowTitle}>Tipo de local</span>
+              <span>Hasta {MAX_COMPANY_VENUE_TYPES}. Puedes ser restaurante y bar a la vez.</span>
             </div>
-
-            <div className={styles.profileBlock}>
-              <div className={styles.priceHeader}>
-                <span className={styles.priceLabel}>Precio medio</span>
-                <span className={styles.priceHint}>Opcional. Lo verán los clientes.</span>
+            <div className={`${styles.settingsRowField} ${styles.settingsRowFieldWide}`}>
+              <div className={styles.embeddedPicker}>
+                <ProfileToggleGrid
+                  label="Tipo de local"
+                  hideLabel
+                  options={COMPANY_VENUE_TYPES}
+                  selected={form.venueTypes}
+                  maxSelected={MAX_COMPANY_VENUE_TYPES}
+                  onChange={(venueTypes) => setForm({ ...form, venueTypes })}
+                />
               </div>
+            </div>
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <span className={styles.settingsRowTitle}>Precio medio</span>
+              <span>Opcional. Lo que suele gastar una persona.</span>
+            </div>
+            <div className={styles.settingsRowField}>
               <div className={styles.priceRow} role="group" aria-label="Rango de precio">
                 {COMPANY_PRICE_RANGES.map((option) => {
                   const isOn = form.priceRange === option.id
@@ -1359,69 +1456,121 @@ const CompanySettings = forwardRef(function CompanySettings(
                 })}
               </div>
             </div>
+          </div>
 
-            <div className={styles.profileBlock}>
-              <ProfileToggleGrid
-                label="Servicios"
-                hint="Activa solo lo que tiene tu local: parking, wifi, pagos, accesibilidad…"
-                options={COMPANY_AMENITIES}
-                selected={form.amenities}
-                onChange={(amenities) => setForm({ ...form, amenities })}
-              />
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <span className={styles.settingsRowTitle}>Servicios</span>
+              <span>Activa solo lo que tiene tu local: terraza, wifi, pagos, accesibilidad…</span>
             </div>
-
-            <div className={styles.profileBlock}>
-              <CharacteristicPicker
-                options={COMPANY_CHARACTERISTIC_OPTIONS}
-                selected={form.characteristics}
-                maxSelected={MAX_COMPANY_CHARACTERISTICS}
-                onChange={(characteristics) => setForm({ ...form, characteristics })}
-              />
+            <div className={`${styles.settingsRowField} ${styles.settingsRowFieldWide}`}>
+              <div className={styles.embeddedPicker}>
+                <ProfileToggleGrid
+                  label="Servicios"
+                  hideLabel
+                  options={COMPANY_AMENITIES}
+                  selected={form.amenities}
+                  onChange={(amenities) => setForm({ ...form, amenities })}
+                />
+              </div>
             </div>
+          </div>
 
-            <label className={`${styles.profileBlock} ${styles.descriptionField}`}>
-              Descripción
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <span className={styles.settingsRowTitle}>Características</span>
+              <span>Hasta {MAX_COMPANY_CHARACTERISTICS} palabras que te definan: romántico, para grupos, vistas…</span>
+            </div>
+            <div className={`${styles.settingsRowField} ${styles.settingsRowFieldWide}`}>
+              <div className={styles.embeddedPicker}>
+                <CharacteristicPicker
+                  options={COMPANY_CHARACTERISTIC_OPTIONS}
+                  hideLabel
+                  selected={form.characteristics}
+                  maxSelected={MAX_COMPANY_CHARACTERISTICS}
+                  onChange={(characteristics) => setForm({ ...form, characteristics })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <label htmlFor="profile-description">Descripción</label>
+              <span>Cuéntalo como se lo contarías a un cliente: cocina, ambiente, qué os hace especiales.</span>
+            </div>
+            <div className={styles.settingsRowField}>
               <textarea
+                id="profile-description"
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={4}
+                rows={5}
                 maxLength={2000}
                 placeholder="Qué hace especial a tu restaurante…"
               />
-              <span className={styles.fieldCounter}>{form.description.length} / 2000</span>
-            </label>
+              <span className={styles.fieldCounterRow}>
+                {form.description.trim().length < 80 ? (
+                  <span className={styles.fieldHintWarn}>Recomendado: al menos 80 caracteres</span>
+                ) : <span />}
+                <span className={styles.fieldCounter}>{form.description.length} / 2000</span>
+              </span>
+            </div>
           </div>
-        </FormCard>
+        </div>
 
-        <FormCard
-          title="Fotos y vídeos"
-          description="La foto principal es la que sale en las búsquedas y en tu ficha."
-        >
-          <div className={styles.profileMedia}>
-            <MediaGalleryUploader
-              label="Fotos del local"
-              hint={`Máximo ${MAX_COMPANY_PHOTOS} fotos. Marca una como principal.`}
-              urls={form.photos}
-              maxItems={MAX_COMPANY_PHOTOS}
-              mediaType="image"
-              mainPhotoIndex={form.mainPhotoIndex}
-              onMainPhotoIndexChange={(mainPhotoIndex) => setForm({ ...form, mainPhotoIndex })}
-              onChange={(photos) => setForm({
-                ...form,
-                photos,
-                mainPhotoIndex: normalizeMainPhotoIndex(form.mainPhotoIndex, photos.length),
-              })}
-            />
-            <MediaGalleryUploader
-              label="Vídeos del local"
-              hint={companyVideoUploadHint(MAX_COMPANY_VIDEOS)}
-              urls={form.videos}
-              maxItems={MAX_COMPANY_VIDEOS}
-              mediaType="video"
-              onChange={(videos) => setForm({ ...form, videos })}
-            />
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHead}>
+            <h3>Fotos y vídeos</h3>
+            <p>La foto principal es la que sale en las búsquedas y arriba en tu ficha.</p>
           </div>
-        </FormCard>
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <span className={styles.settingsRowTitle}>Fotos</span>
+              <span>Hasta {MAX_COMPANY_PHOTOS}. Pon primero la mejor: sala, platos estrella, terraza.</span>
+              <span className={form.photos.length >= 3 ? styles.rowStatusOk : styles.rowStatusTodo}>
+                <ImageIcon size={13} aria-hidden="true" /> {form.photos.length} de {MAX_COMPANY_PHOTOS}
+              </span>
+            </div>
+            <div className={`${styles.settingsRowField} ${styles.settingsRowFieldWide}`}>
+              <div className={styles.embeddedPicker}>
+                <MediaGalleryUploader
+                  label="Fotos del local"
+                  hideLabel
+                  hint="Marca una como principal."
+                  urls={form.photos}
+                  maxItems={MAX_COMPANY_PHOTOS}
+                  mediaType="image"
+                  mainPhotoIndex={form.mainPhotoIndex}
+                  onMainPhotoIndexChange={(mainPhotoIndex) => setForm({ ...form, mainPhotoIndex })}
+                  onChange={(photos) => setForm({
+                    ...form,
+                    photos,
+                    mainPhotoIndex: normalizeMainPhotoIndex(form.mainPhotoIndex, photos.length),
+                  })}
+                />
+              </div>
+            </div>
+          </div>
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <span className={styles.settingsRowTitle}>Vídeos</span>
+              <span>Opcional. Un clip corto del ambiente engancha mucho.</span>
+            </div>
+            <div className={`${styles.settingsRowField} ${styles.settingsRowFieldWide}`}>
+              <div className={styles.embeddedPicker}>
+                <MediaGalleryUploader
+                  label="Vídeos del local"
+                  hideLabel
+                  hint={companyVideoUploadHint(MAX_COMPANY_VIDEOS)}
+                  urls={form.videos}
+                  maxItems={MAX_COMPANY_VIDEOS}
+                  mediaType="video"
+                  onChange={(videos) => setForm({ ...form, videos })}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
 
         {demo ? null : (
           <FormCard
@@ -1863,20 +2012,65 @@ const CompanySettings = forwardRef(function CompanySettings(
         <SectionHeader
           title="Mesas y mapas"
           subtitle="Nombre, plazas y mapa de cada mesa. Activa solo los mapas que quieras enseñar al reservar."
-        >
-          <div className={styles.tableStats}>
-            <span className={styles.tableStat}>
-              <strong>{tables.length}</strong> {tables.length === 1 ? 'mesa' : 'mesas'}
+        />
+
+        <div className={styles.tableKpis}>
+          <div className={styles.tableKpi}>
+            <span className={styles.tableKpiTop}>
+              Mesas
+              <span className={styles.tableKpiIcon} aria-hidden="true"><Armchair size={15} /></span>
             </span>
-            <span className={styles.tableStat}>
-              <strong>{totalSeats}</strong> plazas
+            <strong>
+              {tables.length}
+              {typeof maxTables === 'number' && maxTables > 0 ? <small>de {maxTables} del plan</small> : null}
+            </strong>
+            {typeof maxTables === 'number' && maxTables > 0 ? (
+              <span className={styles.tableKpiBar} aria-hidden="true">
+                <span
+                  className={tables.length > maxTables ? styles.tableKpiBarOver : undefined}
+                  style={{ width: `${Math.min(100, (tables.length / maxTables) * 100)}%` }}
+                />
+              </span>
+            ) : (
+              <span className={styles.tableKpiHint}>Sin límite en tu plan</span>
+            )}
+          </div>
+          <div className={styles.tableKpi}>
+            <span className={styles.tableKpiTop}>
+              Plazas
+              <span className={styles.tableKpiIcon} aria-hidden="true"><Users size={15} /></span>
             </span>
-            <span className={styles.tableStat}>
-              <strong>{activeMapCount}</strong> de {form.floorPlans.length}{' '}
-              {form.floorPlans.length === 1 ? 'mapa activo' : 'mapas activos'}
+            <strong>{totalSeats}</strong>
+            <span className={styles.tableKpiHint}>
+              {averageSeats ? `${averageSeats.toLocaleString('es-ES', { maximumFractionDigits: 1 })} de media por mesa` : '—'}
             </span>
           </div>
-        </SectionHeader>
+          <div className={styles.tableKpi}>
+            <span className={styles.tableKpiTop}>
+              Mapas activos
+              <span className={styles.tableKpiIcon} aria-hidden="true"><MapIcon size={15} /></span>
+            </span>
+            <strong>
+              {activeMapCount}
+              <small>de {form.floorPlans.length}</small>
+            </strong>
+            <span className={styles.tableKpiHint}>Los que ven los clientes al reservar</span>
+          </div>
+          <div className={styles.tableKpi}>
+            <span className={styles.tableKpiTop}>
+              Por tamaño
+              <span className={styles.tableKpiIcon} aria-hidden="true"><LayoutGrid size={15} /></span>
+            </span>
+            <span className={styles.sizeBreakdown}>
+              {capacityGroups.length === 0 ? '—' : capacityGroups.map(([capacity, count]) => (
+                <span key={capacity} title={`${count} ${count === 1 ? 'mesa' : 'mesas'} de ${capacity}`}>
+                  <strong>{count}</strong>×{capacity}
+                </span>
+              ))}
+            </span>
+            <span className={styles.tableKpiHint}>mesas × personas</span>
+          </div>
+        </div>
 
         <div className={styles.tablesLayout}>
           <FormCard
@@ -1898,8 +2092,9 @@ const CompanySettings = forwardRef(function CompanySettings(
             }
           >
             <div className={styles.tablesFilters}>
-              <label className={styles.tablesFilterField}>
+              <label className={`${styles.tablesFilterField} ${styles.tablesSearch}`}>
                 <span className={styles.srOnly}>Buscar mesa</span>
+                <Search size={15} aria-hidden="true" />
                 <input
                   type="search"
                   value={tableSearchQuery}
@@ -1908,21 +2103,6 @@ const CompanySettings = forwardRef(function CompanySettings(
                   aria-label="Buscar mesa por nombre"
                 />
               </label>
-              <label className={`${styles.tablesFilterField} ${styles.tablesFilterFieldNarrow}`}>
-                <span className={styles.srOnly}>Capacidad</span>
-                <select
-                  value={tableCapacityFilter}
-                  onChange={(e) => setTableCapacityFilter(e.target.value)}
-                  aria-label="Filtrar por capacidad"
-                >
-                  <option value="">Todas</option>
-                  {tableCapacityOptions.map((capacity) => (
-                    <option key={capacity} value={String(capacity)}>
-                      {capacity} {capacity === 1 ? 'persona' : 'personas'}
-                    </option>
-                  ))}
-                </select>
-              </label>
               {hasTableFilters && (
                 <button
                   type="button"
@@ -1930,12 +2110,59 @@ const CompanySettings = forwardRef(function CompanySettings(
                   onClick={() => {
                     setTableSearchQuery('')
                     setTableCapacityFilter('')
+                    setTableMapFilter('')
                   }}
                 >
                   Limpiar
                 </button>
               )}
             </div>
+            {form.floorPlans.length > 1 ? (
+              <div className={styles.filterChips} role="group" aria-label="Filtrar por mapa">
+                <button
+                  type="button"
+                  className={`${styles.filterChip} ${!tableMapFilter ? styles.filterChipOn : ''}`}
+                  aria-pressed={!tableMapFilter}
+                  onClick={() => setTableMapFilter('')}
+                >
+                  Todos los mapas <span>{tables.length}</span>
+                </button>
+                {tablesPerMap.map((plan) => (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    className={`${styles.filterChip} ${tableMapFilter === plan.id ? styles.filterChipOn : ''}`}
+                    aria-pressed={tableMapFilter === plan.id}
+                    onClick={() => {
+                      setTableMapFilter(plan.id)
+                      setSelectedMapId(plan.id)
+                    }}
+                  >
+                    <span className={`${styles.mapTabDot} ${plan.enabled ? styles.mapTabDotOn : ''}`} aria-hidden="true" />
+                    {plan.name} <span>{plan.count}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {tableCapacityOptions.length > 1 ? (
+              <div className={styles.filterChips} role="group" aria-label="Filtrar por plazas">
+                <span className={styles.filterChipsLabel}>Plazas</span>
+                {tableCapacityOptions.map((capacity) => {
+                  const on = tableCapacityFilter === String(capacity)
+                  return (
+                    <button
+                      key={capacity}
+                      type="button"
+                      className={`${styles.filterChip} ${styles.filterChipSmall} ${on ? styles.filterChipOn : ''}`}
+                      aria-pressed={on}
+                      onClick={() => setTableCapacityFilter(on ? '' : String(capacity))}
+                    >
+                      {capacity}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
             <div className={styles.tablesGrid} role="table" aria-label="Listado de mesas">
               <div className={`${styles.tablesGridHeader} ${styles.tablesGridRowWithMap}`} role="row">
                 <span role="columnheader">Nombre</span>
@@ -1967,17 +2194,39 @@ const CompanySettings = forwardRef(function CompanySettings(
                       placeholder="Mesa 1"
                       aria-label={`Nombre mesa ${index + 1}`}
                     />
-                    <input
-                      className={`${styles.tablesGridCell} ${styles.tablesGridCellNumber}`}
-                      type="number"
-                      min={1}
-                      max={99}
-                      value={table.capacity}
-                      onChange={(e) =>
-                        updateTable(index, { capacity: Number(e.target.value) || 1 })
-                      }
-                      aria-label={`Capacidad mesa ${index + 1}`}
-                    />
+                    <span className={styles.stepper}>
+                      {demo ? null : (
+                        <button
+                          type="button"
+                          onClick={() => updateTable(index, { capacity: Math.max(1, table.capacity - 1) })}
+                          disabled={table.capacity <= 1}
+                          aria-label={`Una plaza menos en ${table.name || `mesa ${index + 1}`}`}
+                        >
+                          −
+                        </button>
+                      )}
+                      <input
+                        className={`${styles.tablesGridCell} ${styles.tablesGridCellNumber}`}
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={table.capacity}
+                        onChange={(e) =>
+                          updateTable(index, { capacity: Math.min(99, Number(e.target.value) || 1) })
+                        }
+                        aria-label={`Capacidad mesa ${index + 1}`}
+                      />
+                      {demo ? null : (
+                        <button
+                          type="button"
+                          onClick={() => updateTable(index, { capacity: Math.min(99, table.capacity + 1) })}
+                          disabled={table.capacity >= 99}
+                          aria-label={`Una plaza más en ${table.name || `mesa ${index + 1}`}`}
+                        >
+                          +
+                        </button>
+                      )}
+                    </span>
                     <select
                       className={`${styles.tablesGridCell} ${styles.tablesGridCellSelect}`}
                       value={table.floorPlanId || form.floorPlans[0]?.id || ''}

@@ -22,6 +22,8 @@ interface MediaGalleryUploaderProps {
   mainPhotoIndex?: number
   onMainPhotoIndexChange?: (index: number) => void
   onChange: (urls: string[]) => void
+  /** Oculta el título (cuando ya lo pone la fila que lo contiene). */
+  hideLabel?: boolean
 }
 
 function uploadStatusLabel(
@@ -83,6 +85,7 @@ function MediaGalleryUploader({
   mainPhotoIndex = 0,
   onMainPhotoIndexChange,
   onChange,
+  hideLabel = false,
 }: MediaGalleryUploaderProps) {
   const demo = useCompanyDemo()
   const inputId = useId()
@@ -167,7 +170,7 @@ function MediaGalleryUploader({
 
   return (
     <div className={styles.wrapper}>
-      <span className={styles.label}>{label}</span>
+      <span className={hideLabel ? styles.srOnly : styles.label}>{label}</span>
       {hint && <p className={styles.hint}>{hint}</p>}
 
       <input

@@ -15,6 +15,8 @@ interface ProfileToggleGridProps {
   selected: string[]
   onChange: (selected: string[]) => void
   maxSelected?: number
+  /** Oculta el título (cuando ya lo pone la fila que lo contiene). */
+  hideLabel?: boolean
 }
 
 function ProfileToggleGrid({
@@ -24,6 +26,7 @@ function ProfileToggleGrid({
   selected,
   onChange,
   maxSelected,
+  hideLabel = false,
 }: ProfileToggleGridProps) {
   const atLimit = typeof maxSelected === 'number' && selected.length >= maxSelected
 
@@ -43,7 +46,7 @@ function ProfileToggleGrid({
   return (
     <div className={styles.wrapper}>
       <div className={styles.header}>
-        <span className={styles.label}>{label}</span>
+        <span className={hideLabel ? styles.srOnly : styles.label}>{label}</span>
         {typeof maxSelected === 'number' ? (
           <span className={styles.counter}>
             {selected.length}/{maxSelected}

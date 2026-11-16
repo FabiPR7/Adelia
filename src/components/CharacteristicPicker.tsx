@@ -8,6 +8,8 @@ interface CharacteristicPickerProps {
   maxSelected: number
   onChange: (selected: string[]) => void
   hint?: string
+  /** Oculta el título (cuando ya lo pone la fila que lo contiene). */
+  hideLabel?: boolean
 }
 
 function CharacteristicPicker({
@@ -17,6 +19,7 @@ function CharacteristicPicker({
   maxSelected,
   onChange,
   hint,
+  hideLabel = false,
 }: CharacteristicPickerProps) {
   const [query, setQuery] = useState('')
   const atLimit = selected.length >= maxSelected
@@ -47,7 +50,7 @@ function CharacteristicPicker({
   return (
     <div className={styles.wrapper}>
       <div className={styles.header}>
-        <span className={styles.label}>{label}</span>
+        <span className={hideLabel ? styles.srOnly : styles.label}>{label}</span>
         <span className={styles.counter}>
           {selected.length}/{maxSelected} seleccionadas
         </span>
