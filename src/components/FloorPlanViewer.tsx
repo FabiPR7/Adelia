@@ -29,6 +29,14 @@ const FLOOR_STYLE_CLASSES: Record<FloorStyleId, string> = {
   carpet: editorStyles.canvasFloorCarpet,
   marble: editorStyles.canvasFloorMarble,
   slate: editorStyles.canvasFloorSlate,
+  herringbone: editorStyles.canvasFloorHerringbone,
+  deck: editorStyles.canvasFloorDeck,
+  terrazzo: editorStyles.canvasFloorTerrazzo,
+  hydraulic: editorStyles.canvasFloorHydraulic,
+  hexagon: editorStyles.canvasFloorHexagon,
+  diner: editorStyles.canvasFloorDiner,
+  concrete: editorStyles.canvasFloorConcrete,
+  grass: editorStyles.canvasFloorGrass,
 }
 
 function clampViewScale(scale: number) {

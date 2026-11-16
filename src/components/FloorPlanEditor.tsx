@@ -14,19 +14,25 @@ import {
   getTableMapKey,
   syncFloorPlanWithTables,
 } from '../types/company'
+import { ArrowDownToLine, ArrowUpToLine, Copy, Trash2 } from 'lucide-react'
 import {
-  FLOOR_PLAN_CHAIR_PALETTE,
-  FLOOR_PLAN_MESA_PALETTE,
-  FLOOR_PLAN_PALETTE,
-  FLOOR_PLAN_TABLE_VARIANTS,
+  FLOOR_PLAN_PALETTE_CATEGORIES,
+  FLOOR_PLAN_TABLE_PICKER,
   computeStoredHeightFromWidth,
   getDefaultTableVariant,
+  getElementVariantOptions,
   resolveElementAspectRatio,
   resolveElementImage,
+  resolveTableAspectRatio,
   resolveTableImage,
+  type FloorPlanPaletteCategoryId,
   type FloorPlanPaletteItem,
 } from '../utils/floorPlanAssets'
-import { FLOOR_STYLE_OPTIONS, type FloorStyleId } from '../types/company'
+import {
+  FLOOR_PLAN_ELEMENT_LABELS,
+  FLOOR_STYLE_OPTIONS,
+  type FloorStyleId,
+} from '../types/company'
 import styles from './FloorPlanEditor.module.css'
 
 interface FloorPlanEditorProps {
@@ -88,7 +94,19 @@ const FLOOR_STYLE_CLASSES: Record<FloorStyleId, string> = {
   carpet: styles.canvasFloorCarpet,
   marble: styles.canvasFloorMarble,
   slate: styles.canvasFloorSlate,
+  herringbone: styles.canvasFloorHerringbone,
+  deck: styles.canvasFloorDeck,
+  terrazzo: styles.canvasFloorTerrazzo,
+  hydraulic: styles.canvasFloorHydraulic,
+  hexagon: styles.canvasFloorHexagon,
+  diner: styles.canvasFloorDiner,
+  concrete: styles.canvasFloorConcrete,
+  grass: styles.canvasFloorGrass,
 }
+
+type PaletteTab = FloorPlanPaletteCategoryId | 'floors'
+
+const FLOOR_TAB_HINT = 'Elige el suelo del salón. Si subes una foto de fondo, el suelo se oculta.'
 
 function clampPercent(value: number, min = 0, max = 98) {
   return Math.min(max, Math.max(min, value))
@@ -244,7 +262,7 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false, readOn
     setDragStateState(state)
   }
   const [selection, setSelection] = useState<Selection>(null)
-  const [floorsOpen, setFloorsOpen] = useState(false)
+  const [paletteTab, setPaletteTab] = useState<PaletteTab>('tables')
   const [viewScale, setViewScale] = useState(1)
   const [viewPan, setViewPan] = useState({ x: 0, y: 0 })
   const [isMobileViewport, setIsMobileViewport] = useState(
@@ -370,9 +388,13 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false, readOn
       aspect,
     )
 
+    // Aparece en el centro del lienzo, escalonado para no tapar al anterior.
+    const offset = (syncedPlan.elements.length % 6) * 4 - 10
     const element = {
       ...base,
       variant: item.variantId,
+      x: clampPercent(50 - width / 2 + offset),
+      y: clampPercent(50 - height / 2 + offset),
       width,
       height,
     }
@@ -390,6 +412,39 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false, readOn
     if (selection?.kind === 'element' && selection.id === elementId) {
       setSelection(null)
     }
+  }
+
+  const changeElementVariant = (element: FloorPlanElement, variantId: string) => {
+    const aspect = resolveElementAspectRatio(element.type, variantId)
+    updateElement(element.id, {
+      variant: variantId,
+      height: computeStoredHeightFromWidth(
+        element.width,
+        syncedPlan.canvasWidth,
+        syncedPlan.canvasHeight,
+        aspect,
+      ),
+    })
+  }
+
+  const duplicateElement = (element: FloorPlanElement) => {
+    const copy: FloorPlanElement = {
+      ...element,
+      id: createFloorPlanElement(element.type).id,
+      x: clampPercent(element.x + 3),
+      y: clampPercent(element.y + 3),
+    }
+    patchPlan({ elements: [...syncedPlan.elements, copy] })
+    setSelection({ kind: 'element', id: copy.id })
+  }
+
+  const moveElementLayer = (elementId: string, where: 'back' | 'front') => {
+    const target = syncedPlan.elements.find((item) => item.id === elementId)
+    if (!target) {
+      return
+    }
+    const rest = syncedPlan.elements.filter((item) => item.id !== elementId)
+    patchPlan({ elements: where === 'back' ? [target, ...rest] : [...rest, target] })
   }
 
   const handleCanvasPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -650,7 +705,17 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false, readOn
   }
 
   const handleTableVariantChange = (tableKey: string, variantId: string) => {
-    updateTable(tableKey, { variant: variantId })
+    const position = positionsByKey.get(tableKey)
+    if (!position) {
+      return
+    }
+    const height = computeStoredHeightFromWidth(
+      position.width,
+      syncedPlan.canvasWidth,
+      syncedPlan.canvasHeight,
+      resolveTableAspectRatio(variantId),
+    )
+    updateTable(tableKey, { variant: variantId, height: Math.min(40, Math.max(4, height)) })
   }
 
   const handlePointerUp = () => {
@@ -663,91 +728,197 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false, readOn
   const selectedTablePosition = selectedTableKey
     ? positionsByKey.get(selectedTableKey)
     : undefined
-  const showTableVariantPicker = Boolean(selectedTableKey && selectedTablePosition)
 
-  const renderPaletteIcon = (
+  const selectedTableIndex = selectedTableKey
+    ? tables.findIndex((table, index) => getTableMapKey(table, index) === selectedTableKey)
+    : -1
+  const selectedTableName = selectedTableIndex >= 0
+    ? tables[selectedTableIndex].name.trim() || `Mesa ${selectedTableIndex + 1}`
+    : ''
+  const selectedElement = selection?.kind === 'element'
+    ? syncedPlan.elements.find((item) => item.id === selection.id)
+    : undefined
+  const activeCategory = FLOOR_PLAN_PALETTE_CATEGORIES.find((category) => category.id === paletteTab)
+
+  const renderTile = (
     key: string,
     src: string,
     label: string,
     isActive: boolean,
     onClick: () => void,
-    disabled = false,
   ) => (
     <button
       key={key}
       type="button"
-      className={[
-        styles.paletteIcon,
-        isActive ? styles.paletteIconActive : '',
-        disabled ? styles.paletteIconMuted : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className={`${styles.paletteTile} ${isActive ? styles.paletteTileActive : ''}`}
       title={label}
-      aria-label={label}
-      aria-disabled={disabled}
-      disabled={disabled}
-      onClick={disabled ? undefined : onClick}
+      aria-pressed={isActive}
+      onClick={onClick}
     >
-      <img src={src} alt="" draggable={false} />
+      <span className={styles.paletteTileArt}>
+        <img src={src} alt="" draggable={false} loading="lazy" />
+      </span>
+      <span className={styles.paletteTileLabel}>{label}</span>
     </button>
   )
 
-  const renderDecorPalette = (muted: boolean) => (
-    <>
-      {!muted &&
-        FLOOR_PLAN_MESA_PALETTE.map((item) =>
-          renderPaletteIcon(item.id, item.src, item.label, false, () =>
-            addElementFromPalette(item),
-          ),
+  const renderElementBar = (element: FloorPlanElement) => {
+    const options = element.type === 'decor_table'
+      ? FLOOR_PLAN_TABLE_PICKER
+      : getElementVariantOptions(element.type)
+    const currentVariant = element.variant ?? options[0]?.id
+
+    return (
+      <div className={styles.contextBar}>
+        <div className={styles.contextHead}>
+          <span className={styles.contextTitle}>
+            {options.find((option) => option.id === currentVariant)?.label
+              ?? FLOOR_PLAN_ELEMENT_LABELS[element.type]}
+          </span>
+          <div className={styles.contextActions}>
+            <button type="button" title="Duplicar" aria-label="Duplicar" onClick={() => duplicateElement(element)}>
+              <Copy size={14} aria-hidden /><span>Duplicar</span>
+            </button>
+            <button type="button" title="Al fondo" aria-label="Al fondo" onClick={() => moveElementLayer(element.id, 'back')}>
+              <ArrowDownToLine size={14} aria-hidden /><span>Al fondo</span>
+            </button>
+            <button type="button" title="Al frente" aria-label="Al frente" onClick={() => moveElementLayer(element.id, 'front')}>
+              <ArrowUpToLine size={14} aria-hidden /><span>Al frente</span>
+            </button>
+            <button
+              type="button"
+              className={styles.contextDanger}
+              onClick={() => removeElement(element.id)}
+            >
+              <Trash2 size={14} aria-hidden /><span>Eliminar</span>
+            </button>
+            <button type="button" className={styles.contextDone} onClick={() => setSelection(null)}>
+              Listo
+            </button>
+          </div>
+        </div>
+        {options.length > 1 ? (
+          <div className={styles.variantStrip} aria-label="Cambiar diseño">
+            {options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`${styles.variantChip} ${currentVariant === option.id ? styles.variantChipActive : ''}`}
+                title={option.label}
+                aria-label={option.label}
+                aria-pressed={currentVariant === option.id}
+                onClick={() => changeElementVariant(element, option.id)}
+              >
+                <img src={option.src} alt="" draggable={false} loading="lazy" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  const renderPalette = () => {
+    if (selectedTableKey && selectedTablePosition) {
+      const currentVariant = selectedTablePosition.variant ?? getDefaultTableVariant()
+      return (
+        <div className={styles.paletteCard}>
+          <div className={styles.contextHead}>
+            <div>
+              <span className={styles.contextTitle}>Diseño de «{selectedTableName}»</span>
+              <p className={styles.paletteHint}>
+                Elige cómo se ve esta mesa en el mapa. Las plazas no cambian.
+              </p>
+            </div>
+            <div className={styles.contextActions}>
+              <button type="button" className={styles.contextDone} onClick={() => setSelection(null)}>
+                Listo
+              </button>
+            </div>
+          </div>
+          <div className={styles.paletteGrid}>
+            {FLOOR_PLAN_TABLE_PICKER.map((option) =>
+              renderTile(option.id, option.src, option.label, currentVariant === option.id, () =>
+                handleTableVariantChange(selectedTableKey, option.id),
+              ),
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className={styles.paletteCard}>
+        <div className={styles.paletteTabs} role="tablist" aria-label="Objetos del mapa">
+          {FLOOR_PLAN_PALETTE_CATEGORIES.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              role="tab"
+              aria-selected={paletteTab === category.id}
+              className={`${styles.paletteTab} ${paletteTab === category.id ? styles.paletteTabActive : ''}`}
+              onClick={() => setPaletteTab(category.id)}
+            >
+              {category.label}
+              <span>{category.items.length}</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={paletteTab === 'floors'}
+            className={`${styles.paletteTab} ${paletteTab === 'floors' ? styles.paletteTabActive : ''}`}
+            onClick={() => setPaletteTab('floors')}
+          >
+            Suelos
+            <span>{FLOOR_STYLE_OPTIONS.length}</span>
+          </button>
+        </div>
+
+        <p className={styles.paletteHint}>
+          {paletteTab === 'floors'
+            ? FLOOR_TAB_HINT
+            : `${activeCategory?.hint ?? ''} Toca una pieza para añadirla al mapa.`}
+        </p>
+
+        {paletteTab === 'floors' ? (
+          <div className={styles.paletteGrid}>
+            {FLOOR_STYLE_OPTIONS.map((option) => {
+              const isActive = usePatternFloor && floorStyle === option.id
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`${styles.paletteTile} ${isActive ? styles.paletteTileActive : ''}`}
+                  aria-pressed={isActive}
+                  onClick={() => patchPlan({ floorStyle: option.id, backgroundImageUrl: '' })}
+                >
+                  <span
+                    className={`${styles.paletteTileArt} ${styles.floorTileArt} ${styles[`floorSwatch_${option.id}`] ?? ''}`}
+                  />
+                  <span className={styles.paletteTileLabel}>{option.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <div className={styles.paletteGrid}>
+            {(activeCategory?.items ?? []).map((item: FloorPlanPaletteItem) =>
+              renderTile(item.id, item.src, item.label, false, () => addElementFromPalette(item)),
+            )}
+          </div>
         )}
-      {FLOOR_PLAN_CHAIR_PALETTE.map((item) =>
-        renderPaletteIcon(
-          item.id,
-          item.src,
-          item.label,
-          false,
-          () => addElementFromPalette(item),
-          muted,
-        ),
-      )}
-      {FLOOR_PLAN_PALETTE.filter((item) => item.type !== 'chair').map((item) =>
-        renderPaletteIcon(
-          item.id,
-          item.src,
-          item.label,
-          false,
-          () => addElementFromPalette(item),
-          muted,
-        ),
-      )}
-    </>
-  )
+
+        {selectedElement ? renderElementBar(selectedElement) : null}
+      </div>
+    )
+  }
 
   return (
     <div className={`${styles.wrapper} ${embedded ? styles.wrapperEmbedded : ''}`}>
       <div className={styles.editorLayout}>
         <div className={styles.mainColumn}>
-          {!readOnly ? (
-          <div className={styles.objectPalette}>
-            {showTableVariantPicker && selectedTableKey ? (
-              <>
-                {FLOOR_PLAN_TABLE_VARIANTS.map((option) =>
-                  renderPaletteIcon(
-                    option.id,
-                    option.src,
-                    option.label,
-                    (selectedTablePosition?.variant ?? getDefaultTableVariant()) === option.id,
-                    () => handleTableVariantChange(selectedTableKey, option.id),
-                  ),
-                )}
-                {renderDecorPalette(true)}
-              </>
-            ) : (
-              renderDecorPalette(false)
-            )}
-          </div>
-          ) : null}
+          {!readOnly ? renderPalette() : null}
 
           <div
             ref={scrollContainerRef}
@@ -949,42 +1120,6 @@ function FloorPlanEditor({ tables, floorPlan, onChange, embedded = false, readOn
             </div>
           </div>
 
-          <div className={styles.sidebarSection}>
-            <button
-              type="button"
-              className={`${styles.toolButton} ${floorsOpen ? styles.sidebarToggleActive : ''}`}
-              aria-expanded={floorsOpen}
-              onClick={() => setFloorsOpen((open) => !open)}
-            >
-              Suelos
-            </button>
-            {floorsOpen && (
-              <div className={styles.floorPicker}>
-                {FLOOR_STYLE_OPTIONS.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={[
-                      styles.floorSwatch,
-                      styles[`floorSwatch_${option.id}`],
-                      floorStyle === option.id ? styles.floorSwatchActive : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    title={option.label}
-                    aria-label={option.label}
-                    onClick={() => {
-                      patchPlan({
-                        floorStyle: option.id,
-                        backgroundImageUrl: '',
-                      })
-                      setFloorsOpen(false)
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
         </aside>
         ) : null}
       </div>

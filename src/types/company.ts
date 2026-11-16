@@ -68,7 +68,17 @@ export interface FloorPlanTablePosition {
   variant?: string
 }
 
-export type FloorPlanElementType = 'wall' | 'window' | 'door' | 'bar' | 'chair' | 'decor_table'
+export type FloorPlanElementType =
+  | 'wall'
+  | 'window'
+  | 'door'
+  | 'bar'
+  | 'chair'
+  | 'decor_table'
+  | 'sofa'
+  | 'plant'
+  | 'decor'
+  | 'zone'
 
 export const FLOOR_PLAN_ELEMENT_TYPES: FloorPlanElementType[] = [
   'wall',
@@ -77,6 +87,10 @@ export const FLOOR_PLAN_ELEMENT_TYPES: FloorPlanElementType[] = [
   'bar',
   'decor_table',
   'chair',
+  'sofa',
+  'plant',
+  'decor',
+  'zone',
 ]
 
 export interface FloorPlanElement {
@@ -98,6 +112,14 @@ export type FloorStyleId =
   | 'carpet'
   | 'marble'
   | 'slate'
+  | 'herringbone'
+  | 'deck'
+  | 'terrazzo'
+  | 'hydraulic'
+  | 'hexagon'
+  | 'diner'
+  | 'concrete'
+  | 'grass'
 
 export const FLOOR_STYLE_IDS: FloorStyleId[] = [
   'wine',
@@ -107,6 +129,14 @@ export const FLOOR_STYLE_IDS: FloorStyleId[] = [
   'carpet',
   'marble',
   'slate',
+  'herringbone',
+  'deck',
+  'terrazzo',
+  'hydraulic',
+  'hexagon',
+  'diner',
+  'concrete',
+  'grass',
 ]
 
 export interface FloorPlan {
@@ -133,6 +163,14 @@ export const FLOOR_STYLE_OPTIONS: { id: FloorStyleId; label: string }[] = [
   { id: 'carpet', label: 'Alfombra negra' },
   { id: 'marble', label: 'Mármol' },
   { id: 'slate', label: 'Pizarra' },
+  { id: 'herringbone', label: 'Espiga' },
+  { id: 'deck', label: 'Tarima exterior' },
+  { id: 'terrazzo', label: 'Terrazo' },
+  { id: 'hydraulic', label: 'Hidráulico' },
+  { id: 'hexagon', label: 'Hexagonal' },
+  { id: 'diner', label: 'Damero' },
+  { id: 'concrete', label: 'Hormigón' },
+  { id: 'grass', label: 'Césped' },
 ]
 
 export const FLOOR_PLAN_ELEMENT_LABELS: Record<FloorPlanElementType, string> = {
@@ -142,6 +180,10 @@ export const FLOOR_PLAN_ELEMENT_LABELS: Record<FloorPlanElementType, string> = {
   bar: 'Barra',
   decor_table: 'Mesa visual',
   chair: 'Silla visual',
+  sofa: 'Sofá',
+  plant: 'Planta',
+  decor: 'Decoración',
+  zone: 'Zona',
 }
 
 const ELEMENT_DEFAULTS: Record<FloorPlanElementType, { width: number; height: number }> = {
@@ -151,6 +193,10 @@ const ELEMENT_DEFAULTS: Record<FloorPlanElementType, { width: number; height: nu
   bar: { width: 28, height: 12 },
   decor_table: { width: 14, height: 12 },
   chair: { width: 6, height: 6 },
+  sofa: { width: 12, height: 6 },
+  plant: { width: 6, height: 6 },
+  decor: { width: 12, height: 12 },
+  zone: { width: 18, height: 12 },
 }
 
 const DEFAULT_TABLE_SIZE = { width: 14, height: 12 }

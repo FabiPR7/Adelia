@@ -2284,3 +2284,15 @@
     padding: 1rem 1.125rem;
   }
 }
+
+/* El editor de mapas necesita ancho: salvo en pantallas muy grandes,
+   la lista de mesas va arriba y el mapa ocupa todo el ancho debajo. */
+@container (max-width: 1240px) {
+  .tablesLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .mapPanel {
+    position: static;
+  }
+}
