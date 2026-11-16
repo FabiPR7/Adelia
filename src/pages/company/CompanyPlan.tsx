@@ -19,73 +19,29 @@ import {
   fetchCompanyBillingStatus,
   type CompanyBillingStatus,
 } from '../../services/companyBilling'
+import {
+  ArrowLeftRight,
+  Building2,
+  CalendarClock,
+  Check,
+  CircleAlert,
+  CircleX,
+  CreditCard,
+  ExternalLink,
+  ListChecks,
+  Receipt,
+  Settings2,
+  Store,
+  UtensilsCrossed,
+  type LucideIcon,
+} from 'lucide-react'
+import { ReportCard, ReportHeader } from '../../components/reports/ReportKit'
 import styles from './CompanyPlan.module.css'
 
-const PLAN_TONE: Record<CompanyPlanId, string> = {
-  free: 'mesa',
-  basic: 'sala',
-  premium: 'local',
-  premium_plus: 'casa',
-}
-
-function Icon({ name }: { name: string }) {
-  const common = {
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.7,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    'aria-hidden': true,
-  }
-
-  switch (name) {
-    case 'mesa':
-      return (
-        <svg {...common}>
-          <path d="M4 10h16M6 10v8M18 10v8M8 6h8l1 4H7l1-4z" />
-        </svg>
-      )
-    case 'sala':
-      return (
-        <svg {...common}>
-          <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
-          <path d="M8 9h3v3H8zM13 9h3v3h-3zM8 14h8" />
-        </svg>
-      )
-    case 'local':
-      return (
-        <svg {...common}>
-          <path d="M4 20V9l8-5 8 5v11" />
-          <path d="M9 20v-7h6v7" />
-        </svg>
-      )
-    case 'check':
-      return (
-        <svg {...common}>
-          <path d="M5 13l4 4 10-10" />
-        </svg>
-      )
-    case 'lock':
-      return (
-        <svg {...common}>
-          <rect x="5" y="11" width="14" height="10" rx="2" />
-          <path d="M8 11V8a4 4 0 018 0v3" />
-        </svg>
-      )
-    default:
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="7" />
-        </svg>
-      )
-  }
-}
-
-function planIcon(id: CompanyPlanId): string {
-  if (id === 'free') return 'mesa'
-  if (id === 'basic') return 'sala'
-  return 'local'
+function planIcon(id: CompanyPlanId): LucideIcon {
+  if (id === 'free') return UtensilsCrossed
+  if (id === 'basic') return Store
+  return Building2
 }
 
 function CompanyPlan() {
@@ -157,49 +113,62 @@ function CompanyPlan() {
           ? 'Renovación anual'
           : 'Renovación mensual'
 
+  const PlanIcon = planIcon(currentPlanId)
+  const billingLabel = currentPlanId === 'free' ? 'Gratis' : formatCompanyPlanBilling(currentBilling)
+  const priceLabel = currentBilling === 'perpetual' ? 'Pago único' : formatCompanyPlanPrice(currentPlan, currentBilling)
+  const paymentChip = currentPlanId === 'free'
+    ? null
+    : paymentState === 'past_due'
+      ? { label: 'Pago pendiente', className: styles.chipDanger }
+      : { label: 'Al día', className: styles.chipOk }
+
+  const manageActions = [
+    { id: 'change', icon: ArrowLeftRight, title: 'Cambiar de plan', text: 'Pasa de Sala a Local o al revés' },
+    { id: 'invoices', icon: Receipt, title: 'Facturas', text: 'Ver y descargar los recibos' },
+    { id: 'card', icon: CreditCard, title: 'Método de pago', text: 'Actualizar la tarjeta' },
+    { id: 'cancel', icon: CircleX, title: 'Cancelar plan', text: 'Vuelves a Mesa al terminar el ciclo', danger: true },
+  ]
+
   return (
     <div className={styles.page}>
-      <header className={styles.hero}>
-        <p className={styles.kicker}>Facturación</p>
-        <h2>Plan de {company.name}</h2>
-        <p className={styles.heroLead}>
-          Aquí ves el plan contratado y lo que incluye. El pago de Sala y Local se gestiona
-          en Lemon Squeezy.
-        </p>
-      </header>
+      <ReportHeader
+        title="Plan y facturación"
+        subtitle="Tu plan, lo que incluye y cómo gestionar el pago. Sala y Local se cobran con Lemon Squeezy."
+        actions={
+          <Link className={styles.secondaryButton} to="/empresa/planes">
+            Ver planes y precios
+          </Link>
+        }
+      />
 
-      <section className={`${styles.statusCard} ${styles[`glow_${PLAN_TONE[currentPlanId]}`]}`} aria-label="Plan actual">
-        <div className={styles.statusIcon}>
-          <Icon name={planIcon(currentPlanId)} />
+      <section className={styles.summary} aria-label="Plan actual">
+        <span className={styles.summaryIcon} aria-hidden="true">
+          <PlanIcon size={22} />
+        </span>
+        <div className={styles.summaryMain}>
+          <span className={styles.summaryLabel}>Plan actual</span>
+          <div className={styles.summaryNameRow}>
+            <h3 className={styles.summaryName}>{currentPlan.name}</h3>
+            <span className={styles.chip}>{billingLabel}</span>
+            {paymentChip ? <span className={`${styles.chip} ${paymentChip.className}`}>{paymentChip.label}</span> : null}
+          </div>
+          <span className={styles.summaryMeta}>{renewalLabel}</span>
         </div>
-        <div className={styles.statusCopy}>
-          <p className={styles.statusEyebrow}>Plan actual</p>
-          <h3>{currentPlan.name}</h3>
-          <p className={styles.statusMeta}>
-            {[
-              currentPlanId === 'free' ? 'Gratis' : formatCompanyPlanBilling(currentBilling),
-              renewalLabel,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-        </div>
-        <div className={styles.statusPrice}>
-          <strong>
-            {currentBilling === 'perpetual' ? 'Perpetuo' : formatCompanyPlanPrice(currentPlan, currentBilling)}
-          </strong>
+        <div className={styles.summaryPrice}>
+          <strong>{priceLabel}</strong>
           <span>{currentPlan.vatNote}</span>
         </div>
       </section>
 
       {paymentState === 'past_due' ? (
-        <div className={styles.pendingBanner} role="status">
-          <div>
+        <div className={`${styles.notice} ${styles.noticeDanger}`} role="status">
+          <CircleAlert size={18} aria-hidden="true" />
+          <div className={styles.noticeText}>
             <strong>Tu último pago no se completó</strong>
-            <p>Actualiza la tarjeta para no perder el plan.</p>
+            <span>Actualiza la tarjeta para no perder el plan.</span>
           </div>
           {manageUrl ? (
-            <a className={styles.ghostBtn} href={manageUrl} target="_blank" rel="noreferrer">
+            <a className={styles.secondaryButton} href={manageUrl} target="_blank" rel="noreferrer">
               Actualizar tarjeta
             </a>
           ) : null}
@@ -207,133 +176,109 @@ function CompanyPlan() {
       ) : null}
 
       {pendingPlanId && pendingPlanId !== currentPlanId ? (
-        <div className={styles.pendingBanner} role="status">
-          <div>
+        <div className={styles.notice} role="status">
+          <CalendarClock size={18} aria-hidden="true" />
+          <div className={styles.noticeText}>
             <strong>Cambio programado a {getCompanyPlan(pendingPlanId).name}</strong>
-            <p>
+            <span>
               Sigues con {currentPlan.name}
-              {periodEnd ? ` hasta el ${formatCompanyPlanStartedAt(periodEnd)}` : ''}. Después se
-              aplica {getCompanyPlan(pendingPlanId).name}
+              {periodEnd ? ` hasta el ${formatCompanyPlanStartedAt(periodEnd)}` : ''}. Después se aplica{' '}
+              {getCompanyPlan(pendingPlanId).name}
               {pendingPlanId === 'free' ? ' y se deja de cobrar.' : '.'}
-            </p>
+            </span>
           </div>
           {manageUrl ? (
-            <a className={styles.ghostBtn} href={manageUrl} target="_blank" rel="noreferrer">
-              Gestionar en Lemon Squeezy
+            <a className={styles.secondaryButton} href={manageUrl} target="_blank" rel="noreferrer">
+              Gestionar
             </a>
           ) : null}
         </div>
       ) : null}
 
       {demo ? (
-        <p className={styles.requestNote}>En esta vista de ejemplo el plan no se puede cambiar ni cancelar.</p>
+        <p className={styles.demoNote}>En esta vista de ejemplo el plan no se puede cambiar ni cancelar.</p>
       ) : (
         <>
-          <section className={styles.ladder} aria-label="Gestionar suscripción">
-            <div className={styles.ladderHead}>
-              <h3>Tu suscripción</h3>
-              <p>
-                {isPaid && currentBilling === 'perpetual'
+          <div className={styles.grid}>
+            <ReportCard
+              title="Gestionar la suscripción"
+              subtitle={
+                isPaid && currentBilling === 'perpetual'
                   ? 'Tienes el plan de por vida: no hay cuotas que renovar ni nada que cancelar.'
                   : isPaid
-                  ? savedPortalUrl
-                    ? 'Se abre el portal de Lemon Squeezy en una pestaña nueva; los cambios se reflejan aquí en unos minutos.'
-                    : 'Se abre Lemon Squeezy en una pestaña nueva — entra con el correo que usaste al pagar y desde ahí gestionas todo.'
-                  : 'Estás en Mesa (gratis). Pasa a Sala o Local para desbloquear más funciones.'}
-              </p>
-            </div>
-
-            {isPaid && currentBilling === 'perpetual' ? (
-              <div className={styles.actionGrid}>
-                <a className={styles.actionCard} href={LEMONSQUEEZY_CUSTOMER_PORTAL_URL} target="_blank" rel="noreferrer">
-                  <span className={styles.actionIcon}>
-                    <Icon name="check" />
-                  </span>
-                  <span>
-                    <strong>Factura del pago único</strong>
-                    <em>Entra con el correo con el que pagaste</em>
-                  </span>
-                </a>
-              </div>
-            ) : isPaid ? (
-              <>
-                <div className={styles.actionGrid}>
-                  <a className={styles.actionCard} href={manageUrl ?? undefined} target="_blank" rel="noreferrer">
-                    <span className={styles.actionIcon}>
-                      <Icon name="local" />
-                    </span>
-                    <span>
-                      <strong>Cambiar de plan</strong>
-                      <em>Pasa de Sala a Local o al revés</em>
-                    </span>
-                  </a>
-                  <a className={styles.actionCard} href={manageUrl ?? undefined} target="_blank" rel="noreferrer">
-                    <span className={styles.actionIcon}>
-                      <Icon name="check" />
-                    </span>
-                    <span>
-                      <strong>Facturas</strong>
-                      <em>Ver y descargar recibos</em>
-                    </span>
-                  </a>
-                  <a className={styles.actionCard} href={manageUrl ?? undefined} target="_blank" rel="noreferrer">
-                    <span className={styles.actionIcon}>
-                      <Icon name="lock" />
-                    </span>
-                    <span>
-                      <strong>Método de pago</strong>
-                      <em>Actualizar la tarjeta</em>
-                    </span>
-                  </a>
-                  <a className={`${styles.actionCard} ${styles.actionCardDanger}`} href={manageUrl ?? undefined} target="_blank" rel="noreferrer">
-                    <span className={styles.actionIcon}>
-                      <Icon name="mesa" />
-                    </span>
-                    <span>
-                      <strong>Cancelar plan</strong>
-                      <em>Vuelves a Mesa al fin del ciclo</em>
-                    </span>
-                  </a>
-                </div>
-                <Link className={styles.mailFallback} to="/empresa/planes">
-                  Ver todos los planes y precios →
+                    ? 'Se abre Lemon Squeezy en una pestaña nueva. Entra con el correo con el que pagaste; los cambios se ven aquí en unos minutos.'
+                    : 'Estás en Mesa (gratis). Pasa a Sala o Local para desbloquear más funciones.'
+              }
+              icon={Settings2}
+            >
+              {isPaid && currentBilling === 'perpetual' ? (
+                <ul className={styles.actionList}>
+                  <li>
+                    <a className={styles.actionRow} href={LEMONSQUEEZY_CUSTOMER_PORTAL_URL} target="_blank" rel="noreferrer">
+                      <span className={styles.actionIcon} aria-hidden="true"><Receipt size={17} /></span>
+                      <span className={styles.actionText}>
+                        <strong>Factura del pago único</strong>
+                        <span>Entra con el correo con el que pagaste</span>
+                      </span>
+                      <ExternalLink size={15} className={styles.actionArrow} aria-hidden="true" />
+                    </a>
+                  </li>
+                </ul>
+              ) : isPaid ? (
+                <ul className={styles.actionList}>
+                  {manageActions.map((action) => {
+                    const ActionIcon = action.icon
+                    return (
+                      <li key={action.id}>
+                        <a
+                          className={`${styles.actionRow} ${action.danger ? styles.actionRowDanger : ''}`}
+                          href={manageUrl ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <span className={styles.actionIcon} aria-hidden="true"><ActionIcon size={17} /></span>
+                          <span className={styles.actionText}>
+                            <strong>{action.title}</strong>
+                            <span>{action.text}</span>
+                          </span>
+                          <ExternalLink size={15} className={styles.actionArrow} aria-hidden="true" />
+                        </a>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <Link className={styles.primaryButton} to="/empresa/planes">
+                  Ver planes de pago
                 </Link>
-              </>
-            ) : (
-              <Link className={styles.cta} to="/empresa/planes">
-                Ver planes de pago
-              </Link>
-            )}
-          </section>
+              )}
+            </ReportCard>
 
-          <section className={styles.includedPanel} aria-label="Lo incluido">
-            <div className={styles.panelHead}>
-              <h3>Incluido en {currentPlan.name}</h3>
-              <p>{currentPlan.audience}</p>
-            </div>
-            <ul className={styles.perkGrid}>
-              {included.map((item) => (
-                <li key={item.id}>
-                  <span className={styles.perkIcon}>
-                    <Icon name="check" />
-                  </span>
-                  <span>
-                    {item.label}
-                    {item.showValue ? <em> · {item.valueLabel}</em> : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
+            <ReportCard title={`Incluido en ${currentPlan.name}`} subtitle={currentPlan.audience} icon={ListChecks}>
+              <ul className={styles.perkList}>
+                {included.map((item) => (
+                  <li key={item.id} className={styles.perk}>
+                    <Check size={15} className={styles.perkIcon} aria-hidden="true" />
+                    <span>
+                      {item.label}
+                      {item.showValue ? <span className={styles.perkValue}> · {item.valueLabel}</span> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </ReportCard>
+          </div>
 
           {error ? <p className={styles.errorNote}>{error}</p> : null}
 
           <section className={styles.dangerZone} aria-label="Eliminar cuenta">
-            <h3>Eliminar la cuenta</h3>
-            <p>
-              Borra {company.name}, el acceso, las reservas, los clientes y las reseñas, y cancela tu
-              suscripción. Esta acción no se puede deshacer.
-            </p>
+            <div className={styles.dangerText}>
+              <h3>Eliminar la cuenta</h3>
+              <p>
+                Borra {company.name}, el acceso, las reservas, los clientes y las reseñas, y cancela tu
+                suscripción. No se puede deshacer.
+              </p>
+            </div>
             <button
               type="button"
               className={styles.dangerBtn}
@@ -367,11 +312,12 @@ function CompanyPlan() {
                   value={deleteName}
                   onChange={(event) => setDeleteName(event.target.value)}
                   placeholder={company.name}
+                  aria-label={`Escribe ${company.name} para confirmar`}
                   autoComplete="off"
                 />
                 {error ? <p className={styles.errorNote}>{error}</p> : null}
                 <div className={styles.deleteActions}>
-                  <button type="button" className={styles.ghostBtn} disabled={busy} onClick={() => setConfirmDelete(false)}>
+                  <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => setConfirmDelete(false)}>
                     Cancelar
                   </button>
                   <button
