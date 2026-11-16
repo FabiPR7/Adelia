@@ -6,6 +6,7 @@ import { readCompanyGamificationState } from '../gamification/companyProgress.ts
 import { getCompanyLevelForXp } from '../gamification/companyCatalog.ts'
 import { companyGamificationRef } from '../notifications/companyNotifications.ts'
 import { computeLeague, currentMonthKey, isMonthKey, prestigeForLevel, trophiesForCompany } from '../league/monthlyLeague.ts'
+import { computeCompanyBadges } from '../league/companyBadges.ts'
 import {
   companyGamificationPayload,
   syncCompanyGamificationDoc,
@@ -157,6 +158,7 @@ router.get('/league', async (req: Request, res: Response) => {
       companyGamificationRef(account.companyId).get(),
       trophiesForCompany(account.companyId).catch(() => []),
     ])
+    const badges = await computeCompanyBadges(account.companyId).catch(() => [])
     const shape = (boards: Awaited<ReturnType<typeof computeLeague>> | null) => boards?.map((board) => {
       const meIndex = board.entries.findIndex((entry) => entry.companyId === account.companyId)
       const me = meIndex >= 0 ? board.entries[meIndex] : null
@@ -181,6 +183,7 @@ router.get('/league', async (req: Request, res: Response) => {
       spain: { boards: shape(spainBoards) },
       level: { level: level.level, title: level.title, xp, prestige: prestigeForLevel(level.level) },
       trophies,
+      badges,
     })
   } catch (error) {
     console.error('company league error:', error)

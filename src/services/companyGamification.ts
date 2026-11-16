@@ -181,6 +181,18 @@ export interface CompanyLeagueView {
   spain: { boards: LeagueBoardView[] | null }
   level: { level: number; title: string; xp: number; prestige: { id: 'bronze' | 'silver' | 'gold' | 'diamond'; label: string } }
   trophies: Array<{ month: string; league: LeagueId; rank: number; scope: 'city' | 'spain' }>
+  badges?: CompanyBadgeView[]
+}
+
+export interface CompanyBadgeView {
+  id: string
+  name: string
+  description: string
+  unit: string
+  thresholds: [number, number, number]
+  value: number
+  tier: 'bronze' | 'silver' | 'gold' | null
+  next: number | null
 }
 
 function demoLeague(): CompanyLeagueView {

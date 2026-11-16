@@ -314,11 +314,21 @@ export async function closedMonthResults(month: string): Promise<Record<string, 
     }))]),
   )
   const byCity: Record<string, unknown> = {}
+  const cityBoards: LeagueBoard[][] = []
   for (const city of cities) {
-    byCity[city] = podium(await computeLeague(month, city))
+    const boards = await computeLeague(month, city)
+    cityBoards.push(boards)
+    byCity[city] = podium(boards)
   }
   const result = { month, spain: podium(await computeLeague(month, null)), byCity, savedAt: Timestamp.now() }
-  await ref.set(result)
+  try {
+    // create() falla si otro proceso ya lo guardó: así los premios se dan una sola vez.
+    await ref.create(result)
+  } catch {
+    const again = await ref.get()
+    return again.data() ?? result
+  }
+  await awardLeaguePrizes(month, cityBoards).catch((error) => console.error('league prizes error:', error))
   return result
 }
 
@@ -352,4 +362,49 @@ export async function leagueRestaurants(month: string, municipalityKey: string |
   return [...data.restaurants.values()].filter(
     (restaurant) => !municipalityKey || restaurant.municipalityKey === municipalityKey,
   )
+}
+
+const PRIZE_XP = [500, 300, 200]
+const TOP10_XP = 50
+
+/** XP de premio por la liga de su ciudad y aviso al restaurante (solo al guardar el mes). */
+async function awardLeaguePrizes(month: string, cityBoards: LeagueBoard[][]): Promise<void> {
+  const totals = new Map<string, { xp: number; lines: string[] }>()
+  for (const boards of cityBoards) {
+    for (const board of boards) {
+      for (const entry of board.entries.slice(0, 10)) {
+        const xp = PRIZE_XP[entry.rank - 1] ?? TOP10_XP
+        const current = totals.get(entry.companyId) ?? { xp: 0, lines: [] }
+        current.xp += xp
+        current.lines.push(`${entry.rank}.º en «${board.name}»`)
+        totals.set(entry.companyId, current)
+      }
+    }
+  }
+  const { createCompanyNotification } = await import('../notifications/companyNotifications.ts')
+  const [year, mon] = month.split('-').map(Number)
+  const monthName = new Date(Date.UTC(year, mon - 1, 15)).toLocaleDateString('es-ES', { month: 'long', timeZone: TIME_ZONE })
+  for (const [companyId, prize] of totals) {
+    const ref = adminDb.collection('companyGamification').doc(companyId)
+    await adminDb.runTransaction(async (transaction) => {
+      const snap = await transaction.get(ref)
+      const data = snap.data() ?? {}
+      const state = (data.state && typeof data.state === 'object' ? data.state : {}) as Record<string, unknown>
+      const stateXp = Number(state.xp) || 0
+      transaction.set(ref, {
+        xp: (Number(data.xp) || stateXp) + prize.xp,
+        state: { ...state, xp: stateXp + prize.xp },
+        updatedAt: Timestamp.now(),
+      }, { merge: true })
+    })
+    await createCompanyNotification(companyId, {
+      type: 'league_result',
+      title: `Liga de ${monthName}: +${prize.xp} XP`,
+      body: `${prize.lines.join(' · ')}. Tus trofeos ya se ven en tu ficha.`,
+      icon: '🏆',
+      actionTab: 'compite-ranking',
+      actionLabel: 'Ver la liga',
+      dedupeKey: `league-${month}`,
+    }).catch(() => undefined)
+  }
 }

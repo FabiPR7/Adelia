@@ -8,6 +8,7 @@ import {
   type LeagueId,
 } from '../../services/companyGamification'
 import {
+  COMPANY_LEVELS,
   getCompanyLevelForXp,
   getCompanyLevelProgress,
   getCompanyXpToNext,
@@ -30,6 +31,15 @@ const PRIZES = [
   { place: '3.º', tone: 'bronze', text: 'Trofeo de bronce y sales en el podio de la app.' },
   { place: 'Top 10', tone: 'plain', text: 'Más arriba en las búsquedas de tu ciudad.' },
 ] as const
+
+const TIERS = [
+  { id: 'bronze', label: 'Bronce', levels: [1, 2, 3], perks: ['Apareces en las ligas', 'Insignia de nivel en tu ficha'] },
+  { id: 'silver', label: 'Plata', levels: [4, 5, 6], perks: ['Sello de prestigio en la ficha', 'Más arriba en tu ciudad'] },
+  { id: 'gold', label: 'Oro', levels: [7, 8], perks: ['Sección «Casas ilustres» de la app', 'Prioridad en las búsquedas'] },
+  { id: 'diamond', label: 'Diamante', levels: [9, 10], perks: ['«Salón de la fama» permanente', 'Portada de Explorar'] },
+] as const
+
+const TIER_LABEL = { bronze: 'Bronce', silver: 'Plata', gold: 'Oro' } as const
 
 function monthLabel(month: string): string {
   const [year, mon] = month.split('-').map(Number)
@@ -316,6 +326,76 @@ function CompanyCompiteRanking() {
               </p>
             </div>
           </aside>
+        </section>
+      ) : null}
+
+      <section className={styles.card} aria-labelledby="levels-title">
+        <h2 id="levels-title" className={styles.cardTitle}><Medal size={15} aria-hidden="true" /> Niveles de prestigio</h2>
+        <p className={styles.small}>Tu nivel se ve en tu ficha pública. Cuanto más alto, más confianza das y más arriba sales.</p>
+        <div className={styles.tiers}>
+          {TIERS.map((tier) => {
+            const levels: readonly number[] = tier.levels
+            return (
+              <div key={tier.id} className={`${styles.tier} ${levels.includes(level.level) ? styles.tierCurrent : ''}`}>
+                <span className={`${styles.prestige} ${styles[`prestige_${tier.id}`]}`}>{tier.label}</span>
+                <ul className={styles.levelList}>
+                  {COMPANY_LEVELS.filter((item) => levels.includes(item.level)).map((item) => (
+                    <li
+                      key={item.level}
+                      className={item.level === level.level ? styles.levelRowOn : item.level < level.level ? styles.levelRowDone : styles.levelRow}
+                    >
+                      <span className={styles.levelNum}>{item.level}</span>
+                      <span className={styles.levelName}>{item.title}</span>
+                      <span className={styles.levelXp}>{item.minXp.toLocaleString('es-ES')} XP</span>
+                    </li>
+                  ))}
+                </ul>
+                <ul className={styles.perkList}>
+                  {tier.perks.map((perk) => <li key={perk}>✓ {perk}</li>)}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {data.badges && data.badges.length > 0 ? (
+        <section className={styles.card} aria-labelledby="badges-title">
+          <div className={styles.cardHeadInline}>
+            <h2 id="badges-title" className={styles.cardTitle}><Trophy size={15} aria-hidden="true" /> Insignias</h2>
+            <span className={styles.cardMeta}>
+              {data.badges.filter((badge) => badge.tier).length} de {data.badges.length} conseguidas · bronce, plata y oro
+            </span>
+          </div>
+          <div className={styles.badgeGrid}>
+            {data.badges.map((badge) => {
+              const target = badge.next ?? badge.thresholds[2]
+              const pct = Math.min(100, Math.round((badge.value / target) * 100))
+              const nextName = badge.tier === 'silver' ? 'oro' : badge.tier === 'bronze' ? 'plata' : 'bronce'
+              return (
+                <div key={badge.id} className={`${styles.badge} ${badge.tier ? '' : styles.badgeLocked}`}>
+                  <div className={styles.badgeHead}>
+                    <span className={`${styles.badgeIcon} ${badge.tier ? styles[`prestige_${badge.tier}`] : ''}`}>
+                      {badge.name.charAt(0)}
+                    </span>
+                    <span className={styles.badgeText}>
+                      <strong>{badge.name}</strong>
+                      <span>{badge.tier ? TIER_LABEL[badge.tier] : 'Sin conseguir'}</span>
+                    </span>
+                  </div>
+                  <span className={styles.badgeDesc}>{badge.description}</span>
+                  <div className={styles.badgeBar} aria-hidden="true">
+                    <div style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className={styles.badgeProgress}>
+                    {badge.next == null
+                      ? 'Oro conseguido'
+                      : `${badge.value.toLocaleString('es-ES')} / ${badge.next.toLocaleString('es-ES')} para ${nextName}`}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
         </section>
       ) : null}
     </div>

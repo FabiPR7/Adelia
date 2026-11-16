@@ -8,6 +8,7 @@ export type CompanyNotificationType =
   | 'reservation_new'
   | 'reservation_cancelled_by_client'
   | 'setup_no_tables'
+  | 'league_result'
   | 'admin_message'
 
 export interface CompanyNotification {

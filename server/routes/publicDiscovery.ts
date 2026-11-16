@@ -1,7 +1,10 @@
 import { Router, type Request, type Response } from 'express'
 import { listPublicDiscoveryRestaurants, type DiscoveryQuery } from '../data/restaurantIndex.ts'
 import { allowPublicCache } from '../security/httpCache.ts'
-import { computeLeague, currentMonthKey, leagueRestaurants, prestigeForLevel, type LeagueEntry } from '../league/monthlyLeague.ts'
+import { computeLeague, currentMonthKey, leagueRestaurants, prestigeForLevel, trophiesForCompany, type LeagueEntry } from '../league/monthlyLeague.ts'
+import { computeCompanyBadges } from '../league/companyBadges.ts'
+import { getCompanyLevelForXp } from '../gamification/companyCatalog.ts'
+import { adminDb } from '../firebase-admin.ts'
 
 const router = Router()
 
@@ -85,6 +88,41 @@ router.get('/league', async (req: Request, res: Response) => {
     })
   } catch (error) {
     console.error('public league error:', error)
+    res.status(500).json({ error: 'No se pudo cargar.' })
+  }
+})
+
+
+/** Prestigio de un local para su ficha: nivel, rango, trofeos de la liga e insignias conseguidas. */
+router.get('/prestige/:slug', async (req: Request, res: Response) => {
+  try {
+    const slug = String(req.params.slug ?? '').toLowerCase()
+    if (!/^[a-z0-9-]{1,80}$/.test(slug)) {
+      res.status(400).json({ error: 'Ficha no válida.' })
+      return
+    }
+    const indexSnap = await adminDb.collection('restaurantIndex').where('slug', '==', slug).limit(1).get()
+    const companyId = String(indexSnap.docs[0]?.data().companyId ?? indexSnap.docs[0]?.id ?? '')
+    if (!companyId) {
+      res.status(404).json({ error: 'No encontrado.' })
+      return
+    }
+    const [statsSnap, trophies, badges] = await Promise.all([
+      adminDb.collection('companyGamification').doc(companyId).get(),
+      trophiesForCompany(companyId).catch(() => []),
+      computeCompanyBadges(companyId).catch(() => []),
+    ])
+    const level = getCompanyLevelForXp(Number(statsSnap.data()?.xp) || 0)
+    allowPublicCache(res, 600)
+    res.json({
+      level: level.level,
+      levelTitle: level.title,
+      prestige: prestigeForLevel(level.level),
+      trophies: trophies.filter((trophy) => trophy.scope === 'city').slice(0, 6),
+      badges: badges.filter((badge) => badge.tier).map((badge) => ({ id: badge.id, name: badge.name, tier: badge.tier })),
+    })
+  } catch (error) {
+    console.error('public prestige error:', error)
     res.status(500).json({ error: 'No se pudo cargar.' })
   }
 })

@@ -1,0 +1,66 @@
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  max-width: 1120px;
+  margin: 0.9rem auto 0;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+.level,
+.trophy,
+.badge {
+  padding: 0.3rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.level {
+  font-weight: 700;
+}
+
+.tone_bronze {
+  border-color: #e5cdbe;
+  background: #fbf1ea;
+  color: #7a3f1d;
+}
+
+.tone_silver {
+  border-color: #d9dee6;
+  background: #f3f5f8;
+  color: #3f4b5c;
+}
+
+.tone_gold {
+  border-color: #e8d6a8;
+  background: #fff8e6;
+  color: #6b4a00;
+}
+
+.tone_diamond {
+  border-color: #bfdce4;
+  background: #eef7fa;
+  color: #0e5566;
+}
+
+.trophy {
+  border-color: #e8d6a8;
+  background: #fff8e6;
+  color: #6b4a00;
+}
+
+.rank_2 {
+  border-color: #d9dee6;
+  background: #f3f5f8;
+  color: #3f4b5c;
+}
+
+.rank_3 {
+  border-color: #e5cdbe;
+  background: #fbf1ea;
+  color: #7a3f1d;
+}

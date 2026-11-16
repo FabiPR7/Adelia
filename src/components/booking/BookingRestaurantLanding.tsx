@@ -30,6 +30,7 @@ import {
   companyRequiresReservation,
   reservationModeHint,
 } from '../../data/companyReservationMode'
+import RestaurantPrestige from './RestaurantPrestige'
 import styles from './BookingRestaurantLanding.module.css'
 
 const MAX_TEASER_PROMOTIONS = 3
@@ -247,6 +248,8 @@ export default function BookingRestaurantLanding({
           </Link>
         </div>
       </div>
+
+      <RestaurantPrestige slug={company.slug} />
 
       <div className={styles.layout}>
         <div className={styles.mainColumn}>

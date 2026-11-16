@@ -523,3 +523,172 @@
     transition: none;
   }
 }
+
+.cardHeadInline {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+/* Niveles de prestigio */
+.tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.tier {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  border: 1px solid #efebe6;
+  border-radius: 12px;
+}
+
+.tierCurrent {
+  border-color: var(--color-text);
+  box-shadow: 0 0 0 1px var(--color-text);
+}
+
+.tier > .prestige {
+  align-self: flex-start;
+}
+
+.levelList,
+.perkList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.levelRow,
+.levelRowDone,
+.levelRowOn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 7px;
+  font-size: 0.8125rem;
+}
+
+.levelRow {
+  color: #8c847c;
+}
+
+.levelRowDone {
+  color: var(--color-text);
+}
+
+.levelRowOn {
+  background: var(--color-text);
+  color: #ffffff;
+}
+
+.levelNum {
+  width: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.levelName {
+  flex: 1;
+  min-width: 0;
+}
+
+.levelXp {
+  font-size: 0.75rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.perkList {
+  padding-top: 0.5rem;
+  border-top: 1px solid #efebe6;
+  font-size: 0.75rem;
+  color: #4a443e;
+}
+
+/* Insignias */
+.badgeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  border: 1px solid #efebe6;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.badgeLocked {
+  background: #faf9f7;
+}
+
+.badgeHead {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.badgeIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #f1efec;
+  color: #8c847c;
+  font-weight: 800;
+}
+
+.badgeText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.badgeText strong {
+  font-size: 0.875rem;
+}
+
+.badgeText span {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.badgeDesc {
+  font-size: 0.75rem;
+  color: #4a443e;
+}
+
+.badgeBar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #efeae4;
+}
+
+.badgeBar > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent-strong);
+}
+
+.badgeProgress {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
