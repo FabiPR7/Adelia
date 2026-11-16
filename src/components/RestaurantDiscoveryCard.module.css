@@ -226,3 +226,33 @@
   letter-spacing: 0;
   color: #fff4cf;
 }
+
+.prestige {
+  align-self: flex-start;
+  padding: 0.22rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.prestige_silver {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(243, 245, 248, 0.92);
+  color: #3f4b5c;
+}
+
+.prestige_gold {
+  border-color: rgba(232, 214, 168, 0.9);
+  background: rgba(255, 248, 230, 0.95);
+  color: #6b4a00;
+}
+
+.prestige_diamond {
+  border-color: rgba(191, 220, 228, 0.9);
+  background: rgba(238, 247, 250, 0.95);
+  color: #0e5566;
+}

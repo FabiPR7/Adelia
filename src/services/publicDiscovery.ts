@@ -76,6 +76,8 @@ function mapApiRestaurant(raw: Record<string, unknown>): PublicDiscoveryRestaura
     reviewRatingSum: typeof raw.reviewRatingSum === 'number' ? raw.reviewRatingSum : 0,
     reviewAdelinas: typeof raw.reviewAdelinas === 'number' ? raw.reviewAdelinas : 0,
     discoveryFeatured: raw.discoveryFeatured === true,
+    ...(typeof raw.prestigeLevel === 'number' ? { prestigeLevel: raw.prestigeLevel } : {}),
+    ...(raw.leagueTop10 === true ? { leagueTop10: true } : {}),
     reservationMode: parseCompanyReservationMode(raw.reservationMode),
   }
 }

@@ -3,6 +3,7 @@ import { adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from './collections.ts'
 import { parseCompanyReservationMode } from '../utils.ts'
 import { cityKey, distanceKm, encodeGeohash, geohashPrefixesForRadius } from '../utils/geohash.ts'
+import { discoveryBoosts, discoveryBoostTier, type DiscoveryBoost } from '../league/monthlyLeague.ts'
 
 /** Cap duro de lecturas por request de discovery (Admin SDK). */
 export const PUBLIC_DISCOVERY_LIMIT = 80
@@ -56,6 +57,10 @@ export interface PublicDiscoveryRestaurantPayload {
   reviewRatingSum: number
   reviewAdelinas: number
   discoveryFeatured: boolean
+  /** Nivel de la Liga Adelia (1-10). */
+  prestigeLevel?: number
+  /** Top 10 de su ciudad en alguna liga, este mes o el anterior. */
+  leagueTop10?: boolean
   reservationMode: 'required' | 'optional' | 'none'
 }
 
@@ -159,6 +164,12 @@ export interface DiscoveryPage {
   nextCursor: string | null
 }
 
+const BOOST_KM = 1
+
+function boostTier(item: PublicDiscoveryRestaurantPayload): number {
+  return discoveryBoostTier(item.prestigeLevel ? { level: item.prestigeLevel, top10: item.leagueTop10 === true } : undefined)
+}
+
 function sortDiscovery(
   items: PublicDiscoveryRestaurantPayload[],
   near?: { lat: number; lng: number },
@@ -167,11 +178,15 @@ function sortDiscovery(
     if (left.discoveryFeatured !== right.discoveryFeatured) {
       return left.discoveryFeatured ? -1 : 1
     }
+    const leftTier = boostTier(left)
+    const rightTier = boostTier(right)
     if (near && left.latitude != null && left.longitude != null && right.latitude != null && right.longitude != null) {
-      return distanceKm(near, { lat: left.latitude, lng: left.longitude })
-        - distanceKm(near, { lat: right.latitude, lng: right.longitude })
+      // Cerca de ti manda la distancia; cada escalón de prestigio cuenta como 1 km menos.
+      return (distanceKm(near, { lat: left.latitude, lng: left.longitude }) - leftTier * BOOST_KM)
+        - (distanceKm(near, { lat: right.latitude, lng: right.longitude }) - rightTier * BOOST_KM)
     }
-    return right.reviewCount - left.reviewCount || left.name.localeCompare(right.name, 'es')
+    return rightTier - leftTier
+      || right.reviewCount - left.reviewCount || left.name.localeCompare(right.name, 'es')
   })
 }
 
@@ -183,11 +198,24 @@ function sortDiscovery(
 export async function listPublicDiscoveryRestaurants(query: DiscoveryQuery = {}): Promise<DiscoveryPage> {
   const capped = Math.min(Math.max(1, Math.floor(query.limit ?? PUBLIC_DISCOVERY_LIMIT)), PUBLIC_DISCOVERY_LIMIT)
   const indexed = adminDb.collection(COLLECTIONS.restaurantIndex)
-  const featuredByPlan = await loadCompanyIdsWithFeaturedPlan()
+  const [featuredByPlan, boosts] = await Promise.all([
+    loadCompanyIdsWithFeaturedPlan(),
+    discoveryBoosts().catch((error) => {
+      console.error('Discovery boosts error:', error)
+      return new Map<string, DiscoveryBoost>()
+    }),
+  ])
   const toPayload = (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => docs
     .map((docSnap) => mapRestaurantIndexDoc(docSnap.id, docSnap.data()))
     .filter((item): item is PublicDiscoveryRestaurantPayload => item !== null)
-    .map((item) => (featuredByPlan.has(item.id) ? { ...item, discoveryFeatured: true } : item))
+    .map((item) => {
+      const boost = boosts.get(item.id)
+      return {
+        ...item,
+        ...(featuredByPlan.has(item.id) ? { discoveryFeatured: true } : {}),
+        ...(boost ? { prestigeLevel: boost.level, leagueTop10: boost.top10 } : {}),
+      }
+    })
 
   if (query.near) {
     const { lat, lng, radiusKm } = query.near

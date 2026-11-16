@@ -30,6 +30,10 @@ export interface PublicDiscoveryRestaurant {
   reviewRatingSum: number
   reviewAdelinas: number
   discoveryFeatured: boolean
+  /** Nivel de la Liga Adelia (1-10). */
+  prestigeLevel?: number
+  /** Top 10 de su ciudad en alguna liga este mes o el anterior. */
+  leagueTop10?: boolean
   reservationMode: import('../data/companyReservationMode').CompanyReservationMode
 }
 
@@ -340,13 +344,24 @@ export function buildRestaurantGeocodeQuery(restaurant: PublicDiscoveryRestauran
   return parts.join(', ') || restaurant.name
 }
 
+/** Igual que en el servidor: 3 Diamante, 2 Oro, 1 Plata o Top 10, 0 el resto. */
+export function discoveryBoostTier(restaurant: Pick<PublicDiscoveryRestaurant, 'prestigeLevel' | 'leagueTop10'>): number {
+  const level = restaurant.prestigeLevel ?? 0
+  if (level >= 9) return 3
+  if (level >= 7) return 2
+  return level >= 4 || restaurant.leagueTop10 === true ? 1 : 0
+}
+
+/** Cada escalón de prestigio cuenta como 1 km menos al ordenar por cercanía. */
+const BOOST_KM = 1
+
 export function sortRestaurantsByDistance(
   restaurants: PublicDiscoveryRestaurant[],
   distancesKm: Record<string, number>,
 ): PublicDiscoveryRestaurant[] {
   return [...restaurants].sort((left, right) => {
-    const leftDistance = distancesKm[left.slug] ?? Number.POSITIVE_INFINITY
-    const rightDistance = distancesKm[right.slug] ?? Number.POSITIVE_INFINITY
+    const leftDistance = (distancesKm[left.slug] ?? Number.POSITIVE_INFINITY) - discoveryBoostTier(left) * BOOST_KM
+    const rightDistance = (distancesKm[right.slug] ?? Number.POSITIVE_INFINITY) - discoveryBoostTier(right) * BOOST_KM
     return leftDistance - rightDistance
   })
 }

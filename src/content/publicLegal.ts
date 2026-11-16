@@ -13,7 +13,7 @@ export interface PublicLegalDocument {
 }
 
 export const LEGAL_CONTACT_EMAIL = 'contacto@adeliareservas.com'
-export const LEGAL_UPDATED_LABEL = '10 de noviembre de 2026'
+export const LEGAL_UPDATED_LABEL = '16 de noviembre de 2026'
 /** Versión estable que se guarda en el perfil al aceptar legales en el registro. */
 export const LEGAL_ACCEPTANCE_VERSION = '2026-11-07'
 export const LEGAL_SITE_URL = 'https://adeliareservas.com'
@@ -326,8 +326,9 @@ export const PUBLIC_LEGAL_DOCUMENTS: Record<PublicLegalDocId, PublicLegalDocumen
       {
         heading: '5. Orden de los resultados',
         paragraphs: [
-          'En la búsqueda aparecen primero los locales destacados y después el resto por orden alfabético. Un local está destacado si tiene contratado el plan Local, que incluye mayor visibilidad a cambio de su precio, o si Adelia lo selecciona manualmente. Por tanto, **parte de esa posición es de pago**.',
-          'Esa lista se reparte en carruseles que pueden variar, y puedes cambiar el resultado con la búsqueda, los filtros, los favoritos o la opción de ordenar por cercanía. La puntuación de las reseñas no decide el orden general.',
+          'En la búsqueda aparecen primero los locales destacados, que llevan la etiqueta «Patrocinado». Un local está destacado si tiene contratado el plan Local, que incluye mayor visibilidad a cambio de su precio, o si Adelia lo selecciona manualmente. Por tanto, **parte de esa posición es de pago**.',
+          'Después cuenta el **nivel del local en la Liga Adelia**, que no se compra: sube con su actividad real en Adelia (clientes que asisten a sus reservas, premios canjeados y valoraciones). Van primero los de nivel Diamante (9 y 10), luego Oro (7 y 8) y luego Plata (4 a 6) junto con los que han quedado entre los 10 primeros de su ciudad en alguna liga del mes en curso o del anterior. Dentro de cada grupo, salen antes los que tienen más reseñas. Desde el nivel Plata, la tarjeta del local muestra su nivel.',
+          'Si ordenas por cercanía manda la distancia, y cada escalón de nivel cuenta como si el local estuviera 1 km más cerca. Esa lista se reparte en carruseles que pueden variar, y puedes cambiar el resultado con la búsqueda, los filtros y los favoritos. La nota media de las reseñas no decide el orden por sí sola.',
           'El ranking de Compite se ordena por XP. Las promociones se muestran según su disponibilidad y, en la app, según tu cercanía.',
         ],
       },

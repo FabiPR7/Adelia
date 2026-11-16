@@ -408,3 +408,57 @@ async function awardLeaguePrizes(month: string, cityBoards: LeagueBoard[][]): Pr
     }).catch(() => undefined)
   }
 }
+
+export interface DiscoveryBoost {
+  level: number
+  /** En el Top 10 de su ciudad en alguna liga, este mes o el anterior. */
+  top10: boolean
+}
+
+let boostCache: { at: number; promise: Promise<Map<string, DiscoveryBoost>> } | null = null
+
+async function loadDiscoveryBoosts(): Promise<Map<string, DiscoveryBoost>> {
+  const month = currentMonthKey()
+  const data = await monthData(month)
+  const boosts = new Map<string, DiscoveryBoost>()
+  const cities = new Set<string>()
+  for (const restaurant of data.restaurants.values()) {
+    boosts.set(restaurant.companyId, { level: restaurant.level, top10: false })
+    if (restaurant.municipalityKey) cities.add(restaurant.municipalityKey)
+  }
+  for (const key of [month, previousMonthKey(month)]) {
+    for (const city of cities) {
+      const boards = await computeLeague(key, city)
+      for (const board of boards) {
+        for (const entry of board.entries) {
+          if (entry.rank > 10) break
+          const boost = boosts.get(entry.companyId)
+          if (boost) boost.top10 = true
+        }
+      }
+    }
+  }
+  return boosts
+}
+
+/** Nivel y Top 10 de cada restaurante, para dar ventaja en las búsquedas. Caché de 10 min. */
+export function discoveryBoosts(): Promise<Map<string, DiscoveryBoost>> {
+  if (!boostCache || Date.now() - boostCache.at > CACHE_MS) {
+    const promise = loadDiscoveryBoosts()
+    boostCache = { at: Date.now(), promise }
+    promise.catch(() => { boostCache = null })
+  }
+  return boostCache.promise
+}
+
+/**
+ * Ventaja en las búsquedas (va después de los patrocinados, que siempre se
+ * marcan): 3 Diamante (cabeza de Explorar), 2 Oro (prioridad), 1 Plata o Top 10
+ * de su ciudad (más arriba), 0 el resto.
+ */
+export function discoveryBoostTier(boost: DiscoveryBoost | undefined): number {
+  if (!boost) return 0
+  if (boost.level >= 9) return 3
+  if (boost.level >= 7) return 2
+  return boost.level >= 4 || boost.top10 ? 1 : 0
+}

@@ -20,6 +20,14 @@ interface RestaurantDiscoveryCardProps {
   onOpen: (restaurant: PublicDiscoveryRestaurant) => void
 }
 
+/** Solo desde Plata (nivel 4): un «Nv. 1 · Bronce» en cada tarjeta no aporta nada. */
+function cardPrestige(level: number | undefined): { id: 'silver' | 'gold' | 'diamond'; label: string } | null {
+  if (!level || level < 4) return null
+  if (level >= 9) return { id: 'diamond', label: 'Diamante' }
+  if (level >= 7) return { id: 'gold', label: 'Oro' }
+  return { id: 'silver', label: 'Plata' }
+}
+
 function RestaurantDiscoveryCard({
   restaurant,
   distanceKm,
@@ -34,6 +42,7 @@ function RestaurantDiscoveryCard({
     ...restaurant.characteristics,
   ].slice(0, 3)
   const ratingBadge = formatDiscoveryRatingBadge(restaurant)
+  const prestige = cardPrestige(restaurant.prestigeLevel)
 
   useEffect(() => {
     if (restaurant.id) {
@@ -92,6 +101,14 @@ function RestaurantDiscoveryCard({
               title="Aparece antes porque el restaurante tiene un plan de pago. Más información en los Términos."
             >
               Patrocinado
+            </span>
+          ) : null}
+          {prestige ? (
+            <span
+              className={`${styles.prestige} ${styles[`prestige_${prestige.id}`]}`}
+              title="Nivel en la Liga Adelia: sube con reservas, premios y valoraciones. Los niveles altos salen antes en las búsquedas."
+            >
+              Nv. {restaurant.prestigeLevel} · {prestige.label}
             </span>
           ) : null}
           {visibleTags.length > 0 ? (
