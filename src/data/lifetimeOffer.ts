@@ -1,11 +1,13 @@
 import { COMPANY_PLANS_CONTACT_EMAIL } from './companyPlans'
 
 /**
- * Oferta de lanzamiento: un pago único de 99,99 € da el plan Local para siempre.
+ * Oferta de lanzamiento: un pago único de 199 € da el plan Local para siempre.
  * Solo se puede comprar hasta el 1 de enero de 2027 (hora de España).
  */
 export const LIFETIME_OFFER = {
-  priceLabel: '99,99',
+  /** Precio en euros (si cambia, cambia también el producto de Lemon Squeezy). */
+  price: 199,
+  priceLabel: '199',
   planName: 'Local',
   /** 1/1/2027 a las 00:00 en Madrid (invierno, UTC+1). */
   endsAt: new Date('2027-01-01T00:00:00+01:00'),
@@ -43,7 +45,7 @@ export function lifetimeOfferHref(companyId: string | null | undefined): string 
   if (LIFETIME_OFFER.checkoutUrl) {
     return withCompanyCheckoutData(LIFETIME_OFFER.checkoutUrl, companyId)
   }
-  const subject = 'Quiero el plan Local de por vida (99,99 €)'
-  const body = 'Hola, quiero reservar la oferta de lanzamiento: plan Local de por vida por 99,99 € en un único pago.'
+  const subject = 'Quiero el plan Local de por vida (199 €)'
+  const body = 'Hola, quiero reservar la oferta de lanzamiento: plan Local de por vida por 199 € en un único pago.'
   return `mailto:${COMPANY_PLANS_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }

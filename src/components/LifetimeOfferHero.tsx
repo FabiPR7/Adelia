@@ -24,7 +24,7 @@ function LifetimeOfferHero({ companyId, onSeePlans }: LifetimeOfferHeroProps) {
   const local = getCompanyPlan('premium')
   const monthly = local.priceMonthly
   // Meses de cuota que cuesta la oferta: se amortiza enseguida.
-  const monthsToPayOff = monthly > 0 ? Math.ceil(99.99 / monthly) : null
+  const monthsToPayOff = monthly > 0 ? Math.ceil(LIFETIME_OFFER.price / monthly) : null
 
   useEffect(() => {
     const timer = window.setInterval(() => setLeft(lifetimeOfferTimeLeft()), 30_000)
