@@ -19,11 +19,12 @@ interface PodiumRestaurant {
 
 interface LeagueResponse {
   month: string
+  /** false la primera semana del mes: se enseña el resultado final del mes anterior. */
+  inPlay?: boolean
   scope: 'city' | 'spain'
   best?: PodiumRestaurant[]
 }
 
-const PLACE_LABEL = ['', 'Mejor restaurante del mes', 'Segundo del mes', 'Tercero del mes']
 
 function monthName(month: string): string {
   const [year, mon] = month.split('-').map(Number)
@@ -58,13 +59,19 @@ function MonthPodium({ city }: { city: string }) {
   const second = best.find((item) => item.rank === 2) ?? null
   const third = best.find((item) => item.rank === 3) ?? null
   const where = data.scope === 'city' && city ? city : 'España'
+  const inPlay = data.inPlay !== false
+  const name = monthName(data.month)
+  const placeLabel = (place: 1 | 2 | 3) => {
+    if (place === 1) return inPlay ? 'Mejor restaurante del mes' : `Mejor restaurante de ${name}`
+    return inPlay ? (place === 2 ? 'Segundo del mes' : 'Tercero del mes') : (place === 2 ? `Segundo de ${name}` : `Tercero de ${name}`)
+  }
 
   const card = (item: PodiumRestaurant | null, place: 1 | 2 | 3) => {
     if (!item) {
       return (
         <div className={`${styles.spot} ${styles[`spot_${place}`]} ${styles.spotEmpty}`} aria-hidden="true">
           <span className={styles.badge}>{place}</span>
-          <span className={styles.emptyText}><strong>Puesto libre</strong><br />Aún nadie más compite aquí este mes</span>
+          <span className={styles.emptyText}><strong>Puesto libre</strong><br />{inPlay ? 'Aún nadie más compite aquí este mes' : 'Nadie más compitió ese mes'}</span>
         </div>
       )
     }
@@ -86,7 +93,7 @@ function MonthPodium({ city }: { city: string }) {
           {place}
         </span>
         <span className={styles.info}>
-          <span className={styles.label}>{PLACE_LABEL[place]}</span>
+          <span className={styles.label}>{placeLabel(place)}</span>
           <strong className={styles.name}>{item.name}</strong>
           <span className={styles.meta}>
             {[item.municipality, item.podiums[0]].filter(Boolean).join(' · ')}
@@ -99,9 +106,13 @@ function MonthPodium({ city }: { city: string }) {
   return (
     <section className={styles.section} aria-labelledby="month-podium-title">
       <div className={styles.heading}>
-        <span className={styles.kicker}>Liga Adelia · {monthName(data.month)}</span>
-        <h2 id="month-podium-title">Los mejores del mes en {where}</h2>
-        <p>Los restaurantes que más reservas, premios y buenas reseñas suman este mes.</p>
+        <span className={styles.kicker}>Liga Adelia · {inPlay ? 'En juego' : 'Resultado final'}</span>
+        <h2 id="month-podium-title">Los mejores de {name} en {where}</h2>
+        <p>
+          {inPlay
+            ? 'Así va el mes: los que más reservas, premios y buenas reseñas suman. Se decide el día 1.'
+            : 'Los ganadores del mes pasado. El nuevo mes ya está en juego y lo verás aquí a partir del día 8.'}
+        </p>
       </div>
       <div className={styles.podium}>
         {card(second, 2)}

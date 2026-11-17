@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import { listPublicDiscoveryRestaurants, type DiscoveryQuery } from '../data/restaurantIndex.ts'
 import { allowPublicCache } from '../security/httpCache.ts'
-import { computeLeague, currentMonthKey, leagueRestaurants, prestigeForLevel, trophiesForCompany, type LeagueEntry } from '../league/monthlyLeague.ts'
+import { computeLeague, currentMonthKey, leagueRestaurants, prestigeForLevel, previousMonthKey, trophiesForCompany, type LeagueEntry } from '../league/monthlyLeague.ts'
 import { computeCompanyBadges } from '../league/companyBadges.ts'
 import { getCompanyLevelForXp } from '../gamification/companyCatalog.ts'
 import { adminDb } from '../firebase-admin.ts'
@@ -58,15 +58,32 @@ router.get('/', async (req: Request, res: Response) => {
  * «Lo mejor del mes» para los clientes: podio de cada liga en su ciudad (o en
  * España si en su ciudad aún no hay datos), la revelación y las casas ilustres.
  */
+const FIRST_WEEK_DAYS = 7
+
+function dayOfMonthInMadrid(now = new Date()): number {
+  return Number(new Intl.DateTimeFormat('en-GB', { day: 'numeric', timeZone: 'Europe/Madrid' }).format(now))
+}
+
 router.get('/league', async (req: Request, res: Response) => {
   try {
-    const month = currentMonthKey()
     const cityKey = typeof req.query.city === 'string' ? req.query.city.trim().toLowerCase().slice(0, 80) : ''
-    let boards = cityKey ? await computeLeague(month, cityKey) : null
-    let scope: 'city' | 'spain' = 'city'
-    if (!boards || boards.every((board) => board.entries.length === 0)) {
-      boards = await computeLeague(month, null)
-      scope = 'spain'
+    const load = async (key: string) => {
+      const cityBoards = cityKey ? await computeLeague(key, cityKey) : null
+      if (cityBoards && cityBoards.some((board) => board.entries.length > 0)) return { boards: cityBoards, scope: 'city' as const }
+      return { boards: await computeLeague(key, null), scope: 'spain' as const }
+    }
+    // La primera semana del mes casi nadie ha puntuado: se enseña el mes anterior, ya cerrado.
+    let month = currentMonthKey()
+    let inPlay = true
+    let { boards, scope } = await load(month)
+    if (dayOfMonthInMadrid() <= FIRST_WEEK_DAYS) {
+      const previous = previousMonthKey(month)
+      const closed = await load(previous)
+      if (closed.boards.some((board) => board.entries.length > 0)) {
+        month = previous
+        inPlay = false
+        ;({ boards, scope } = closed)
+      }
     }
     const strip = (entry: LeagueEntry) => ({
       companyId: entry.companyId, name: entry.name, slug: entry.slug, municipality: entry.municipality,
@@ -96,6 +113,7 @@ router.get('/league', async (req: Request, res: Response) => {
     allowPublicCache(res, 300)
     res.json({
       month,
+      inPlay,
       scope,
       best,
       boards: boards.map((board) => ({ id: board.id, name: board.name, unit: board.unit, podium: board.entries.slice(0, 3).map(strip) })),
