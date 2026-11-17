@@ -315,6 +315,7 @@ function CustomerProfileTab() {
         <CustomerPreferencesCard
           birthday={profile?.birthday ?? ''}
           hideFromRanking={profile?.hideFromRanking === true}
+          hideVisitsFromFriends={profile?.hideVisitsFromFriends === true}
           onSaved={refreshProfile}
         />
 

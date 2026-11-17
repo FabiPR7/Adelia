@@ -97,7 +97,7 @@ export function parseBirthday(value: unknown): string | null {
   return value
 }
 
-/** Preferencias del perfil: cumpleaños y si sale o no en los rankings públicos. */
+/** Preferencias del perfil: cumpleaños, rankings públicos y qué ven tus amigos. */
 router.post('/preferences', async (req: Request, res: Response) => {
   try {
     const customer = await verifyCustomerUid(req)
@@ -116,6 +116,13 @@ router.post('/preferences', async (req: Request, res: Response) => {
         return
       }
       updates.hideFromRanking = req.body.hideFromRanking
+    }
+    if (req.body?.hideVisitsFromFriends !== undefined) {
+      if (typeof req.body.hideVisitsFromFriends !== 'boolean') {
+        res.status(400).json({ error: 'Valor no válido.' })
+        return
+      }
+      updates.hideVisitsFromFriends = req.body.hideVisitsFromFriends
     }
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: 'No hay nada que guardar.' })

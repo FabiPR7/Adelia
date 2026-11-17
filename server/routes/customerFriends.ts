@@ -431,6 +431,74 @@ router.get('/search', async (req: Request, res: Response) => {
   }
 })
 
+/**
+ * «Tus amigos han ido»: restaurantes donde han estado tus amigos (los que
+ * tienen en `visitedCompanyIds`). Quien activa «hideVisitsFromFriends» no sale.
+ */
+router.get('/visits', async (req: Request, res: Response) => {
+  try {
+    const user = await verifyCustomerUid(req)
+    const friendsSnap = await adminDb.collection(COLLECTIONS.friendships).where('userIds', 'array-contains', user.uid).limit(80).get()
+    const friendUids = [...new Set(friendsSnap.docs
+      .map((docSnap) => (docSnap.data().userIds as string[]).find((id) => id !== user.uid) ?? '')
+      .filter(Boolean))].slice(0, 60)
+    if (friendUids.length === 0) {
+      res.json({ restaurants: [] })
+      return
+    }
+    const [userSnaps, statsSnaps] = await Promise.all([
+      adminDb.getAll(...friendUids.map((uid) => adminDb.collection(COLLECTIONS.users).doc(uid))),
+      adminDb.getAll(...friendUids.map((uid) => adminDb.collection(COLLECTIONS.userGamification).doc(uid))),
+    ])
+    const byCompany = new Map<string, Array<{ id: string; name: string; photoUrl: string }>>()
+    friendUids.forEach((uid, index) => {
+      const profile = userSnaps[index]?.data() ?? {}
+      if (profile.hideVisitsFromFriends === true) return
+      const stats = gamificationOf(statsSnaps[index]?.data() ?? profile)
+      const visited = Array.isArray(stats.visitedCompanyIds) ? (stats.visitedCompanyIds as unknown[]) : []
+      const friend = {
+        id: uid,
+        name: typeof profile.displayName === 'string' ? profile.displayName : 'Tu amigo',
+        photoUrl: typeof profile.photoUrl === 'string' ? profile.photoUrl : '',
+      }
+      for (const companyId of visited) {
+        if (typeof companyId !== 'string' || !companyId) continue
+        const list = byCompany.get(companyId) ?? []
+        list.push(friend)
+        byCompany.set(companyId, list)
+      }
+    })
+    const companyIds = [...byCompany.keys()]
+      .sort((a, b) => (byCompany.get(b)?.length ?? 0) - (byCompany.get(a)?.length ?? 0))
+      .slice(0, 30)
+    if (companyIds.length === 0) {
+      res.json({ restaurants: [] })
+      return
+    }
+    const indexSnaps = await adminDb.getAll(...companyIds.map((id) => adminDb.collection(COLLECTIONS.restaurantIndex).doc(id)))
+    const restaurants = indexSnaps
+      .filter((snap) => snap.exists && snap.data()?.deactivated !== true && typeof snap.data()?.slug === 'string')
+      .map((snap) => {
+        const data = snap.data() ?? {}
+        const photos = Array.isArray(data.photos) ? data.photos.filter((item: unknown) => typeof item === 'string') : []
+        return {
+          companyId: snap.id,
+          slug: String(data.slug),
+          name: typeof data.name === 'string' ? data.name : '',
+          municipality: typeof data.municipality === 'string' ? data.municipality : '',
+          photoUrl: typeof data.photoUrl === 'string' && data.photoUrl ? data.photoUrl : (photos[0] ?? ''),
+          friends: (byCompany.get(snap.id) ?? []).slice(0, 8),
+          friendCount: byCompany.get(snap.id)?.length ?? 0,
+        }
+      })
+      .slice(0, 12)
+    res.json({ restaurants })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo cargar.'
+    res.status(message.includes('cliente') ? 401 : 500).json({ error: message })
+  }
+})
+
 router.get('/state', async (req: Request, res: Response) => {
   try {
     const user = await verifyCustomerUid(req)

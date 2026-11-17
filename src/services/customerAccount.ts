@@ -23,7 +23,7 @@ export async function deleteCustomerAccount(confirm: string): Promise<void> {
 }
 
 /** Cumpleaños («MM-DD», '' para quitarlo) y si sale o no en los rankings públicos. */
-export async function saveCustomerPreferences(input: { birthday?: string; hideFromRanking?: boolean }): Promise<void> {
+export async function saveCustomerPreferences(input: { birthday?: string; hideFromRanking?: boolean; hideVisitsFromFriends?: boolean }): Promise<void> {
   const { auth } = await import('../config/firebase')
   const token = await auth.currentUser?.getIdToken()
   if (!token) {

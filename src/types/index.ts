@@ -51,6 +51,8 @@ export interface AppUser {
   birthday?: string
   /** No aparecer en los rankings públicos. */
   hideFromRanking?: boolean
+  /** No enseñar a los amigos dónde has estado («Tus amigos han ido»). */
+  hideVisitsFromFriends?: boolean
   onboardingCompleted: boolean
   /** Tutorial interactivo de la app cliente (una vez por usuario). */
   productTourCompleted: boolean

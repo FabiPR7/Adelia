@@ -8,6 +8,7 @@ const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 interface CustomerPreferencesCardProps {
   birthday: string
   hideFromRanking: boolean
+  hideVisitsFromFriends: boolean
   onSaved: () => Promise<void> | void
 }
 
@@ -16,12 +17,13 @@ function splitBirthday(value: string): { month: string; day: string } {
   return match ? { month: String(Number(match[1])), day: String(Number(match[2])) } : { month: '', day: '' }
 }
 
-/** Cumpleaños (día y mes, sin año) y si sale en los rankings públicos. */
-function CustomerPreferencesCard({ birthday, hideFromRanking, onSaved }: CustomerPreferencesCardProps) {
+/** Cumpleaños (día y mes, sin año), rankings públicos y qué ven tus amigos. */
+function CustomerPreferencesCard({ birthday, hideFromRanking, hideVisitsFromFriends, onSaved }: CustomerPreferencesCardProps) {
   const initial = splitBirthday(birthday)
   const [month, setMonth] = useState(initial.month)
   const [day, setDay] = useState(initial.day)
   const [hidden, setHidden] = useState(hideFromRanking)
+  const [visitsHidden, setVisitsHidden] = useState(hideVisitsFromFriends)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
 
@@ -35,9 +37,13 @@ function CustomerPreferencesCard({ birthday, hideFromRanking, onSaved }: Custome
     setHidden(hideFromRanking)
   }, [hideFromRanking])
 
+  useEffect(() => {
+    setVisitsHidden(hideVisitsFromFriends)
+  }, [hideVisitsFromFriends])
+
   const maxDay = month ? DAYS_IN_MONTH[Number(month) - 1] : 31
   const birthdayValue = month && day ? `${month.padStart(2, '0')}-${day.padStart(2, '0')}` : ''
-  const dirty = birthdayValue !== birthday || hidden !== hideFromRanking
+  const dirty = birthdayValue !== birthday || hidden !== hideFromRanking || visitsHidden !== hideVisitsFromFriends
 
   const save = async () => {
     if ((month && !day) || (!month && day)) {
@@ -47,7 +53,7 @@ function CustomerPreferencesCard({ birthday, hideFromRanking, onSaved }: Custome
     setSaving(true)
     setMessage(null)
     try {
-      await saveCustomerPreferences({ birthday: birthdayValue, hideFromRanking: hidden })
+      await saveCustomerPreferences({ birthday: birthdayValue, hideFromRanking: hidden, hideVisitsFromFriends: visitsHidden })
       await onSaved()
       setMessage({ tone: 'ok', text: 'Guardado.' })
     } catch (error) {
@@ -109,6 +115,23 @@ function CustomerPreferencesCard({ birthday, hideFromRanking, onSaved }: Custome
           role="switch"
           checked={!hidden}
           onChange={(event) => setHidden(!event.target.checked)}
+        />
+      </label>
+
+      <label className={styles.row}>
+        <div>
+          <p className={styles.label}>👥 Que tus amigos vean dónde has ido</p>
+          <p className={styles.hint}>
+            Tus amigos de Adelia ven en Buscar los restaurantes donde has estado («Tus amigos han ido»). Si lo
+            quitas, dejas de salir ahí.
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          className={styles.switch}
+          role="switch"
+          checked={!visitsHidden}
+          onChange={(event) => setVisitsHidden(!event.target.checked)}
         />
       </label>
 

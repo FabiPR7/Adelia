@@ -307,6 +307,7 @@ function mapUserProfileRecord(
     foodPreferences: Array.isArray(data.foodPreferences) ? (data.foodPreferences as string[]) : [],
     birthday: typeof data.birthday === 'string' ? data.birthday : '',
     hideFromRanking: data.hideFromRanking === true,
+    hideVisitsFromFriends: data.hideVisitsFromFriends === true,
     onboardingCompleted:
       data.onboardingCompleted === true
       || (data.onboardingCompleted == null && Boolean(data.displayName)),

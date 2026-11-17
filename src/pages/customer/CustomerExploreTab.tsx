@@ -35,9 +35,17 @@ import { getLocationErrorMessage, requestUserLocation } from '../../utils/reques
 import type { DiscoveryVenueKind } from '../../data/companyProfileFacilities'
 import MonthPodium from '../../components/discovery/MonthPodium'
 import TopPromotionsSection from '../../components/discovery/TopPromotionsSection'
+import FriendsVisitedRow from '../../components/discovery/FriendsVisitedRow'
 import styles from './CustomerExploreTab.module.css'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
+
+/** Radio que cuenta como «tu zona» cuando no hay ciudad elegida. */
+const LOCAL_RADIUS_KM = 25
+
+function normalizePlace(value: string | undefined | null): string {
+  return (value ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim()
+}
 
 function CustomerExploreTab() {
   const navigate = useNavigate()
@@ -162,21 +170,6 @@ function CustomerExploreTab() {
     })
   }, [])
 
-  const { primary, secondary } = useMemo(
-    () => splitRestaurantsForCarousels(filteredRestaurants),
-    [filteredRestaurants],
-  )
-
-  const mostReserved = useMemo(
-    () => sortRestaurantsByReviewAdelinas(filteredRestaurants).slice(0, 8),
-    [filteredRestaurants],
-  )
-
-  const topRated = useMemo(
-    () => sortRestaurantsByReviewRating(filteredRestaurants).slice(0, 8),
-    [filteredRestaurants],
-  )
-
   const homeCoords = useMemo(
     () => toGeoCoordinates(profile?.homeLatitude, profile?.homeLongitude),
     [profile?.homeLatitude, profile?.homeLongitude],
@@ -229,6 +222,57 @@ function CustomerExploreTab() {
 
     return next
   }, [restaurants, feedOrigin])
+
+  // Primero lo de tu zona (tu ubicación, tu casa o tu ciudad del perfil); si no
+  // hay nada cerca, el orden del servidor: los mejores de Adelia.
+  const homeCityName = profile?.homeMunicipality || profile?.homeCity || ''
+  const local = useMemo(() => {
+    if (nearbyActive && userCoords) {
+      return { list: filteredRestaurants, count: filteredRestaurants.length }
+    }
+    if (selectedCity || appliedCity) {
+      return { list: filteredRestaurants, count: filteredRestaurants.length }
+    }
+    const city = normalizePlace(homeCityName)
+    const isLocal = (restaurant: PublicDiscoveryRestaurant) => {
+      const distance = feedDistancesKm[restaurant.slug]
+      if (typeof distance === 'number' && distance <= LOCAL_RADIUS_KM) return true
+      return Boolean(city) && normalizePlace(restaurant.municipality) === city
+    }
+    const near = filteredRestaurants.filter(isLocal)
+    const sortedNear = feedOrigin ? sortRestaurantsByDistance(near, feedDistancesKm) : near
+    const rest = filteredRestaurants.filter((restaurant) => !isLocal(restaurant))
+    return { list: [...sortedNear, ...rest], count: near.length }
+  }, [filteredRestaurants, nearbyActive, userCoords, selectedCity, appliedCity, homeCityName, feedDistancesKm, feedOrigin])
+
+  const { primary, secondary } = useMemo(
+    () => splitRestaurantsForCarousels(local.list),
+    [local.list],
+  )
+
+  // Con al menos 3 locales cerca, los destacados también son de tu zona.
+  const spotlightPool = useMemo(
+    () => (local.count >= 3 ? local.list.slice(0, local.count) : local.list),
+    [local],
+  )
+  const mostReserved = useMemo(
+    () => sortRestaurantsByReviewAdelinas(spotlightPool).slice(0, 8),
+    [spotlightPool],
+  )
+
+  const topRated = useMemo(
+    () => sortRestaurantsByReviewRating(spotlightPool).slice(0, 8),
+    [spotlightPool],
+  )
+
+  const placeName = nearbyActive ? '' : selectedCity?.name || appliedCity || homeCityName
+  const mainTitle = nearbyActive
+    ? 'Cerca de ti'
+    : selectedCity || appliedCity
+      ? `En ${placeName}`
+      : local.count > 0
+        ? (placeName ? `Cerca de ti · ${placeName}` : 'Cerca de ti')
+        : 'Los mejores de Adelia'
 
 
   // «Ver todos»: quita búsqueda, ciudad y filtros de una vez.
@@ -385,7 +429,7 @@ function CustomerExploreTab() {
           <>
             <section className={styles.carouselSection} data-tour="tour-carousel">
               <div className={styles.carouselHeader}>
-                <h2>{nearbyActive ? 'Cerca de ti' : 'Para ti hoy'}</h2>
+                <h2>{mainTitle}</h2>
                 <DiscoveryVenueKindFilter value={venueKind} onChange={setVenueKind} compact />
                 <span>{filteredRestaurants.length} locales</span>
               </div>
@@ -398,10 +442,12 @@ function CustomerExploreTab() {
               />
             </section>
 
+            <FriendsVisitedRow />
+
             <section className={styles.spotlightSection} aria-label="Trending y top valorados">
               <div className={styles.spotlightEnd}>
                 <RotatingRestaurantSpotlight
-                  title="Trending"
+                  title="Lo más pedido"
                   restaurants={mostReserved}
                   onOpenRestaurant={openRestaurant}
                 />
@@ -418,7 +464,7 @@ function CustomerExploreTab() {
               </div>
               <div className={styles.spotlightEnd}>
                 <RotatingRestaurantSpotlight
-                  title="Top valorados"
+                  title="Mejor valorados"
                   restaurants={topRated}
                   onOpenRestaurant={openRestaurant}
                 />
@@ -428,8 +474,8 @@ function CustomerExploreTab() {
             {secondary.length > 0 ? (
               <section className={styles.carouselSection}>
                 <div className={styles.carouselHeader}>
-                  <h2>Descubre más</h2>
-                  <span>{nearbyActive ? 'A un paso' : 'Desliza y reserva'}</span>
+                  <h2>Más para descubrir</h2>
+                  <span>{nearbyActive ? 'Un poco más lejos' : 'Otros que te pueden gustar'}</span>
                 </div>
                 <RestaurantInfiniteCarousel
                   restaurants={secondary}
@@ -461,7 +507,7 @@ function CustomerExploreTab() {
             />
             <TopPromotionsSection />
             <NearbyRestaurantFeed
-              restaurants={filteredRestaurants}
+              restaurants={local.list}
               origin={feedOrigin}
               distancesKm={feedDistancesKm}
               locating={nearbyState === 'locating'}

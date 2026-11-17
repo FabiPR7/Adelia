@@ -99,3 +99,25 @@ export async function toggleFriendFavorite(friendUid: string): Promise<boolean> 
   const data = (await response.json()) as { favorite?: boolean }
   return data.favorite === true
 }
+
+export interface FriendVisitedRestaurant {
+  companyId: string
+  slug: string
+  name: string
+  municipality: string
+  photoUrl: string
+  friends: Array<{ id: string; name: string; photoUrl: string }>
+  friendCount: number
+}
+
+/** Restaurantes donde han estado tus amigos (para «Tus amigos han ido»). */
+export async function fetchFriendsVisits(): Promise<FriendVisitedRestaurant[]> {
+  const response = await fetch(`${API_BASE}/api/customer/friends/visits`, {
+    headers: await authHeaders(),
+  })
+  if (!response.ok) {
+    throw new Error(await readError(response, 'No se pudo cargar.'))
+  }
+  const payload = (await response.json()) as { restaurants?: FriendVisitedRestaurant[] }
+  return payload.restaurants ?? []
+}

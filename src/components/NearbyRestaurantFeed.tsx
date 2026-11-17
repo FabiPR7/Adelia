@@ -75,8 +75,8 @@ function NearbyRestaurantFeed({
   return (
     <section className={styles.section} aria-labelledby="nearby-feed-heading">
       <div className={styles.heading}>
-        <h2 id="nearby-feed-heading">Por aquí cerca</h2>
-        <span>{origin ? 'Lo que tienes a mano' : 'Sigue bajando'}</span>
+        <h2 id="nearby-feed-heading">Todos los restaurantes</h2>
+        <span>{origin ? 'Del más cercano al más lejano' : 'Los mejores primero'}</span>
       </div>
 
       {!origin ? (
