@@ -29,6 +29,10 @@ function CookieConsentBanner() {
     const stored = readCookieConsent()
     if (stored?.analytics) {
       void enableFirebaseAnalytics()
+    } else {
+      // Sin consentimiento no debe quedar ninguna cookie de analítica: Google
+      // puede reescribir alguna justo antes de recargar al retirarlo.
+      clearAnalyticsStorage()
     }
     if (!stored) {
       setVisible(true)

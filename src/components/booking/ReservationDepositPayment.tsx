@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
-import { loadStripe } from '@stripe/stripe-js'
+// «pure»: Stripe.js (y sus cookies) solo se carga al mostrar el pago de la fianza, no al abrir la ficha.
+import { loadStripe } from '@stripe/stripe-js/pure'
 import { formatDepositAuthorizationSummary } from '../../utils/reservationDeposit'
 import styles from './ReservationDepositPayment.module.css'
 
