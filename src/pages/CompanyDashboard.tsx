@@ -67,8 +67,7 @@ const CompanyReportsProducts = lazy(() => import('./company/CompanyReportsProduc
 const CompanyReportsReviews = lazy(() => import('./company/CompanyReportsReviews'))
 const CompanyReportsApp = lazy(() => import('./company/CompanyReportsApp'))
 const CompanyCompiteNotifications = lazy(() => import('./company/CompanyCompiteNotifications'))
-const CompanyCompiteMissions = lazy(() => import('./company/CompanyCompiteMissions'))
-const CompanyCompiteRanking = lazy(() => import('./company/CompanyCompiteRanking'))
+const CompiteArena = lazy(() => import('./company/arena/CompiteArena'))
 const CompanyPromotions = lazy(() => import('./company/CompanyPromotions'))
 const CompanyReviews = lazy(() => import('./company/CompanyReviews'))
 const CompanyEmailTemplate = lazy(() => import('./company/CompanyEmailTemplate'))
@@ -679,7 +678,11 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
           </div>
         </header>
 
-        <main className={`${styles.main} ${demo ? styles.demoReadOnly : ''}`}>
+        <main
+          className={`${styles.main} ${demo ? styles.demoReadOnly : ''} ${
+            !lockedTabCap && (activeTab === 'compite-ranking' || activeTab === 'compite-missions') ? styles.mainArena : ''
+          }`}
+        >
           {company.deactivated ? (
             <div className={styles.deactivatedBanner} role="status">
               <div className={styles.deactivatedBannerText}>
@@ -733,8 +736,12 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
                 {activeTab === 'compite-notifications' ? (
                   <CompanyCompiteNotifications onOpenTab={attemptNavigate} />
                 ) : null}
-                {activeTab === 'compite-missions' ? <CompanyCompiteMissions /> : null}
-                {activeTab === 'compite-ranking' ? <CompanyCompiteRanking /> : null}
+                {activeTab === 'compite-ranking' || activeTab === 'compite-missions' ? (
+                  <CompiteArena
+                    initialView={activeTab === 'compite-missions' ? 'challenges' : 'arena'}
+                    onOpenTab={attemptNavigate}
+                  />
+                ) : null}
                 {activeTab === 'help' ? <CompanyHelp /> : null}
                 {inMenu ? <CompanyMenu companyId={company.id} /> : null}
                 {inPlan ? <CompanyPlan /> : null}

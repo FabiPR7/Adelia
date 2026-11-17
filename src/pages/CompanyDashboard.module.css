@@ -650,6 +650,12 @@
   max-width: none;
 }
 
+/* Compite (la arena): ocupa todo el área, sin márgenes y en oscuro. */
+.mainArena {
+  padding: 0;
+  background: #0f0d0b;
+}
+
 .deactivatedBanner {
   display: flex;
   align-items: center;
@@ -823,6 +829,10 @@
 
   .main {
     padding: 1rem;
+  }
+
+  .main.mainArena {
+    padding: 0;
   }
 }
 

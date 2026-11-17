@@ -171,7 +171,20 @@ export interface LeagueBoardView {
   total: number
   top: LeagueRow[]
   me: { rank: number; display: string; score: number } | null
-  ahead: { name: string; rank: number; gap: number } | null
+  ahead: LeagueRival | null
+  /** El que va justo detrás de ti. */
+  behind?: LeagueRival | null
+  /** Tu puesto en esta liga el mes anterior. */
+  previousRank?: number | null
+}
+
+export interface LeagueRival {
+  name: string
+  rank: number
+  gap: number
+  level?: number
+  score?: number
+  display?: string
 }
 
 export interface CompanyLeagueView {
@@ -201,8 +214,14 @@ function demoLeague(): CompanyLeagueView {
   })
   const board = (id: LeagueId, name: string, unit: string, rule: string, rows: LeagueRow[], meRank: number): LeagueBoardView => ({
     id, name, unit, rule, total: rows.length, top: rows,
-    me: { rank: meRank, display: rows[meRank - 1]?.display ?? '', score: 0 },
-    ahead: meRank > 1 ? { name: rows[meRank - 2].name, rank: meRank - 1, gap: 6 } : null,
+    me: { rank: meRank, display: rows[meRank - 1]?.display ?? '', score: rows[meRank - 1]?.score ?? 0 },
+    ahead: meRank > 1
+      ? { name: rows[meRank - 2].name, rank: meRank - 1, gap: 6, level: rows[meRank - 2].level, score: rows[meRank - 2].score, display: rows[meRank - 2].display }
+      : null,
+    behind: rows[meRank]
+      ? { name: rows[meRank].name, rank: meRank + 1, gap: 6, level: rows[meRank].level, score: rows[meRank].score, display: rows[meRank].display }
+      : null,
+    previousRank: meRank > 0 ? meRank + 1 : null,
   })
   const boards = [
     board('reservations', 'Más reservas', 'asistencias', 'Reservas marcadas como «asistió» este mes', [row(1, 'Sushi Ginza', '100', 7), row(2, 'Tu restaurante', '94', 6, true), row(3, 'Megami Ramen', '88', 5)], 2),

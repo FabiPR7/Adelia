@@ -5,7 +5,7 @@ import { COLLECTIONS } from '../data/collections.ts'
 import { readCompanyGamificationState } from '../gamification/companyProgress.ts'
 import { getCompanyLevelForXp } from '../gamification/companyCatalog.ts'
 import { companyGamificationRef } from '../notifications/companyNotifications.ts'
-import { computeLeague, currentMonthKey, isMonthKey, prestigeForLevel, trophiesForCompany } from '../league/monthlyLeague.ts'
+import { computeLeague, currentMonthKey, isMonthKey, prestigeForLevel, previousMonthKey, trophiesForCompany } from '../league/monthlyLeague.ts'
 import { computeCompanyBadges } from '../league/companyBadges.ts'
 import {
   companyGamificationPayload,
@@ -152,17 +152,27 @@ router.get('/league', async (req: Request, res: Response) => {
     const indexData = indexSnap.docs[0]?.data() ?? {}
     const cityKey = String(indexData.municipalityKey ?? indexData.municipality ?? '').toLowerCase()
     const cityName = String(indexData.municipality ?? '')
-    const [cityBoards, spainBoards, statsSnap, trophies] = await Promise.all([
+    const previous = previousMonthKey(month)
+    const [cityBoards, spainBoards, statsSnap, trophies, prevCityBoards, prevSpainBoards] = await Promise.all([
       cityKey ? computeLeague(month, cityKey) : Promise.resolve(null),
       computeLeague(month, null),
       companyGamificationRef(account.companyId).get(),
       trophiesForCompany(account.companyId).catch(() => []),
+      cityKey ? computeLeague(previous, cityKey).catch(() => null) : Promise.resolve(null),
+      computeLeague(previous, null).catch(() => null),
     ])
     const badges = await computeCompanyBadges(account.companyId).catch(() => [])
-    const shape = (boards: Awaited<ReturnType<typeof computeLeague>> | null) => boards?.map((board) => {
+    type Boards = Awaited<ReturnType<typeof computeLeague>> | null
+    const shape = (boards: Boards, prevBoards: Boards) => boards?.map((board) => {
       const meIndex = board.entries.findIndex((entry) => entry.companyId === account.companyId)
       const me = meIndex >= 0 ? board.entries[meIndex] : null
       const ahead = meIndex > 0 ? board.entries[meIndex - 1] : null
+      const behind = meIndex >= 0 && meIndex < board.entries.length - 1 ? board.entries[meIndex + 1] : null
+      const prevMe = prevBoards?.find((item) => item.id === board.id)?.entries.find((entry) => entry.companyId === account.companyId)
+      const rival = (entry: typeof me) => entry && me ? {
+        name: entry.name, rank: entry.rank, level: entry.level, score: entry.score, display: entry.display,
+        gap: Math.max(0, Math.round(Math.abs(entry.score - me.score) * 100) / 100),
+      } : null
       return {
         id: board.id,
         name: board.name,
@@ -171,7 +181,9 @@ router.get('/league', async (req: Request, res: Response) => {
         total: board.entries.length,
         top: board.entries.slice(0, 10).map((entry) => ({ ...entry, isMe: entry.companyId === account.companyId })),
         me: me ? { rank: me.rank, display: me.display, score: me.score } : null,
-        ahead: ahead && me ? { name: ahead.name, rank: ahead.rank, gap: Math.max(0, Math.ceil((ahead.score - me.score) * 100) / 100) } : null,
+        ahead: rival(ahead),
+        behind: rival(behind),
+        previousRank: prevMe?.rank ?? null,
       }
     }) ?? null
     const xp = Number(statsSnap.data()?.xp) || 0
@@ -179,8 +191,8 @@ router.get('/league', async (req: Request, res: Response) => {
     res.json({
       month,
       currentMonth: currentMonthKey(),
-      city: cityKey ? { name: cityName, boards: shape(cityBoards) } : null,
-      spain: { boards: shape(spainBoards) },
+      city: cityKey ? { name: cityName, boards: shape(cityBoards, prevCityBoards) } : null,
+      spain: { boards: shape(spainBoards, prevSpainBoards) },
       level: { level: level.level, title: level.title, xp, prestige: prestigeForLevel(level.level) },
       trophies,
       badges,

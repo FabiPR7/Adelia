@@ -1034,9 +1034,9 @@ export const REPORTS_SECTIONS: { id: ReportsSection; label: string; hint: string
 ]
 
 export const COMPITE_SECTIONS: { id: CompiteSection; label: string; hint: string }[] = [
+  { id: 'compite-ranking', label: 'Arena', hint: 'Tu liga del mes, rivales y podio' },
+  { id: 'compite-missions', label: 'Retos', hint: 'Semana, mes, cofre y logros' },
   { id: 'compite-notifications', label: 'Notificaciones', hint: 'Reservas, misiones y puntuación' },
-  { id: 'compite-missions', label: 'Misiones e insignias', hint: 'Retos, logros y tu nivel' },
-  { id: 'compite-ranking', label: 'Liga del mes', hint: 'Ciudad y España' },
 ]
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: string }[] = [
