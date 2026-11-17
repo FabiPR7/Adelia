@@ -68,7 +68,7 @@ export function buildPlanPaymentReceiptText(data: PlanPaymentReceiptData): strin
     '',
     'Si necesitas cambiar los datos fiscales, responde a este correo.',
     '',
-    '— Adelia Reservas',
+    '— Adelia',
   ]
   return lines.filter((line) => line !== undefined).join('\n')
 }
@@ -120,7 +120,7 @@ export function buildPlanPaymentReceiptHtml(
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 12px 40px rgba(92,74,55,0.12);">
           <tr>
             <td style="padding:32px 32px 22px;background:linear-gradient(135deg,#8b7355 0%,#c4a574 100%);color:#fff;">
-              <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;opacity:0.86;margin-bottom:8px;">Adelia Reservas</div>
+              <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;opacity:0.86;margin-bottom:8px;">Adelia</div>
               <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;opacity:0.9;margin-bottom:10px;">Pago confirmado</div>
               <div style="font-size:30px;line-height:1.15;font-weight:700;">Hemos recibido tu pago</div>
             </td>

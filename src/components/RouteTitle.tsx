@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 
-const SITE_NAME = 'Adelia Reservas'
+const SITE_NAME = 'Adelia'
 const DEFAULT_TITLE = `${SITE_NAME} — Descubre y reserva restaurantes`
 
 const TITLE_BY_PATH: [RegExp, string][] = [

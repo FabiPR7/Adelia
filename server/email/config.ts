@@ -1,7 +1,7 @@
 const PRODUCTION_APP_URL = 'https://adeliareservas.com'
 
 export const EMAIL_FROM =
-  process.env.EMAIL_FROM ?? 'Adelia Reservas <no-reply@adeliareservas.com>'
+  process.env.EMAIL_FROM ?? 'Adelia <no-reply@adeliareservas.com>'
 
 export const EMAIL_REPLY_TO =
   process.env.EMAIL_REPLY_TO ?? 'contacto@adeliareservas.com'

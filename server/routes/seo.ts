@@ -92,7 +92,7 @@ export function buildRestaurantHead(restaurant: SeoRestaurant, kind: 'ficha' | '
   const rating = restaurant.reviewCount > 0 ? restaurant.reviewRatingSum / restaurant.reviewCount : null
   const url = `${APP_URL}/reservar/${encodeURIComponent(restaurant.slug)}${kind === 'carta' ? '/carta' : ''}`
   const title = kind === 'carta'
-    ? `Carta de ${restaurant.name}${place ? ` (${restaurant.municipality})` : ''} · Adelia Reservas`
+    ? `Carta de ${restaurant.name}${place ? ` (${restaurant.municipality})` : ''} · Adelia`
     : `${restaurant.name}${restaurant.municipality ? ` en ${restaurant.municipality}` : ''} · Reserva mesa · Adelia`
   const description = (
     kind === 'carta'

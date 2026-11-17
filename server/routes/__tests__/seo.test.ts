@@ -7,10 +7,10 @@ import { buildRestaurantHead, injectHead, type SeoRestaurant } from '../seo.ts'
 
 const TEMPLATE = `<html><head>
     <meta name="description" content="genérica" />
-    <meta property="og:title" content="Adelia Reservas" />
+    <meta property="og:title" content="Adelia" />
     <meta property="og:description" content="genérica" />
     <meta property="og:image" content="https://adeliareservas.com/adelia-logo.png" />
-    <title>Adelia Reservas</title>
+    <title>Adelia</title>
   </head><body><div id="root"></div></body></html>`
 
 const restaurant: SeoRestaurant = {
@@ -44,7 +44,7 @@ describe('cabecera SEO de una ficha', () => {
   it('la carta tiene su propia canónica y título', () => {
     const html = injectHead(TEMPLATE, buildRestaurantHead(restaurant, 'carta'))
     expect(html).toContain('/reservar/bar-la-estacion/carta"')
-    expect(html).toContain('<title>Carta de Bar La Estación (Logroño) · Adelia Reservas</title>')
+    expect(html).toContain('<title>Carta de Bar La Estación (Logroño) · Adelia</title>')
   })
 
   it('sin opiniones no inventa valoración', () => {

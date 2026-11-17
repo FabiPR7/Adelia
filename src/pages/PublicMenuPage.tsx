@@ -18,7 +18,7 @@ function PublicMenuPage() {
   // Título con el nombre del local (el genérico de RouteTitle no lo sabe).
   useEffect(() => {
     if (company?.name) {
-      document.title = `Carta de ${company.name} · Adelia Reservas`
+      document.title = `Carta de ${company.name} · Adelia`
     }
   }, [company?.name, company?.municipality])
   const [boards, setBoards] = useState<MenuBoard[]>([])
