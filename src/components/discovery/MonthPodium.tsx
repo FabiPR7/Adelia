@@ -64,7 +64,7 @@ function MonthPodium({ city }: { city: string }) {
       return (
         <div className={`${styles.spot} ${styles[`spot_${place}`]} ${styles.spotEmpty}`} aria-hidden="true">
           <span className={styles.badge}>{place}</span>
-          <span className={styles.emptyText}>Puesto libre</span>
+          <span className={styles.emptyText}><strong>Puesto libre</strong><br />Aún nadie más compite aquí este mes</span>
         </div>
       )
     }

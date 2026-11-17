@@ -202,8 +202,12 @@
 
 .spotEmpty {
   display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
   align-items: center;
   justify-content: center;
+  padding: 1rem;
+  text-align: center;
   border: 2px dashed var(--color-border);
   background: var(--color-sand-wash);
   box-shadow: none;
@@ -215,9 +219,9 @@
 }
 
 .emptyText {
-  position: absolute;
-  bottom: 1rem;
+  max-width: 12rem;
   font-size: 0.8rem;
+  line-height: 1.35;
   color: var(--color-text-muted);
 }
 

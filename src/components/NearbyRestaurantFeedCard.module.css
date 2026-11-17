@@ -180,11 +180,9 @@
   transition: background-color 0.15s ease;
 }
 
+/* El botón se coloca solo (arriba a la derecha de la tarjeta). */
 .heart {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  z-index: 2;
+  display: contents;
 }
 
 .rating {
@@ -192,6 +190,12 @@
   top: 0.65rem;
   left: 0.65rem;
   z-index: 2;
+  padding: 0.22rem 0.5rem 0.22rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(20, 13, 10, 0.7);
+  color: #ffffff;
+  font-size: 0.78rem;
+  pointer-events: none;
 }
 
 @media (hover: hover) {

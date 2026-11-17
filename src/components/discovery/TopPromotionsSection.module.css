@@ -168,6 +168,7 @@
 
 .footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -176,6 +177,7 @@
 }
 
 .count {
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -186,6 +188,7 @@
 }
 
 .cta {
+  white-space: nowrap;
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--color-text);

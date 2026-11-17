@@ -113,7 +113,7 @@ function NearbyRestaurantFeedCard({
           slug={restaurant.slug}
           name={restaurant.name}
           companyId={restaurant.id}
-          variant="overlay"
+          variant="overlayEnd"
         />
       </span>
 
