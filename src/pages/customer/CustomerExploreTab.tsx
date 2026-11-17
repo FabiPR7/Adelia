@@ -33,7 +33,8 @@ import {
 } from '../../utils/publicDiscovery'
 import { getLocationErrorMessage, requestUserLocation } from '../../utils/requestUserLocation'
 import type { DiscoveryVenueKind } from '../../data/companyProfileFacilities'
-import BestOfMonthSection from '../../components/discovery/BestOfMonthSection'
+import MonthPodium from '../../components/discovery/MonthPodium'
+import TopPromotionsSection from '../../components/discovery/TopPromotionsSection'
 import styles from './CustomerExploreTab.module.css'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
@@ -424,8 +425,6 @@ function CustomerExploreTab() {
               </div>
             </section>
 
-            <BestOfMonthSection city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''} />
-
             {secondary.length > 0 ? (
               <section className={styles.carouselSection}>
                 <div className={styles.carouselHeader}>
@@ -455,10 +454,12 @@ function CustomerExploreTab() {
               onRequestGps={requestGpsLocation}
               onOpenRestaurant={openRestaurant}
             />
+            <MonthPodium city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''} />
             <FeaturedReviewHighlight
               restaurants={filteredRestaurants}
               onOpenRestaurant={openRestaurant}
             />
+            <TopPromotionsSection />
             <NearbyRestaurantFeed
               restaurants={filteredRestaurants}
               origin={feedOrigin}

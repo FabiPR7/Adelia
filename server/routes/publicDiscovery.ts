@@ -79,10 +79,25 @@ router.get('/league', async (req: Request, res: Response) => {
       .sort((a, b) => b.level - a.level)
       .slice(0, 8)
       .map((restaurant) => ({ ...strip({ ...restaurant, rank: 0, score: 0, display: '', noShows: 0 }) }))
+    // «Mejor restaurante del mes»: suma de puntos en las cuatro ligas (1.º = 10 … 10.º = 1).
+    const points = new Map<string, { entry: LeagueEntry; points: number; podiums: string[] }>()
+    for (const board of boards) {
+      for (const entry of board.entries.slice(0, 10)) {
+        const current = points.get(entry.companyId) ?? { entry, points: 0, podiums: [] }
+        current.points += 11 - entry.rank
+        if (entry.rank <= 3) current.podiums.push(entry.rank + '.º en ' + board.name.toLowerCase())
+        points.set(entry.companyId, current)
+      }
+    }
+    const best = [...points.values()]
+      .sort((a, b) => b.points - a.points || a.entry.name.localeCompare(b.entry.name, 'es'))
+      .slice(0, 3)
+      .map((item, index) => ({ ...strip(item.entry), rank: index + 1, points: item.points, podiums: item.podiums }))
     allowPublicCache(res, 300)
     res.json({
       month,
       scope,
+      best,
       boards: boards.map((board) => ({ id: board.id, name: board.name, unit: board.unit, podium: board.entries.slice(0, 3).map(strip) })),
       illustrious,
     })

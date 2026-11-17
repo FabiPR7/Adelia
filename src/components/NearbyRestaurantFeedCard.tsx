@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { MapPin } from 'lucide-react'
 import FavoriteButton from './FavoriteButton'
 import DiscoveryRatingBadge from './DiscoveryRatingBadge'
 import { getAmenityLabel, getPriceRangeSymbol, getVenueTypeLabel } from '../data/companyProfileFacilities'
@@ -18,6 +19,13 @@ interface NearbyRestaurantFeedCardProps {
   onOpen: (restaurant: PublicDiscoveryRestaurant) => void
 }
 
+function prestige(level: number | undefined): { id: string; label: string } | null {
+  if (!level || level < 4) return null
+  if (level >= 9) return { id: 'diamond', label: 'Diamante' }
+  if (level >= 7) return { id: 'gold', label: 'Oro' }
+  return { id: 'silver', label: 'Plata' }
+}
+
 function NearbyRestaurantFeedCard({
   restaurant,
   distanceKm,
@@ -29,12 +37,13 @@ function NearbyRestaurantFeedCard({
   const rating = formatDiscoveryRatingBadge(restaurant)
   const place = [restaurant.municipality, restaurant.location].filter(Boolean)[0] ?? ''
   const price = getPriceRangeSymbol(restaurant.priceRange)
+  const venue = restaurant.venueTypes.slice(0, 1).map(getVenueTypeLabel)[0] ?? ''
   const tags = [
-    ...restaurant.venueTypes.slice(0, 1).map(getVenueTypeLabel),
-    ...restaurant.amenities.slice(0, 1).map(getAmenityLabel),
-    ...restaurant.characteristics.slice(0, 1),
-  ].filter(Boolean).slice(0, 2)
+    ...restaurant.amenities.slice(0, 2).map(getAmenityLabel),
+    ...restaurant.characteristics.slice(0, 2),
+  ].filter(Boolean).slice(0, 3)
   const hasDistance = typeof distanceKm === 'number'
+  const tier = prestige(restaurant.prestigeLevel)
 
   useEffect(() => {
     if (restaurant.id) {
@@ -42,53 +51,59 @@ function NearbyRestaurantFeedCard({
     }
   }, [restaurant.id])
 
+  const open = () => {
+    if (restaurant.id) {
+      trackAppEvent('search_click', { companyId: restaurant.id, source: 'nearby' })
+    }
+    onOpen(restaurant)
+  }
+
   return (
     <article className={styles.card}>
-      <button
-        type="button"
-        className={styles.open}
-        onClick={() => {
-          if (restaurant.id) {
-            trackAppEvent('search_click', { companyId: restaurant.id, source: 'nearby' })
-          }
-          onOpen(restaurant)
-        }}
-        aria-label={`Ver ${restaurant.name}`}
-      >
+      <button type="button" className={styles.open} onClick={open} aria-label={`Ver ${restaurant.name}`}>
         <span className={styles.media} aria-hidden="true">
           {photoUrl ? (
             <img className={styles.image} src={photoUrl} alt="" loading="lazy" decoding="async" />
           ) : (
             <span className={styles.fallback}>{restaurant.name.charAt(0).toUpperCase()}</span>
           )}
-          <span className={styles.scrim} />
+          {hasDistance ? <span className={styles.distance}>{formatDistanceKm(distanceKm)}</span> : null}
+          {restaurant.discoveryFeatured ? <span className={styles.sponsored}>Patrocinado</span> : null}
         </span>
 
-        <span className={styles.content}>
-          <span className={styles.meta}>
-            {hasDistance ? (
-              <span className={styles.distance}>{formatDistanceKm(distanceKm)}</span>
+        <span className={styles.body}>
+          <span className={styles.topLine}>
+            {venue ? <span className={styles.venue}>{venue}</span> : null}
+            {tier ? (
+              <span className={`${styles.level} ${styles[`level_${tier.id}`]}`}>
+                Nv. {restaurant.prestigeLevel} · {tier.label}
+              </span>
             ) : null}
-            {place ? <span className={styles.place}>{place}</span> : null}
-            {price ? <span className={styles.price}>{price}</span> : null}
           </span>
 
           <strong className={styles.name}>{restaurant.name}</strong>
 
-          <span className={styles.footer}>
-            {tags.length > 0 ? (
-              <span className={styles.tags}>
-                {tags.map((tag) => (
-                  <span key={tag} className={styles.tag}>{tag}</span>
-                ))}
+          <span className={styles.meta}>
+            {place ? (
+              <span className={styles.place}>
+                <MapPin size={13} aria-hidden="true" />
+                {place}
               </span>
-            ) : (
-              <span />
-            )}
-            <span className={styles.cta}>
-              {restaurantReserveCtaShortLabel(restaurant.reservationMode)}
-              <span className={styles.ctaArrow} aria-hidden="true">→</span>
+            ) : null}
+            {price ? <span className={styles.price}>{price}</span> : null}
+          </span>
+
+          {tags.length > 0 ? (
+            <span className={styles.tags}>
+              {tags.map((tag) => (
+                <span key={tag} className={styles.tag}>{tag}</span>
+              ))}
             </span>
+          ) : null}
+
+          <span className={styles.cta}>
+            {restaurantReserveCtaShortLabel(restaurant.reservationMode)}
+            <span aria-hidden="true">→</span>
           </span>
         </span>
       </button>
@@ -102,9 +117,7 @@ function NearbyRestaurantFeedCard({
         />
       </span>
 
-      {rating ? (
-        <DiscoveryRatingBadge rating={rating} className={styles.rating} />
-      ) : null}
+      {rating ? <DiscoveryRatingBadge rating={rating} className={styles.rating} /> : null}
     </article>
   )
 }
