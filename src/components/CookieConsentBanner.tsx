@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { enableFirebaseAnalytics } from '../config/firebase'
 import {
   clearAnalyticsStorage,
@@ -20,10 +21,21 @@ function applyAnalyticsConsent(enabled: boolean, previousAnalytics: boolean | nu
   }
 }
 
+/**
+ * Aviso de cookies. Hasta que la persona acepta, rechaza o configura, la web
+ * queda bloqueada detrás de él. Solo en las páginas legales se deja leer sin
+ * bloquear, para poder consultar la política antes de decidir.
+ */
 function CookieConsentBanner() {
+  const location = useLocation()
   const [visible, setVisible] = useState(false)
   const [configure, setConfigure] = useState(false)
   const [analytics, setAnalytics] = useState(false)
+  const firstButtonRef = useRef<HTMLButtonElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  const onLegalPage = location.pathname.startsWith('/legal')
+  const blocking = visible && !onLegalPage
 
   useEffect(() => {
     const stored = readCookieConsent()
@@ -48,6 +60,58 @@ function CookieConsentBanner() {
     return () => window.removeEventListener(COOKIE_SETTINGS_EVENT, onOpen)
   }, [])
 
+  // Mientras bloquea: el resto de la web no se puede tocar, ni con el teclado,
+  // y no se desplaza por detrás.
+  useEffect(() => {
+    if (!blocking) {
+      return undefined
+    }
+    const root = document.getElementById('root')
+    const previousOverflow = document.body.style.overflow
+    root?.setAttribute('inert', '')
+    root?.setAttribute('aria-hidden', 'true')
+    document.body.style.overflow = 'hidden'
+    window.requestAnimationFrame(() => firstButtonRef.current?.focus())
+
+    return () => {
+      root?.removeAttribute('inert')
+      root?.removeAttribute('aria-hidden')
+      document.body.style.overflow = previousOverflow
+    }
+  }, [blocking])
+
+  // Mantiene el foco dentro del aviso (para navegadores sin «inert»).
+  useEffect(() => {
+    if (!blocking) {
+      return undefined
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !cardRef.current) {
+        return
+      }
+      const focusable = Array.from(
+        cardRef.current.querySelectorAll<HTMLElement>('a[href], button, input'),
+      ).filter((element) => !element.hasAttribute('disabled'))
+      if (focusable.length === 0) {
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      } else if (!cardRef.current.contains(document.activeElement)) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [blocking])
+
   const save = (nextAnalytics: boolean) => {
     const previous = readCookieConsent()?.analytics ?? null
     writeCookieConsent(nextAnalytics)
@@ -60,9 +124,15 @@ function CookieConsentBanner() {
     return null
   }
 
-  return (
-    <div className={styles.wrap} role="dialog" aria-labelledby="cookie-consent-title" aria-describedby="cookie-consent-text">
-      <div className={styles.card}>
+  return createPortal(
+    <div
+      className={`${styles.wrap} ${blocking ? styles.wrapBlocking : ''}`}
+      role="dialog"
+      aria-modal={blocking ? 'true' : undefined}
+      aria-labelledby="cookie-consent-title"
+      aria-describedby="cookie-consent-text"
+    >
+      <div ref={cardRef} className={styles.card}>
         <p className={styles.eyebrow}>Cookies</p>
         <h2 id="cookie-consent-title">Tu privacidad en Adelia</h2>
         <p id="cookie-consent-text" className={styles.lead}>
@@ -73,26 +143,51 @@ function CookieConsentBanner() {
           {' · '}
           <Link to="/legal/privacidad">Privacidad</Link>
         </p>
+        {blocking ? (
+          <p className={styles.required}>Elige una opción para seguir usando Adelia.</p>
+        ) : null}
 
         {configure ? (
-          <label className={styles.toggle}>
-            <input
-              type="checkbox"
-              checked={analytics}
-              onChange={(event) => setAnalytics(event.target.checked)}
-            />
-            <span>Analíticas: Google Analytics y estadísticas propias</span>
-          </label>
+          <div className={styles.options}>
+            <div className={styles.option}>
+              <span>
+                <strong>Necesarias</strong>
+                <small>Sesión, seguridad y tus preferencias. Siempre activas.</small>
+              </span>
+              <span className={styles.always}>Siempre</span>
+            </div>
+            <label className={styles.option}>
+              <span>
+                <strong>Analíticas</strong>
+                <small>Google Analytics y estadísticas propias.</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={analytics}
+                onChange={(event) => setAnalytics(event.target.checked)}
+              />
+            </label>
+          </div>
         ) : null}
 
         <div className={styles.actions}>
           {configure ? (
-            <button type="button" className={styles.primary} onClick={() => save(analytics)}>
-              Guardar
+            <button
+              ref={firstButtonRef}
+              type="button"
+              className={styles.primary}
+              onClick={() => save(analytics)}
+            >
+              Guardar mi elección
             </button>
           ) : (
             <>
-              <button type="button" className={styles.primary} onClick={() => save(true)}>
+              <button
+                ref={firstButtonRef}
+                type="button"
+                className={styles.primary}
+                onClick={() => save(true)}
+              >
                 Aceptar
               </button>
               <button type="button" className={styles.secondary} onClick={() => save(false)}>
@@ -105,7 +200,8 @@ function CookieConsentBanner() {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

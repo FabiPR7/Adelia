@@ -91,10 +91,129 @@
   color: var(--color-text-muted);
 }
 
+.wrapBlocking {
+  inset: 0;
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(28, 25, 23, 0.55);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+  animation: cookieFade 0.2s ease-out;
+}
+
+.wrapBlocking .card {
+  width: min(460px, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  animation: cookieRise 0.24s ease-out;
+}
+
+.required {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+}
+
+.option + .option {
+  border-top: 1px solid var(--color-border);
+}
+
+label.option {
+  cursor: pointer;
+}
+
+.option > span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.option strong {
+  font-size: 0.82rem;
+}
+
+.option small {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.option input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--color-brown);
+  cursor: pointer;
+}
+
+.always {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.ghost:focus-visible,
+.lead a:focus-visible {
+  outline: 2px solid var(--color-brown);
+  outline-offset: 2px;
+}
+
+@keyframes cookieFade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes cookieRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
 @media (max-width: 640px) {
-  .wrap {
+  .wrap:not(.wrapBlocking) {
     left: 0.65rem;
     right: 0.65rem;
     bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .wrapBlocking {
+    align-items: flex-end;
+    padding: 0.65rem 0.65rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .wrapBlocking .actions > button {
+    flex: 1 1 auto;
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wrapBlocking,
+  .wrapBlocking .card {
+    animation: none;
   }
 }
