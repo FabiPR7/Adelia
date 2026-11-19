@@ -240,6 +240,12 @@ service cloud.firestore {
       ) || (
         isSelf(userId)
         && userDoc().data.role == 'customer'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['savedPromotionIds'])
+        && request.resource.data.savedPromotionIds is list
+        && request.resource.data.savedPromotionIds.size() <= 200
+      ) || (
+        isSelf(userId)
+        && userDoc().data.role == 'customer'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['productTourCompleted'])
         && request.resource.data.productTourCompleted == true
       ) || (

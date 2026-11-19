@@ -290,6 +290,12 @@ function mapUserProfileRecord(
           .filter(Boolean),
       )]
       : [],
+    savedPromotionIds: Array.isArray(data.savedPromotionIds)
+      ? [...new Set(
+        (data.savedPromotionIds as unknown[])
+          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0),
+      )].slice(0, 200)
+      : [],
     gamification: parseGamificationData(gamificationSource),
     mustChangePassword: data.mustChangePassword === true,
     mustChangePasswordCleared: data.mustChangePassword === false,

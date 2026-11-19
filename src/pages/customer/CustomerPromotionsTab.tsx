@@ -64,7 +64,14 @@ import {
   getPromotionAvailability,
   type PromotionAvailability,
 } from '../../utils/promotionAvailability'
-import { readSavedPromotionIds, toggleSavedPromotionId } from '../../utils/savedPromotions'
+import {
+  isSavedPromotionsMigrated,
+  markSavedPromotionsMigrated,
+  mergeSavedPromotionIds,
+  persistSavedPromotionIds,
+  readSavedPromotionIds,
+  writeLocalSavedPromotionIds,
+} from '../../utils/savedPromotions'
 import { useIncrementalReveal } from '../../hooks/useIncrementalReveal'
 import { trackAppEvent } from '../../utils/appEvents'
 import panelStyles from '../../components/promotions/PromoApp.module.css'
@@ -283,9 +290,21 @@ function CustomerPromotionsTab() {
     // Solo al entrar en un paso del tour.
   }, [productTour?.stepId])
 
+  // Las guardadas viven en el perfil (se ven igual en la app). Si quedaban algunas
+  // solo en este navegador, se suben una vez.
+  const remoteSavedKey = (profile?.savedPromotionIds ?? []).join('|')
   useEffect(() => {
-    setSavedPromoIds(readSavedPromotionIds(userClaimKey))
-  }, [userClaimKey])
+    const remote = new Set(profile?.savedPromotionIds ?? [])
+    if (!user?.uid || isSavedPromotionsMigrated(userClaimKey)) {
+      setSavedPromoIds(remote)
+      return
+    }
+    const merged = mergeSavedPromotionIds(profile?.savedPromotionIds, readSavedPromotionIds(userClaimKey))
+    setSavedPromoIds(merged)
+    void persistSavedPromotionIds(user.uid, merged)
+      .then(() => markSavedPromotionsMigrated(userClaimKey))
+      .catch(() => undefined)
+  }, [userClaimKey, remoteSavedKey, user?.uid])
 
   // Los candados por horario cambian con la hora: se recalculan cada minuto.
   useEffect(() => {
@@ -532,7 +551,16 @@ function CustomerPromotionsTab() {
     ladderRestaurants.find((group) => group.companyId === companyId) ?? null
 
   const handleToggleSavePromotion = (promotion: PublicPromotion) => {
-    setSavedPromoIds(toggleSavedPromotionId(userClaimKey, promotion.id))
+    const next = new Set(savedPromoIds)
+    if (next.has(promotion.id)) next.delete(promotion.id)
+    else next.add(promotion.id)
+    setSavedPromoIds(next)
+    writeLocalSavedPromotionIds(userClaimKey, next)
+    if (user?.uid) {
+      void persistSavedPromotionIds(user.uid, next)
+        .then(() => refreshProfile())
+        .catch(() => undefined)
+    }
   }
 
   const handleReserve = (promotion: PublicPromotion) => {

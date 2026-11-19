@@ -32,6 +32,8 @@ export interface AppUser {
   /** @usuario único (sin la @). Vacío si aún no ha elegido uno. */
   username?: string
   favoriteSlugs: string[]
+  /** Promos marcadas con «Guardar». Se comparten entre la web y la app. */
+  savedPromotionIds?: string[]
   gamification: CustomerGamificationState
   mustChangePassword: boolean
   /** Firestore tiene mustChangePassword: false (ya cambió la suya). */

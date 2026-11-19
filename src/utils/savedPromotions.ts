@@ -50,3 +50,53 @@ export function toggleSavedPromotionId(userKey: string, promotionId: string): Se
 
   return next
 }
+
+/** Une las guardadas en el servidor con las que quedaran en este navegador. */
+export function mergeSavedPromotionIds(remote: string[] | undefined, local: Set<string>): Set<string> {
+  return new Set([...(remote ?? []), ...local])
+}
+
+/** Guarda la lista en el perfil (Firestore), para verla igual en la web y en la app. */
+export async function persistSavedPromotionIds(uid: string, ids: Set<string>): Promise<void> {
+  if (!uid.trim()) {
+    return
+  }
+  const [{ doc, updateDoc }, { db }] = await Promise.all([
+    import('firebase/firestore'),
+    import('../config/firebase'),
+  ])
+  await updateDoc(doc(db, 'users', uid), { savedPromotionIds: [...ids].slice(0, 200) })
+}
+
+/** Sustituye la copia del navegador por la lista completa. */
+export function writeLocalSavedPromotionIds(userKey: string, ids: Set<string>): void {
+  if (!userKey.trim() || typeof localStorage === 'undefined') {
+    return
+  }
+  try {
+    localStorage.setItem(storageKey(userKey), JSON.stringify([...ids]))
+  } catch {
+    // Sin persistencia local: el servidor sigue teniendo la lista.
+  }
+}
+
+function migratedKey(userKey: string): string {
+  return `adelia_saved_promos_migrated_${userKey}`
+}
+
+/** Indica si las guardadas de este navegador ya se subieron al perfil. */
+export function isSavedPromotionsMigrated(userKey: string): boolean {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem(migratedKey(userKey)) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function markSavedPromotionsMigrated(userKey: string): void {
+  try {
+    localStorage.setItem(migratedKey(userKey), '1')
+  } catch {
+    // Sin almacenamiento: se volverá a intentar, sin daño.
+  }
+}
