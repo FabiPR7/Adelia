@@ -28,10 +28,19 @@ Situación de partida (20 nov 2026):
    app, y el cálculo del aviso en las dos. Tests: `server/reservations/__tests__/bookingRules.test.ts`.
    Queda para el punto 2: los usos en promos (mapa de promos, ficha de promo, consumo sin
    reserva). Queda para el punto 8: las tarjetas de Buscar (aún no saben si hay mesas).
-2. ⏳ **Promos: estado por cliente desde el servidor.** El servidor dice para cada promo
-   si está disponible, bloqueada por horario, agotada, al límite por cliente o bloqueada
-   por cancelaciones, con el texto ya escrito.
-   Quita: `promotionAvailability`, `reservationPromotionEligibility` de web y app.
+2. ✅ **Promos: estado por cliente desde el servidor.** (20 nov) `GET /api/customer/promotions/availability`
+   (`server/promotions/promotionAvailability.ts`) devuelve para cada promo si está
+   disponible, bloqueada por cancelaciones, agotada, al límite por cliente o fuera de
+   horario, con el texto ya escrito y **en hora de España** (antes la web y la app usaban
+   la hora del móvil: fallaba con el móvil en otra zona). También el estado de cada premio
+   del mapa de fidelidad (plazas, límite, franja para reclamar). Las promos públicas
+   traen `canReserve` y `completePath` (con las reglas del punto 1).
+   Quitado: `promotionAvailability` de web y app (y la ficha de promo de la app ya no lee
+   todas tus reservas solo para esto). Arreglado de paso: el mapa de premios de la app
+   dejaba pulsar «Reclamar» con el premio agotado, al límite o fuera de franja.
+   Tests: `server/promotions/__tests__/promotionAvailability.test.ts`.
+   `reservationPromotionEligibility` (cómo se pinta el estado de la promo dentro de cada
+   reserva) pasa a los puntos 3 y 5, porque lo usa también el motor de misiones.
 3. ⏳ **«En curso» de promos desde el servidor** (mapas con progreso, promos puntuales
    con reserva, «A medias»).
    Quita: `promotionReservationProgress` (448 líneas ×2).
@@ -57,6 +66,11 @@ Situación de partida (20 nov 2026):
 10. ⏳ **Pruebas de contrato**: tests que comprueban que cada respuesta de la API tiene
     la forma que esperan la web y la app, para que un cambio en el servidor no rompa a
     ninguna de las dos sin avisar.
+
+## Necesita a Fabi (cuando puedas)
+
+- 👤 En el navegador integrado de Claude hay abierta una ventana de inicio de sesión de
+  Google de una prueba antigua: bloquea los scripts y la navegación de Claude. Ciérrala.
 
 Cada punto: se hace en servidor, web y app, se prueba en las dos (navegador y
 emulador), se publica y se marca aquí con ✅.

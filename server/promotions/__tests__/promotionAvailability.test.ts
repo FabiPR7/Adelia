@@ -1,39 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import type { PublicPromotion } from '../../services/publicPromotions'
-import type { Reservation } from '../../types'
-import type { ClaimedPromotionRecord } from '../../types/gamification'
+import { madridDateTime } from '../../utils/madridDateTime.ts'
 import {
   countCustomerPromotionUses,
   getPromotionAvailability,
   isWithinPromotionHours,
-} from '../promotionAvailability'
+  type PromotionForAvailability,
+} from '../promotionAvailability.ts'
 
-function promo(overrides: Partial<PublicPromotion> = {}): PublicPromotion {
+function promo(overrides: Partial<PromotionForAvailability> = {}): PromotionForAvailability {
   return {
-    id: 'p1',
-    companyId: 'c1',
-    companyName: 'Local',
-    companySlug: 'local',
-    companyPhotoUrl: '',
-    companyLatitude: null,
-    companyLongitude: null,
     type: 'time_limited',
-    title: 'Patatas gratis',
-    description: '',
-    photoUrl: '',
-    requiredReservations: null,
     activeFromTime: '13:00',
     activeToTime: '16:00',
     maxRedemptions: null,
     currentRedemptions: 0,
-    detail: '',
-    highlight: '',
+    maxClaimsPerCustomer: null,
+    reservationMode: 'optional',
     ...overrides,
   }
 }
 
+/** Hora de España, sea cual sea la zona del servidor. */
 function at(hours: number, minutes = 0): Date {
-  return new Date(2026, 10, 10, hours, minutes)
+  return madridDateTime('2026-11-10', `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`)
 }
 
 const base = { promoLocked: false, customerUses: 0 }
@@ -109,10 +98,9 @@ describe('getPromotionAvailability', () => {
   })
 
   it('avisa de pocas plazas y de la reserva ya hecha', () => {
-    const reservation = { id: 'r1', startTime: at(20), promotionId: 'p1', status: 'completed' } as Reservation
     const result = getPromotionAvailability(
       promo({ maxRedemptions: 10, currentRedemptions: 8 }),
-      { ...base, now: at(14), upcomingReservation: reservation },
+      { ...base, now: at(14), upcomingReservationStart: at(20) },
     )
     expect(result.notes).toEqual(['Ya tienes una reserva con esta promo hoy a las 20:00.', 'Quedan 2 plazas.'])
   })
@@ -123,12 +111,12 @@ describe('countCustomerPromotionUses', () => {
     const claims = [
       { promotionId: 'p1', reservationId: 'r1' },
       { promotionId: 'otra' },
-    ] as ClaimedPromotionRecord[]
+    ]
     const reservations = [
       { id: 'r1', promotionId: 'p1', status: 'confirmed' },
       { id: 'r2', promotionId: 'p1', status: 'completed' },
       { id: 'r3', promotionId: 'p1', status: 'cancelled' },
-    ] as Reservation[]
+    ]
     expect(countCustomerPromotionUses('p1', claims, reservations)).toBe(2)
   })
 })

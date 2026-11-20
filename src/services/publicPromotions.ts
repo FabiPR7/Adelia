@@ -32,6 +32,10 @@ export interface PublicPromotion {
   detail: string
   highlight: string
   reservationMode?: import('../data/companyReservationMode').CompanyReservationMode
+  /** Lo decide el servidor (modo del local y mesas): si se puede reservar ahora por Adelia. */
+  canReserve?: boolean
+  /** Cómo se completa una promo de visita en este local (lo decide el servidor). */
+  completePath?: 'choose' | 'reserve' | 'consume'
 }
 
 export async function fetchPublicPromotions(): Promise<PublicPromotion[]> {

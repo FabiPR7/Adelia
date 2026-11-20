@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { Info, Lock, UtensilsCrossed } from 'lucide-react'
-import { companyAcceptsReservations } from '../../data/companyReservationMode'
 import type { PublicPromotion } from '../../services/publicPromotions'
 import { CLOUDINARY_DISPLAY, ensureHttpsUrl, optimizeCloudinaryUrl } from '../../utils/cloudinaryUrl'
 import {
@@ -9,7 +8,7 @@ import {
   resolvePromotionMinimumSpend,
 } from '../../utils/promotionOffer'
 import { sortCompanyLadderPromotions } from '../../utils/promotionReservationProgress'
-import type { PromotionAvailability } from '../../utils/promotionAvailability'
+import type { PromotionAvailability } from '../../services/promotionAvailability'
 import { RestaurantAvatar } from './PromoAppCards'
 import { formatDistance, getPromotionHeroUrl, isLadderStep, promotionTypeLabel } from './promoAppDisplay'
 import styles from './PromoApp.module.css'
@@ -118,7 +117,7 @@ function PromotionDetailView({
   const howSteps = buildHowSteps(promotion)
   const isLadder = isLadderStep(promotion)
   const visits = promotion.requiredReservations ?? 0
-  const canReserve = companyAcceptsReservations(promotion.reservationMode ?? 'optional')
+  const canReserve = promotion.canReserve === true
   const distance = formatDistance(distanceKm)
   const restaurantHref = `/reservar/${encodeURIComponent(promotion.companySlug)}`
   const ladderSteps = isLadder

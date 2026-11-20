@@ -58,12 +58,7 @@ import {
   type CompanyLadderRuntime,
 } from '../../utils/promotionReservationProgress'
 import { buildPromotionBookingHref } from '../../utils/promotionBooking'
-import {
-  countCustomerPromotionUses,
-  findUpcomingPromotionReservation,
-  getPromotionAvailability,
-  type PromotionAvailability,
-} from '../../utils/promotionAvailability'
+import { loadPromotionAvailability, usePromotionAvailability } from '../../services/promotionAvailability'
 import {
   isSavedPromotionsMigrated,
   markSavedPromotionsMigrated,
@@ -528,19 +523,16 @@ function CustomerPromotionsTab() {
     [promotions, savedPromoIds],
   )
 
-  const availabilityById = useMemo(() => {
-    const map = new Map<string, PromotionAvailability>()
-    for (const promotion of promotions) {
-      if (isLadderStep(promotion)) continue
-      map.set(promotion.id, getPromotionAvailability(promotion, {
-        now,
-        promoLocked,
-        customerUses: countCustomerPromotionUses(promotion.id, claimedPromotions, customerReservations),
-        upcomingReservation: findUpcomingPromotionReservation(promotion.id, customerReservations, now),
-      }))
-    }
-    return map
-  }, [promotions, now, promoLocked, claimedPromotions, customerReservations])
+  // El estado de cada promo (candados, plazas, usos, horario) lo decide el servidor.
+  const availabilityState = usePromotionAvailability()
+  useEffect(() => {
+    if (!user) return
+    void loadPromotionAvailability(true)
+  }, [user, now, claimedPromotions, customerReservations])
+  const availabilityById = useMemo(
+    () => new Map(Object.entries(availabilityState?.availability ?? {})),
+    [availabilityState],
+  )
 
   const lockLabelFor = (promotion: PublicPromotion) => {
     const availability = availabilityById.get(promotion.id)

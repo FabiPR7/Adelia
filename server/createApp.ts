@@ -27,6 +27,7 @@ import customerReservationInvitesRouter from './routes/customerReservationInvite
 import customerReservationChallengesRouter from './routes/customerReservationChallenges.ts'
 import customerGamificationRouter from './routes/customerGamification.ts'
 import customerCollectionRouter from './routes/customerCollection.ts'
+import customerPromotionsRouter from './routes/customerPromotions.ts'
 import customerReviewsRouter from './routes/customerReviews.ts'
 import customerReportsRouter from './routes/customerReports.ts'
 import customerSuggestionsRouter from './routes/customerSuggestions.ts'
@@ -123,6 +124,7 @@ export function createApp() {
   app.use('/api/customer/reservation-challenges', customerReservationChallengesRouter)
   app.use('/api/customer/gamification', customerGamificationRouter)
   app.use('/api/customer/collection', customerCollectionRouter)
+  app.use('/api/customer/promotions', customerPromotionsRouter)
   app.use('/api/company', companyGamificationRouter)
   app.use('/api/company', companyNotificationsRouter)
   app.use('/api/customer/reviews', customerReviewsRouter)

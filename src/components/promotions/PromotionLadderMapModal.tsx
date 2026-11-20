@@ -33,8 +33,7 @@ import {
 } from '../../utils/promotionReservationProgress'
 import { buildPromotionBookingHref } from '../../utils/promotionBooking'
 import { resolvePromotionHighlight } from '../../utils/promotionOffer'
-import { promoVisitCompletePath } from '../../data/companyReservationMode'
-import { isWithinPromotionHours } from '../../utils/promotionAvailability'
+import { loadPromotionAvailability, usePromotionAvailability } from '../../services/promotionAvailability'
 import PromotionLadderMapThemeArt, { LadderMapCompassRose } from './PromotionLadderMapThemeArt'
 import PromoVisitCompleteModal from './PromoVisitCompleteModal'
 import { getPromotionHeroUrl } from './promoAppDisplay'
@@ -267,6 +266,12 @@ export default function PromotionLadderMapModal({
     }
   }, [group?.companyId, visitOpen])
 
+  const availabilityState = usePromotionAvailability()
+  const ladderCompanyId = group?.companyId
+  useEffect(() => {
+    if (ladderCompanyId) void loadPromotionAvailability()
+  }, [ladderCompanyId])
+
   if (!group) {
     return null
   }
@@ -297,7 +302,7 @@ export default function PromotionLadderMapModal({
     ? buildPromotionBookingHref(group.companySlug, activePromotionId, { fromPromotions: true })
     : `/reservar/${encodeURIComponent(group.companySlug)}?reservar=1`
   const restaurantHref = `/reservar/${encodeURIComponent(group.companySlug)}`
-  const visitPath = promoVisitCompletePath(sortedLadder[0]?.reservationMode)
+  const visitPath = sortedLadder[0]?.completePath ?? 'choose'
   const activePromotion = sortedLadder.find((promotion) => promotion.id === activePromotionId)
     ?? sortedLadder[0]
     ?? null
@@ -317,23 +322,11 @@ export default function PromotionLadderMapModal({
   const activeStatus = activePromotion ? nodeStatus(activePromotion) : 'locked'
   const activeProgress = activePromotion ? nodeProgress(activePromotion) : null
   const activeClaimLimit = activePromotion?.maxClaimsPerCustomer ?? null
-  const claimLimitReached = Boolean(
-    activePromotion
-    && activeClaimLimit != null
-    && activeClaimLimit > 0
-    && claimedPromotions.filter((claim) => claim.promotionId === activePromotion.id).length >= activeClaimLimit,
-  )
-  const claimWindowClosed = Boolean(
-    activePromotion?.claimWindowEnabled
-    && isWithinPromotionHours(activePromotion, new Date()) === false,
-  )
-  // Plazas agotadas: antes se podía pulsar Reclamar y el aviso llegaba tras escribir el PIN.
-  const soldOut = Boolean(
-    activePromotion
-    && activePromotion.maxRedemptions != null
-    && activePromotion.maxRedemptions > 0
-    && activePromotion.currentRedemptions >= activePromotion.maxRedemptions,
-  )
+  // Si se puede reclamar ahora (plazas, límite por cliente y franja) lo decide el servidor.
+  const ladderStatus = activePromotion ? availabilityState?.ladder[activePromotion.id] : undefined
+  const claimLimitReached = ladderStatus?.limitReached === true
+  const claimWindowClosed = ladderStatus?.windowClosed === true
+  const soldOut = ladderStatus?.soldOut === true
   const canClaim = activeStatus === 'claimable' && !claimLimitReached && !claimWindowClosed && !soldOut
   const progressLabel = activeProgress && activeProgress.required > 0
     ? `${activeProgress.current}/${activeProgress.required}`

@@ -1,4 +1,6 @@
 import { PIN_ATTEMPTS_MESSAGE, takePromotionPinAttempt } from '../security/rateLimit.ts'
+import { buildBookingRules } from '../reservations/bookingRules.ts'
+import { countBookableTables } from '../data/companyTables.ts'
 import { Router, type Request, type Response } from 'express'
 import { adminDb } from '../firebase-admin.ts'
 import { verifyCustomerUid } from '../auth/verifyRequest.ts'
@@ -55,6 +57,10 @@ export interface PublicPromotionPayload {
   detail: string
   highlight: string
   reservationMode: 'required' | 'optional' | 'none'
+  /** Lo decide el servidor (modo del local y mesas): si se puede reservar ahora por Adelia. */
+  canReserve: boolean
+  /** Cómo se completa una promo de visita en este local. */
+  completePath: 'choose' | 'reserve' | 'consume'
 }
 
 function normalizeOffer(data: FirebaseFirestore.DocumentData): PromotionOfferConfig | null {
@@ -197,8 +203,10 @@ function companyPhotoFromData(companyData: FirebaseFirestore.DocumentData): stri
 function mapPromotionPayload(
   promotionDoc: FirebaseFirestore.QueryDocumentSnapshot,
   companyDoc: FirebaseFirestore.DocumentSnapshot,
+  bookableTables: number,
 ): PublicPromotionPayload {
   const companyData = companyDoc.data() ?? {}
+  const booking = buildBookingRules(companyData, bookableTables)
   const data = promotionDoc.data()
   const offer = normalizeOffer(data)
   const productRefs = normalizeProductRefs(data)
@@ -238,6 +246,8 @@ function mapPromotionPayload(
     detail: buildDetail(data),
     highlight: buildHighlight(data, offer),
     reservationMode: parseCompanyReservationMode(companyData.reservationMode),
+    canReserve: booking.canReserve,
+    completePath: booking.completePath,
   }
 }
 
@@ -254,8 +264,9 @@ async function loadPromotionsForCompany(
     .limit(40)
     .get()
 
+  const tables = await countBookableTables(companyDoc.id, companyDoc.data()?.planId)
   return clampPromotionsToPlan(promotionsSnapshot.docs, planId, (docSnap) => docSnap.data().type)
-    .map((promotionDoc) => mapPromotionPayload(promotionDoc, companyDoc))
+    .map((promotionDoc) => mapPromotionPayload(promotionDoc, companyDoc, tables))
 }
 
 router.post('/validate-pin', validatePinRateLimit, async (req: Request, res: Response) => {
@@ -299,42 +310,51 @@ router.post('/validate-pin', validatePinRateLimit, async (req: Request, res: Res
   }
 })
 
+/** Promos activas de todos los locales (respetando plan y locales desactivados). */
+export async function loadActivePromotionPayloads(): Promise<PublicPromotionPayload[]> {
+  const activeSnap = await adminDb
+    .collectionGroup('promotions')
+    .where('active', '==', true)
+    .limit(80)
+    .get()
+
+  const companyIds = [...new Set(
+    activeSnap.docs.map((docSnap) => docSnap.ref.parent.parent?.id).filter(Boolean),
+  )] as string[]
+  const companyRefs = companyIds.map((companyId) => adminDb.collection('companies').doc(companyId))
+  const companySnaps = companyRefs.length > 0
+    ? await adminDb.getAll(...companyRefs)
+    : []
+  const companiesById = new Map(companySnaps.filter((snap) => snap.exists).map((snap) => [snap.id, snap]))
+
+  const docsByCompany = new Map<string, FirebaseFirestore.QueryDocumentSnapshot[]>()
+  for (const promotionDoc of activeSnap.docs) {
+    const companyId = promotionDoc.ref.parent.parent?.id
+    if (companyId) {
+      docsByCompany.set(companyId, [...(docsByCompany.get(companyId) ?? []), promotionDoc])
+    }
+  }
+
+  const tableCounts = new Map(await Promise.all(
+    [...companiesById.values()].map(async (snap) => [snap.id, await countBookableTables(snap.id, snap.data()?.planId)] as const),
+  ))
+  const promotions = [...docsByCompany].flatMap(([companyId, promotionDocs]) => {
+    const companySnap = companiesById.get(companyId)
+    const planId = parseStoredPlanId(companySnap?.data()?.planId)
+    if (!companySnap || companySnap.data()?.deactivated === true || !planAllowsPromotions(planId)) {
+      return []
+    }
+    return clampPromotionsToPlan(promotionDocs, planId, (docSnap) => docSnap.data().type)
+      .map((promotionDoc) => mapPromotionPayload(promotionDoc, companySnap, tableCounts.get(companyId) ?? 0))
+  })
+
+  promotions.sort((left, right) => left.companyName.localeCompare(right.companyName, 'es'))
+  return promotions
+}
+
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const activeSnap = await adminDb
-      .collectionGroup('promotions')
-      .where('active', '==', true)
-      .limit(80)
-      .get()
-
-    const companyIds = [...new Set(
-      activeSnap.docs.map((docSnap) => docSnap.ref.parent.parent?.id).filter(Boolean),
-    )] as string[]
-    const companyRefs = companyIds.map((companyId) => adminDb.collection('companies').doc(companyId))
-    const companySnaps = companyRefs.length > 0
-      ? await adminDb.getAll(...companyRefs)
-      : []
-    const companiesById = new Map(companySnaps.filter((snap) => snap.exists).map((snap) => [snap.id, snap]))
-
-    const docsByCompany = new Map<string, FirebaseFirestore.QueryDocumentSnapshot[]>()
-    for (const promotionDoc of activeSnap.docs) {
-      const companyId = promotionDoc.ref.parent.parent?.id
-      if (companyId) {
-        docsByCompany.set(companyId, [...(docsByCompany.get(companyId) ?? []), promotionDoc])
-      }
-    }
-
-    const promotions = [...docsByCompany].flatMap(([companyId, promotionDocs]) => {
-      const companySnap = companiesById.get(companyId)
-      const planId = parseStoredPlanId(companySnap?.data()?.planId)
-      if (!companySnap || companySnap.data()?.deactivated === true || !planAllowsPromotions(planId)) {
-        return []
-      }
-      return clampPromotionsToPlan(promotionDocs, planId, (docSnap) => docSnap.data().type)
-        .map((promotionDoc) => mapPromotionPayload(promotionDoc, companySnap))
-    })
-
-    promotions.sort((left, right) => left.companyName.localeCompare(right.companyName, 'es'))
+    const promotions = await loadActivePromotionPayloads()
     allowPublicCache(res, 60)
     res.json({ promotions })
   } catch (error) {
