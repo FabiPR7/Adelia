@@ -67,10 +67,19 @@ Situación de partida (20 nov 2026):
    Tests: `server/reservations/__tests__/slotAvailability.test.ts`.
    Pendiente aparte: el panel del restaurante (alta de reserva a mano) sigue calculando sus
    horas en la web; pasa al punto 6 junto con el resto del panel.
-5. ⏳ **Misiones y XP calculadas en el servidor.** Hoy el móvil y el navegador calculan
-   las misiones y le «proponen» la XP al servidor, que solo pone un tope. Pasar el motor
-   al servidor: más seguro (nadie puede inflar su XP) y una sola copia.
-   Quita: `gamificationProgress` (1.043 líneas ×2), la sincronización `/sync`.
+5. ✅ **Misiones y XP calculadas en el servidor.** (20 nov) El motor de misiones vive solo en
+   `server/gamification/missions/` (copiado de la web, con las fechas en hora de España
+   en cualquier servidor). `POST /api/customer/gamification/evaluate` lee tus reservas,
+   consumos validados, favoritos y los locales, calcula, guarda y devuelve el progreso.
+   **Ya nadie puede inflar su XP**: `/sync` ignora lo que le manden y también calcula en el
+   servidor (sirve a versiones viejas de la app). Los avisos de misión los manda el
+   servidor solo.
+   Quitado: el motor de la web y de la app (~1.050 líneas ×2), la sincronización con
+   reintentos y «misiones sospechosas» de la app y `promotionReservationProgress` de la app.
+   Tests movidos al servidor: `server/gamification/missions/__tests__/` (motor, De Barra y
+   Mantel, hora de España, no cobrar dos veces).
+   Probado en la app (Misiones: semana, mes, logros y bonus). Web publicada; verla en
+   pantalla queda en «Necesita a Fabi».
 6. ⏳ **Textos y tipos compartidos.** Una carpeta común (`shared/`) con los tipos de
    datos de la API, los textos de avisos y las funciones pequeñas (fechas en hora de
    España, precios). La web y el servidor la importan; la app la recibe con un comando

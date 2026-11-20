@@ -1,8 +1,8 @@
+// Tests del motor de misiones (antes estaban en la web).
 import { describe, expect, it } from 'vitest'
-import { HISTORICAL_MISSIONS, WEEKLY_MISSIONS } from '../../data/gamificationMissions'
-import { defaultGamificationState } from '../../types/gamification'
-import type { Reservation } from '../../types'
-import type { CustomerVerifiedConsumption } from '../../types/verifiedConsumption'
+import { HISTORICAL_MISSIONS, WEEKLY_MISSIONS } from '../missionsData.ts'
+import { defaultGamificationState } from '../types.ts'
+import type { Reservation, CustomerVerifiedConsumption } from '../engineSupport.ts'
 import {
   buildMissionProgressList,
   processGamificationRewards,
@@ -10,7 +10,7 @@ import {
   rotateWeeklyMissions,
   syncGamificationPeriods,
   type GamificationContext,
-} from '../gamificationProgress'
+} from '../engine.ts'
 
 function reservation(overrides: Partial<Reservation>): Reservation {
   return {

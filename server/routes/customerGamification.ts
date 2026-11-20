@@ -1,10 +1,10 @@
 import { PIN_ATTEMPTS_MESSAGE, takePromotionPinAttempt } from '../security/rateLimit.ts'
 import { reservationCountsForLadder, sortLadderSteps } from '../promotions/ladderProgress.ts'
 import { Router, type Request, type Response } from 'express'
+import { prepareMissionEvaluation, runMissionEngine } from '../gamification/missions/evaluate.ts'
 import { verifyCustomerUid } from '../auth/verifyRequest.ts'
 import { adminDb } from '../firebase-admin.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
-import { computeCustomerXpCeiling } from '../gamification/customerXpCeiling.ts'
 import {
   appendClaimToState,
   ladderClaimDocId,
@@ -367,65 +367,66 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
   }
 })
 
+/**
+ * Misiones y XP: el SERVIDOR evalúa el progreso con tus datos (reservas, consumos
+ * validados, favoritos, locales), lo guarda y lo devuelve. La web y la app solo lo pintan.
+ */
+async function evaluateAndSaveMissions(customer: { uid: string; email: string; emailVerified: boolean }) {
+  const userRef = adminDb.collection('users').doc(customer.uid)
+  const statsRef = userGamificationRef(customer.uid)
+  const profileSnap = await userRef.get()
+  const inputs = await prepareMissionEvaluation(customer, profileSnap.data()?.favoriteSlugs)
+
+  return adminDb.runTransaction(async (transaction) => {
+    const [userSnap, statsSnap] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(statsRef),
+    ])
+    const stored = readGamificationFromDocs(statsSnap.data(), userSnap.data())
+    const evaluation = runMissionEngine(stored, inputs)
+    const granted = await applyInventoryGrants(evaluation.state as unknown as Record<string, unknown>)
+    writeGamification(transaction, customer.uid, granted.state)
+    return {
+      gamification: granted.state,
+      newItemGrantBatches: granted.newGrantBatches,
+      progress: {
+        weekly: evaluation.weeklyProgress,
+        monthly: evaluation.monthlyProgress,
+        historical: evaluation.historicalProgress,
+        weeklyBonus: evaluation.weeklyBonus,
+        weeklyFeaturedCategory: evaluation.weeklyFeaturedCategory,
+      },
+    }
+  })
+}
+
+const evaluateRateLimit = createRateLimit(30, 60_000, 'missions-evaluate')
+
+router.post('/evaluate', evaluateRateLimit, async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    res.json(await evaluateAndSaveMissions(customer))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo calcular tu progreso.'
+    const status = message.includes('cliente') ? 401 : 500
+    if (status !== 401) console.error('Missions evaluate error:', error)
+    res.status(status).json({ error: status === 401 ? message : 'No se pudo calcular tu progreso.' })
+  }
+})
+
+/**
+ * Antes la web y la app mandaban aquí el progreso calculado por ellas. Ahora se
+ * ignora lo que manden y el servidor lo calcula (sirve a versiones antiguas de la app).
+ */
 router.post('/sync', async (req: Request, res: Response) => {
   try {
     const customer = await verifyCustomerUid(req)
-    const proposed = req.body?.gamification
-    if (!proposed || typeof proposed !== 'object' || Array.isArray(proposed)) {
-      res.status(400).json({ error: 'Progreso no válido.' })
-      return
-    }
-
-    const userRef = adminDb.collection('users').doc(customer.uid)
-    const statsRef = userGamificationRef(customer.uid)
-    await getLevelForXpFromCatalog(0).catch(() => 1)
-
-    // Techo de XP calculado fuera de la transacción (solo lecturas agregadas).
-    const xpCeiling = await computeCustomerXpCeiling({
-      uid: customer.uid,
-      // Las reservas de invitado con su correo solo cuentan si lo ha verificado.
-      email: customer.emailVerified ? customer.email : '',
-      createdAt: customer.data.createdAt,
-    }).catch(() => null)
-
-    const next = await adminDb.runTransaction(async (transaction) => {
-      const [userSnap, statsSnap] = await Promise.all([
-        transaction.get(userRef),
-        transaction.get(statsRef),
-      ])
-      const currentState = readGamificationFromDocs(statsSnap.data(), userSnap.data())
-      const validated = await validateMonotonicGamification(
-        currentState,
-        proposed as Record<string, unknown>,
-        xpCeiling,
-      )
-      const granted = await applyInventoryGrants(validated.state)
-      writeGamification(transaction, customer.uid, granted.state)
-      return { ...granted, adjustments: validated.adjustments }
-    })
-
-    const { deferredMissions, unknownMissions, catalogUnavailable, xpClamped } = next.adjustments
-    if (deferredMissions.length > 0 || unknownMissions.length > 0 || catalogUnavailable || xpClamped) {
-      console.warn('Gamification sync ajustado:', {
-        uid: customer.uid,
-        deferredMissions,
-        unknownMissions,
-        catalogUnavailable,
-        xpClamped,
-      })
-    }
-
-    res.json({
-      gamification: next.state,
-      newItemGrantBatches: next.newGrantBatches,
-      deferred: deferredMissions.length > 0,
-    })
+    const result = await evaluateAndSaveMissions(customer)
+    res.json({ ...result, deferred: false })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo sincronizar el progreso.'
-    const status = message.includes('cliente') ? 401 : message.includes('válid') ? 400 : 500
-    if (status !== 401) {
-      console.error('Gamification sync error:', error)
-    }
+    const status = message.includes('cliente') ? 401 : 500
+    if (status !== 401) console.error('Gamification sync error:', error)
     res.status(status).json({ error: message })
   }
 })

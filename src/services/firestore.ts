@@ -31,7 +31,7 @@ import type {
   TableInput,
 } from '../types'
 import { defaultGamificationState } from '../types/gamification'
-import type { CustomerGamificationState, ClaimedPromotionRecord } from '../types/gamification'
+import type { CustomerGamificationState, ClaimedPromotionRecord, MissionProgress } from '../types/gamification'
 import type { CustomerVerifiedConsumption, VerifiedConsumptionRecord } from '../types/verifiedConsumption'
 import { parseCompanyReviewStats } from '../types/review'
 import { mapVerifiedConsumptionDoc } from '../utils/productReports'
@@ -1917,3 +1917,47 @@ function mapReservation(id: string, data: Record<string, unknown>): Reservation 
 }
 
 export { getFirestoreErrorMessage } from './firestoreErrors'
+
+/** Progreso de misiones calculado por el servidor. */
+export interface ServerMissionsProgress {
+  weekly: MissionProgress[]
+  monthly: MissionProgress[]
+  historical: MissionProgress[]
+  weeklyBonus: { completedCount: number; bonusEarned: boolean; bonusXp: number }
+  weeklyFeaturedCategory: string
+}
+
+/**
+ * Pide al servidor que evalúe tus misiones con tus datos (reservas, consumos,
+ * favoritos) y guarde el resultado. La web ya no calcula ni propone XP.
+ */
+export async function evaluateCustomerMissions(): Promise<{
+  state: CustomerGamificationState
+  progress: ServerMissionsProgress
+  newItemGrantBatches: Array<{ grantKey: string; grants: Array<{ itemId: string; quantity: number }> }>
+}> {
+  const data = await callCustomerGamificationApi('/evaluate', {})
+  const raw = data.gamification && typeof data.gamification === 'object' ? data.gamification : {}
+  const progress = (data.progress && typeof data.progress === 'object' ? data.progress : {}) as Partial<ServerMissionsProgress>
+  const batches = Array.isArray(data.newItemGrantBatches)
+    ? (data.newItemGrantBatches as Array<{ grantKey?: unknown; grants?: unknown }>).map((entry) => ({
+        grantKey: typeof entry.grantKey === 'string' ? entry.grantKey : '',
+        grants: Array.isArray(entry.grants)
+          ? (entry.grants as Array<{ itemId?: unknown; quantity?: unknown }>)
+            .filter((grant) => typeof grant.itemId === 'string' && typeof grant.quantity === 'number')
+            .map((grant) => ({ itemId: grant.itemId as string, quantity: Math.trunc(grant.quantity as number) }))
+          : [],
+      }))
+    : []
+  return {
+    state: parseGamificationData({ gamification: raw }),
+    progress: {
+      weekly: progress.weekly ?? [],
+      monthly: progress.monthly ?? [],
+      historical: progress.historical ?? [],
+      weeklyBonus: progress.weeklyBonus ?? { completedCount: 0, bonusEarned: false, bonusXp: 0 },
+      weeklyFeaturedCategory: progress.weeklyFeaturedCategory ?? '',
+    },
+    newItemGrantBatches: batches,
+  }
+}

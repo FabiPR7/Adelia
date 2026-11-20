@@ -1,35 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { HISTORICAL_MISSIONS } from '../data/gamificationMissions'
 import { PROFILE_REWARDS } from '../data/gamificationLevels'
 import { useAuth } from '../context/AuthContext'
-import { updateCustomerGamification } from '../services/firestore'
-import { syncGamificationNotifications } from '../services/customerNotifications'
+import { evaluateCustomerMissions, type ServerMissionsProgress } from '../services/firestore'
 import { mergeMonotonicCelebrations } from '../utils/gamificationCelebration'
 import type { Reservation } from '../types'
 import type { CustomerGamificationState, MissionProgress } from '../types/gamification'
 import { defaultGamificationState } from '../types/gamification'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import type { CustomerVerifiedConsumption } from '../types/verifiedConsumption'
-import {
-  buildMissionProgressList,
-  computeWeeklyBonusProgress,
-  getLevelForXp,
-  getLevelProgress,
-  getWeekKey,
-  getWeeklyFeaturedCategory,
-  getXpToNextLevel,
-  processGamificationRewards,
-  rotateMonthlyMissions,
-  rotateWeeklyMissions,
-  syncGamificationPeriods,
-  type GamificationContext,
-} from '../utils/gamificationProgress'
+import { getLevelForXp, getLevelProgress, getXpToNextLevel } from '../utils/gamificationProgress'
 
 interface UseCustomerGamificationOptions {
   reservations: Reservation[]
   favoriteSlugs: string[]
-  restaurants: PublicDiscoveryRestaurant[]
-  promotionCompanyIds: Set<string>
+  /** Ya no se usa para calcular (lo hace el servidor); se mantiene por compatibilidad. */
+  restaurants?: PublicDiscoveryRestaurant[]
+  promotionCompanyIds?: Set<string>
   consumptions: CustomerVerifiedConsumption[]
   enabled: boolean
   onNewItemGrantBatches?: (
@@ -37,19 +23,22 @@ interface UseCustomerGamificationOptions {
   ) => void
 }
 
-function completedMissionIdsFromState(state: CustomerGamificationState): string[] {
-  return [...new Set([
-    ...state.weeklyCompleted,
-    ...state.monthlyCompleted,
-    ...state.completedMissions,
-  ])]
+const EMPTY_PROGRESS: ServerMissionsProgress = {
+  weekly: [],
+  monthly: [],
+  historical: [],
+  weeklyBonus: { completedCount: 0, bonusEarned: false, bonusXp: 0 },
+  weeklyFeaturedCategory: '',
 }
 
+/**
+ * Misiones y XP del cliente. El SERVIDOR evalúa el progreso con tus reservas,
+ * consumos y favoritos, lo guarda y lo devuelve; aquí solo se pide y se pinta.
+ * Se vuelve a pedir cuando cambian tus reservas, consumos o favoritos.
+ */
 export function useCustomerGamification({
   reservations,
   favoriteSlugs,
-  restaurants,
-  promotionCompanyIds,
   consumptions,
   enabled,
   onNewItemGrantBatches,
@@ -58,242 +47,84 @@ export function useCustomerGamification({
   const [state, setState] = useState<CustomerGamificationState>(() =>
     profile?.gamification ?? defaultGamificationState(),
   )
+  const [progress, setProgress] = useState<ServerMissionsProgress>(EMPTY_PROGRESS)
   const [syncing, setSyncing] = useState(false)
   const [evaluatedTick, setEvaluatedTick] = useState(0)
-  const persistedRef = useRef<string>('')
-  const syncingRef = useRef(false)
+  const lastFingerprintRef = useRef('')
   const onNewItemGrantBatchesRef = useRef(onNewItemGrantBatches)
   onNewItemGrantBatchesRef.current = onNewItemGrantBatches
+  const patchRef = useRef(patchProfileGamification)
+  patchRef.current = patchProfileGamification
 
   useEffect(() => {
-    if (!profile?.gamification) {
-      return
-    }
-
+    if (!profile?.gamification) return
     setState((current) => mergeMonotonicCelebrations(current, profile.gamification))
   }, [profile?.gamification])
 
-  const weekKey = getWeekKey()
-  const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  // Lo que puede cambiar tu progreso: cuando cambia, se le pide al servidor otra vez.
+  const fingerprint = useMemo(() => JSON.stringify({
+    reservations: reservations.map((item) => `${item.id}:${item.status}:${item.promotionVisitStatus ?? ''}`).sort(),
+    consumptions: consumptions.map((item) => item.id).sort(),
+    favorites: [...favoriteSlugs].sort(),
+  }), [reservations, consumptions, favoriteSlugs])
 
-  const context = useMemo((): GamificationContext => {
-    const restaurantZones = new Map<string, string>()
-    const restaurantCategories = new Map<string, string[]>()
-    const restaurantVenueTypes = new Map<string, string[]>()
-    const restaurantReservationModes = new Map<string, 'required' | 'optional' | 'none'>()
-
-    for (const restaurant of restaurants) {
-      restaurantZones.set(restaurant.id, restaurant.municipality || restaurant.location)
-      restaurantCategories.set(restaurant.id, restaurant.characteristics ?? [])
-      restaurantVenueTypes.set(restaurant.id, restaurant.venueTypes ?? [])
-      restaurantReservationModes.set(restaurant.id, restaurant.reservationMode)
+  useEffect(() => {
+    if (!enabled || !user || profile?.role !== 'customer') return
+    if (fingerprint === lastFingerprintRef.current) return
+    lastFingerprintRef.current = fingerprint
+    let cancelled = false
+    setSyncing(true)
+    void evaluateCustomerMissions()
+      .then((result) => {
+        if (cancelled) return
+        setState((current) => mergeMonotonicCelebrations(current, result.state))
+        setProgress(result.progress)
+        setEvaluatedTick((tick) => tick + 1)
+        patchRef.current({
+          xp: result.state.xp,
+          inventory: result.state.inventory,
+          grantedItemKeys: result.state.grantedItemKeys,
+          weeklyCompleted: result.state.weeklyCompleted,
+          monthlyCompleted: result.state.monthlyCompleted,
+          completedMissions: result.state.completedMissions,
+        })
+        if (result.newItemGrantBatches.length > 0) {
+          onNewItemGrantBatchesRef.current?.(result.newItemGrantBatches)
+        }
+      })
+      .catch(() => {
+        // Se reintenta en el siguiente cambio de datos.
+        lastFingerprintRef.current = ''
+      })
+      .finally(() => {
+        if (!cancelled) setSyncing(false)
+      })
+    return () => {
+      cancelled = true
     }
-
-    return {
-      reservations,
-      consumptions,
-      favoriteSlugs,
-      promotionCompanyIds,
-      restaurantZones,
-      restaurantCategories,
-      restaurantVenueTypes,
-      restaurantReservationModes,
-      weeklyFeaturedCategory: getWeeklyFeaturedCategory(),
-    }
-  }, [reservations, consumptions, favoriteSlugs, promotionCompanyIds, restaurants, weekKey])
-
-  const weeklyMissions = useMemo(() => rotateWeeklyMissions(), [weekKey])
-  const monthlyMissions = useMemo(() => rotateMonthlyMissions(), [monthKey])
-
-  const historicalCompletedIds = useMemo(
-    () => new Set(state.completedMissions),
-    [state.completedMissions],
-  )
-
-  const evaluationState = useMemo(
-    () => syncGamificationPeriods(state, favoriteSlugs),
-    [state, favoriteSlugs],
-  )
-
-  // Del estado ya reiniciado: con `state`, al cambiar de semana o de mes las
-  // misiones del periodo anterior contarían como completadas y se cobrarían otra vez.
-  const weeklyCompletedIds = useMemo(
-    () => new Set(evaluationState.weeklyCompleted),
-    [evaluationState.weeklyCompleted],
-  )
-  const monthlyCompletedIds = useMemo(
-    () => new Set(evaluationState.monthlyCompleted),
-    [evaluationState.monthlyCompleted],
-  )
-
-  const weeklyProgress = useMemo(
-    () =>
-      buildMissionProgressList(
-        weeklyMissions,
-        context,
-        evaluationState,
-        weeklyCompletedIds,
-      ),
-    [weeklyMissions, context, evaluationState, weeklyCompletedIds],
-  )
-
-  const monthlyProgress = useMemo(
-    () =>
-      buildMissionProgressList(
-        monthlyMissions,
-        context,
-        evaluationState,
-        monthlyCompletedIds,
-      ),
-    [monthlyMissions, context, evaluationState, monthlyCompletedIds],
-  )
-
-  const historicalProgress = useMemo(
-    () =>
-      buildMissionProgressList(
-        HISTORICAL_MISSIONS,
-        context,
-        evaluationState,
-        historicalCompletedIds,
-      ),
-    [context, evaluationState, historicalCompletedIds],
-  )
-
-  const weeklyBonus = useMemo(
-    () => computeWeeklyBonusProgress(weeklyProgress),
-    [weeklyProgress],
-  )
+  }, [enabled, user, profile?.role, fingerprint])
 
   const level = useMemo(() => getLevelForXp(state.xp), [state.xp])
   const levelProgress = useMemo(() => getLevelProgress(state.xp, level), [state.xp, level])
   const xpToNext = useMemo(() => getXpToNextLevel(state.xp, level), [state.xp, level])
-
   const unlockedRewards = useMemo(
     () => PROFILE_REWARDS.filter((reward) => level.level >= reward.level),
     [level.level],
   )
-
-  useEffect(() => {
-    if (!enabled || !user || profile?.role !== 'customer' || syncingRef.current) {
-      return
-    }
-
-    const nextState = processGamificationRewards(
-      evaluationState,
-      weeklyProgress,
-      monthlyProgress,
-      historicalProgress,
-      reservations,
-      favoriteSlugs,
-      consumptions,
-    )
-    setEvaluatedTick((tick) => tick + 1)
-
-    const fingerprint = JSON.stringify({
-      xp: nextState.xp,
-      weekly: nextState.weeklyCompleted,
-      monthly: nextState.monthlyCompleted,
-      historical: nextState.completedMissions,
-      visited: nextState.visitedCompanyIds,
-      awarded: nextState.awardedReservationXpIds,
-      claims: nextState.claimedPromotions.map((entry) => entry.promotionId),
-      redemptions: nextState.redemptionsCount,
-      reviews: nextState.reviewsCount,
-      reviewsPhoto: nextState.reviewsWithPhotoCount,
-      reviewsText: nextState.textReviewsCount,
-      reviewedReservations: nextState.reviewedReservationIds,
-      favoritesWeek: nextState.favoritesAddedThisWeek,
-      favoriteBaseline: nextState.favoriteSlugsAtWeekStart,
-      ladderBaselines: nextState.ladderBaselinesByCompany,
-      activeLadder: nextState.activeLadderPromotionByCompany,
-      ladderCompletions: nextState.ladderCompletionsByCompany,
-      penalty: nextState.xpPenaltyTotal,
-      strikes: nextState.cancellationStrikeCount,
-      promoLocked: nextState.promoLocked,
-      inventory: nextState.inventory,
-      grantedItemKeys: nextState.grantedItemKeys,
-      tokenCredits: nextState.tokenCreditsByCompany,
-      pendingTokenSpend: nextState.pendingTokenSpend,
-      celebratedMissions: nextState.celebratedMissionIds,
-      celebratedLevel: nextState.lastCelebratedLevel,
-      celebrationsBootstrapped: nextState.celebrationsBootstrapped,
-    })
-
-    if (fingerprint === persistedRef.current) {
-      return
-    }
-
-    persistedRef.current = fingerprint
-    const merged = mergeMonotonicCelebrations(evaluationState, nextState)
-    setState(merged)
-    setSyncing(true)
-    syncingRef.current = true
-
-    const beforeGamification = { ...evaluationState }
-    let syncAgain = false
-
-    void updateCustomerGamification(user.uid, merged)
-      .then(async (syncResult) => {
-        syncAgain = syncResult.deferred
-        const withServerItems = {
-          ...merged,
-          inventory: syncResult.inventory,
-          grantedItemKeys: syncResult.grantedItemKeys,
-        }
-        setState((current) => mergeMonotonicCelebrations(current, withServerItems))
-        patchProfileGamification({
-          inventory: syncResult.inventory,
-          grantedItemKeys: syncResult.grantedItemKeys,
-        })
-        if (syncResult.newItemGrantBatches.length > 0) {
-          onNewItemGrantBatchesRef.current?.(syncResult.newItemGrantBatches)
-        }
-        const beforeIds = new Set(completedMissionIdsFromState(beforeGamification))
-        const newIds = completedMissionIdsFromState(merged).filter((id) => !beforeIds.has(id))
-        const looksLikeHistoryReplay = beforeIds.size === 0 && newIds.length > 1
-        if (newIds.length > 0 && !looksLikeHistoryReplay) {
-          await syncGamificationNotifications(beforeGamification)
-        }
-      })
-      .catch(() => {
-        persistedRef.current = ''
-      })
-      .finally(() => {
-        syncingRef.current = false
-        setSyncing(false)
-        if (syncAgain) {
-          // Quedan misiones por guardar: el nuevo estado vuelve a lanzar este efecto.
-          persistedRef.current = ''
-          setState((current) => ({ ...current }))
-        }
-      })
-  }, [
-    enabled,
-    user,
-    profile?.role,
-    evaluationState,
-    favoriteSlugs,
-    patchProfileGamification,
-    weeklyProgress,
-    monthlyProgress,
-    historicalProgress,
-    reservations,
-    consumptions,
-  ])
 
   return {
     state,
     level,
     levelProgress,
     xpToNext,
-    weeklyProgress,
-    monthlyProgress,
-    historicalProgress,
-    weeklyBonus,
+    weeklyProgress: progress.weekly,
+    monthlyProgress: progress.monthly,
+    historicalProgress: progress.historical,
+    weeklyBonus: progress.weeklyBonus,
     unlockedRewards,
     syncing,
     evaluatedTick,
-    weeklyFeaturedCategory: context.weeklyFeaturedCategory,
+    weeklyFeaturedCategory: progress.weeklyFeaturedCategory,
   }
 }
 

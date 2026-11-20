@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { barAndRestaurantProgress } from '../gamificationProgress'
+import { barAndRestaurantProgress } from '../engine.ts'
 
 const types = new Map<string, string[]>([
   ['solo-bar', ['bar']],
