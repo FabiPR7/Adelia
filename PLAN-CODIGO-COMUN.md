@@ -147,3 +147,37 @@ Situación de partida (20 nov 2026):
 
 Cada punto: se hace en servidor, web y app, se prueba en las dos (navegador y
 emulador), se publica y se marca aquí con ✅.
+
+---
+
+# Fase 2: TODO por la API (pedida el 20 nov)
+
+Regla: la web y la app **nunca escriben directamente en la base de datos**. Envían una
+petición a la API y el servidor responde sí o no (y hace el cambio). Al final, las reglas
+de Firestore no dejarán escribir nada a ningún cliente: aunque alguien cambie el código de
+la web o de la app, el servidor no le deja.
+
+## Ya va por la API (revisado 20 nov)
+
+Cliente (web y app): crear y cancelar reservas, fianza, horas libres, invitar a amigos a
+una reserva, retos y minijuegos, amigos (buscar, solicitud, aceptar, rechazar, borrar),
+ranking, XP y misiones, canjes de premios y PIN, consumos, reseñas, avisos (leer y marcar
+leídos), reportes y sugerencias, cuenta (@usuario, preferencias, borrar cuenta), favoritos,
+mapa gastronómico, estado de promos y mapas de premios.
+
+## Pendiente (escriben directo en la base de datos)
+
+A. ⏳ **Cliente — su propio perfil** (web y app): nombre, teléfono, foto, ciudad y gustos
+   (alta y «Editar»), promos guardadas, «tour visto», y el camino viejo de favoritos de la
+   web (`updateCustomerFavorites`, `userFavorites`).
+B. ⏳👤 **Restaurante — panel** (web): reservas (asistió, no vino, cancelar, editar, borrar,
+   estado del gasto mínimo), mesas y planos, ajustes y visibilidad del local, plantillas
+   de correo, QR, carta (cartas y productos), promociones (crear, editar, pausar, borrar),
+   PIN de promos, clientes, respuesta a reseñas, índice de inicio de sesión.
+C. ⏳👤 **Admin** (web): catálogos del juego, planes, facturación, bloquear clientes,
+   borrar reseñas, misiones.
+D. ⏳ **Cerrar las reglas**: cuando A, B y C vayan por la API, ninguna regla dejará
+   escribir a un cliente (solo leer lo suyo).
+
+👤 = para probarlo hace falta la sesión de un restaurante o del admin (contraseña que
+escribe Fabi).

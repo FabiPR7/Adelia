@@ -9,16 +9,9 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
-import {
-  doc,
-  getDoc,
-  serverTimestamp,
-  updateDoc,
-  writeBatch,
-} from 'firebase/firestore'
-import { auth, db } from '../config/firebase'
+import { auth } from '../config/firebase'
 import { getUserProfile } from './firestore'
-import { favoriteDocId, replaceUserFavorites } from './userFavorites'
+import { replaceCustomerFavoritesViaApi, setCustomerFavoriteViaApi, updateCustomerProfileViaApi } from './customerFavoritesApi'
 import {
   normalizeFavoriteSlug,
   normalizeFavoriteSlugs,
@@ -222,12 +215,9 @@ export async function requestCustomerPasswordReset(email: string): Promise<strin
   return requestCustomerPasswordResetApi(email)
 }
 
-export async function updateCustomerFavorites(uid: string, favoriteSlugs: string[]): Promise<void> {
-  const normalized = normalizeFavoriteSlugs(favoriteSlugs)
-  await updateDoc(doc(db, 'users', uid), {
-    favoriteSlugs: normalized,
-  })
-  await replaceUserFavorites(uid, normalized).catch(() => undefined)
+export async function updateCustomerFavorites(_uid: string, favoriteSlugs: string[]): Promise<void> {
+  // Por la API: el servidor guarda la lista (ya no se escribe en la base de datos desde aquí).
+  await replaceCustomerFavoritesViaApi(normalizeFavoriteSlugs(favoriteSlugs))
 }
 
 export async function setCustomerFavorite(
@@ -239,44 +229,11 @@ export async function setCustomerFavorite(
   if (!uid || !normalizedSlug) {
     return
   }
-
-  const userRef = doc(db, 'users', uid)
-  const userSnap = await getDoc(userRef)
-  const current = normalizeFavoriteSlugs(userSnap.data()?.favoriteSlugs)
-  const next = saved
-    ? (current.includes(normalizedSlug) ? current : [...current, normalizedSlug])
-    : current.filter((item) => item !== normalizedSlug)
-
-  const batch = writeBatch(db)
-  batch.update(userRef, { favoriteSlugs: next })
-
-  const favoriteRef = doc(db, 'userFavorites', favoriteDocId(uid, normalizedSlug))
-  if (saved) {
-    batch.set(favoriteRef, {
-      userId: uid,
-      slug: normalizedSlug,
-      createdAt: serverTimestamp(),
-    }, { merge: true })
-  } else {
-    batch.delete(favoriteRef)
-  }
-
-  await batch.commit()
+  await setCustomerFavoriteViaApi(normalizedSlug, saved)
 }
 
-export async function updateCustomerPhone(uid: string, phone: string): Promise<void> {
-  const storedPhone = requireCustomerPhone(phone)
-  await updateDoc(doc(db, 'users', uid), {
-    phone: storedPhone,
-  })
-}
-
-export async function updateCustomerDisplayName(uid: string, displayName: string): Promise<void> {
-  const trimmed = displayName.trim()
-  await updateDoc(doc(db, 'users', uid), {
-    displayName: trimmed,
-    displayNameLower: trimmed.toLowerCase(),
-  })
+export async function updateCustomerPhone(_uid: string, phone: string): Promise<void> {
+  await updateCustomerProfileViaApi({ phone: requireCustomerPhone(phone) })
 }
 
 export interface CustomerOnboardingPayload {
@@ -295,7 +252,8 @@ export async function completeCustomerOnboarding(
   uid: string,
   payload: CustomerOnboardingPayload,
 ): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
+  void uid
+  await updateCustomerProfileViaApi({
     photoUrl: payload.photoUrl,
     homeCity: payload.homeCity,
     homeMunicipality: payload.homeMunicipality,

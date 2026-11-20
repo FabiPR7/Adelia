@@ -32,6 +32,7 @@ import customerReviewsRouter from './routes/customerReviews.ts'
 import customerReportsRouter from './routes/customerReports.ts'
 import customerSuggestionsRouter from './routes/customerSuggestions.ts'
 import customerAccountRouter from './routes/customerAccount.ts'
+import customerProfileUpdateRouter from './routes/customerProfileUpdate.ts'
 import companyGamificationRouter from './routes/companyGamification.ts'
 import companyNotificationsRouter from './routes/companyNotifications.ts'
 import { handleStripeWebhook } from './routes/stripeWebhook.ts'
@@ -130,6 +131,7 @@ export function createApp() {
   app.use('/api/customer/reviews', customerReviewsRouter)
   app.use('/api/customer/reports', customerReportsRouter)
   app.use('/api/customer/suggestions', customerSuggestionsRouter)
+  app.use('/api/customer/account', customerProfileUpdateRouter)
   app.use('/api/customer/account', customerAccountRouter)
 
   app.use('/api', (req, res) => {

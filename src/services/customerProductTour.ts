@@ -1,5 +1,4 @@
-import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { updateCustomerProfileViaApi } from './customerFavoritesApi'
 
 export const PRODUCT_TOUR_STORAGE_KEY = 'adelia_product_tour_completed_v1'
 
@@ -29,7 +28,6 @@ export function clearLocalProductTourCompleted(): void {
 
 export async function markCustomerProductTourCompleted(uid: string): Promise<void> {
   writeLocalProductTourCompleted()
-  await updateDoc(doc(db, 'users', uid), {
-    productTourCompleted: true,
-  })
+  void uid
+  await updateCustomerProfileViaApi({ productTourCompleted: true })
 }

@@ -56,16 +56,13 @@ export function mergeSavedPromotionIds(remote: string[] | undefined, local: Set<
   return new Set([...(remote ?? []), ...local])
 }
 
-/** Guarda la lista en el perfil (Firestore), para verla igual en la web y en la app. */
+/** Guarda la lista en el perfil (por la API), para verla igual en la web y en la app. */
 export async function persistSavedPromotionIds(uid: string, ids: Set<string>): Promise<void> {
   if (!uid.trim()) {
     return
   }
-  const [{ doc, updateDoc }, { db }] = await Promise.all([
-    import('firebase/firestore'),
-    import('../config/firebase'),
-  ])
-  await updateDoc(doc(db, 'users', uid), { savedPromotionIds: [...ids].slice(0, 200) })
+  const { updateCustomerProfileViaApi } = await import('../services/customerFavoritesApi')
+  await updateCustomerProfileViaApi({ savedPromotionIds: [...ids].slice(0, 200) })
 }
 
 /** Sustituye la copia del navegador por la lista completa. */

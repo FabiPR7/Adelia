@@ -60,3 +60,19 @@ export async function replaceCustomerFavoritesViaApi(favoriteSlugs: string[]): P
   const data = (await response.json()) as { favoriteSlugs?: string[] }
   return Array.isArray(data.favoriteSlugs) ? data.favoriteSlugs : []
 }
+
+/**
+ * Cambia campos del propio perfil por la API (teléfono, foto, ciudad, gustos, alta,
+ * promos guardadas, tour visto). El servidor valida cada campo; la web ya no escribe
+ * en la base de datos.
+ */
+export async function updateCustomerProfileViaApi(fields: Record<string, unknown>): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/customer/account/profile`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(fields),
+  })
+  if (!response.ok) {
+    throw new Error(await readError(response, 'No se pudo guardar tu perfil.'))
+  }
+}
