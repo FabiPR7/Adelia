@@ -21,7 +21,6 @@ import type { CitySuggestion } from '../../services/citySearch'
 import { haversineDistanceKm, type GeoCoordinates } from '../../utils/geo'
 import { toGeoCoordinates } from '../../utils/mapCoordinates'
 import {
-  collectPopularCharacteristics,
   filterDiscoveryRestaurants,
   restaurantHasMapPin,
   restaurantMatchesVenueKind,
@@ -38,6 +37,8 @@ import CollectionProgress from '../../components/discovery/CollectionProgress'
 import VisitRows from '../../components/discovery/VisitRows'
 import TopPromotionsSection from '../../components/discovery/TopPromotionsSection'
 import FriendsVisitedRow from '../../components/discovery/FriendsVisitedRow'
+import FoodCategoryButtons from '../../components/discovery/FoodCategoryButtons'
+import { findFoodCategory, MAIN_FOOD_CATEGORIES, restaurantMatchesFoodCategory } from '../../data/foodCategories'
 import styles from './CustomerExploreTab.module.css'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
@@ -98,12 +99,11 @@ function CustomerExploreTab() {
     }
   }, [])
 
-  const traitOptions = useMemo(
-    () => collectPopularCharacteristics(restaurants),
-    [restaurants],
-  )
+  // Filtro del buscador: los tipos de comida principales.
+  const traitOptions = useMemo(() => MAIN_FOOD_CATEGORIES.map((category) => category.label), [])
+  const activeFoodCategory = useMemo(() => findFoodCategory(activeTrait), [activeTrait])
 
-  const effectiveQuery = activeTrait || appliedSearch
+  const effectiveQuery = activeFoodCategory ? appliedSearch : activeTrait || appliedSearch
 
   const distancesKm = useMemo(() => {
     if (!userCoords) {
@@ -129,6 +129,7 @@ function CustomerExploreTab() {
   const filteredRestaurants = useMemo(() => {
     let results = filterDiscoveryRestaurants(restaurants, effectiveQuery, selectedCity?.name ?? appliedCity)
       .filter((restaurant) => restaurantMatchesVenueKind(restaurant, venueKind))
+      .filter((restaurant) => !activeFoodCategory || restaurantMatchesFoodCategory(restaurant, activeFoodCategory))
 
     if (favoritesActive) {
       results = results.filter((restaurant) =>
@@ -148,7 +149,7 @@ function CustomerExploreTab() {
     }
 
     return results
-  }, [restaurants, effectiveQuery, selectedCity, appliedCity, venueKind, favoritesActive, favoriteSlugs, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts, nudge.visitedCompanyIds, nudge.closest])
+  }, [restaurants, effectiveQuery, activeFoodCategory, selectedCity, appliedCity, venueKind, favoritesActive, favoriteSlugs, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts, nudge.visitedCompanyIds, nudge.closest])
 
   const quickFilterOptions = useMemo<QuickFilterOption[]>(() => [
     ...(nudge.closest
@@ -447,8 +448,6 @@ function CustomerExploreTab() {
               />
             </section>
 
-            <FriendsVisitedRow />
-
             <section className={styles.spotlightSection} aria-label="Trending y top valorados">
               <div className={styles.spotlightEnd}>
                 <RotatingRestaurantSpotlight
@@ -490,6 +489,8 @@ function CustomerExploreTab() {
                 />
               </section>
             ) : null}
+
+            <FriendsVisitedRow />
           </>
         )}
 
@@ -505,7 +506,11 @@ function CustomerExploreTab() {
               onRequestGps={requestGpsLocation}
               onOpenRestaurant={openRestaurant}
             />
-            <CollectionProgress city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''} />
+            <CollectionProgress
+              city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''}
+              restaurants={restaurants}
+              onOpenRestaurant={openRestaurant}
+            />
             <MonthPodium city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''} />
             <VisitRows restaurants={local.list} />
             <FeaturedReviewHighlight
@@ -513,6 +518,7 @@ function CustomerExploreTab() {
               onOpenRestaurant={openRestaurant}
             />
             <TopPromotionsSection />
+            <FoodCategoryButtons restaurants={restaurants} />
             <NearbyRestaurantFeed
               restaurants={local.list}
               origin={feedOrigin}

@@ -33,6 +33,7 @@ const PublicRestaurantPromotionsPage = lazy(() => import('./pages/PublicRestaura
 const PublicPromotionLandingPage = lazy(() => import('./pages/PublicPromotionLandingPage'))
 const PublicCancelReservation = lazy(() => import('./pages/PublicCancelReservation'))
 const CustomerExploreTab = lazy(() => import('./pages/customer/CustomerExploreTab'))
+const CustomerFoodCategoryPage = lazy(() => import('./pages/customer/CustomerFoodCategoryPage'))
 const CustomerPromotionsTab = lazy(() => import('./pages/customer/CustomerPromotionsTab'))
 const CustomerMissionsTab = lazy(() => import('./pages/customer/CustomerMissionsTab'))
 const CustomerProfileTab = lazy(() => import('./pages/customer/CustomerProfileTab'))
@@ -170,6 +171,7 @@ function App() {
       >
         <Route index element={<Navigate to="/app/explorar" replace />} />
         <Route path="explorar" element={<Suspense fallback={<RouteFallback />}><CustomerExploreTab /></Suspense>} />
+        <Route path="explorar/comida/:categoryId" element={<Suspense fallback={<RouteFallback />}><CustomerFoodCategoryPage /></Suspense>} />
         <Route path="promociones" element={<Suspense fallback={<RouteFallback />}><CustomerPromotionsTab /></Suspense>} />
         <Route path="reservas" element={<Suspense fallback={<RouteFallback />}><CustomerReservationsTab /></Suspense>} />
         <Route path="misiones" element={<Suspense fallback={<RouteFallback />}><CustomerMissionsTab /></Suspense>} />

@@ -253,3 +253,91 @@
 .visitPillDone {
   background: #2f9e5b;
 }
+
+
+/* Móvil: dos tarjetas por fila, así que todo más pequeño. */
+@media (max-width: 599px) {
+  .card {
+    border-radius: 16px;
+  }
+
+  .open:focus-visible {
+    border-radius: 16px;
+  }
+
+  .media {
+    aspect-ratio: 1 / 1;
+  }
+
+  .body {
+    gap: 0.2rem;
+    padding: 0.55rem 0.6rem 0.65rem;
+  }
+
+  .topLine {
+    min-height: 0;
+  }
+
+  .venue {
+    font-size: 0.6rem;
+  }
+
+  .level {
+    display: none;
+  }
+
+  .name {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 1rem;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .meta {
+    gap: 0.35rem;
+    margin-bottom: 0.15rem;
+    font-size: 0.7rem;
+  }
+
+  .tags {
+    display: none;
+  }
+
+  .cta {
+    min-height: 34px;
+    border-radius: 10px;
+    font-size: 0.74rem;
+  }
+
+  .distance,
+  .sponsored {
+    bottom: 0.4rem;
+    padding: 0.15rem 0.45rem;
+    font-size: 0.6rem;
+  }
+
+  .distance {
+    left: 0.4rem;
+  }
+
+  .sponsored {
+    right: 0.4rem;
+  }
+
+  .rating {
+    top: 0.4rem;
+    left: 0.4rem;
+    font-size: 0.68rem;
+  }
+
+  /* El aviso de visita baja a la foto para no taparse con la nota. */
+  .visitPill {
+    top: auto;
+    bottom: 0.4rem;
+    left: auto;
+    right: 0.4rem;
+    padding: 0.15rem 0.45rem;
+    font-size: 0.6rem;
+  }
+}

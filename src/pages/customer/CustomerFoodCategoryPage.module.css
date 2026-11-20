@@ -1,0 +1,143 @@
+.page {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0.9rem 0 2rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0 1rem;
+}
+
+.back {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--color-text);
+  transition: transform 0.16s ease-out;
+}
+
+.back:active {
+  transform: scale(0.95);
+}
+
+.back:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.emoji {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 18px;
+  background: var(--color-sand-wash);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.titles {
+  min-width: 0;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-strong);
+}
+
+.title {
+  margin: 0.05rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--color-brown, #3d3229);
+}
+
+.count {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  padding: 0 1rem;
+}
+
+/* Dos por fila en móvil, más en pantallas grandes. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1180px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.state,
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 18px;
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.error {
+  border-style: solid;
+  color: var(--color-error);
+}
+
+.stateAction {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border-radius: 12px;
+  background: var(--color-text);
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back {
+    transition: none;
+  }
+}

@@ -5,6 +5,7 @@
 
 .heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
@@ -13,6 +14,7 @@
 
 .heading h2 {
   margin: 0;
+  white-space: nowrap;
   font-family: var(--font-display);
   font-size: 1.5rem;
   color: var(--color-brown, #3d3229);
@@ -46,8 +48,8 @@
 
 .list {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
   margin: 0;
   padding: 0;
   list-style: none;

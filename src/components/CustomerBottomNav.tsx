@@ -68,7 +68,6 @@ function CustomerBottomNav() {
           className={({ isActive }) =>
             `${styles.tab} ${isActive ? styles.tabActive : ''} ${tab.icon === 'calendar' ? styles.tabFeatured : ''}`
           }
-          end={tab.to === '/app/explorar'}
         >
           <span className={styles.icon}>
             <NavIcon name={tab.icon} />
