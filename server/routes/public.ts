@@ -1132,6 +1132,8 @@ router.get('/cancel/preview', async (req: Request<Record<string, string>>, res: 
             warning: xpPenalty.warning,
             xpAfter: xpPenalty.xpAfter,
             xpBefore: xpPenalty.xpBefore,
+            // Sin esto, la web y la app no sabían que cancelar con 24 h o más es gratis.
+            free: xpPenalty.free === true,
           }
         : null,
       hasCustomerAccount: Boolean(xpPenalty),
@@ -1264,6 +1266,7 @@ router.post('/cancel', async (req: Request<Record<string, string>>, res: Respons
             xpAfter: penalty.xpAfter,
             xpBefore: penalty.xpBefore,
             shielded: penalty.shielded === true,
+            free: penalty.free === true,
           }
         : null,
     })
