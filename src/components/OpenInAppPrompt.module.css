@@ -1,0 +1,130 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 12px 12px;
+  background: rgba(36, 28, 21, 0.45);
+  animation: fadeIn 200ms ease-out;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 440px;
+  padding: 12px 20px 20px;
+  border-radius: 24px;
+  background: var(--color-cream);
+  box-shadow: 0 18px 48px rgba(36, 28, 21, 0.28);
+  animation: rise 260ms ease-out;
+}
+
+.grabber {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 14px;
+  border-radius: 999px;
+  background: rgba(92, 74, 58, 0.2);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-brown-light);
+}
+
+.title {
+  margin: 4px 0 6px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--color-text);
+}
+
+.text {
+  margin: 0 0 18px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: grid;
+  gap: 10px;
+}
+
+.primary,
+.secondary {
+  min-height: 48px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.primary {
+  border: 0;
+  background: #c2461f;
+  color: #fff;
+}
+
+.secondary {
+  border: 1px solid rgba(92, 74, 58, 0.25);
+  background: #fff;
+  color: var(--color-text);
+}
+
+.primary:active,
+.secondary:active {
+  transform: scale(0.97);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 2px solid #c2461f;
+  outline-offset: 3px;
+}
+
+.toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 16px;
+  z-index: 10050;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #2b2119;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.45;
+  box-shadow: 0 12px 32px rgba(36, 28, 21, 0.3);
+  animation: rise 220ms ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .sheet,
+  .toast {
+    animation: fadeIn 150ms linear;
+  }
+}

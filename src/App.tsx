@@ -22,6 +22,7 @@ import VerifyEmailPage from './pages/VerifyEmailPage'
 import CustomerOnboardingPage from './pages/CustomerOnboardingPage'
 import NotFoundPage from './pages/NotFoundPage'
 import CookieConsentBanner from './components/CookieConsentBanner'
+import OpenInAppPrompt from './components/OpenInAppPrompt'
 import RouteTitle from './components/RouteTitle'
 import { getPostLoginPath } from './utils/authProfile'
 
@@ -311,6 +312,7 @@ function App() {
       <Route path="*" element={<AuthenticatedRoutes />} />
     </Routes>
     <CookieConsentBanner />
+    <OpenInAppPrompt />
     </>
   )
 }
