@@ -80,10 +80,16 @@ Situación de partida (20 nov 2026):
    Mantel, hora de España, no cobrar dos veces).
    Probado en la app (Misiones: semana, mes, logros y bonus). Web publicada; verla en
    pantalla queda en «Necesita a Fabi».
-6. ⏳ **Textos y tipos compartidos.** Una carpeta común (`shared/`) con los tipos de
-   datos de la API, los textos de avisos y las funciones pequeñas (fechas en hora de
-   España, precios). La web y el servidor la importan; la app la recibe con un comando
-   que la copia y comprueba que no se ha tocado a mano.
+6. ✅ **Código común web → app.** (20 nov) La web es la fuente. La lista está en
+   `C:\adelia\scripts\shared-files.mjs` (19 archivos: juego, retos, reglas de reserva,
+   avisos, modos de reserva). En la app:
+   - `npm run sync:shared` los copia desde la web (con una cabecera «no lo cambies aquí»);
+   - `npm run check:parity` falla si alguien los cambia a mano en la app.
+   Regla: si hay que cambiar uno, se cambia en la web y se sincroniza. Lo que aún difiere
+   entre web y app es sobre todo código de pantalla o de acceso a datos de cada plataforma;
+   lo que es lógica de negocio ya está en el servidor (puntos 1–5).
+   Las copias del catálogo del juego en el servidor (`server/gamification/missions`) se
+   quitan en el punto 9.
 7. ✅ **Escrituras directas a la base de datos.** (20 nov, adelantado al 6 por seguridad)
    - **Índice público de Buscar (`restaurantIndex`)**: antes lo escribía el panel del
      restaurante desde el navegador y la regla le dejaba cambiar campos como la posición
