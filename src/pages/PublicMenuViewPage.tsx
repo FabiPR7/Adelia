@@ -4,7 +4,7 @@ import MenuPdfViewer from '../components/menu/MenuPdfViewer'
 import MenuPreview from '../components/menu/MenuPreview'
 import MenuPromotionsFab from '../components/MenuPromotionsFab'
 import { fetchPublicMenu, type PublicBookingCompany } from '../services/publicApi'
-import { companyAcceptsReservations, restaurantReserveCtaShortLabel } from '../data/companyReservationMode'
+import { BOOKING_RULES_UNKNOWN, type BookingRules } from '../types/bookingRules'
 import { hasMenuPdf, type MenuBoard, type MenuNode } from '../types/company'
 import { trackAppEvent } from '../utils/appEvents'
 import styles from './PublicMenuViewPage.module.css'
@@ -16,6 +16,7 @@ function PublicMenuViewPage() {
   const menuHref = `/reservar/${slug}/carta`
 
   const [company, setCompany] = useState<PublicBookingCompany | null>(null)
+  const [bookingRules, setBookingRules] = useState<BookingRules>(BOOKING_RULES_UNKNOWN)
   const [boards, setBoards] = useState<MenuBoard[]>([])
   const [nodes, setNodes] = useState<MenuNode[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -35,6 +36,7 @@ function PublicMenuViewPage() {
         }
 
         setCompany(data.company)
+        setBookingRules(data.booking)
         setBoards(data.boards)
         setNodes(data.nodes)
       } catch (err) {
@@ -92,7 +94,7 @@ function PublicMenuViewPage() {
     )
   }
 
-  const reserveHref = companyAcceptsReservations(company.reservationMode)
+  const reserveHref = bookingRules.canReserve
     ? `/reservar/${slug}?reservar=1`
     : `/reservar/${slug}`
 
@@ -102,7 +104,7 @@ function PublicMenuViewPage() {
         <span aria-hidden="true">←</span> Cartas
       </Link>
       <Link to={reserveHref} className={styles.reserveLink}>
-        {restaurantReserveCtaShortLabel(company.reservationMode)}
+        {bookingRules.canReserve ? 'Reservar' : 'Ver restaurante'}
       </Link>
     </>
   )

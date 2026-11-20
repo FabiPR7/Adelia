@@ -25,11 +25,7 @@ import {
   getPriceRangeSymbol,
   getVenueTypeLabel,
 } from '../../data/companyProfileFacilities'
-import {
-  companyAcceptsReservations,
-  companyRequiresReservation,
-  reservationModeHint,
-} from '../../data/companyReservationMode'
+import type { BookingRules } from '../../types/bookingRules'
 import RestaurantPrestige from './RestaurantPrestige'
 import RestaurantVisitStatus from './RestaurantVisitStatus'
 import styles from './BookingRestaurantLanding.module.css'
@@ -46,8 +42,8 @@ interface BookingRestaurantLandingProps {
   backHref?: string | null
   backLabel?: string
   onReserve: () => void
-  /** false si el local aún no tiene mesas: no se ofrece reservar. */
-  hasTables?: boolean
+  /** Reglas de reserva que manda el servidor (si se puede reservar y el aviso). */
+  booking: BookingRules
 }
 
 function formatTodaySchedule(company: PublicBookingCompany): string | null {
@@ -77,7 +73,7 @@ export default function BookingRestaurantLanding({
   backHref = '/',
   backLabel = '← Menú principal',
   onReserve,
-  hasTables = true,
+  booking,
 }: BookingRestaurantLandingProps) {
   const [routeMapOpen, setRouteMapOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
@@ -88,8 +84,8 @@ export default function BookingRestaurantLanding({
   const locationLine = formatRestaurantLocation(company)
   const restaurantCoords = toGeoCoordinates(company.latitude, company.longitude)
   const mainPhotoIndex = company.mainPhotoIndex ?? 0
-  // Sin mesas no se puede reservar: no se enseña el botón (el local ya recibe un aviso).
-  const acceptsReservations = companyAcceptsReservations(company.reservationMode) && hasTables
+  // Lo decide el servidor (por ejemplo, sin mesas no se puede reservar).
+  const acceptsReservations = booking.canReserve
 
   useEffect(() => {
     let cancelled = false
@@ -140,13 +136,7 @@ export default function BookingRestaurantLanding({
     ? rating.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
     : null
   const todaySchedule = formatTodaySchedule(company)
-  const reservationNote = !hasTables && companyAcceptsReservations(company.reservationMode)
-    ? 'Por ahora no acepta reservas por Adelia. Puedes ir sin reserva.'
-    : companyRequiresReservation(company.reservationMode)
-    ? 'Este local trabaja solo con reserva.'
-    : acceptsReservations
-      ? 'Reserva opcional: también puedes venir sin mesa.'
-      : reservationModeHint(company.reservationMode)
+  const reservationNote = booking.note
 
   const mainPhotoUrl = getCompanyMainPhotoUrl(allPhotos, mainPhotoIndex)
   const heroImage = mainPhotoUrl

@@ -1,3 +1,4 @@
+import { BOOKING_RULES_UNKNOWN, type BookingRules } from '../types/bookingRules'
 import type { CompanySchedule, FloorPlan, Reservation } from '../types'
 import { executeRecaptcha, loadRecaptchaScript } from './recaptcha'
 import type {
@@ -136,6 +137,8 @@ async function readPublicError(response: Response, fallback: string): Promise<st
 export async function fetchPublicBookingPage(slug: string): Promise<{
   company: PublicBookingCompany
   tables: PublicBookingTable[]
+  /** Lo decide el servidor: si se puede reservar, avisos y fianza. */
+  booking: BookingRules
 }> {
   return cachedPublicGet(`booking:${slug}`, async () => {
     const response = await fetch(`${API_BASE}/api/public/booking/${encodeURIComponent(slug)}`)
@@ -147,6 +150,7 @@ export async function fetchPublicBookingPage(slug: string): Promise<{
     const payload = (await response.json()) as {
       company?: PublicBookingCompany
       tables?: PublicBookingTable[]
+      booking?: BookingRules
     }
 
     if (!payload.company) {
@@ -155,6 +159,7 @@ export async function fetchPublicBookingPage(slug: string): Promise<{
 
     return {
       company: payload.company,
+      booking: payload.booking ?? BOOKING_RULES_UNKNOWN,
       tables: (payload.tables ?? []).map((table) => ({
         id: table.id,
         name: table.name,
@@ -251,11 +256,12 @@ export async function fetchPublicReviews(slug: string): Promise<PublicReviewsRes
 
 export async function fetchPublicMenu(slug: string): Promise<{
   company: PublicBookingCompany
+  booking: BookingRules
   boards: MenuBoard[]
   nodes: MenuNode[]
 }> {
   try {
-    const { company } = await fetchPublicBookingPage(slug)
+    const { company, booking } = await fetchPublicBookingPage(slug)
     const [boards, nodes] = await Promise.all([
       getPublicCompanyMenuBoards(company.id, company.planId),
       getPublicCompanyMenuNodes(company.id),
@@ -266,6 +272,7 @@ export async function fetchPublicMenu(slug: string): Promise<{
 
     return {
       company,
+      booking,
       boards,
       nodes: activeNodes,
     }

@@ -9,24 +9,6 @@ export type ReservationDepositStatus =
   | 'released'
   | 'failed'
 
-export function computeDepositAmountCents(
-  pax: number,
-  depositMinPax: number | null | undefined,
-  depositPerGuestCents: number | null | undefined,
-): number {
-  if (
-    typeof depositMinPax !== 'number'
-    || depositMinPax <= 0
-    || typeof depositPerGuestCents !== 'number'
-    || depositPerGuestCents <= 0
-    || pax < depositMinPax
-  ) {
-    return 0
-  }
-
-  return depositPerGuestCents * pax
-}
-
 function getReservationStartTime(reservation: Record<string, unknown>): Date | null {
   const startTime = reservation.startTime as { toDate?: () => Date } | undefined
 

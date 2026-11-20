@@ -53,13 +53,8 @@ import {
 } from '../utils/promotionBooking'
 import { resolvePromotionHighlight, formatPromotionMinimumSpendBookingNote } from '../utils/promotionOffer'
 import { groupBookableSlots } from '../utils/bookingSlotGroups'
-import {
-  companyCanCollectReservationDeposits,
-  companyRequiresReservationDeposit,
-  companyRequiresStripeDeposit,
-  computeReservationDepositCents,
-  formatDepositAuthorizationSummary,
-} from '../utils/reservationDeposit'
+import { formatDepositAuthorizationSummary } from '../utils/reservationDeposit'
+import { BOOKING_RULES_UNKNOWN, bookingDepositCents, type BookingRules } from '../types/bookingRules'
 import {
   DEPOSIT_PASS_ITEM_ID,
   EXTRA_PAX_ITEM_ID,
@@ -69,9 +64,6 @@ import {
 import BookingItemOption from '../components/booking/BookingItemOption'
 import { personNameError } from '../utils/personName'
 import GuestSignupCard, { saveGuestSignupPrefill } from '../components/booking/GuestSignupCard'
-import {
-  companyAcceptsReservations,
-} from '../data/companyReservationMode'
 import {
   areFloorPlansEnabled,
   enabledFloorPlans,
@@ -111,6 +103,7 @@ function PublicBookingPage() {
     }
   }, [company?.name, company?.municipality])
   const [tables, setTables] = useState<PublicBookingTable[]>([])
+  const [bookingRules, setBookingRules] = useState<BookingRules>(BOOKING_RULES_UNKNOWN)
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [dayReservations, setDayReservations] = useState<Reservation[]>([])
   const [viewMode, setViewMode] = useState<ViewMode>('hours')
@@ -156,15 +149,11 @@ function PublicBookingPage() {
   const schedule = company?.schedule
   const hasDepositPass = inventoryQuantity(profile?.gamification?.inventory, DEPOSIT_PASS_ITEM_ID) > 0
   const hasExtraPax = inventoryQuantity(profile?.gamification?.inventory, EXTRA_PAX_ITEM_ID) > 0
-  const depositRequired = company
-    ? companyRequiresStripeDeposit(pax, company) && !(useDepositPass && hasDepositPass)
-    : false
-  const depositUnavailable = company
-    ? companyRequiresReservationDeposit(pax, company)
-      && computeReservationDepositCents(pax, company) > 0
-      && !companyCanCollectReservationDeposits(company)
-      && !(useDepositPass && hasDepositPass)
-    : false
+  // La regla de la fianza la manda el servidor; aquí solo se aplica a los comensales elegidos.
+  const depositCents = bookingDepositCents(bookingRules, pax)
+  const depositUsesPass = useDepositPass && hasDepositPass
+  const depositRequired = depositCents > 0 && bookingRules.depositsReady && !depositUsesPass
+  const depositUnavailable = depositCents > 0 && !bookingRules.depositsReady && !depositUsesPass
 
   const loadAvailability = useCallback(async () => {
     if (!slug) {
@@ -192,7 +181,7 @@ function PublicBookingPage() {
     let cancelled = false
 
     const loadDeposit = async () => {
-      if (!companyRequiresStripeDeposit(pax, company) || useDepositPass) {
+      if (!(depositCents > 0 && bookingRules.depositsReady) || useDepositPass) {
         setDepositIntent(null)
         setDepositPaymentError(null)
         setDepositPaymentReady(false)
@@ -233,7 +222,7 @@ function PublicBookingPage() {
     // Solo lo que afecta a la fianza: con el objeto company entero se pedía dos veces
     // (al recargar sus datos) y el formulario se quedaba con un pago ya anulado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, company?.id, company?.depositEnabled, company?.depositMinPax, company?.depositPerGuestCents, slug, pax, useDepositPass, selectedDate, selectedTime])
+  }, [step, company?.id, depositCents, bookingRules.depositsReady, slug, pax, useDepositPass, selectedDate, selectedTime])
 
   useEffect(() => {
     let cancelled = false
@@ -247,6 +236,7 @@ function PublicBookingPage() {
         if (cancelled) return
         setCompany(data.company)
         setTables(data.tables)
+        setBookingRules(data.booking)
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Restaurante no encontrado.')
@@ -284,13 +274,13 @@ function PublicBookingPage() {
   }, [company?.id, promoId])
 
   useEffect(() => {
-    if (!company || !companyAcceptsReservations(company.reservationMode)) {
+    if (!company || !bookingRules.canReserve) {
       return
     }
     if (searchParams.get('reservar') === '1') {
       setPageView('booking')
     }
-  }, [company, searchParams])
+  }, [company, bookingRules.canReserve, searchParams])
 
   useEffect(() => {
     if (profile?.role !== 'customer') {
@@ -535,7 +525,7 @@ function PublicBookingPage() {
   }, [navigate, slug])
 
   const openBookingFlow = useCallback(() => {
-    if (!companyAcceptsReservations(company?.reservationMode)) {
+    if (!bookingRules.canReserve) {
       return
     }
     setPageView('booking')
@@ -546,7 +536,7 @@ function PublicBookingPage() {
       { pathname: `/reservar/${slug}`, search: params.toString() },
       { replace: true },
     )
-  }, [company?.reservationMode, location.search, navigate, slug])
+  }, [bookingRules.canReserve, location.search, navigate, slug])
 
   const trySelectPromoSlot = (time: string, availableTimes: string[]): boolean => {
     if (!activePromo || !isPromoTimeConstrained(activePromo)) {
@@ -760,8 +750,8 @@ function PublicBookingPage() {
           ? {
               amountCents: depositIntent.amountCents,
               pax,
-              perGuestCents: company.depositPerGuestCents ?? Math.round(depositIntent.amountCents / pax),
-              cancellationHours: company.depositCancellationHours ?? null,
+              perGuestCents: bookingRules.deposit?.perGuestCents ?? Math.round(depositIntent.amountCents / pax),
+              cancellationHours: bookingRules.deposit?.cancellationHours ?? null,
             }
           : null,
       )
@@ -857,7 +847,7 @@ function PublicBookingPage() {
         backHref={landingBackHref}
         backLabel={landingBackLabel}
         onReserve={openBookingFlow}
-        hasTables={tables.length > 0}
+        booking={bookingRules}
       />
     )
   }
@@ -1176,7 +1166,7 @@ function PublicBookingPage() {
                     </label>
                     {(() => {
                       const extraPaxItem = hasExtraPax ? getInventoryItem(EXTRA_PAX_ITEM_ID) : null
-                      const depositPassItem = hasDepositPass && company && companyRequiresReservationDeposit(pax, company)
+                      const depositPassItem = hasDepositPass && depositCents > 0
                         ? getInventoryItem(DEPOSIT_PASS_ITEM_ID)
                         : null
                       if (!extraPaxItem && !depositPassItem) {
@@ -1262,9 +1252,9 @@ function PublicBookingPage() {
                         amountCents={depositIntent.amountCents}
                         pax={pax}
                         perGuestCents={
-                          company.depositPerGuestCents ?? Math.round(depositIntent.amountCents / pax)
+                          bookingRules.deposit?.perGuestCents ?? Math.round(depositIntent.amountCents / pax)
                         }
-                        cancellationHours={company.depositCancellationHours}
+                        cancellationHours={bookingRules.deposit?.cancellationHours ?? null}
                         onReadyChange={setDepositPaymentReady}
                         onError={setDepositPaymentError}
                       />

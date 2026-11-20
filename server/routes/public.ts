@@ -11,7 +11,6 @@ import {
 } from '../reservationSlots.ts'
 import { defaultSchedule, companyAcceptsReservations, parseCompanyReservationMode } from '../utils.ts'
 import {
-  computeDepositAmountCents,
   createDepositPaymentIntent,
   verifyDepositPaymentIntent,
   previewDepositCancellation,
@@ -25,6 +24,7 @@ import { cancelInvitesForReservation, createReservationInvites } from '../reserv
 import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../reservations/bookReservation.ts'
 import { readCompanyOps } from '../data/companyOps.ts'
 import { madridDayRange } from '../utils/madridDateTime.ts'
+import { buildBookingRules, depositAmountCents, depositRuleFromCompany } from '../reservations/bookingRules.ts'
 import { clampEnabledMaps, parseStoredPlanId, planAllowsDeposits, planMaxTables } from '../company/planLimits.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { consumeInventoryItem, numberRecord } from '../gamification/inventory.ts'
@@ -418,22 +418,13 @@ router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>
 
     const pax = asInt(req.body?.pax, 1, 50, 'El número de comensales')
 
-    const depositMinPax = typeof record.data.depositMinPax === 'number'
-      ? record.data.depositMinPax
-      : null
-    const depositPerGuestCents = typeof record.data.depositPerGuestCents === 'number'
-      ? record.data.depositPerGuestCents
-      : null
-    const depositEnabled = record.data.depositEnabled === true || (record.data.depositEnabled !== false
-      && typeof depositMinPax === 'number' && depositMinPax > 0)
     const stripeAccountId = typeof record.data.stripeAccountId === 'string'
       ? record.data.stripeAccountId
       : null
     const stripeChargesEnabled = record.data.stripeChargesEnabled === true
 
-    const amountCents = depositEnabled
-      ? computeDepositAmountCents(pax, depositMinPax, depositPerGuestCents)
-      : 0
+    const depositRule = depositRuleFromCompany(record.data)
+    const amountCents = depositAmountCents(depositRule, pax)
 
     if (amountCents <= 0) {
       res.json({ required: false, amountCents: 0 })
@@ -467,8 +458,8 @@ router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>
     res.json({
       required: true,
       amountCents,
-      depositMinPax,
-      depositPerGuestCents,
+      depositMinPax: depositRule?.fromPax ?? null,
+      depositPerGuestCents: depositRule?.perGuestCents ?? null,
       stripeAccountId,
       clientSecret: payment.clientSecret,
       paymentIntentId: payment.paymentIntentId,
@@ -549,9 +540,10 @@ router.get('/:slug/reviews', async (req: Request<Record<string, string>>, res: R
 
 router.get('/:slug', async (req: Request<Record<string, string>>, res: Response) => {
   try {
-    const company = await getCompanyBySlug(req.params.slug)
+    const record = await getCompanyRecordBySlug(req.params.slug)
+    const company = record?.public
 
-    if (!company) {
+    if (!record || !company) {
       res.status(404).json({ error: 'Restaurante no encontrado.' })
       return
     }
@@ -572,7 +564,8 @@ router.get('/:slug', async (req: Request<Record<string, string>>, res: Response)
     }
 
     allowPublicCache(res, 60)
-    res.json({ company, tables })
+    // Las reglas (si se puede reservar, avisos y fianza) se deciden aquí, no en la web ni en la app.
+    res.json({ company, tables, booking: buildBookingRules(record.data, tables.length) })
   } catch (error) {
     console.error('Public booking load error:', error)
     res.status(500).json({ error: 'No se pudo cargar la información del restaurante.' })
@@ -882,26 +875,12 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
       reservationData.customerUid = customer.uid
     }
 
-    const depositMinPax = typeof record.data.depositMinPax === 'number'
-      ? record.data.depositMinPax
-      : null
-    const depositPerGuestCents = typeof record.data.depositPerGuestCents === 'number'
-      ? record.data.depositPerGuestCents
-      : null
-    const depositEnabled = record.data.depositEnabled === true || (record.data.depositEnabled !== false
-      && typeof depositMinPax === 'number' && depositMinPax > 0)
     const stripeAccountId = typeof record.data.stripeAccountId === 'string'
       ? record.data.stripeAccountId
       : null
-    const depositAmountCents = depositEnabled && planAllowsDeposits(parseStoredPlanId(record.data.planId))
-      ? computeDepositAmountCents(
-        guestCount,
-        depositMinPax,
-        depositPerGuestCents,
-      )
-      : 0
+    const reservationDepositCents = depositAmountCents(depositRuleFromCompany(record.data), guestCount)
 
-    const skipDeposit = req.body?.useDepositPass === true && depositAmountCents > 0
+    const skipDeposit = req.body?.useDepositPass === true && reservationDepositCents > 0
     const useExtraPax = req.body?.useExtraPax === true && guestCount > tableCapacity
 
     if ((skipDeposit || useExtraPax) && !customer) {
@@ -909,12 +888,12 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
       return
     }
 
-    if (depositAmountCents > 0 && !skipDeposit && depositStartTooFar(startTime)) {
+    if (reservationDepositCents > 0 && !skipDeposit && depositStartTooFar(startTime)) {
       res.status(409).json({ error: DEPOSIT_TOO_FAR_MESSAGE })
       return
     }
 
-    if (depositAmountCents > 0 && !skipDeposit) {
+    if (reservationDepositCents > 0 && !skipDeposit) {
       const depositPaymentIntentId = typeof depositPaymentIntentIdRaw === 'string'
         ? depositPaymentIntentIdRaw.trim()
         : ''
@@ -928,7 +907,7 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
         await verifyDepositPaymentIntent({
           paymentIntentId: depositPaymentIntentId,
           connectedAccountId: stripeAccountId,
-          expectedAmountCents: depositAmountCents,
+          expectedAmountCents: reservationDepositCents,
           companyId: record.id,
         })
       } catch (depositError) {
@@ -952,7 +931,7 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
         return
       }
 
-      reservationData.depositAmountCents = depositAmountCents
+      reservationData.depositAmountCents = reservationDepositCents
       reservationData.depositPaymentIntentId = depositPaymentIntentId
       reservationData.depositStatus = 'authorized'
     }

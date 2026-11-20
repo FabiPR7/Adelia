@@ -10,7 +10,6 @@ import {
   type PublicCancelXpPenalty,
 } from '../services/publicApi'
 import { buildPublicDepositCancelWarningMessage } from '../utils/reservationDeposit'
-import { companyAcceptsReservations } from '../data/companyReservationMode'
 import {
   formatCancelPenaltyPreview,
   formatCancelPenaltyResult,
@@ -42,6 +41,7 @@ function PublicCancelReservation() {
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''
   const [company, setCompany] = useState<PublicBookingCompany | null>(null)
+  const [canReserve, setCanReserve] = useState(false)
   const [cancelPreview, setCancelPreview] = useState<PublicCancelPreview | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -72,6 +72,7 @@ function PublicCancelReservation() {
 
         if (!cancelled) {
           setCompany(bookingPage?.company ?? null)
+          setCanReserve(bookingPage?.booking.canReserve === true)
           setCancelPreview(preview)
           setUseShield((preview.cancelShieldCount ?? 0) > 0)
         }
@@ -276,7 +277,7 @@ function PublicCancelReservation() {
     <PublicBookingShell
       company={company}
       legalFrom={`/reservar/${slug}/cancelar`}
-      reserveHref={companyAcceptsReservations(company.reservationMode) ? `/reservar/${slug}` : null}
+      reserveHref={canReserve ? `/reservar/${slug}` : null}
     >
       {content}
     </PublicBookingShell>
