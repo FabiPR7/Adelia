@@ -24,6 +24,7 @@ import { cancelInvitesForReservation, createReservationInvites } from '../reserv
 import { createReservationWithOccupiedSlot, SlotUnavailableError } from '../reservations/bookReservation.ts'
 import { readCompanyOps } from '../data/companyOps.ts'
 import { madridDayRange } from '../utils/madridDateTime.ts'
+import { computeDaySlots, promoDayBlockMessage, promoSlotReason, isPromoTimeConstrained, type SlotPromotion } from '../reservations/slotAvailability.ts'
 import { buildBookingRules, depositAmountCents, depositRuleFromCompany } from '../reservations/bookingRules.ts'
 import { clampEnabledMaps, parseStoredPlanId, planAllowsDeposits, planMaxTables } from '../company/planLimits.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
@@ -629,11 +630,48 @@ router.get('/:slug/availability', async (req: Request<Record<string, string>>, r
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
 
+    // Horas y mesas libres (y, con ?promotionId=, qué horas permite la promo): se
+    // calculan aquí, en hora de España; la web y la app solo las pintan.
+    const tables = await loadBookableTables(company.id, company.planId)
+    const slots = computeDaySlots({
+      date,
+      schedule: company.schedule,
+      durationMinutes: company.timeSlotMinutes,
+      tableIds: tables.map((table) => table.id),
+      reservations: reservations.map((item) => ({ ...item, startTime: new Date(item.startTime), endTime: new Date(item.endTime) })),
+    })
+    const promotionParam = typeof req.query.promotionId === 'string' ? req.query.promotionId.trim() : ''
+    let promotion: SlotPromotion | null = null
+    if (promotionParam && /^[A-Za-z0-9_-]{1,120}$/.test(promotionParam)) {
+      const promoSnap = await adminDb.collection('companies').doc(company.id).collection('promotions').doc(promotionParam).get()
+      const data = promoSnap.data()
+      if (data && data.active === true) {
+        promotion = {
+          type: String(data.type ?? ''),
+          activeFromTime: String(data.activeFromTime ?? ''),
+          activeToTime: String(data.activeToTime ?? ''),
+          arrivalWindowMinutes: typeof data.arrivalWindowMinutes === 'number' ? data.arrivalWindowMinutes : null,
+        }
+      }
+    }
+    const availableTimes = slots.filter((slot) => slot.freeTableIds.length > 0).map((slot) => slot.time)
+
     // Cache corta: la disponibilidad cambia según entran reservas, pero la
     // reserva final está protegida por transacción (devuelve 409 si el hueco
     // se ocupó mientras tanto), así que unos segundos de desfase son seguros.
     allowPublicCache(res, 15)
-    res.json({ date: dateParam, reservations })
+    res.json({
+      date: dateParam,
+      reservations,
+      slots: slots.map((slot) => ({
+        ...slot,
+        promoReason: promotion && slot.freeTableIds.length > 0
+          ? promoSlotReason(promotion, slot.time, date, availableTimes)
+          : null,
+      })),
+      promoDayBlock: promotion ? promoDayBlockMessage(promotion, date) : null,
+      promoTimeConstrained: promotion ? isPromoTimeConstrained(promotion) : false,
+    })
   } catch (error) {
     console.error('Public availability error:', error)
     res.status(500).json({ error: 'No se pudo cargar la disponibilidad.' })
@@ -831,6 +869,46 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
       ) {
         res.status(409).json({ error: `${customerLimitMessage(claimLimit)} Puedes reservar sin la promoción.` })
         return
+      }
+
+      // Promos con horario: la hora tiene que estar dentro de la franja (y, con asistencia
+      // puntual, ser la primera libre). Antes solo lo comprobaban la web y la app.
+      const slotPromotion: SlotPromotion = {
+        type: String(promoData.type ?? ''),
+        activeFromTime: String(promoData.activeFromTime ?? ''),
+        activeToTime: String(promoData.activeToTime ?? ''),
+        arrivalWindowMinutes: typeof promoData.arrivalWindowMinutes === 'number' ? promoData.arrivalWindowMinutes : null,
+      }
+      if (isPromoTimeConstrained(slotPromotion)) {
+        const { start: dayStart, end: dayEnd } = madridDayRange(date)
+        const [daySnap, dayTables] = await Promise.all([
+          adminDb.collection('reservations')
+            .where('companyId', '==', company.id)
+            .where('startTime', '>=', Timestamp.fromDate(dayStart))
+            .where('startTime', '<', Timestamp.fromDate(dayEnd))
+            .limit(600)
+            .get(),
+          loadBookableTables(company.id, company.planId),
+        ])
+        const dayReservations = daySnap.docs.flatMap((docSnap) => {
+          const data = docSnap.data()
+          const startTime = data.startTime?.toDate?.() as Date | undefined
+          const endTime = data.endTime?.toDate?.() as Date | undefined
+          if (!startTime || !endTime || data.status === 'cancelled') return []
+          return [{ id: docSnap.id, tableId: String(data.tableId ?? ''), startTime, endTime, status: String(data.status ?? '') }]
+        })
+        const freeTimes = computeDaySlots({
+          date,
+          schedule: company.schedule,
+          durationMinutes: company.timeSlotMinutes,
+          tableIds: dayTables.map((item) => item.id),
+          reservations: dayReservations,
+        }).filter((slot) => slot.freeTableIds.length > 0).map((slot) => slot.time)
+        const reason = promoSlotReason(slotPromotion, bookingTime, date, freeTimes)
+        if (reason) {
+          res.status(409).json({ error: reason })
+          return
+        }
       }
 
       if (

@@ -14,20 +14,16 @@ import { useCustomerFriends } from '../hooks/useCustomerFriends'
 import { createPublicDepositIntent, type PublicDepositIntentResponse } from '../services/publicDepositApi'
 import RecaptchaNotice from '../components/RecaptchaNotice'
 import {
-  availabilityToReservations,
   createPublicReservation,
   fetchPublicAvailability,
+  type DayAvailability,
   fetchPublicBookingPage,
   type PublicBookingCompany,
   type PublicBookingTable,
 } from '../services/publicApi'
-import type { Reservation } from '../types'
 import {
   formatSlotEndTime,
   getDaySchedule,
-  getHourSlotStates,
-  getSlotStatesForTable,
-  getTableStatesForSlot,
 } from '../utils/reservationSlots'
 import {
   assertReservationStartInFuture,
@@ -45,11 +41,8 @@ import { trackAppEvent } from '../utils/appEvents'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
 import {
   canRedeemPromotionAsCustomer,
-  getAttendanceDayBlockMessage,
   getPromoBookingHint,
-  getPromoSlotDisabledReason,
   isPromoTimeConstrained,
-  validatePromoSlotSelection,
 } from '../utils/promotionBooking'
 import { resolvePromotionHighlight, formatPromotionMinimumSpendBookingNote } from '../utils/promotionOffer'
 import { groupBookableSlots } from '../utils/bookingSlotGroups'
@@ -105,7 +98,8 @@ function PublicBookingPage() {
   const [tables, setTables] = useState<PublicBookingTable[]>([])
   const [bookingRules, setBookingRules] = useState<BookingRules>(BOOKING_RULES_UNKNOWN)
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [dayReservations, setDayReservations] = useState<Reservation[]>([])
+  // Horas y mesas libres del día (y qué permite la promo): las calcula el servidor.
+  const [dayAvailability, setDayAvailability] = useState<DayAvailability>({ slots: [], promoDayBlock: null })
   const [viewMode, setViewMode] = useState<ViewMode>('hours')
   const [selectedBookingMapId, setSelectedBookingMapId] = useState('')
   const [step, setStep] = useState<BookingStep>('pick')
@@ -164,14 +158,13 @@ function PublicBookingPage() {
     setError(null)
 
     try {
-      const availability = await fetchPublicAvailability(slug, selectedDate)
-      setDayReservations(availabilityToReservations(availability))
+      setDayAvailability(await fetchPublicAvailability(slug, selectedDate, activePromo?.id ?? null))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cargar la disponibilidad.')
     } finally {
       setIsAvailabilityLoading(false)
     }
-  }, [slug, selectedDate])
+  }, [slug, selectedDate, activePromo?.id])
 
   useEffect(() => {
     if (step !== 'form' || !company || !slug) {
@@ -397,116 +390,54 @@ function PublicBookingPage() {
       ?? null
   }
 
-  const hourSlots = useMemo(() => {
-    if (!schedule) {
-      return []
-    }
-
-    return getHourSlotStates(
-      selectedDate,
-      schedule,
-      durationMinutes,
-      durationMinutes,
-      tables,
-      dayReservations,
-    )
-  }, [schedule, selectedDate, durationMinutes, tables, dayReservations])
-
-  const availableHourTimes = useMemo(
-    () => hourSlots.filter((slot) => slot.available).map((slot) => slot.time),
-    [hourSlots],
+  const hourSlots = useMemo(
+    () => dayAvailability.slots.map((slot) => ({ time: slot.time, available: slot.freeTableIds.length > 0 })),
+    [dayAvailability],
   )
 
-  const enrichedHourSlots = useMemo(() => {
-    if (!activePromo || !isPromoTimeConstrained(activePromo)) {
-      return hourSlots.map((slot) => ({ ...slot, promoBlocked: false, promoReason: undefined as string | undefined }))
-    }
+  /** Por qué la promo no deja reservar a esa hora (lo decide el servidor). */
+  const promoReasonFor = useCallback(
+    (time: string) => dayAvailability.slots.find((slot) => slot.time === time)?.promoReason ?? null,
+    [dayAvailability],
+  )
 
-    return hourSlots.map((slot) => {
-      const reason = getPromoSlotDisabledReason(
-        activePromo,
-        slot.time,
-        slot.available,
-        selectedDate,
-        availableHourTimes,
-      )
-
-      return {
-        ...slot,
-        promoBlocked: Boolean(reason),
-        promoReason: reason ?? undefined,
-      }
-    })
-  }, [hourSlots, activePromo, selectedDate, availableHourTimes])
+  const enrichedHourSlots = useMemo(
+    () => hourSlots.map((slot) => {
+      const reason = slot.available ? promoReasonFor(slot.time) : null
+      return { ...slot, promoBlocked: Boolean(reason), promoReason: reason ?? undefined }
+    }),
+    [hourSlots, promoReasonFor],
+  )
 
   const hourSlotGroups = useMemo(
     () => groupBookableSlots(enrichedHourSlots),
     [enrichedHourSlots],
   )
 
-  const attendanceDayBlock = useMemo(() => {
-    if (!activePromo || activePromo.type !== 'attendance') {
-      return null
-    }
+  const attendanceDayBlock = dayAvailability.promoDayBlock
 
-    return getAttendanceDayBlockMessage(activePromo, selectedDate)
-  }, [activePromo, selectedDate])
-
-  const tableSlots = useMemo(() => {
-    if (!schedule || !selectedTableId) {
-      return []
-    }
-
-    return getSlotStatesForTable(
-      selectedTableId,
-      selectedDate,
-      schedule,
-      durationMinutes,
-      durationMinutes,
-      dayReservations,
-    )
-  }, [schedule, selectedTableId, selectedDate, durationMinutes, dayReservations])
-
-  const availableTableSlotTimes = useMemo(
-    () => tableSlots.filter((slot) => slot.available).map((slot) => slot.time),
-    [tableSlots],
+  const tableSlots = useMemo(
+    () => (selectedTableId
+      ? dayAvailability.slots.map((slot) => ({ time: slot.time, available: slot.freeTableIds.includes(selectedTableId) }))
+      : []),
+    [dayAvailability, selectedTableId],
   )
 
-  const enrichedTableSlots = useMemo(() => {
-    if (!activePromo || !isPromoTimeConstrained(activePromo)) {
-      return tableSlots.map((slot) => ({ ...slot, promoBlocked: false, promoReason: undefined as string | undefined }))
-    }
-
-    return tableSlots.map((slot) => {
-      const reason = getPromoSlotDisabledReason(
-        activePromo,
-        slot.time,
-        slot.available,
-        selectedDate,
-        availableTableSlotTimes,
-      )
-
-      return {
-        ...slot,
-        promoBlocked: Boolean(reason),
-        promoReason: reason ?? undefined,
-      }
-    })
-  }, [tableSlots, activePromo, selectedDate, availableTableSlotTimes])
+  const enrichedTableSlots = useMemo(
+    () => tableSlots.map((slot) => {
+      const reason = slot.available ? promoReasonFor(slot.time) : null
+      return { ...slot, promoBlocked: Boolean(reason), promoReason: reason ?? undefined }
+    }),
+    [tableSlots, promoReasonFor],
+  )
 
   const tablesForSelectedHour = useMemo(() => {
-    if (!selectedTime) {
+    const slot = dayAvailability.slots.find((item) => item.time === selectedTime)
+    if (!slot) {
       return []
     }
-
-    return getTableStatesForSlot(
-      selectedTime,
-      selectedDate,
-      durationMinutes,
-      tables,
-      dayReservations,
-    )
-  }, [selectedTime, selectedDate, durationMinutes, tables, dayReservations])
+    return tables.map((table) => ({ tableId: table.id, available: slot.freeTableIds.includes(table.id) }))
+  }, [dayAvailability, selectedTime, tables])
 
   const resetSelection = () => {
     setStep('pick')
@@ -538,18 +469,13 @@ function PublicBookingPage() {
     )
   }, [bookingRules.canReserve, location.search, navigate, slug])
 
-  const trySelectPromoSlot = (time: string, availableTimes: string[]): boolean => {
+  const trySelectPromoSlot = (time: string): boolean => {
     if (!activePromo || !isPromoTimeConstrained(activePromo)) {
       setPromoSlotError(null)
       return true
     }
 
-    const validationError = validatePromoSlotSelection(
-      activePromo,
-      time,
-      selectedDate,
-      availableTimes,
-    )
+    const validationError = promoReasonFor(time)
 
     if (validationError) {
       setPromoSlotError(validationError)
@@ -566,7 +492,7 @@ function PublicBookingPage() {
   }
 
   const handleSelectHour = (time: string) => {
-    if (!trySelectPromoSlot(time, availableHourTimes)) {
+    if (!trySelectPromoSlot(time)) {
       return
     }
 
@@ -599,7 +525,7 @@ function PublicBookingPage() {
   }
 
   const handleSelectSlotForTable = (time: string) => {
-    if (!trySelectPromoSlot(time, availableTableSlotTimes)) {
+    if (!trySelectPromoSlot(time)) {
       return
     }
 
@@ -682,12 +608,7 @@ function PublicBookingPage() {
     }
 
     if (activePromo && isPromoTimeConstrained(activePromo)) {
-      const promoError = validatePromoSlotSelection(
-        activePromo,
-        selectedTime,
-        selectedDate,
-        viewMode === 'map' ? availableTableSlotTimes : availableHourTimes,
-      )
+      const promoError = promoReasonFor(selectedTime)
       if (promoError) {
         setError(promoError)
         return

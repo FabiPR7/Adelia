@@ -1,5 +1,5 @@
 import { BOOKING_RULES_UNKNOWN, type BookingRules } from '../types/bookingRules'
-import type { CompanySchedule, FloorPlan, Reservation } from '../types'
+import type { CompanySchedule, FloorPlan } from '../types'
 import { executeRecaptcha, loadRecaptchaScript } from './recaptcha'
 import type {
   ReviewMediaItem,
@@ -105,13 +105,6 @@ export interface PublicReviewsResponse {
   reviews: PublicCompanyReview[]
 }
 
-export interface PublicAvailabilityReservation {
-  id: string
-  tableId: string
-  startTime: string
-  endTime: string
-  status: string
-}
 
 export interface PublicBookingPayload {
   date: string
@@ -171,13 +164,29 @@ export async function fetchPublicBookingPage(slug: string): Promise<{
   })
 }
 
+/** Una hora del día con sus mesas libres y, si se reserva con promo, por qué no vale. */
+export interface DayAvailabilitySlot {
+  time: string
+  freeTableIds: string[]
+  promoReason: string | null
+}
+
+/** Disponibilidad de un día: la calcula el servidor (hora de España, mesas y reglas de la promo). */
+export interface DayAvailability {
+  slots: DayAvailabilitySlot[]
+  /** Asistencia puntual: hoy todavía no empieza o ya terminó. */
+  promoDayBlock: string | null
+}
+
 export async function fetchPublicAvailability(
   slug: string,
   date: Date,
-): Promise<PublicAvailabilityReservation[]> {
-  const dateParam = dateToIsoDate(date)
+  promotionId?: string | null,
+): Promise<DayAvailability> {
+  const params = new URLSearchParams({ date: dateToIsoDate(date) })
+  if (promotionId) params.set('promotionId', promotionId)
   const response = await fetch(
-    `${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/availability?date=${encodeURIComponent(dateParam)}`,
+    `${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/availability?${params.toString()}`,
   )
 
   if (!response.ok) {
@@ -185,8 +194,15 @@ export async function fetchPublicAvailability(
     throw new Error(payload.error ?? 'No se pudo cargar la disponibilidad.')
   }
 
-  const payload = (await response.json()) as { reservations?: PublicAvailabilityReservation[] }
-  return payload.reservations ?? []
+  const payload = (await response.json()) as Partial<DayAvailability>
+  return {
+    slots: (payload.slots ?? []).map((slot) => ({
+      time: slot.time,
+      freeTableIds: Array.isArray(slot.freeTableIds) ? slot.freeTableIds : [],
+      promoReason: slot.promoReason ?? null,
+    })),
+    promoDayBlock: payload.promoDayBlock ?? null,
+  }
 }
 
 export async function createPublicReservation(
@@ -281,23 +297,6 @@ export async function fetchPublicMenu(slug: string): Promise<{
   }
 }
 
-export function availabilityToReservations(items: PublicAvailabilityReservation[]): Reservation[] {
-  return items.map((item) => ({
-    id: item.id,
-    companyId: '',
-    tableId: item.tableId,
-    clientName: '',
-    clientEmail: '',
-    clientPhone: '',
-    pax: 0,
-    notes: '',
-    startTime: new Date(item.startTime),
-    endTime: new Date(item.endTime),
-    status: item.status as Reservation['status'],
-    cancelToken: '',
-    createdAt: new Date(),
-  }))
-}
 
 export { dateToIsoDate }
 

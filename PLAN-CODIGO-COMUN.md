@@ -54,9 +54,19 @@ Situación de partida (20 nov 2026):
    Probado en la app. ⚠️ La web no la he podido ver en pantalla (ver «Necesita a Fabi»).
    Las promos puntuales «con reserva» de «En curso» siguen saliendo de tus reservas (que ya
    vienen del servidor); su texto pasa al punto 6.
-4. ⏳ **Horas libres para reservar desde el servidor.** El servidor ya comprueba al
-   reservar; que también devuelva las horas y mesas libres de un día.
-   Quita: `reservationSlots` de web y app.
+4. ✅ **Horas y mesas libres desde el servidor.** (20 nov) `GET /api/public/booking/:slug/availability`
+   devuelve cada hora con sus mesas libres y, con `?promotionId=`, por qué la promo no deja
+   esa hora (`server/reservations/slotAvailability.ts`, en hora de España; antes la web y la
+   app usaban la hora del móvil).
+   **Arreglado un hueco de seguridad:** al reservar con una promo de horario (2x1 de 12 a 16,
+   asistencia puntual) el servidor no comprobaba la franja; solo lo hacían la web y la app.
+   Ahora la reserva lo exige con las mismas reglas.
+   Quitado: el cálculo de horas de la app entero (`reservationSlots`) y las reglas de franja
+   de promo de web y app. La app ya enseña el aviso de «la promo de asistencia ya terminó hoy»
+   y dice «con esta promo no quedan horas» en vez de «no quedan mesas».
+   Tests: `server/reservations/__tests__/slotAvailability.test.ts`.
+   Pendiente aparte: el panel del restaurante (alta de reserva a mano) sigue calculando sus
+   horas en la web; pasa al punto 6 junto con el resto del panel.
 5. ⏳ **Misiones y XP calculadas en el servidor.** Hoy el móvil y el navegador calculan
    las misiones y le «proponen» la XP al servidor, que solo pone un tope. Pasar el motor
    al servidor: más seguro (nadie puede inflar su XP) y una sola copia.
