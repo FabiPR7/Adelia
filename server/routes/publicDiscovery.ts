@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express'
-import { listPublicDiscoveryRestaurants, type DiscoveryQuery } from '../data/restaurantIndex.ts'
+import { listPublicDiscoveryRestaurants, mapRestaurantIndexDoc, type DiscoveryQuery } from '../data/restaurantIndex.ts'
 import { allowPublicCache } from '../security/httpCache.ts'
 import { computeLeague, currentMonthKey, leagueRestaurants, prestigeForLevel, previousMonthKey, trophiesForCompany, type LeagueEntry } from '../league/monthlyLeague.ts'
 import { computeCompanyBadges } from '../league/companyBadges.ts'
@@ -41,6 +41,30 @@ export function parseDiscoveryQuery(query: Request['query']): DiscoveryQuery {
   }
   return typeof query.cursor === 'string' ? { cursor: query.cursor.slice(0, 128) } : {}
 }
+
+/** ?slugs=a,b — restaurantes por su dirección (los favoritos se guardan así). Máximo 30. */
+router.get('/by-slugs', async (req: Request, res: Response) => {
+  try {
+    const raw = typeof req.query.slugs === 'string' ? req.query.slugs : ''
+    const slugs = [...new Set(raw.split(',').map((slug) => slug.trim().toLowerCase()).filter((slug) => /^[a-z0-9-]{1,80}$/.test(slug)))].slice(0, 30)
+    if (slugs.length === 0) {
+      res.json({ restaurants: [] })
+      return
+    }
+    const chunks: string[][] = []
+    for (let index = 0; index < slugs.length; index += 10) chunks.push(slugs.slice(index, index + 10))
+    const snaps = await Promise.all(chunks.map((chunk) => adminDb.collection('restaurantIndex').where('slug', 'in', chunk).get()))
+    const restaurants = snaps
+      .flatMap((snap) => snap.docs)
+      .map((docSnap) => mapRestaurantIndexDoc(docSnap.id, docSnap.data()))
+      .filter((item) => item !== null)
+    allowPublicCache(res, 60, 120)
+    res.json({ restaurants })
+  } catch (error) {
+    console.error('discovery by slugs error:', error)
+    res.status(500).json({ error: 'No se pudo cargar.' })
+  }
+})
 
 router.get('/', async (req: Request, res: Response) => {
   try {

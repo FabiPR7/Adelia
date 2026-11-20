@@ -1,3 +1,5 @@
+import type { PublicDiscoveryRestaurant } from '../../utils/publicDiscovery'
+import { fetchDiscoveryRestaurantsBySlugs } from '../../services/publicDiscovery'
 import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import GamificationRankingStripCard from '../../components/GamificationRankingStripCard'
@@ -25,7 +27,7 @@ function CustomerProfileTab() {
   const { favoriteSlugs, isUpdatingFavorite, toggleFavorite } = useFavoriteRestaurants()
   const {
     loading,
-    reservations,
+    displayReservations,
     claimedPromotions,
     restaurants,
     level,
@@ -57,16 +59,40 @@ function CustomerProfileTab() {
     }
   }, [user?.uid])
 
+  // Los restaurantes cargados son los de tus reservas: un favorito donde aún no
+  // has reservado se pide aparte (antes no salía y el contador se quedaba corto).
+  const [extraFavorites, setExtraFavorites] = useState<PublicDiscoveryRestaurant[]>([])
+  const missingFavoriteKey = favoriteSlugs
+    .filter((slug) => !restaurants.some((restaurant) => restaurant.slug.trim().toLowerCase() === slug))
+    .join(',')
+  useEffect(() => {
+    if (!missingFavoriteKey) {
+      setExtraFavorites([])
+      return
+    }
+    let cancelled = false
+    void fetchDiscoveryRestaurantsBySlugs(missingFavoriteKey.split(','))
+      .then((items) => {
+        if (!cancelled) setExtraFavorites(items)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [missingFavoriteKey])
+
   const favoriteRestaurants = useMemo(
-    () => restaurants.filter((restaurant) =>
-      favoriteSlugs.includes(restaurant.slug.trim().toLowerCase()),
+    () => [...restaurants, ...extraFavorites].filter((restaurant, index, list) =>
+      favoriteSlugs.includes(restaurant.slug.trim().toLowerCase())
+      && list.findIndex((other) => other.slug === restaurant.slug) === index,
     ),
-    [restaurants, favoriteSlugs],
+    [restaurants, extraFavorites, favoriteSlugs],
   )
 
+  // Todas, también las hechas como invitado con tu correo: igual que «Mis reservas» y la app.
   const activeReservations = useMemo(
-    () => reservations.filter((reservation) => reservation.status !== 'cancelled').length,
-    [reservations],
+    () => displayReservations.filter((reservation) => reservation.status !== 'cancelled').length,
+    [displayReservations],
   )
 
   async function handleDeleteAccount() {

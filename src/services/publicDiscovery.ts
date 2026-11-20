@@ -127,6 +127,19 @@ export async function fetchPublicDiscoveryRestaurants(options: DiscoveryOptions 
   return (await fetchPublicDiscoveryPage(options)).restaurants
 }
 
+/** Restaurantes por su dirección (slug): los favoritos se guardan así. */
+export async function fetchDiscoveryRestaurantsBySlugs(slugs: string[]): Promise<PublicDiscoveryRestaurant[]> {
+  const unique = [...new Set(slugs.map((slug) => slug.trim().toLowerCase()).filter(Boolean))].slice(0, 30)
+  if (unique.length === 0) return []
+  const response = await fetch(`${API_BASE}/api/public/discovery/by-slugs?slugs=${encodeURIComponent(unique.join(','))}`)
+  if (!response.ok) return []
+  const payload = (await response.json()) as { restaurants?: unknown[] }
+  return (payload.restaurants ?? [])
+    .filter((raw): raw is Record<string, unknown> => Boolean(raw) && typeof raw === 'object')
+    .map(mapApiRestaurant)
+    .filter((item): item is PublicDiscoveryRestaurant => item !== null)
+}
+
 /** Junta listas sin repetir restaurantes (la primera manda en el orden). */
 export function mergeDiscoveryRestaurants(
   base: PublicDiscoveryRestaurant[],
