@@ -1,4 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore'
+import { getBusinessRules } from '../config/businessRules.ts'
 import { adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from './collections.ts'
 
@@ -9,8 +10,6 @@ import { COLLECTIONS } from './collections.ts'
  */
 export const USERNAMES = 'usernames'
 
-export const USERNAME_MIN = 3
-export const USERNAME_MAX = 20
 const USERNAME_RE = /^[a-z0-9](?:[a-z0-9._]*[a-z0-9])?$/
 
 const RESERVED = new Set([
@@ -27,8 +26,10 @@ export function normalizeUsername(value: unknown): string {
 
 /** Mensaje de error en español, o null si el @usuario es válido. */
 export function usernameError(username: string): string | null {
-  if (username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
-    return `Tu @usuario debe tener entre ${USERNAME_MIN} y ${USERNAME_MAX} caracteres.`
+  // Largo permitido: en la base de datos (appConfig/businessRules).
+  const { usernameMin, usernameMax } = getBusinessRules()
+  if (username.length < usernameMin || username.length > usernameMax) {
+    return `Tu @usuario debe tener entre ${usernameMin} y ${usernameMax} caracteres.`
   }
   if (!USERNAME_RE.test(username)) {
     return 'Usa solo letras sin tilde, números, punto o guion bajo (sin empezar ni acabar por ellos).'

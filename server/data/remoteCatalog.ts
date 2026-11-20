@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express'
+import { ensureBusinessRules } from '../config/businessRules.ts'
 import { adminDb } from '../firebase-admin.ts'
 import { COLLECTIONS } from './collections.ts'
 
@@ -407,8 +408,10 @@ async function loadCatalog(): Promise<RemoteCatalog> {
 
 /** Refresca la caché si está caducada. Nunca lanza: ante un fallo se conserva lo último leído. */
 export function ensureRemoteCatalog(): Promise<void> {
+  // Las reglas de negocio (appConfig/businessRules) se cargan a la vez.
+  const rules = ensureBusinessRules()
   if (Date.now() - loadedAt < CACHE_MS) {
-    return Promise.resolve()
+    return rules
   }
   if (!inflight) {
     inflight = loadCatalog()
@@ -425,7 +428,7 @@ export function ensureRemoteCatalog(): Promise<void> {
         inflight = null
       })
   }
-  return inflight
+  return Promise.all([inflight, rules]).then(() => undefined)
 }
 
 export function getRemoteCatalog(): RemoteCatalog {

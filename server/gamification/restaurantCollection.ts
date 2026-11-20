@@ -33,8 +33,12 @@ export interface CollectionBadge {
   earnedAt: string
 }
 
-/** Una ciudad cuenta para la insignia solo si tiene al menos estos restaurantes. */
-export const CITY_MIN_RESTAURANTS = 5
+import { getBusinessRules } from '../config/businessRules.ts'
+
+/** Una ciudad cuenta para la insignia solo si tiene al menos estos restaurantes (en la base de datos). */
+export function cityMinRestaurants(): number {
+  return getBusinessRules().collectionCityMinRestaurants
+}
 
 export function cityTier(cityKeyValue: string, cityName: string): CollectionTier {
   return {
@@ -44,8 +48,8 @@ export function cityTier(cityKeyValue: string, cityName: string): CollectionTier
     badgeName: `Leyenda de ${cityName}`,
     badgeDescription: `Has estado en todos los restaurantes de Adelia en ${cityName}.`,
     percent: 100,
-    minVisited: CITY_MIN_RESTAURANTS,
-    rewards: [{ itemId: 'llave_maestra', quantity: 1 }, { itemId: 'triple_sello', quantity: 1 }],
+    minVisited: cityMinRestaurants(),
+    rewards: getBusinessRules().collectionCityRewards.map((reward) => ({ ...reward })),
   }
 }
 
@@ -62,24 +66,15 @@ export function countryTiers(countryKeyValue: string, countryName: string): Coll
     minVisited,
     rewards,
   })
-  return [
-    base(10, 5, 'Explorador nacional', [{ itemId: 'triple_sello', quantity: 1 }]),
-    base(25, 12, 'Trotamundos gastronómico', [{ itemId: 'llave_maestra', quantity: 1 }]),
-    base(50, 25, 'Gran ruta de Adelia', [
-      { itemId: 'llave_maestra', quantity: 1 },
-      { itemId: 'salvoconducto', quantity: 1 },
-    ]),
-    base(100, 40, 'Leyenda nacional', [
-      { itemId: 'llave_maestra', quantity: 3 },
-      { itemId: 'escudo_mesa', quantity: 2 },
-    ]),
-  ]
+  // Niveles, mínimos, nombres y premios: en la base de datos (appConfig/businessRules).
+  return getBusinessRules().collectionCountryTiers.map((tier) =>
+    base(tier.percent, tier.minVisited, tier.badgeName, tier.rewards.map((reward) => ({ ...reward }))))
 }
 
 /** Restaurantes que hay que visitar para conseguir el premio (0 si no aplica). */
 export function tierTarget(tier: CollectionTier, total: number): number {
   if (total <= 0) return 0
-  if (tier.scope === 'city' && total < CITY_MIN_RESTAURANTS) return 0
+  if (tier.scope === 'city' && total < cityMinRestaurants()) return 0
   return Math.max(tier.minVisited, Math.ceil((total * tier.percent) / 100))
 }
 

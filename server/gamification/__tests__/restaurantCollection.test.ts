@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CITY_MIN_RESTAURANTS,
+  cityMinRestaurants,
   cityTier,
   countryTiers,
   normalizeCountry,
@@ -13,7 +13,7 @@ describe('mapa gastronómico', () => {
     const tier = cityTier('logrono', 'Logroño')
     expect(tierReached(tier, 97, 97)).toBe(true)
     expect(tierReached(tier, 96, 97)).toBe(false)
-    expect(tierTarget(tier, CITY_MIN_RESTAURANTS - 1)).toBe(0)
+    expect(tierTarget(tier, cityMinRestaurants() - 1)).toBe(0)
     expect(tierReached(tier, 3, 3)).toBe(false)
   })
 

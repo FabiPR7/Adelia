@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express'
+import { getBusinessRules } from '../config/businessRules.ts'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
 import { isValidClientEmail } from '../email/config.ts'
@@ -391,11 +392,16 @@ function mapPublicReview(id: string, data: FirebaseFirestore.DocumentData) {
  * Stripe solo retiene una fianza unos 7 días: si la reserva es más tarde, la
  * retención caduca antes y no se podría cobrar si el cliente no viene.
  */
-const DEPOSIT_MAX_DAYS_AHEAD = 6
-const DEPOSIT_TOO_FAR_MESSAGE = `Este restaurante pide fianza: solo se puede reservar con hasta ${DEPOSIT_MAX_DAYS_AHEAD} días de antelación.`
+/** Con fianza, días máximos de antelación (en la base de datos). */
+function depositMaxDaysAhead(): number {
+  return getBusinessRules().depositMaxDaysAhead
+}
+function depositTooFarMessage(): string {
+  return `Este restaurante pide fianza: solo se puede reservar con hasta ${depositMaxDaysAhead()} días de antelación.`
+}
 
 function depositStartTooFar(startTime: Date): boolean {
-  return startTime.getTime() - Date.now() > DEPOSIT_MAX_DAYS_AHEAD * 24 * 60 * 60 * 1000
+  return startTime.getTime() - Date.now() > depositMaxDaysAhead() * 24 * 60 * 60 * 1000
 }
 
 router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>, res: Response) => {
@@ -444,7 +450,7 @@ router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>
     const intentTime = typeof req.body?.time === 'string' ? req.body.time.trim() : ''
     if (/^\d{4}-\d{2}-\d{2}$/.test(intentDate) && /^\d{2}:\d{2}$/.test(intentTime)
       && depositStartTooFar(combineDateAndTime(parseBookingDate(intentDate), intentTime))) {
-      res.status(409).json({ error: DEPOSIT_TOO_FAR_MESSAGE })
+      res.status(409).json({ error: depositTooFarMessage() })
       return
     }
 
@@ -967,7 +973,7 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
     }
 
     if (reservationDepositCents > 0 && !skipDeposit && depositStartTooFar(startTime)) {
-      res.status(409).json({ error: DEPOSIT_TOO_FAR_MESSAGE })
+      res.status(409).json({ error: depositTooFarMessage() })
       return
     }
 

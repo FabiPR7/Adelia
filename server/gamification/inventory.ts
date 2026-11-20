@@ -1,4 +1,5 @@
 import { getMissionCatalogEntry, getLevelForXpFromCatalog } from '../data/gameCatalog.ts'
+import { getBusinessRules } from '../config/businessRules.ts'
 import {
   MONTHLY_MISSION_SLOT_COUNT,
   WEEKLY_BONUS_TARGET,
@@ -20,7 +21,6 @@ import {
 import { promoLockStrikes } from './penaltyConfig.ts'
 
 const MAX_GRANT_KEYS = 2500
-const MAX_USE_XP = 80
 const MAX_PENDING_TOKEN_SPEND = 20
 
 export interface PendingTokenSpend {
@@ -385,7 +385,7 @@ export function useInventoryConsumable(
   const consumed = consumeInventoryItem(state, itemId, 1)
 
   if (item.kind === 'xp' || item.kind === 'relic') {
-    const xpGained = Math.max(0, Math.min(MAX_USE_XP, Math.trunc(item.xpValue ?? 0)))
+    const xpGained = Math.max(0, Math.min(getBusinessRules().maxItemUseXp, Math.trunc(item.xpValue ?? 0)))
     return {
       state: {
         ...consumed,

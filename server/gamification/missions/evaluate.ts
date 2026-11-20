@@ -3,6 +3,7 @@
 // el progreso de cada misión. Antes lo calculaban la web y la app y el servidor solo
 // ponía un tope a la XP que le proponían.
 import { adminDb } from '../../firebase-admin.ts'
+import { ensureBusinessRules, getBusinessRules } from '../../config/businessRules.ts'
 import { COLLECTIONS } from '../../data/collections.ts'
 import { ensureMissionCatalog } from './catalog.ts'
 import { HISTORICAL_MISSIONS } from './missionsData.ts'
@@ -243,8 +244,8 @@ export function runMissionEngine(stored: Record<string, unknown>, inputs: Missio
   // Del estado ya reiniciado de semana/mes: si no, las misiones del periodo anterior
   // contarían como completadas y se cobrarían otra vez.
   const evaluationState = syncGamificationPeriods(state, inputs.favoriteSlugs)
-  const weeklyProgress = buildMissionProgressList(rotateWeeklyMissions(now), context, evaluationState, new Set(evaluationState.weeklyCompleted))
-  const monthlyProgress = buildMissionProgressList(rotateMonthlyMissions(now), context, evaluationState, new Set(evaluationState.monthlyCompleted))
+  const weeklyProgress = buildMissionProgressList(rotateWeeklyMissions(now, getBusinessRules().weeklyMissionSlots), context, evaluationState, new Set(evaluationState.weeklyCompleted))
+  const monthlyProgress = buildMissionProgressList(rotateMonthlyMissions(now, getBusinessRules().monthlyMissionSlots), context, evaluationState, new Set(evaluationState.monthlyCompleted))
   const historicalProgress = buildMissionProgressList(HISTORICAL_MISSIONS, context, evaluationState, new Set(evaluationState.completedMissions))
   const next = processGamificationRewards(
     evaluationState,
@@ -270,6 +271,6 @@ export function runMissionEngine(stored: Record<string, unknown>, inputs: Missio
 }
 
 export async function prepareMissionEvaluation(customer: MissionsCustomer, favoriteSlugs: unknown): Promise<MissionInputs> {
-  await ensureMissionCatalog()
+  await Promise.all([ensureMissionCatalog(), ensureBusinessRules()])
   return loadMissionInputs(customer, favoriteSlugs)
 }

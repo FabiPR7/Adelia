@@ -198,15 +198,20 @@ escribe Fabi).
 
 ## Fase 2 — añadido el 20-21 nov (petición de Fabi)
 
-E. ⏳ **Todo dato de negocio en la base de datos, nada fijo en el código.** El servidor lo
-   lee de la base de datos (y la web/app del servidor). Ya están en la base: catálogo del
-   juego (misiones, niveles, ítems, ajustes), planes y sus límites, recompensas,
-   penalizaciones, facturación, juego de restaurantes. Siguen fijos en el código (a pasar a
-   `appConfig/businessRules`): horas de cancelación gratis (24), días máximos de fianza,
-   niveles y premios del mapa gastronómico, misiones por semana/mes (6/5) y bonus (5),
-   largo del @usuario (3–20) y nombres reservados, XP máxima por carta, versión legal
-   aceptada, correo de soporte. Las listas que quedan en el código solo serán copia de
-   emergencia si la base de datos no responde.
+E. 🔄 **Todo dato de negocio en la base de datos, nada fijo en el código.** (21 nov)
+   Ya estaban en la base: catálogo del juego (misiones, niveles, ítems, ajustes como el
+   bonus semanal), planes y sus límites, recompensas, penalizaciones, facturación y juego
+   de restaurantes.
+   **Movido hoy** a `appConfig/businessRules` (el servidor lo lee con caché de 5 minutos;
+   se cambia ahí y vale para web y app sin publicar nada): horas de cancelación gratis
+   (24), días máximos de fianza (6), largo del @usuario (3–20), XP máxima por carta (80),
+   misiones por semana y por mes (6 y 5), y el mapa gastronómico entero (mínimo de locales
+   de una ciudad, premios de la ciudad y los 4 niveles del país con sus nombres y
+   premios). Rellenado con `scripts/seed-business-rules.ts`; su creación quedó en el
+   registro de cambios. En el código solo queda una copia de emergencia por si la base no
+   responde.
+   Queda: nombres de @usuario reservados, versión legal aceptada, y textos fijos en la
+   web y la app que repiten «24 h» (deberían leer la regla del servidor).
 F. ✅ **Registro de cada cambio.** (21 nov) Disparadores `onTopLevelDocWrittenAudit`,
    `onCompanySubdocWrittenAudit`, `onUserSubdocWrittenAudit`: cada creación, cambio o
    borrado de cualquier documento (reservas, usuarios, amigos, premios, locales, promos,
@@ -215,5 +220,3 @@ F. ✅ **Registro de cada cambio.** (21 nov) Disparadores `onTopLevelDocWrittenA
    No registra ruido técnico (límites de peticiones, intentos de login, métricas). Solo lo
    lee el admin. Probado: cambiar una promo guardada en la app deja su apunte.
 
-Hecho también el 20 nov: **A ✅** (perfil del cliente por la API; la app ya no escribe nada
-directamente en la base de datos; la web solo en el panel y el admin, puntos B y C).

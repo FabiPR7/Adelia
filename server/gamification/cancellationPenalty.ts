@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase-admin/firestore'
+import { getBusinessRules } from '../config/businessRules.ts'
 import { adminDb } from '../firebase-admin.ts'
 import { readGamificationFromDocs, userGamificationRef, writeGamification } from '../data/userGamification.ts'
 import { findCustomerUidByEmail, resolveCustomerUidForReservation } from '../notifications/service.ts'
@@ -31,7 +32,10 @@ export interface CancellationPenaltyResult {
 }
 
 /** Cancelar con al menos estas horas de antelación es gratis (ni XP ni aviso ni escudo). */
-export const FREE_CANCEL_HOURS = 24
+/** Horas de antelación para que cancelar sea gratis (en la base de datos). */
+export function freeCancelHours(): number {
+  return getBusinessRules().freeCancelHours
+}
 
 const FREE_CANCEL_WARNING =
   'Cancelación gratis: la has hecho con 24 h o más de antelación. No pierdes puntos ni cuenta como aviso.'
@@ -48,7 +52,7 @@ function reservationStartMs(data: Record<string, unknown>): number | null {
 export function isFreeCancellation(data: Record<string, unknown>, at = Date.now()): boolean {
   if (data.noShow === true) return false
   const startMs = reservationStartMs(data)
-  return startMs != null && startMs - at >= FREE_CANCEL_HOURS * 60 * 60 * 1000
+  return startMs != null && startMs - at >= freeCancelHours() * 60 * 60 * 1000
 }
 
 function freeCancellationResult(state: Record<string, unknown>): CancellationPenaltyResult {
