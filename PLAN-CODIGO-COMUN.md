@@ -125,13 +125,8 @@ Situación de partida (20 nov 2026):
     horas libres, progreso de misiones, estado del juego) y la web no, la web deja de
     compilar. La app usa esos mismos tipos (código común), así que también queda cubierta.
     Comprobado que salta metiendo una diferencia a propósito.
-11. ⏳👤 **Panel del restaurante por la API.** El panel (solo web) cambia reservas, carta,
-    promos y datos del local escribiendo directo en la base de datos, con las reglas como
-    única protección. Pasarlo a rutas del servidor que validen cada cambio. No está
-    duplicado con la app. **Necesita a Fabi para probarlo**: el panel solo se puede usar
-    con la sesión de un restaurante (contraseña que escribe Fabi) y ahora mismo el
-    navegador integrado está bloqueado por la ventana de Google (ver abajo). No se toca a
-    ciegas porque los restaurantes lo usan a diario.
+11. ✅👤 **Panel del restaurante por la API.** (20 nov, commit 387cee8) Hecho dentro de la
+    Fase 2 (punto B, abajo). Falta que Fabi lo pruebe con la sesión de un restaurante.
 
 ## Necesita a Fabi (cuando puedas)
 
@@ -165,19 +160,38 @@ ranking, XP y misiones, canjes de premios y PIN, consumos, reseñas, avisos (lee
 leídos), reportes y sugerencias, cuenta (@usuario, preferencias, borrar cuenta), favoritos,
 mapa gastronómico, estado de promos y mapas de premios.
 
-## Pendiente (escriben directo en la base de datos)
+## Hecho (20 nov) — ya nadie escribe directo en la base de datos
 
-A. ⏳ **Cliente — su propio perfil** (web y app): nombre, teléfono, foto, ciudad y gustos
-   (alta y «Editar»), promos guardadas, «tour visto», y el camino viejo de favoritos de la
-   web (`updateCustomerFavorites`, `userFavorites`).
-B. ⏳👤 **Restaurante — panel** (web): reservas (asistió, no vino, cancelar, editar, borrar,
-   estado del gasto mínimo), mesas y planos, ajustes y visibilidad del local, plantillas
-   de correo, QR, carta (cartas y productos), promociones (crear, editar, pausar, borrar),
-   PIN de promos, clientes, respuesta a reseñas, índice de inicio de sesión.
-C. ⏳👤 **Admin** (web): catálogos del juego, planes, facturación, bloquear clientes,
-   borrar reseñas, misiones.
-D. ⏳ **Cerrar las reglas**: cuando A, B y C vayan por la API, ninguna regla dejará
-   escribir a un cliente (solo leer lo suyo).
+A. ✅ **Cliente — su propio perfil** (web y app). Commit a02b934.
+B. ✅👤 **Restaurante — panel** (web). Commit 387cee8. Rutas nuevas en `server/routes/`:
+   `companyReservationChanges` (estado, asistió/no vino, cancelar, editar, borrar),
+   `companySettings` (ajustes, visibilidad, mesas, planos, plantillas de correo, QR,
+   índice de inicio de sesión), `companyMenu` (cartas y productos), `companyPromotions`,
+   `companyPinAndReviews` (PIN de promos y respuesta a reseñas). El servidor valida con
+   las mismas reglas que la web (`server/company/sharedRules.ts` importa de `src/`).
+C. ✅👤 **Admin** (web). Commit 387cee8. `server/routes/adminWrites.ts`: catálogos (solo
+   una lista cerrada de documentos, con registro de acciones), borrar reseñas (descuenta
+   la nota del local), forzar cambio de contraseña, rehacer índices de acceso. Bloquear
+   clientes ya usaba la API.
+D. ✅ **Reglas cerradas** y publicadas (20 nov): todas las escrituras de cliente en
+   `firestore.rules` están en `if false`. Solo el servidor escribe.
+
+Publicado el 20 nov: API (`functions:api`), web y reglas. Comprobado: las rutas nuevas
+contestan 401 sin sesión, la web pública carga sin errores, 653 tests pasan.
+
+## Necesita a Fabi
+
+- 👤 **Probar el panel** con la sesión de un restaurante: guardar ajustes, mesas y plano,
+  carta (crear/editar/ordenar/borrar), promos (crear/pausar/borrar), PIN de promos,
+  responder una reseña, y en reservas: confirmar, asistió/no vino, editar, cancelar, borrar.
+- 👤 **Probar el admin**: guardar un catálogo (planes, ítems, niveles, misiones), facturación
+  y borrar una reseña.
+- 👤 Si algo da error al guardar, es una ruta nueva: dime qué pantalla y el mensaje.
+- 👤 En producción sigue la función `processScheduledNotifications`, que el código ya no
+  tiene (se quitó en el commit 1a05b2f). No la he borrado (no se puede deshacer). Si ya
+  no se usa: `firebase functions:delete processScheduledNotifications --region
+  europe-southwest1`. Hasta entonces, para publicar el servidor usa
+  `--only functions:api` (o la lista de funciones), porque `--only functions` se para.
 
 👤 = para probarlo hace falta la sesión de un restaurante o del admin (contraseña que
 escribe Fabi).
