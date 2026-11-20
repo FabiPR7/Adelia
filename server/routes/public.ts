@@ -206,7 +206,7 @@ function mapPublicCompany(id: string, data: FirebaseFirestore.DocumentData) {
     reviewAdelinas: typeof data.reviewAdelinas === 'number' ? data.reviewAdelinas : 0,
     depositMinPax: depositsAllowed ? depositMinPax : null,
     depositPerGuestCents: depositsAllowed ? depositPerGuestCents : null,
-    depositEnabled: depositsAllowed && (data.depositEnabled === true || depositMinPax != null),
+    depositEnabled: depositsAllowed && (data.depositEnabled === true || (data.depositEnabled !== false && depositMinPax != null)),
     depositCancellationHours: typeof data.depositCancellationHours === 'number'
       && data.depositCancellationHours > 0
       ? Math.trunc(data.depositCancellationHours)
@@ -424,8 +424,8 @@ router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>
     const depositPerGuestCents = typeof record.data.depositPerGuestCents === 'number'
       ? record.data.depositPerGuestCents
       : null
-    const depositEnabled = record.data.depositEnabled === true
-      || (typeof depositMinPax === 'number' && depositMinPax > 0)
+    const depositEnabled = record.data.depositEnabled === true || (record.data.depositEnabled !== false
+      && typeof depositMinPax === 'number' && depositMinPax > 0)
     const stripeAccountId = typeof record.data.stripeAccountId === 'string'
       ? record.data.stripeAccountId
       : null
@@ -888,12 +888,12 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
     const depositPerGuestCents = typeof record.data.depositPerGuestCents === 'number'
       ? record.data.depositPerGuestCents
       : null
-    const depositEnabled = record.data.depositEnabled === true
-      || (typeof depositMinPax === 'number' && depositMinPax > 0)
+    const depositEnabled = record.data.depositEnabled === true || (record.data.depositEnabled !== false
+      && typeof depositMinPax === 'number' && depositMinPax > 0)
     const stripeAccountId = typeof record.data.stripeAccountId === 'string'
       ? record.data.stripeAccountId
       : null
-    const depositAmountCents = depositEnabled
+    const depositAmountCents = depositEnabled && planAllowsDeposits(parseStoredPlanId(record.data.planId))
       ? computeDepositAmountCents(
         guestCount,
         depositMinPax,

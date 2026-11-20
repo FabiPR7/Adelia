@@ -1780,7 +1780,7 @@ function mapCompany(id: string, data: Record<string, unknown>): Company {
       ? Math.trunc(data.depositPerGuestCents)
       : null,
     depositEnabled: data.depositEnabled === true
-      || (typeof data.depositMinPax === 'number' && data.depositMinPax > 0),
+      || (data.depositEnabled !== false && typeof data.depositMinPax === 'number' && data.depositMinPax > 0),
     depositCancellationHours: typeof data.depositCancellationHours === 'number'
       && data.depositCancellationHours > 0
       ? Math.trunc(data.depositCancellationHours)
