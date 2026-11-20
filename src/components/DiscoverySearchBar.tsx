@@ -1,6 +1,7 @@
 import CityAutocomplete from './CityAutocomplete'
 import DiscoveryTraitsFilter from './DiscoveryTraitsFilter'
 import type { CitySuggestion } from '../services/citySearch'
+import type { PickedAddress } from './AddressAutocomplete'
 import styles from './DiscoverySearchBar.module.css'
 
 interface DiscoverySearchBarProps {
@@ -9,6 +10,10 @@ interface DiscoverySearchBarProps {
   selectedCity: CitySuggestion | null
   onSelectedCityChange: (city: CitySuggestion | null) => void
   onCityTextChange?: (text: string) => void
+  /** Al elegir una calle: ordenar desde ahí. */
+  onPickAddress?: (address: PickedAddress) => void
+  nearLat?: number
+  nearLng?: number
   activeTrait: string
   onTraitChange: (trait: string) => void
   traitOptions: string[]
@@ -27,6 +32,9 @@ function DiscoverySearchBar({
   selectedCity,
   onSelectedCityChange,
   onCityTextChange,
+  onPickAddress,
+  nearLat,
+  nearLng,
   activeTrait,
   onTraitChange,
   traitOptions,
@@ -66,7 +74,10 @@ function DiscoverySearchBar({
           value={selectedCity}
           onChange={onSelectedCityChange}
           onTextChange={onCityTextChange}
-          placeholder="Ciudad"
+          onPickAddress={onPickAddress}
+          nearLat={nearLat}
+          nearLng={nearLng}
+          placeholder="Ciudad o calle"
           label="Ciudad"
           compact
         />

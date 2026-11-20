@@ -5,6 +5,7 @@ export interface PhotonAddressFeature {
   properties?: {
     osm_id?: number
     osm_type?: string
+    type?: string
     name?: string
     street?: string
     housenumber?: string
@@ -24,6 +25,13 @@ export interface AddressSuggestion {
   label: string
   lat: number
   lng: number
+  /** Por partes, para rellenar solos el municipio, el código postal y el país. */
+  street: string
+  houseNumber: string
+  postalCode: string
+  city: string
+  region: string
+  country: string
 }
 
 function clean(value: string | undefined): string {
@@ -75,6 +83,13 @@ export function parseAddressSuggestions(
       label,
       lat,
       lng,
+      street: clean(properties.street) || (properties.type === 'street' ? clean(properties.name) : ''),
+      houseNumber: clean(properties.housenumber),
+      postalCode: clean(properties.postcode),
+      city: clean(properties.city)
+        || (properties.type === 'city' || properties.type === 'town' || properties.type === 'village' ? clean(properties.name) : clean(properties.county)),
+      region: clean(properties.state),
+      country: clean(properties.country),
     })
 
     if (suggestions.length >= limit) {

@@ -48,6 +48,13 @@ export interface AddressSuggestion {
   label: string
   lat: number
   lng: number
+  /** Por partes (solo en sugerencias nuevas del servidor). */
+  street?: string
+  houseNumber?: string
+  postalCode?: string
+  city?: string
+  region?: string
+  country?: string
 }
 
 export async function suggestAddresses(

@@ -5,6 +5,7 @@ import CharacteristicPicker from '../components/CharacteristicPicker'
 import CityAutocomplete from '../components/CityAutocomplete'
 import ImageUploader from '../components/ImageUploader'
 import LocationMapPicker from '../components/LocationMapPicker'
+import AddressAutocomplete from '../components/AddressAutocomplete'
 import MediaGalleryUploader from '../components/MediaGalleryUploader'
 import ProfileToggleGrid from '../components/ProfileToggleGrid'
 import { ADELIA_LOGO_URL } from '../constants/brand'
@@ -117,6 +118,7 @@ function CompanySignupPage() {
   const [location, setLocation] = useState('')
   const [website, setWebsite] = useState('')
   const [city, setCity] = useState<CitySuggestion | null>(null)
+  const [postalCode, setPostalCode] = useState('')
   const [coords, setCoords] = useState<GeoCoordinates | null>(null)
 
   const [venueTypes, setVenueTypes] = useState<string[]>([])
@@ -254,7 +256,7 @@ function CompanySignupPage() {
         location: location.trim(),
         website: website.trim(),
         municipality: city?.name ?? '',
-        postalCode: '',
+        postalCode: postalCode.trim(),
         country: city?.country || 'España',
         latitude: coords?.lat ?? null,
         longitude: coords?.lng ?? null,
@@ -424,7 +426,25 @@ function CompanySignupPage() {
               </label>
               <label className={styles.field}>
                 <span>Dirección</span>
-                <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Calle, número, barrio" />
+                <AddressAutocomplete
+                  value={location}
+                  onChange={setLocation}
+                  onPick={(address) => {
+                    setLocation(address.line)
+                    setPostalCode(address.postalCode)
+                    if (address.city) {
+                      setCity({
+                        id: address.city,
+                        name: address.city,
+                        region: address.region,
+                        country: address.country || 'España',
+                        label: [address.city, address.region, address.country].filter(Boolean).join(', '),
+                      })
+                    }
+                    setCoords({ lat: address.lat, lng: address.lng })
+                  }}
+                  placeholder="Escribe la calle y elígela de la lista"
+                />
               </label>
               <CityAutocomplete value={city} onChange={setCity} label="Ciudad" placeholder="Madrid, Valencia…" variant="form" />
               <label className={styles.field}>

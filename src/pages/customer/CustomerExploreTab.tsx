@@ -383,6 +383,9 @@ function CustomerExploreTab() {
         onSearchDraftChange={setSearchDraft}
         selectedCity={selectedCity}
         onSelectedCityChange={setSelectedCity}
+        nearLat={feedOrigin?.lat}
+        nearLng={feedOrigin?.lng}
+        onPickAddress={(address) => enableNearby({ lat: address.lat, lng: address.lng }, `Ordenados por distancia a ${address.line}.`)}
         onCityTextChange={setCityDraft}
         activeTrait={activeTrait}
         onTraitChange={handleTraitChange}

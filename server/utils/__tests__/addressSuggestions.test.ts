@@ -29,8 +29,31 @@ describe('parseAddressSuggestions', () => {
         label: 'Calle Mayor 3, Logroño, La Rioja, España',
         lat: 42.466,
         lng: -2.445,
+        street: 'Calle Mayor',
+        houseNumber: '3',
+        postalCode: '',
+        city: 'Logroño',
+        region: 'La Rioja',
+        country: 'España',
       },
     ])
+  })
+
+  it('da la calle, el código postal y la ciudad por separado para rellenar formularios', () => {
+    const [street] = parseAddressSuggestions(
+      [{
+        geometry: { coordinates: [-2.439, 42.466] },
+        properties: { type: 'street', name: 'Calle Tricio', postcode: '26003', city: 'Logroño', state: 'La Rioja', country: 'España' },
+      }],
+      5,
+    )
+    expect(street).toMatchObject({ street: 'Calle Tricio', postalCode: '26003', city: 'Logroño', country: 'España' })
+
+    const [city] = parseAddressSuggestions(
+      [{ geometry: { coordinates: [-2.44, 42.46] }, properties: { type: 'city', name: 'Logroño', country: 'España' } }],
+      5,
+    )
+    expect(city.street).toBe('')
   })
 
   it('skips results without coordinates or name and removes duplicates', () => {

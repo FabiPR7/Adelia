@@ -3,6 +3,7 @@ import ImageUploader from '../../components/ImageUploader'
 import CharacteristicPicker from '../../components/CharacteristicPicker'
 import CityAutocomplete from '../../components/CityAutocomplete'
 import LocationMapPicker from '../../components/LocationMapPicker'
+import AddressAutocomplete from '../../components/AddressAutocomplete'
 import MediaGalleryUploader from '../../components/MediaGalleryUploader'
 import ProfileToggleGrid from '../../components/ProfileToggleGrid'
 import { useAuth } from '../../context/AuthContext'
@@ -1262,18 +1263,30 @@ const CompanySettings = forwardRef(function CompanySettings(
           <div className={styles.settingsRow}>
             <div className={styles.settingsRowLabel}>
               <label htmlFor="contact-address">Dirección</label>
-              <span>Calle y número. El municipio y el mapa van en Perfil.</span>
+              <span>Escribe la calle y elígela de la lista: el municipio, el código postal y el mapa se rellenan solos.</span>
             </div>
             <div className={styles.settingsRowField}>
               <span className={styles.iconInput}>
                 <MapPin size={16} aria-hidden="true" />
-                <input
+                <AddressAutocomplete
                   id="contact-address"
                   value={form.location}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  maxLength={200}
-                  placeholder="Calle Mayor, 12"
-                  autoComplete="street-address"
+                  onChange={(location) => setForm({ ...form, location })}
+                  onPick={(address) => {
+                    setForm({
+                      ...form,
+                      location: address.line,
+                      municipality: address.city || form.municipality,
+                      postalCode: address.postalCode || form.postalCode,
+                      country: address.country || form.country,
+                      latitude: address.lat,
+                      longitude: address.lng,
+                    })
+                    if (address.city) {
+                      setSelectedMunicipality(municipalityToCitySuggestion(address.city, address.country || form.country))
+                    }
+                  }}
+                  near={toGeoCoordinates(form.latitude, form.longitude)}
                 />
               </span>
             </div>
@@ -1430,6 +1443,39 @@ const CompanySettings = forwardRef(function CompanySettings(
           <div className={styles.settingsCardHead}>
             <h3>Ubicación</h3>
             <p>Obligatoria para aparecer en Adelia y en el mapa de la app.</p>
+          </div>
+
+          <div className={styles.settingsRow}>
+            <div className={styles.settingsRowLabel}>
+              <label htmlFor="location-address" className={styles.settingsRowTitle}>Dirección</label>
+              <span>Escribe la calle y elígela: el municipio, el código postal, el país y el mapa se rellenan solos.</span>
+            </div>
+            <div className={styles.settingsRowField}>
+              <span className={styles.iconInput}>
+                <MapPin size={16} aria-hidden="true" />
+                <AddressAutocomplete
+                  id="location-address"
+                  value={form.location}
+                  onChange={(location) => setForm({ ...form, location })}
+                  onPick={(address) => {
+                    setForm({
+                      ...form,
+                      location: address.line,
+                      municipality: address.city || form.municipality,
+                      postalCode: address.postalCode || form.postalCode,
+                      country: address.country || form.country,
+                      latitude: address.lat,
+                      longitude: address.lng,
+                    })
+                    if (address.city) {
+                      setSelectedMunicipality(municipalityToCitySuggestion(address.city, address.country || form.country))
+                    }
+                  }}
+                  near={toGeoCoordinates(form.latitude, form.longitude)}
+                  placeholder="Calle Mayor, 12"
+                />
+              </span>
+            </div>
           </div>
 
           <div className={styles.settingsRow}>

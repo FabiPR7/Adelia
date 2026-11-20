@@ -4,6 +4,7 @@ import CityAutocomplete from '../components/CityAutocomplete'
 import CharacteristicPicker from '../components/CharacteristicPicker'
 import ImageUploader from '../components/ImageUploader'
 import LocationMapPicker from '../components/LocationMapPicker'
+import AddressAutocomplete from '../components/AddressAutocomplete'
 import CustomerGate from '../components/CustomerGate'
 import { useAuth } from '../context/AuthContext'
 import { ADELIA_LOGO_URL } from '../constants/brand'
@@ -40,6 +41,7 @@ function CustomerOnboardingPageContent() {
         }
       : null,
   )
+  const [streetDraft, setStreetDraft] = useState('')
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(
     profile?.homeLatitude != null && profile?.homeLongitude != null
       ? { lat: profile.homeLatitude, lng: profile.homeLongitude }
@@ -246,6 +248,30 @@ function CustomerOnboardingPageContent() {
             currentUsername={currentUsername}
             onStatusChange={setUsernameStatus}
           />
+
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="onboarding-street">Tu calle o zona (opcional)</label>
+            <AddressAutocomplete
+              id="onboarding-street"
+              value={streetDraft}
+              onChange={setStreetDraft}
+              onPick={(address) => {
+                if (address.city) {
+                  setCity({
+                    id: address.city,
+                    name: address.city,
+                    region: address.region,
+                    country: address.country || 'España',
+                    label: [address.city, address.region, address.country].filter(Boolean).join(', '),
+                  })
+                }
+                setCoordinates({ lat: address.lat, lng: address.lng })
+              }}
+              placeholder="Escribe tu calle y elígela de la lista"
+              inputClassName={styles.textInput}
+            />
+            <span className={styles.fieldHint}>Rellena tu ciudad y el mapa solos. La calle no se guarda.</span>
+          </div>
 
           <div className={styles.field}>
             <span className={styles.label}>¿Dónde vives?</span>
