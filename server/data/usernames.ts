@@ -12,11 +12,6 @@ export const USERNAMES = 'usernames'
 
 const USERNAME_RE = /^[a-z0-9](?:[a-z0-9._]*[a-z0-9])?$/
 
-const RESERVED = new Set([
-  'adelia', 'adeliareservas', 'admin', 'administrador', 'soporte', 'support', 'ayuda', 'help',
-  'contacto', 'info', 'oficial', 'official', 'staff', 'moderador', 'mod', 'root', 'sistema',
-  'system', 'null', 'undefined', 'usuario', 'user', 'anonimo', 'restaurante', 'empresa',
-])
 
 export function normalizeUsername(value: unknown): string {
   return typeof value === 'string'
@@ -37,7 +32,7 @@ export function usernameError(username: string): string | null {
   if (/[._]{2}/.test(username)) {
     return 'No pongas dos puntos o guiones bajos seguidos.'
   }
-  if (RESERVED.has(username) || username.startsWith('adelia')) {
+  if (getBusinessRules().reservedUsernames.includes(username) || username.startsWith('adelia')) {
     return 'Ese @usuario está reservado. Prueba con otro.'
   }
   return null

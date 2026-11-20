@@ -1201,6 +1201,7 @@ router.get('/cancel/preview', async (req: Request<Record<string, string>>, res: 
         : null,
       hasCustomerAccount: Boolean(xpPenalty),
       cancelShieldCount,
+      freeCancelHours: getBusinessRules().freeCancelHours,
     })
   } catch (error) {
     console.error('Public reservation cancel preview error:', error)

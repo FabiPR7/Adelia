@@ -198,7 +198,7 @@ escribe Fabi).
 
 ## Fase 2 — añadido el 20-21 nov (petición de Fabi)
 
-E. 🔄 **Todo dato de negocio en la base de datos, nada fijo en el código.** (21 nov)
+E. ✅ **Todo dato de negocio en la base de datos, nada fijo en el código.** (21 nov)
    Ya estaban en la base: catálogo del juego (misiones, niveles, ítems, ajustes como el
    bonus semanal), planes y sus límites, recompensas, penalizaciones, facturación y juego
    de restaurantes.
@@ -210,8 +210,9 @@ E. 🔄 **Todo dato de negocio en la base de datos, nada fijo en el código.** (
    premios). Rellenado con `scripts/seed-business-rules.ts`; su creación quedó en el
    registro de cambios. En el código solo queda una copia de emergencia por si la base no
    responde.
-   Queda: nombres de @usuario reservados, versión legal aceptada, y textos fijos en la
-   web y la app que repiten «24 h» (deberían leer la regla del servidor).
+   También los @usuarios reservados. Los textos de «cancelar gratis» de la web y la app ya
+   usan las horas que manda el servidor. Se queda en el código a propósito la versión de
+   los textos legales: tiene que ir con el texto legal que se publica con la web.
 F. ✅ **Registro de cada cambio.** (21 nov) Disparadores `onTopLevelDocWrittenAudit`,
    `onCompanySubdocWrittenAudit`, `onUserSubdocWrittenAudit`: cada creación, cambio o
    borrado de cualquier documento (reservas, usuarios, amigos, premios, locales, promos,

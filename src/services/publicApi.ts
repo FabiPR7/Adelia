@@ -317,6 +317,8 @@ export interface PublicCancelPreview {
   hasCustomerAccount?: boolean
   cancelShieldCount?: number
   xpPenalty?: PublicCancelXpPenalty | null
+  /** Horas para cancelar gratis (regla del servidor). */
+  freeCancelHours?: number
 }
 
 export interface PublicCancelXpPenalty {

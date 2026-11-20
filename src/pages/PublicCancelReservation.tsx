@@ -224,7 +224,7 @@ function PublicCancelReservation() {
               ) : null}
               {cancelPreview?.xpPenalty?.free ? (
                 <p className={styles.xpPenaltyHint}>
-                  Cancelas con 24 h o más de antelación: es gratis. No pierdes puntos, no cuenta como
+                  Cancelas con {cancelPreview?.freeCancelHours ?? 24} h o más de antelación: es gratis. No pierdes puntos, no cuenta como
                   aviso y, si usaste una Invitación extra, te la devolvemos.
                 </p>
               ) : cancelPreview?.xpPenalty && !useShield ? (
@@ -239,7 +239,7 @@ function PublicCancelReservation() {
                 </p>
               ) : (
                 <p className={styles.xpPenaltyHint}>
-                  Cancelar con 24 h o más de antelación es gratis. Con menos, si la reserva está
+                  Cancelar con {cancelPreview?.freeCancelHours ?? 24} h o más de antelación es gratis. Con menos, si la reserva está
                   vinculada a una cuenta Adelia, te restará puntos de experiencia (12% la primera
                   vez, y cada vez más).
                 </p>

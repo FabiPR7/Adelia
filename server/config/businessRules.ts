@@ -25,6 +25,8 @@ export interface BusinessRules {
   /** Largo permitido del @usuario. */
   usernameMin: number
   usernameMax: number
+  /** @usuarios que nadie puede coger (además de los que empiezan por «adelia»). */
+  reservedUsernames: string[]
   /** XP máxima que da usar una carta. */
   maxItemUseXp: number
   /** Misiones de cliente que salen cada semana y cada mes. */
@@ -41,6 +43,11 @@ export const EMERGENCY_BUSINESS_RULES: BusinessRules = {
   depositMaxDaysAhead: 6,
   usernameMin: 3,
   usernameMax: 20,
+  reservedUsernames: [
+    'adelia', 'adeliareservas', 'admin', 'administrador', 'soporte', 'support', 'ayuda', 'help',
+    'contacto', 'info', 'oficial', 'official', 'staff', 'moderador', 'mod', 'root', 'sistema',
+    'system', 'null', 'undefined', 'usuario', 'user', 'anonimo', 'restaurante', 'empresa',
+  ],
   maxItemUseXp: 80,
   weeklyMissionSlots: 6,
   monthlyMissionSlots: 5,
@@ -101,6 +108,9 @@ export function parseBusinessRules(data: Record<string, unknown> | undefined): B
     depositMaxDaysAhead: positiveInt(d.depositMaxDaysAhead) ?? base.depositMaxDaysAhead,
     usernameMin: positiveInt(d.usernameMin) ?? base.usernameMin,
     usernameMax: positiveInt(d.usernameMax) ?? base.usernameMax,
+    reservedUsernames: Array.isArray(d.reservedUsernames) && d.reservedUsernames.length > 0
+      ? d.reservedUsernames.filter((item): item is string => typeof item === 'string').map((item) => item.trim().toLowerCase())
+      : base.reservedUsernames,
     maxItemUseXp: positiveInt(d.maxItemUseXp) ?? base.maxItemUseXp,
     weeklyMissionSlots: positiveInt(d.weeklyMissionSlots) ?? base.weeklyMissionSlots,
     monthlyMissionSlots: positiveInt(d.monthlyMissionSlots) ?? base.monthlyMissionSlots,
