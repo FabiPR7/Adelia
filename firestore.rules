@@ -589,28 +589,9 @@ service cloud.firestore {
       // get por id (favoritos, fichas). list solo vía Admin SDK (/api/public/discovery).
       allow get: if true;
       allow list: if false;
-      allow delete: if isAdmin();
-      allow create: if isAdmin() || (
-        isCompanyOwner(companyId)
-        && request.resource.data.companyId == companyId
-        && request.resource.data.discoveryFeatured != true
-        && (!('reviewCount' in request.resource.data) || request.resource.data.reviewCount == 0)
-        && (!('reviewRatingSum' in request.resource.data) || request.resource.data.reviewRatingSum == 0)
-        && (!('reviewAdelinas' in request.resource.data) || request.resource.data.reviewAdelinas == 0)
-      );
-      allow update: if isAdmin() || (
-        isCompanyOwner(companyId)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'discoveryFeatured',
-          'reviewCount',
-          'reviewRatingSum',
-          'reviewAdelinas',
-          'companyId',
-          'slug',
-        ])
-        && !(get(/databases/$(database)/documents/companies/$(companyId)).data.get('deactivatedByAdmin', false) == true
-          && request.resource.data.get('deactivated', false) != true)
-      );
+      // Lo escribe SOLO el servidor (disparador al cambiar el local). Antes lo
+      // escribía el panel del restaurante y podía tocar campos como el plan o el mapa.
+      allow create, update, delete: if isAdmin();
     }
 
     match /friendships/{friendshipId} {

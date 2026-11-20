@@ -9,3 +9,4 @@ export {
 } from './triggers.ts'
 export { adminCreateCompany } from './adminCompanyManagement.ts'
 export { cleanupRateLimitsScheduled } from './scheduledFunctions.ts'
+export { onCompanyWrittenSyncRestaurantIndex } from './restaurantIndexTrigger.ts'

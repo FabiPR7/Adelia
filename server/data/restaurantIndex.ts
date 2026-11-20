@@ -33,6 +33,7 @@ export interface RestaurantIndexDoc {
   reviewRatingSum: number
   reviewAdelinas: number
   reservationMode?: 'required' | 'optional' | 'none'
+  deactivated?: boolean
   hasProfile: boolean
   discoveryFeatured?: boolean
   updatedAt: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp
@@ -305,6 +306,8 @@ export function buildRestaurantIndexPayload(
     reservationMode: data.reservationMode === 'required' || data.reservationMode === 'none'
       ? data.reservationMode
       : 'optional',
+    // Desactivado por el dueño o por el admin: fuera de Buscar.
+    deactivated: data.deactivated === true || data.deactivatedByAdmin === true,
     hasProfile: Boolean(
       description
       || municipality

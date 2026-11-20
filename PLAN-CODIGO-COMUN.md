@@ -84,14 +84,26 @@ Situación de partida (20 nov 2026):
    datos de la API, los textos de avisos y las funciones pequeñas (fechas en hora de
    España, precios). La web y el servidor la importan; la app la recibe con un comando
    que la copia y comprueba que no se ha tocado a mano.
-7. ⏳ **La app deja de escribir directo en la base de datos.** Reservas, reseñas,
-   premios y promos guardadas pasan por la API (como la web en lo nuevo). Las reglas de
-   Firestore se pueden cerrar más.
+7. ✅ **Escrituras directas a la base de datos.** (20 nov, adelantado al 6 por seguridad)
+   - **Índice público de Buscar (`restaurantIndex`)**: antes lo escribía el panel del
+     restaurante desde el navegador y la regla le dejaba cambiar campos como la posición
+     en el mapa o el texto de búsqueda. Ahora lo escribe SOLO el servidor con un disparador
+     nuevo (`onCompanyWrittenSyncRestaurantIndex`) cada vez que cambia el local, y la regla
+     solo deja escribir al admin. Quitada la copia del índice de la web.
+   - **Favoritos en la app**: por la API (como ya hacía la web).
+   - Lo que queda escribiendo directo es el propio perfil del cliente (teléfono, datos del
+     alta, promos guardadas), protegido por las reglas, y el panel del restaurante (ver 11).
+   ⚠️ El disparador está publicado; se comprueba solo la próxima vez que se guarde un local
+   (ver «Necesita a Fabi»).
 8. ⏳ **Buscar desde el servidor** (filtros y búsqueda, también por plato, y que las tarjetas
    no ofrezcan «Reservar» si el local no tiene mesas).
    Quita: `publicDiscovery` y `discoveryQuickFilters` duplicados.
 9. ⏳ **Catálogos solo desde la base de datos** (niveles, ítems, misiones): quitar las
    copias fijas del código cuando el punto 5 esté hecho.
+11. ⏳ **Panel del restaurante por la API.** El panel (solo web) cambia reservas, carta,
+    promos y datos del local escribiendo directo en la base de datos, con las reglas como
+    única protección. Pasarlo a rutas del servidor que validen cada cambio. No está
+    duplicado con la app, por eso va después.
 10. ⏳ **Pruebas de contrato**: tests que comprueban que cada respuesta de la API tiene
     la forma que esperan la web y la app, para que un cambio en el servidor no rompa a
     ninguna de las dos sin avisar.
@@ -105,6 +117,8 @@ Situación de partida (20 nov 2026):
   ventana de Google de arriba, Claude lo comprueba en un momento. Mientras, mira tú
   Promos → «En curso» y el mapa de Carolina en la web: debe verse igual que en la app
   (premio 1 reclamado, premio 2 con 1/3).
+- 👤 Cuando cambies algo en los ajustes de un local (por ejemplo, Carolina), comprueba que
+  el cambio sale en Buscar al rato: así se confirma el disparador nuevo del índice.
 
 Cada punto: se hace en servidor, web y app, se prueba en las dos (navegador y
 emulador), se publica y se marca aquí con ✅.

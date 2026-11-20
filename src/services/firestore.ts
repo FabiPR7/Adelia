@@ -1623,11 +1623,7 @@ export async function updateCompanySettings(
     await syncCompanyLoginIndex(trimmedName, authEmail, companyId)
   }
 
-  const indexed = await getCompanyById(companyId)
-  if (indexed) {
-    const { syncRestaurantIndexFromCompany } = await import('./restaurantIndex')
-    await syncRestaurantIndexFromCompany(indexed).catch(() => undefined)
-  }
+  // El índice público de Buscar lo actualiza el servidor solo al cambiar el local.
 }
 
 /**
@@ -1647,11 +1643,7 @@ export async function setCompanyPublicVisibility(
     updatedAt: serverTimestamp(),
   })
 
-  const indexed = await getCompanyById(companyId)
-  if (indexed) {
-    const { syncRestaurantIndexFromCompany } = await import('./restaurantIndex')
-    await syncRestaurantIndexFromCompany(indexed).catch(() => undefined)
-  }
+  // El índice público de Buscar lo actualiza el servidor solo al cambiar el local.
 }
 
 export async function updateCompanyEmailTemplates(

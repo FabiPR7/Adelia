@@ -1,96 +1,9 @@
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { cityKey, encodeGeohash } from '../utils/geohash'
+import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
-import { companyFacilitySearchTerms, parseCompanyProfileFacilities, sanitizeCompanyPriceRange, sanitizeCompanyVenueTypes, type CompanyPriceRange } from '../data/companyProfileFacilities'
+import { parseCompanyProfileFacilities, sanitizeCompanyPriceRange, sanitizeCompanyVenueTypes } from '../data/companyProfileFacilities'
 import { parseCompanyReservationMode } from '../data/companyReservationMode'
 
-export function restaurantIndexPayload(company: {
-  id: string
-  name: string
-  slug: string
-  location?: string
-  municipality?: string
-  country?: string
-  postalCode?: string
-  latitude?: number | null
-  longitude?: number | null
-  logoUrl?: string
-  photos?: string[]
-  videos?: string[]
-  characteristics?: string[]
-  venueTypes?: string[]
-  amenities?: string[]
-  priceRange?: CompanyPriceRange
-  description?: string
-  reviewCount?: number
-  reviewRatingSum?: number
-  reviewAdelinas?: number
-  discoveryFeatured?: boolean
-  deactivated?: boolean
-  reservationMode?: import('../data/companyReservationMode').CompanyReservationMode
-}, options?: { persistFeatured?: boolean }) {
-  const photos = company.photos ?? []
-  const characteristics = company.characteristics ?? []
-  const venueTypes = company.venueTypes ?? []
-  const amenities = company.amenities ?? []
-  const priceRange = company.priceRange ?? ''
-  const photoUrl = photos[0] ?? company.logoUrl ?? ''
-  const description = company.description ?? ''
-
-  return {
-    companyId: company.id,
-    name: company.name,
-    slug: company.slug,
-    location: company.location ?? '',
-    municipality: company.municipality ?? '',
-    country: company.country ?? '',
-    postalCode: company.postalCode ?? '',
-    latitude: company.latitude ?? null,
-    ...(company.latitude != null && company.longitude != null
-      ? { geohash: encodeGeohash(company.latitude, company.longitude) }
-      : {}),
-    municipalityKey: cityKey(company.municipality ?? ''),
-    longitude: company.longitude ?? null,
-    photoUrl,
-    logoUrl: company.logoUrl ?? '',
-    characteristics,
-    venueTypes,
-    amenities,
-    priceRange,
-    searchText: [
-      company.name,
-      company.location,
-      company.municipality,
-      company.country,
-      description,
-      ...characteristics,
-      ...companyFacilitySearchTerms(venueTypes, amenities, priceRange),
-    ]
-      .join(' ')
-      .toLowerCase(),
-    reviewCount: company.reviewCount ?? 0,
-    reviewRatingSum: company.reviewRatingSum ?? 0,
-    reviewAdelinas: company.reviewAdelinas ?? 0,
-    reservationMode: parseCompanyReservationMode(company.reservationMode),
-    deactivated: company.deactivated === true,
-    hasProfile: Boolean(
-      description
-      || company.municipality
-      || company.postalCode
-      || company.country
-      || characteristics.length
-      || venueTypes.length
-      || amenities.length
-      || photos.length
-      || (company.videos?.length ?? 0),
-    ),
-    ...(options?.persistFeatured && typeof company.discoveryFeatured === 'boolean'
-      ? { discoveryFeatured: company.discoveryFeatured }
-      : {}),
-    updatedAt: serverTimestamp(),
-  }
-}
 
 function mapIndexDoc(id: string, data: Record<string, unknown>): PublicDiscoveryRestaurant | null {
   if (data.hasProfile === false) {
@@ -132,11 +45,6 @@ function mapIndexDoc(id: string, data: Record<string, unknown>): PublicDiscovery
   return restaurant.name && restaurant.slug ? restaurant : null
 }
 
-export async function syncRestaurantIndexFromCompany(
-  company: Parameters<typeof restaurantIndexPayload>[0],
-): Promise<void> {
-  await setDoc(doc(db, 'restaurantIndex', company.id), restaurantIndexPayload(company), { merge: true })
-}
 
 export async function fetchRestaurantIndex(): Promise<PublicDiscoveryRestaurant[]> {
   // El listado público va por /api/public/discovery (Admin SDK + rate limit).
