@@ -198,6 +198,12 @@ router.get('/league', async (req: Request, res: Response) => {
       badges,
     })
   } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    // Sin sesión o sin ser restaurante: 401, no un error del servidor.
+    if (/sesión|autoriz|Perfil no encontrado/i.test(message)) {
+      res.status(401).json({ error: message })
+      return
+    }
     console.error('company league error:', error)
     res.status(500).json({ error: 'No se pudo cargar la liga.' })
   }

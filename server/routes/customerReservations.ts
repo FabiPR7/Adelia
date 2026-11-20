@@ -24,9 +24,10 @@ type Snapshot = FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.Docume
 
 function toIso(value: unknown): string | null {
   if (value && typeof value === 'object' && 'toDate' in value) {
-    const toDate = (value as { toDate?: () => Date }).toDate
-    if (typeof toDate === 'function') {
-      return toDate().toISOString()
+    // Se llama sobre el propio Timestamp: separada pierde su this y falla (_seconds).
+    const timestamp = value as { toDate?: () => Date }
+    if (typeof timestamp.toDate === 'function') {
+      return timestamp.toDate().toISOString()
     }
   }
   if (typeof value === 'string' || typeof value === 'number') {
