@@ -1,23 +1,17 @@
 import {
   collection,
-  deleteDoc,
-  doc,
   getCountFromServer,
-  getDoc,
   getDocs,
-  increment,
   limit,
   orderBy,
   query,
-  setDoc,
-  updateDoc,
   where,
 } from 'firebase/firestore'
+import { adminApi } from './adminApi'
 import { db } from '../config/firebase'
 import { isPermissionDenied } from './firestoreErrors'
 import { parseCompanyPlanStartedAt } from '../data/companyPlans'
 import { allMissionDefinitions } from '../data/gamificationMissions'
-import { computeReviewAdelinas } from '../types/review'
 import type {
   AdminCustomerRow,
   AdminLoginLock,
@@ -155,7 +149,8 @@ export async function listTopCustomersByAdelinas(limitCount = 8): Promise<AdminC
 }
 
 export async function setCustomerBlocked(userId: string, blocked: boolean): Promise<void> {
-  await updateDoc(doc(db, 'users', userId), { blocked })
+  // Por la API del admin (queda apuntado en el registro de acciones).
+  await adminApi.blockCustomer(userId, blocked)
 }
 
 export async function listIndexedReviews(): Promise<IndexedReview[]> {
@@ -189,29 +184,8 @@ export async function listIndexedReviews(): Promise<IndexedReview[]> {
 }
 
 export async function deleteIndexedReview(review: IndexedReview): Promise<void> {
-  const reviewRef = doc(db, 'companies', review.companyId, 'reviews', review.customerUid)
-  const reviewSnap = await getDoc(reviewRef)
-  const reviewData = reviewSnap.exists() ? reviewSnap.data() : null
-  const rating = typeof reviewData?.rating === 'number' ? reviewData.rating : review.rating
-  const hasPhoto = reviewData?.hasPhoto === true || review.hasPhoto
-  const mediaItems = Array.isArray(reviewData?.mediaItems) ? reviewData.mediaItems : []
-  const adelinas = typeof reviewData?.adelinasEarned === 'number'
-    ? reviewData.adelinasEarned
-    : computeReviewAdelinas(rating, hasPhoto, mediaItems as { type: 'image' | 'video'; url: string }[])
-
-  // Solo se descuenta del restaurante si la reseña existía y se ha borrado de verdad:
-  // antes un fallo o un doble clic restaba dos veces y descuadraba la nota media.
-  if (!reviewSnap.exists()) {
-    await deleteDoc(doc(db, 'reviewIndex', review.id)).catch(() => undefined)
-    return
-  }
-  await deleteDoc(reviewRef)
-  await deleteDoc(doc(db, 'reviewIndex', review.id)).catch(() => undefined)
-  await updateDoc(doc(db, 'companies', review.companyId), {
-    reviewCount: increment(-1),
-    reviewRatingSum: increment(-rating),
-    reviewAdelinas: increment(-adelinas),
-  }).catch(() => undefined)
+  // El servidor borra la reseña y descuenta su nota del restaurante solo si existía.
+  await adminApi.deleteReview(review.companyId, review.customerUid, review.id)
 }
 
 export async function listSecurityEvents(): Promise<AdminSecurityEvent[]> {
@@ -301,9 +275,11 @@ export async function listAdminMissions(): Promise<AdminMissionRow[]> {
 }
 
 export async function saveAdminMission(mission: AdminMissionRow): Promise<void> {
-  await setDoc(
-    doc(db, 'missionCatalog', mission.id),
-    {
+  await adminApi.catalogBatch([{
+    type: 'set',
+    path: `missionCatalog/${mission.id}`,
+    merge: true,
+    data: {
       name: mission.name.trim(),
       description: mission.description.trim(),
       xp: Math.max(0, Math.trunc(mission.xp)),
@@ -312,8 +288,7 @@ export async function saveAdminMission(mission: AdminMissionRow): Promise<void> 
       category: mission.category,
       icon: mission.icon,
     },
-    { merge: true },
-  )
+  }])
 }
 
 export async function listSaasSubscriptionLeads(): Promise<SaasSubscriptionLead[]> {

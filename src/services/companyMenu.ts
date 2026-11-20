@@ -1,18 +1,13 @@
 import {
-  addDoc,
   collection,
-  deleteDoc,
-  doc,
   getDocs,
   limit,
   query,
-  serverTimestamp,
   Timestamp,
-  updateDoc,
   where,
-  writeBatch,
 } from 'firebase/firestore'
-import { defaultMenuTemplate, normalizeMenuBackgroundImageOpacity } from '../data/menuTemplates'
+import { normalizeMenuTemplate } from '../utils/menuSerialize'
+import { callCompanyApi } from './companyApi'
 import { db } from '../config/firebase'
 import { COMPANY_MENU_BOARD_LIMIT } from './firestoreQuery'
 import { normalizeMenuCategoryAvailability } from '../utils/menuCategoryAvailability'
@@ -21,7 +16,6 @@ import type {
   MenuBoardInput,
   MenuNode,
   MenuNodeInput,
-  MenuTemplateConfig,
 } from '../types/company'
 import {
   getDemoMenuBoards,
@@ -30,36 +24,7 @@ import {
   rejectIfDemoCompanyWrite,
 } from '../data/companyPanelDemo'
 
-function mapTemplate(data: Record<string, unknown>): MenuTemplateConfig {
-  const fallback = defaultMenuTemplate()
-
-  return {
-    templateId: (data.templateId as string) ?? fallback.templateId,
-    backgroundColor: (data.backgroundColor as string) ?? fallback.backgroundColor,
-    backgroundImageUrl: (data.backgroundImageUrl as string) ?? '',
-    backgroundImageOpacity: normalizeMenuBackgroundImageOpacity(
-      data.backgroundImageOpacity ?? fallback.backgroundImageOpacity,
-    ),
-    fontFamily: (data.fontFamily as string) ?? fallback.fontFamily,
-    titleColor: (data.titleColor as string) ?? fallback.titleColor,
-    textColor: (data.textColor as string) ?? fallback.textColor,
-    accentColor: (data.accentColor as string) ?? fallback.accentColor,
-    familyColor: (data.familyColor as string) ?? (data.accentColor as string) ?? fallback.familyColor,
-    subfamilyColor: (data.subfamilyColor as string) ?? (data.textColor as string) ?? fallback.subfamilyColor,
-    priceColor: (data.priceColor as string) ?? fallback.priceColor,
-    layout: data.layout === 'grid' ? 'grid' : 'list',
-    showPhotos: data.showPhotos !== false,
-    showAllergens: data.showAllergens !== false,
-    showDescriptions: data.showDescriptions !== false,
-    tagline: typeof data.tagline === 'string' ? data.tagline.slice(0, 80) : '',
-    showCategoryNav: data.showCategoryNav !== false,
-    showSearch: data.showSearch !== false,
-    cardStyle: data.cardStyle === 'outline' || data.cardStyle === 'plain' ? data.cardStyle : 'soft',
-    density: data.density === 'compact' ? 'compact' : 'comfortable',
-    headerAlign: data.headerAlign === 'left' ? 'left' : 'center',
-    photoShape: data.photoShape === 'square' || data.photoShape === 'circle' ? data.photoShape : 'rounded',
-  }
-}
+const mapTemplate = normalizeMenuTemplate
 
 function mapBoard(id: string, companyId: string, data: Record<string, unknown>): MenuBoard {
   return {
@@ -100,40 +65,6 @@ function mapNode(id: string, companyId: string, data: Record<string, unknown>): 
   }
 }
 
-function serializeBoard(companyId: string, input: MenuBoardInput) {
-  return {
-    companyId,
-    name: input.name.trim(),
-    active: input.active,
-    sortOrder: input.sortOrder,
-    template: input.template,
-    pdfUrl: input.pdfUrl?.trim() ?? '',
-    pdfFileName: input.pdfFileName?.trim() ?? '',
-    pdfPages: typeof input.pdfPages === 'number' && input.pdfPages > 0 ? input.pdfPages : 0,
-    updatedAt: serverTimestamp(),
-  }
-}
-
-function serializeNode(companyId: string, input: MenuNodeInput) {
-  return {
-    companyId,
-    boardId: input.boardId,
-    nodeType: input.nodeType,
-    parentId: input.parentId,
-    sortOrder: input.sortOrder,
-    name: input.name.trim(),
-    description: input.description.trim(),
-    allergens: input.allergens,
-    priceCents: input.nodeType === 'product' ? input.priceCents : null,
-    priceCurrency: input.nodeType === 'product' ? input.priceCurrency : 'EUR',
-    photoUrl: input.nodeType === 'product' ? input.photoUrl.trim() : '',
-    active: input.active,
-    availability: input.nodeType === 'family'
-      ? normalizeMenuCategoryAvailability(input.availability)
-      : { enabled: false, start: '', end: '' },
-    updatedAt: serverTimestamp(),
-  }
-}
 
 export async function getCompanyMenuBoards(companyId: string): Promise<MenuBoard[]> {
   if (isDemoCompanyId(companyId)) {
@@ -207,18 +138,15 @@ export async function getPublicCompanyMenuNodes(companyId: string, boardId?: str
     .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
 }
 
+const menuPath = (companyId: string, suffix: string) => `/${encodeURIComponent(companyId)}/menu${suffix}`
+
 export async function createCompanyMenuBoard(
   companyId: string,
   input: MenuBoardInput,
 ): Promise<string> {
   rejectIfDemoCompanyWrite(companyId)
-  const boardsRef = collection(db, 'companies', companyId, 'menuBoards')
-  const docRef = await addDoc(boardsRef, {
-    ...serializeBoard(companyId, input),
-    createdAt: serverTimestamp(),
-  })
-
-  return docRef.id
+  const data = await callCompanyApi<{ id: string }>(menuPath(companyId, '/boards'), 'POST', input, 'No se pudo crear la carta.')
+  return data.id
 }
 
 export async function updateCompanyMenuBoard(
@@ -227,8 +155,7 @@ export async function updateCompanyMenuBoard(
   input: MenuBoardInput,
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const boardRef = doc(db, 'companies', companyId, 'menuBoards', boardId)
-  await updateDoc(boardRef, serializeBoard(companyId, input))
+  await callCompanyApi(menuPath(companyId, `/boards/${encodeURIComponent(boardId)}`), 'PUT', input, 'No se pudo guardar la carta.')
 }
 
 export async function setCompanyMenuBoardActive(
@@ -237,21 +164,12 @@ export async function setCompanyMenuBoardActive(
   active: boolean,
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const boardRef = doc(db, 'companies', companyId, 'menuBoards', boardId)
-  await updateDoc(boardRef, { active, updatedAt: serverTimestamp() })
+  await callCompanyApi(menuPath(companyId, `/boards/${encodeURIComponent(boardId)}/active`), 'PATCH', { active }, 'No se pudo cambiar la carta.')
 }
 
 export async function deleteCompanyMenuBoard(companyId: string, boardId: string): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const nodes = await getCompanyMenuNodes(companyId, boardId)
-  const batch = writeBatch(db)
-
-  for (const node of nodes) {
-    batch.delete(doc(db, 'companies', companyId, 'menuNodes', node.id))
-  }
-
-  batch.delete(doc(db, 'companies', companyId, 'menuBoards', boardId))
-  await batch.commit()
+  await callCompanyApi(menuPath(companyId, `/boards/${encodeURIComponent(boardId)}`), 'DELETE', undefined, 'No se pudo borrar la carta.')
 }
 
 export async function reorderCompanyMenuBoards(
@@ -259,16 +177,7 @@ export async function reorderCompanyMenuBoards(
   orderedBoardIds: string[],
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const batch = writeBatch(db)
-
-  orderedBoardIds.forEach((boardId, index) => {
-    batch.update(doc(db, 'companies', companyId, 'menuBoards', boardId), {
-      sortOrder: index,
-      updatedAt: serverTimestamp(),
-    })
-  })
-
-  await batch.commit()
+  await callCompanyApi(menuPath(companyId, '/boards-order'), 'PUT', { boardIds: orderedBoardIds }, 'No se pudo ordenar las cartas.')
 }
 
 export async function createCompanyMenuNode(
@@ -276,13 +185,8 @@ export async function createCompanyMenuNode(
   input: MenuNodeInput,
 ): Promise<string> {
   rejectIfDemoCompanyWrite(companyId)
-  const nodesRef = collection(db, 'companies', companyId, 'menuNodes')
-  const docRef = await addDoc(nodesRef, {
-    ...serializeNode(companyId, input),
-    createdAt: serverTimestamp(),
-  })
-
-  return docRef.id
+  const data = await callCompanyApi<{ id: string }>(menuPath(companyId, '/nodes'), 'POST', input, 'No se pudo crear el producto.')
+  return data.id
 }
 
 export async function updateCompanyMenuNode(
@@ -291,14 +195,11 @@ export async function updateCompanyMenuNode(
   input: MenuNodeInput,
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const nodeRef = doc(db, 'companies', companyId, 'menuNodes', nodeId)
-  await updateDoc(nodeRef, serializeNode(companyId, input))
+  await callCompanyApi(menuPath(companyId, `/nodes/${encodeURIComponent(nodeId)}`), 'PUT', input, 'No se pudo guardar el producto.')
 }
 
 export async function deleteCompanyMenuNode(companyId: string, nodeId: string): Promise<void> {
-  rejectIfDemoCompanyWrite(companyId)
-  const nodeRef = doc(db, 'companies', companyId, 'menuNodes', nodeId)
-  await deleteDoc(nodeRef)
+  await deleteCompanyMenuNodes(companyId, [nodeId])
 }
 
 export async function deleteCompanyMenuNodes(companyId: string, nodeIds: string[]): Promise<void> {
@@ -306,14 +207,7 @@ export async function deleteCompanyMenuNodes(companyId: string, nodeIds: string[
   if (nodeIds.length === 0) {
     return
   }
-
-  const batch = writeBatch(db)
-
-  for (const nodeId of nodeIds) {
-    batch.delete(doc(db, 'companies', companyId, 'menuNodes', nodeId))
-  }
-
-  await batch.commit()
+  await callCompanyApi(menuPath(companyId, '/nodes/delete'), 'POST', { nodeIds }, 'No se pudo borrar.')
 }
 
 export async function createCompanyMenuNodesBatch(
@@ -324,21 +218,8 @@ export async function createCompanyMenuNodesBatch(
   if (inputs.length === 0) {
     return
   }
-
-  const chunkSize = 400
-
-  for (let offset = 0; offset < inputs.length; offset += chunkSize) {
-    const chunk = inputs.slice(offset, offset + chunkSize)
-    const batch = writeBatch(db)
-
-    for (const input of chunk) {
-      batch.set(doc(db, 'companies', companyId, 'menuNodes', input.id), {
-        ...serializeNode(companyId, input),
-        createdAt: serverTimestamp(),
-      })
-    }
-
-    await batch.commit()
+  for (let offset = 0; offset < inputs.length; offset += 1000) {
+    await callCompanyApi(menuPath(companyId, '/nodes/batch'), 'POST', { nodes: inputs.slice(offset, offset + 1000) }, 'No se pudieron guardar los productos.')
   }
 }
 
@@ -350,21 +231,5 @@ export async function reorderCompanyMenuNodes(
   if (updates.length === 0) {
     return
   }
-
-  const batch = writeBatch(db)
-
-  for (const update of updates) {
-    const payload: Record<string, unknown> = {
-      sortOrder: update.sortOrder,
-      updatedAt: serverTimestamp(),
-    }
-
-    if (update.parentId !== undefined) {
-      payload.parentId = update.parentId
-    }
-
-    batch.update(doc(db, 'companies', companyId, 'menuNodes', update.nodeId), payload)
-  }
-
-  await batch.commit()
+  await callCompanyApi(menuPath(companyId, '/nodes-order'), 'PUT', { updates }, 'No se pudo ordenar.')
 }

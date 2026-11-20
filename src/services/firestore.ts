@@ -1,19 +1,13 @@
 import {
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
   limit,
   orderBy,
   query,
-  serverTimestamp,
-  setDoc,
   Timestamp,
-  updateDoc,
   where,
-  writeBatch,
-  deleteField,
   type QueryConstraint,
 } from 'firebase/firestore'
 import { db, auth } from '../config/firebase'
@@ -37,7 +31,7 @@ import { parseCompanyReviewStats } from '../types/review'
 import { mapVerifiedConsumptionDoc } from '../utils/productReports'
 import type { PublicPromotion } from './publicPromotions'
 import { getNextLadderPromotionId, sortCompanyLadderPromotions } from '../utils/promotionReservationProgress'
-import { defaultTurns, parseFloorPlan, parseFloorPlans, primaryFloorPlan, serializeFloorPlanForFirestore, serializeFloorPlansForFirestore } from '../types/company'
+import { defaultTurns, parseFloorPlans, primaryFloorPlan } from '../types/company'
 import {
   normalizeCompanyEmailTemplates,
   parseCompanyEmailTemplatesFromFirestore,
@@ -46,7 +40,7 @@ import {
   assertReservationSlotValid,
   computeReservationCountsByMonth as computeReservationCountsByMonthUtil,
 } from '../utils/reservationSlots'
-import { combineDateAndTime, dateToIsoDate, defaultSchedule, generateUuid, isSameDay, slugToAuthEmail, slugify } from '../utils/helpers'
+import { combineDateAndTime, dateToIsoDate, defaultSchedule, generateUuid, isSameDay } from '../utils/helpers'
 import {
   filterDemoReservations,
   getDemoCompany,
@@ -77,31 +71,18 @@ import {
   normalizeCompanySettingsPayload,
 } from '../utils/companyValidation'
 import { notifyReservationCancelledNotification, notifyReservationConfirmationEmail } from './reservationEmailApi'
+import { callCompanyApi } from './companyApi'
+import { adminApi } from './adminApi'
 import type { QrBrandingConfig, QrBrandingKind } from '../types/company'
 import { splitCustomerReservations, type CustomerReservationLists } from '../utils/customerReservationLists'
 import {
   normalizeQrBrandingConfig,
   parseCompanyQrBranding,
-  serializeCompanyQrBranding,
 } from '../utils/qrBranding'
 import { listUserFavoriteSlugs } from './userFavorites'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
-export async function syncCompanyLoginIndex(
-  loginName: string,
-  authEmail: string,
-  companyId?: string,
-): Promise<void> {
-  const trimmed = loginName.trim()
-  const loginId = slugify(trimmed)
-  await setDoc(doc(db, 'logins', loginId), {
-    loginName: trimmed,
-    authEmail,
-    role: 'company',
-    ...(companyId ? { companyId } : {}),
-  })
-}
 
 export async function resolveLoginAuthEmail(username: string, password: string): Promise<string> {
   const trimmed = username.trim()
@@ -135,61 +116,13 @@ export async function resolveLoginAuthEmail(username: string, password: string):
 }
 
 export async function ensureCompanyLoginIndex(companyId: string): Promise<void> {
-  const [credentialsSnap, companySnap] = await Promise.all([
-    getDoc(doc(db, 'companyCredentials', companyId)),
-    getDoc(doc(db, 'companies', companyId)),
-  ])
-
-  if (!credentialsSnap.exists() || !companySnap.exists()) {
-    return
-  }
-
-  const loginName =
-    (credentialsSnap.data().loginName as string | undefined) ??
-    (companySnap.data().name as string | undefined)
-  const authEmail =
-    (credentialsSnap.data().authEmail as string | undefined) ??
-    slugToAuthEmail(companySnap.data().slug as string)
-
-  if (!loginName || !authEmail) {
-    return
-  }
-
-  if ('loginPassword' in credentialsSnap.data() || 'password' in credentialsSnap.data()) {
-    await updateDoc(doc(db, 'companyCredentials', companyId), {
-      loginPassword: deleteField(),
-      password: deleteField(),
-    }).catch(() => undefined)
-  }
-
-  await syncCompanyLoginIndex(loginName, authEmail, companyId)
+  await callCompanyApi(`/${encodeURIComponent(companyId)}/login-index`, 'POST', {}, 'No se pudo actualizar el acceso.')
 }
 
 /** Sincroniza el índice de acceso de todas las empresas (solo admin). */
 export async function syncAllCompanyLoginIndexes(): Promise<void> {
-  const [companiesSnap, credentialsSnap] = await Promise.all([
-    getDocs(query(collection(db, 'companies'), limit(ADMIN_COMPANY_LIST_LIMIT))),
-    getDocs(query(collection(db, 'companyCredentials'), limit(ADMIN_COMPANY_LIST_LIMIT))),
-  ])
-
-  const credentialsByCompanyId = Object.fromEntries(
-    credentialsSnap.docs.map((item) => [item.id, item.data()]),
-  )
-
-  for (const companyDoc of companiesSnap.docs) {
-    const credentials = credentialsByCompanyId[companyDoc.id]
-    const companyData = companyDoc.data()
-    const loginName =
-      (credentials?.loginName as string | undefined) ??
-      (companyData.name as string | undefined)
-    const authEmail =
-      (credentials?.authEmail as string | undefined) ??
-      slugToAuthEmail(companyData.slug as string)
-
-    if (loginName && authEmail) {
-      await syncCompanyLoginIndex(loginName, authEmail, companyDoc.id)
-    }
-  }
+  // El servidor rehace el índice de acceso de todos los locales.
+  await adminApi.syncLoginIndexes()
 }
 
 export async function getUserProfile(uid: string): Promise<AppUser | null> {
@@ -937,13 +870,7 @@ export async function markCompanyMustChangePassword(
   ownerUid: string,
   companyId: string,
 ): Promise<void> {
-  await updateDoc(doc(db, 'users', ownerUid), {
-    mustChangePassword: true,
-  })
-  await updateDoc(doc(db, 'companyCredentials', companyId), {
-    mustChangePassword: true,
-    updatedAt: serverTimestamp(),
-  })
+  await adminApi.markMustChangePassword(companyId, ownerUid)
 }
 
 export async function getCompanyCredentialsMustChange(
@@ -1052,14 +979,8 @@ export async function getAdminCompanies(): Promise<AdminCompany[]> {
     'loginPassword' in item.data() || 'password' in item.data(),
   )
   if (leftoverSecrets.length > 0) {
-    const batch = writeBatch(db)
-    leftoverSecrets.slice(0, ADMIN_COMPANY_LIST_LIMIT).forEach((item) => {
-      batch.update(item.ref, {
-        loginPassword: deleteField(),
-        password: deleteField(),
-      })
-    })
-    void batch.commit().catch(() => undefined)
+    // Quedaban contraseñas antiguas guardadas: las borra el servidor.
+    void adminApi.syncLoginIndexes().catch(() => undefined)
   }
 
   return companiesSnapshot.docs
@@ -1405,16 +1326,22 @@ export async function updateReservation(
   // En minúsculas, como al crearla: el cliente la ve si coincide con el correo de su cuenta.
   const clientEmail = form.clientEmail.trim().toLowerCase()
 
-  await updateDoc(doc(db, 'reservations', reservationId), {
-    tableId: form.tableId,
-    clientName: form.clientName.trim(),
-    clientEmail,
-    clientPhone: form.clientPhone.trim(),
-    pax: form.pax,
-    startTime: Timestamp.fromDate(startTime),
-    endTime: Timestamp.fromDate(endTime),
-    status: form.status,
-  })
+  // Por la API: el servidor vuelve a comprobar la mesa y el hueco antes de guardar.
+  await callCompanyApi(
+    reservationApiPath(companyId, reservationId),
+    'PUT',
+    {
+      date: dateToIsoDate(date),
+      time: form.time,
+      tableId: form.tableId,
+      clientName: form.clientName.trim(),
+      clientEmail,
+      clientPhone: form.clientPhone.trim(),
+      pax: form.pax,
+      status: form.status,
+    },
+    'No se pudo guardar la reserva.',
+  )
 
   const existing = dayReservations.find((item) => item.id === reservationId)
   invalidateCompanyReservationCache(companyId)
@@ -1436,26 +1363,34 @@ export async function updateReservation(
   }
 }
 
+/** Local al que pertenece una reserva (lectura permitida al dueño). */
+async function reservationCompanyId(reservationId: string): Promise<string> {
+  const snap = await getDoc(doc(db, 'reservations', reservationId))
+  const companyId = snap.data()?.companyId
+  if (typeof companyId !== 'string' || !companyId) {
+    throw new Error('Reserva no encontrada.')
+  }
+  return companyId
+}
+
+function reservationApiPath(companyId: string, reservationId: string, suffix = ''): string {
+  return `/${encodeURIComponent(companyId)}/reservations/${encodeURIComponent(reservationId)}${suffix}`
+}
+
 export async function updateReservationStatus(
   reservationId: string,
   status: 'confirmed' | 'cancelled',
   options?: { promotionVisitStatus?: PromotionVisitStatus },
 ): Promise<void> {
   rejectIfDemoCompanyWrite()
-  const update: Record<string, unknown> = { status }
-
-  if (status === 'cancelled') {
-    // Se usa al pasar lista: «no asistió». Cuenta como ausencia del cliente.
-    update.cancelledBy = 'restaurant'
-    update.noShow = true
-    update.cancelShieldRequested = true
-  }
-
-  if (options?.promotionVisitStatus) {
-    update.promotionVisitStatus = options.promotionVisitStatus
-  }
-
-  await updateDoc(doc(db, 'reservations', reservationId), update)
+  // Por la API: «no asistió» cuenta como ausencia del cliente (lo pone el servidor).
+  const companyId = await reservationCompanyId(reservationId)
+  await callCompanyApi(
+    reservationApiPath(companyId, reservationId, '/status'),
+    'PATCH',
+    { status, ...(options?.promotionVisitStatus ? { promotionVisitStatus: options.promotionVisitStatus } : {}) },
+    'No se pudo cambiar el estado de la reserva.',
+  )
   invalidateCompanyReservationCache()
 
   if (status === 'confirmed') {
@@ -1474,15 +1409,8 @@ export async function updateReservationStatus(
  */
 export async function cancelReservationByRestaurant(reservationId: string): Promise<void> {
   rejectIfDemoCompanyWrite()
-  const current = await getDoc(doc(db, 'reservations', reservationId))
-  if (current.data()?.status === 'cancelled') {
-    throw new Error('Esta reserva ya estaba cancelada.')
-  }
-  await updateDoc(doc(db, 'reservations', reservationId), {
-    status: 'cancelled',
-    cancelledBy: 'restaurant',
-    noShow: false,
-  })
+  const companyId = await reservationCompanyId(reservationId)
+  await callCompanyApi(reservationApiPath(companyId, reservationId, '/cancel'), 'POST', {}, 'No se pudo cancelar la reserva.')
   invalidateCompanyReservationCache()
   await notifyReservationCancelledNotification(reservationId, 'restaurant')
 }
@@ -1492,12 +1420,19 @@ export async function updateReservationPromotionVisitStatus(
   promotionVisitStatus: PromotionVisitStatus,
 ): Promise<void> {
   rejectIfDemoCompanyWrite()
-  await updateDoc(doc(db, 'reservations', reservationId), { promotionVisitStatus })
+  const companyId = await reservationCompanyId(reservationId)
+  await callCompanyApi(
+    reservationApiPath(companyId, reservationId, '/promotion-visit'),
+    'PATCH',
+    { promotionVisitStatus },
+    'No se pudo cambiar el estado de la promo.',
+  )
 }
 
 export async function deleteReservation(reservationId: string): Promise<void> {
   rejectIfDemoCompanyWrite()
-  await deleteDoc(doc(db, 'reservations', reservationId))
+  const companyId = await reservationCompanyId(reservationId)
+  await callCompanyApi(reservationApiPath(companyId, reservationId), 'DELETE', undefined, 'No se pudo borrar la reserva.')
   invalidateCompanyReservationCache()
 }
 
@@ -1557,73 +1492,10 @@ export async function updateCompanySettings(
   payload: CompanySettingsPayload,
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const normalizedPayload = normalizeCompanySettingsPayload(payload)
-
-  const trimmedName = normalizedPayload.name.trim()
-  const companySnap = await getDoc(doc(db, 'companies', companyId))
-  const credentialsSnap = await getDoc(doc(db, 'companyCredentials', companyId))
-  const currentName = ((companySnap.data()?.name as string) ?? '').trim()
-  const nameChanged = trimmedName !== currentName
-  const ownerUid = companySnap.data()?.ownerUid as string | undefined
-  const authEmail =
-    (credentialsSnap.data()?.authEmail as string | undefined) ??
-    slugToAuthEmail(companySnap.data()?.slug as string)
-
-  const batch = writeBatch(db)
-
-  batch.update(doc(db, 'companies', companyId), {
-    name: trimmedName,
-    contactEmail: normalizedPayload.contactEmail,
-    phone: normalizedPayload.phone,
-    website: normalizedPayload.website,
-    location: normalizedPayload.location,
-    municipality: normalizedPayload.municipality,
-    country: normalizedPayload.country,
-    postalCode: normalizedPayload.postalCode,
-    latitude: normalizedPayload.latitude,
-    longitude: normalizedPayload.longitude,
-    description: normalizedPayload.description,
-    logoUrl: normalizedPayload.logoUrl,
-    photos: normalizedPayload.photos,
-    mainPhotoIndex: normalizedPayload.mainPhotoIndex,
-    videos: normalizedPayload.videos,
-    characteristics: normalizedPayload.characteristics,
-    venueTypes: normalizedPayload.venueTypes,
-    amenities: normalizedPayload.amenities,
-    priceRange: normalizedPayload.priceRange,
-    timeSlotMinutes: normalizedPayload.timeSlotMinutes,
-    reservationMode: normalizedPayload.reservationMode,
-    depositMinPax: normalizedPayload.depositMinPax,
-    depositPerGuestCents: normalizedPayload.depositPerGuestCents,
-    depositEnabled: normalizedPayload.depositEnabled,
-    depositCancellationHours: normalizedPayload.depositCancellationHours,
-    schedule: normalizedPayload.schedule,
-    turns: normalizedPayload.turns,
-    floorPlan: serializeFloorPlanForFirestore(normalizedPayload.floorPlan),
-    floorPlans: serializeFloorPlansForFirestore(normalizedPayload.floorPlans),
-    updatedAt: serverTimestamp(),
-  })
-
-  if (nameChanged) {
-    batch.update(doc(db, 'companyCredentials', companyId), {
-      loginName: trimmedName,
-      updatedAt: serverTimestamp(),
-    })
-
-    if (ownerUid) {
-      batch.update(doc(db, 'users', ownerUid), {
-        loginName: trimmedName,
-      })
-    }
-  }
-
-  await batch.commit()
-
-  if (nameChanged && authEmail) {
-    await syncCompanyLoginIndex(trimmedName, authEmail, companyId)
-  }
-
-  // El índice público de Buscar lo actualiza el servidor solo al cambiar el local.
+  // Por la API: el servidor limpia y valida con las mismas reglas y guarda el local,
+  // el nombre de acceso y el índice de inicio de sesión. El índice de Buscar lo
+  // actualiza el servidor solo al cambiar el local.
+  await callCompanyApi(`/${encodeURIComponent(companyId)}/settings`, 'PUT', normalizeCompanySettingsPayload(payload), 'No se pudieron guardar los ajustes.')
 }
 
 /**
@@ -1636,14 +1508,7 @@ export async function setCompanyPublicVisibility(
   deactivated: boolean,
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-
-  await updateDoc(doc(db, 'companies', companyId), {
-    deactivated,
-    deactivatedAt: deactivated ? serverTimestamp() : null,
-    updatedAt: serverTimestamp(),
-  })
-
-  // El índice público de Buscar lo actualiza el servidor solo al cambiar el local.
+  await callCompanyApi(`/${encodeURIComponent(companyId)}/visibility`, 'PATCH', { deactivated }, 'No se pudo cambiar la visibilidad.')
 }
 
 export async function updateCompanyEmailTemplates(
@@ -1651,13 +1516,12 @@ export async function updateCompanyEmailTemplates(
   templates: CompanyEmailTemplates,
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const normalized = normalizeCompanyEmailTemplates(templates)
-  const payload = {
-    emailTemplates: normalized,
-    updatedAt: serverTimestamp(),
-  }
-
-  await setDoc(doc(db, 'companies', companyId, 'private', 'ops'), payload, { merge: true })
+  await callCompanyApi(
+    `/${encodeURIComponent(companyId)}/email-templates`,
+    'PUT',
+    { templates: normalizeCompanyEmailTemplates(templates) },
+    'No se pudo guardar la plantilla.',
+  )
 }
 
 export async function updateCompanyFloorPlan(
@@ -1672,12 +1536,7 @@ export async function updateCompanyFloorPlans(
   floorPlans: import('../types/company').FloorPlan[],
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const plans = floorPlans.length > 0 ? floorPlans : [parseFloorPlan(undefined)]
-  await updateDoc(doc(db, 'companies', companyId), {
-    floorPlan: serializeFloorPlanForFirestore(primaryFloorPlan(plans)),
-    floorPlans: serializeFloorPlansForFirestore(plans),
-    updatedAt: serverTimestamp(),
-  })
+  await callCompanyApi(`/${encodeURIComponent(companyId)}/floor-plans`, 'PUT', { floorPlans }, 'No se pudieron guardar los mapas.')
 }
 
 export async function updateCompanyQrBranding(
@@ -1686,17 +1545,12 @@ export async function updateCompanyQrBranding(
   config: QrBrandingConfig,
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const companySnap = await getDoc(doc(db, 'companies', companyId))
-  const currentBranding = parseCompanyQrBranding(companySnap.data()?.qrBranding)
-  const normalizedConfig = normalizeQrBrandingConfig(config)
-
-  await updateDoc(doc(db, 'companies', companyId), {
-    qrBranding: serializeCompanyQrBranding({
-      ...currentBranding,
-      [kind]: normalizedConfig,
-    }),
-    updatedAt: serverTimestamp(),
-  })
+  await callCompanyApi(
+    `/${encodeURIComponent(companyId)}/qr-branding`,
+    'PUT',
+    { kind, config: normalizeQrBrandingConfig(config) },
+    'No se pudo guardar el diseño del QR.',
+  )
 }
 
 export async function replaceCompanyTables(
@@ -1704,28 +1558,19 @@ export async function replaceCompanyTables(
   tables: TableInput[],
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const existing = await getDocs(
-    query(collection(db, 'tables'), where('companyId', '==', companyId), limit(COMPANY_TABLE_LIMIT)),
+  await callCompanyApi(
+    `/${encodeURIComponent(companyId)}/tables`,
+    'PUT',
+    {
+      tables: tables.map((table) => ({
+        id: table.id ?? null,
+        name: table.name.trim(),
+        capacity: table.capacity,
+        floorPlanId: table.floorPlanId?.trim() || '',
+      })),
+    },
+    'No se pudieron guardar las mesas.',
   )
-
-  const batch = writeBatch(db)
-
-  existing.docs.forEach((item) => {
-    batch.delete(item.ref)
-  })
-
-  tables.forEach((table, index) => {
-    const ref = table.id ? doc(db, 'tables', table.id) : doc(collection(db, 'tables'))
-    batch.set(ref, {
-      companyId,
-      name: table.name.trim(),
-      capacity: table.capacity,
-      sortOrder: index,
-      floorPlanId: table.floorPlanId?.trim() || '',
-    })
-  })
-
-  await batch.commit()
 }
 
 function mapCompany(id: string, data: Record<string, unknown>): Company {

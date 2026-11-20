@@ -19,6 +19,12 @@ import seoRouter from './routes/seo.ts'
 import reservationMinSpendRouter from './routes/reservationMinSpend.ts'
 import reservationDepositRouter from './routes/reservationDeposit.ts'
 import reservationEmailRouter from './routes/reservationEmail.ts'
+import companyReservationChangesRouter from './routes/companyReservationChanges.ts'
+import companySettingsRouter from './routes/companySettings.ts'
+import companyMenuRouter from './routes/companyMenu.ts'
+import companyPromotionsRouter from './routes/companyPromotions.ts'
+import companyPinAndReviewsRouter from './routes/companyPinAndReviews.ts'
+import adminWritesRouter from './routes/adminWrites.ts'
 import customerNotificationsRouter from './routes/customerNotifications.ts'
 import customerFriendsRouter from './routes/customerFriends.ts'
 import customerFavoritesRouter from './routes/customerFavorites.ts'
@@ -97,9 +103,15 @@ export function createApp() {
 
   app.use('/api/companies', verifyAdmin, companiesRouter)
   app.use('/api/admin', verifyAdmin, adminRouter)
+  app.use('/api/admin', verifyAdmin, adminWritesRouter)
   app.use('/api/public/catalog', publicCatalogRouter)
   app.use('/api/auth', authRouter)
   app.use('/api/company', companyReservationsRouter)
+  app.use('/api/company', companyReservationChangesRouter)
+  app.use('/api/company', companySettingsRouter)
+  app.use('/api/company', companyMenuRouter)
+  app.use('/api/company', companyPromotionsRouter)
+  app.use('/api/company', companyPinAndReviewsRouter)
   app.use('/api/company', companyEmailRouter)
   app.use('/api/company', companyBillingRouter)
   app.use('/api/company', companyStripeRouter)

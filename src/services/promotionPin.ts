@@ -1,92 +1,44 @@
-import { deleteField, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
-import { db } from '../config/firebase'
 import type { PromotionPinRotation, PromotionPinSettings } from '../types/company'
-import {
-  applyDuePromotionPinRotation,
-  computeNextPromotionPinRotation,
-  defaultPromotionPinSettings,
-  generatePromotionPinCode,
-  normalizePromotionPinCode,
-  validatePromotionPinCode,
-} from '../utils/promotionPin'
 import {
   getDemoPinSettings,
   isDemoCompanyId,
   rejectIfDemoCompanyWrite,
 } from '../data/companyPanelDemo'
+import { callCompanyApi } from './companyApi'
+
+// El PIN de promociones vive en el servidor: el panel lo lee y lo cambia por la API
+// (antes lo escribía directamente en la base de datos).
 
 export interface PromotionPinSaveInput {
   code: string
   rotation: PromotionPinRotation
 }
 
-function mapPromotionPin(data: Record<string, unknown> | undefined): PromotionPinSettings | null {
-  if (!data || typeof data.code !== 'string') {
-    return null
-  }
+interface PinPayload {
+  code: string
+  rotation: PromotionPinRotation
+  nextRotationAt: string | null
+  lastRotatedAt: string | null
+  updatedAt: string
+}
 
-  const rotation = data.rotation as PromotionPinRotation
-  const validRotations: PromotionPinRotation[] = ['daily', 'weekly', 'monthly', 'manual']
-
+function fromPayload(data: PinPayload): PromotionPinSettings {
   return {
-    code: normalizePromotionPinCode(data.code),
-    rotation: validRotations.includes(rotation) ? rotation : 'manual',
-    nextRotationAt: (data.nextRotationAt as { toDate?: () => Date } | null | undefined)?.toDate?.() ?? null,
-    lastRotatedAt: (data.lastRotatedAt as { toDate?: () => Date } | null | undefined)?.toDate?.() ?? null,
-    updatedAt: (data.updatedAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date(),
+    code: data.code,
+    rotation: data.rotation,
+    nextRotationAt: data.nextRotationAt ? new Date(data.nextRotationAt) : null,
+    lastRotatedAt: data.lastRotatedAt ? new Date(data.lastRotatedAt) : null,
+    updatedAt: new Date(data.updatedAt),
   }
 }
 
-function serializePromotionPin(settings: PromotionPinSettings) {
-  return {
-    code: settings.code,
-    rotation: settings.rotation,
-    nextRotationAt: settings.nextRotationAt,
-    lastRotatedAt: settings.lastRotatedAt,
-    updatedAt: serverTimestamp(),
-  }
-}
-
-async function persistPromotionPin(
-  companyId: string,
-  settings: PromotionPinSettings,
-): Promise<PromotionPinSettings> {
-  const privateRef = doc(db, 'companies', companyId, 'private', 'promotionPin')
-  await setDoc(privateRef, serializePromotionPin(settings))
-
-  return settings
-}
+const pinPath = (companyId: string) => `/${encodeURIComponent(companyId)}/promotion-pin`
 
 export async function getPromotionPinSettings(companyId: string): Promise<PromotionPinSettings> {
   if (isDemoCompanyId(companyId)) {
     return getDemoPinSettings()
   }
-
-  const companyRef = doc(db, 'companies', companyId)
-  const privateRef = doc(db, 'companies', companyId, 'private', 'promotionPin')
-  const [privateSnapshot, companySnapshot] = await Promise.all([
-    getDoc(privateRef),
-    getDoc(companyRef),
-  ])
-  const stored = mapPromotionPin(privateSnapshot.data() as Record<string, unknown> | undefined)
-  const legacy = mapPromotionPin(
-    companySnapshot.data()?.promotionPin as Record<string, unknown> | undefined,
-  )
-  const base = stored ?? defaultPromotionPinSettings()
-  const { settings, rotated } = applyDuePromotionPinRotation(base)
-
-  if (!stored && legacy) {
-    const migrated = applyDuePromotionPinRotation(legacy).settings
-    await setDoc(privateRef, serializePromotionPin(migrated))
-    await updateDoc(companyRef, { promotionPin: deleteField() })
-    return migrated
-  }
-
-  if (rotated || !stored) {
-    return persistPromotionPin(companyId, settings)
-  }
-
-  return settings
+  return fromPayload(await callCompanyApi<PinPayload>(pinPath(companyId), 'GET', undefined, 'No se pudo cargar el PIN.'))
 }
 
 export async function savePromotionPinSettings(
@@ -95,27 +47,12 @@ export async function savePromotionPinSettings(
   options?: { regenerate?: boolean },
 ): Promise<PromotionPinSettings> {
   rejectIfDemoCompanyWrite(companyId)
-  const code = options?.regenerate
-    ? generatePromotionPinCode()
-    : normalizePromotionPinCode(input.code)
-
-  const validationError = validatePromotionPinCode(code)
-  if (validationError) {
-    throw new Error(validationError)
-  }
-
-  const now = new Date()
-  const nextRotationAt = input.rotation === 'manual'
-    ? null
-    : computeNextPromotionPinRotation(now, input.rotation)
-
-  const settings: PromotionPinSettings = {
-    code,
-    rotation: input.rotation,
-    nextRotationAt,
-    lastRotatedAt: now,
-    updatedAt: now,
-  }
-
-  return persistPromotionPin(companyId, settings)
+  return fromPayload(
+    await callCompanyApi<PinPayload>(
+      pinPath(companyId),
+      'PUT',
+      { code: input.code, rotation: input.rotation, regenerate: options?.regenerate === true },
+      'No se pudo guardar el PIN.',
+    ),
+  )
 }

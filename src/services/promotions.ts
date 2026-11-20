@@ -1,15 +1,4 @@
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-  Timestamp,
-  updateDoc,
-} from 'firebase/firestore'
+import { collection, getDocs, limit, query } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { COMPANY_PROMOTION_LIMIT } from './firestoreQuery'
 import {
@@ -18,76 +7,11 @@ import {
   rejectIfDemoCompanyWrite,
 } from '../data/companyPanelDemo'
 import type { CompanyPromotion, MenuNode, PromotionInput } from '../types/company'
-import {
-  buildPromotionProductRefs,
-  formatPromotionOfferHighlight,
-  normalizePromotionOffer,
-  normalizePromotionProductRefs,
-} from '../utils/promotionOffer'
+import { mapPromotion } from '../utils/promotionSerialize'
+import { callCompanyApi } from './companyApi'
 
-function mapPromotion(id: string, companyId: string, data: Record<string, unknown>): CompanyPromotion {
-  return {
-    id,
-    companyId,
-    type: data.type as CompanyPromotion['type'],
-    title: (data.title as string) ?? '',
-    description: (data.description as string) ?? '',
-    photoUrl: (data.photoUrl as string) ?? '',
-    offer: normalizePromotionOffer(data),
-    productRefs: normalizePromotionProductRefs(data),
-    active: data.active === true,
-    requiresReservation: data.requiresReservation === true,
-    requiredReservations: typeof data.requiredReservations === 'number'
-      ? data.requiredReservations
-      : null,
-    minimumSpendEnabled: data.minimumSpendEnabled === true,
-    minimumSpendCents: typeof data.minimumSpendCents === 'number'
-      ? data.minimumSpendCents
-      : null,
-    activeFromTime: (data.activeFromTime as string) ?? '',
-    activeToTime: (data.activeToTime as string) ?? '',
-    maxRedemptions: typeof data.maxRedemptions === 'number' ? data.maxRedemptions : null,
-    currentRedemptions: typeof data.currentRedemptions === 'number' ? data.currentRedemptions : 0,
-    arrivalWindowMinutes: typeof data.arrivalWindowMinutes === 'number'
-      ? data.arrivalWindowMinutes
-      : null,
-    maxClaimsPerCustomer: typeof data.maxClaimsPerCustomer === 'number' && data.maxClaimsPerCustomer > 0
-      ? data.maxClaimsPerCustomer
-      : null,
-    claimWindowEnabled: data.claimWindowEnabled === true,
-    createdAt: (data.createdAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
-    updatedAt: (data.updatedAt as Timestamp | undefined)?.toDate?.() ?? new Date(),
-  }
-}
 
-function serializePromotion(
-  companyId: string,
-  input: PromotionInput,
-  productRefs: ReturnType<typeof buildPromotionProductRefs>,
-) {
-  return {
-    companyId,
-    type: input.type,
-    title: input.title.trim(),
-    description: input.description.trim(),
-    photoUrl: input.photoUrl.trim(),
-    offer: input.offer,
-    productRefs,
-    offerHighlight: formatPromotionOfferHighlight(input.offer),
-    active: input.active,
-    requiresReservation: input.requiresReservation,
-    requiredReservations: input.requiredReservations,
-    minimumSpendEnabled: input.minimumSpendEnabled,
-    minimumSpendCents: input.minimumSpendEnabled ? input.minimumSpendCents : null,
-    activeFromTime: input.activeFromTime,
-    activeToTime: input.activeToTime,
-    maxRedemptions: input.maxRedemptions,
-    arrivalWindowMinutes: input.arrivalWindowMinutes,
-    maxClaimsPerCustomer: input.maxClaimsPerCustomer,
-    claimWindowEnabled: input.type === 'reservation_ladder' && input.claimWindowEnabled,
-    updatedAt: serverTimestamp(),
-  }
-}
+const promoPath = (companyId: string, suffix = '') => `/${encodeURIComponent(companyId)}/promotions${suffix}`
 
 export async function getCompanyPromotions(companyId: string): Promise<CompanyPromotion[]> {
   if (isDemoCompanyId(companyId)) {
@@ -110,15 +34,9 @@ export async function createCompanyPromotion(
   menuProducts: MenuNode[] = [],
 ): Promise<string> {
   rejectIfDemoCompanyWrite(companyId)
-  const productRefs = buildPromotionProductRefs(input.productIds, menuProducts)
-  const promotionsRef = collection(db, 'companies', companyId, 'promotions')
-  const docRef = await addDoc(promotionsRef, {
-    ...serializePromotion(companyId, input, productRefs),
-    currentRedemptions: 0,
-    createdAt: serverTimestamp(),
-  })
-
-  return docRef.id
+  void menuProducts // el servidor saca los productos de la carta del propio local
+  const data = await callCompanyApi<{ id: string }>(promoPath(companyId), 'POST', input, 'No se pudo crear la promoción.')
+  return data.id
 }
 
 export async function updateCompanyPromotion(
@@ -128,15 +46,13 @@ export async function updateCompanyPromotion(
   menuProducts: MenuNode[] = [],
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const productRefs = buildPromotionProductRefs(input.productIds, menuProducts)
-  const promotionRef = doc(db, 'companies', companyId, 'promotions', promotionId)
-  await updateDoc(promotionRef, serializePromotion(companyId, input, productRefs))
+  void menuProducts
+  await callCompanyApi(promoPath(companyId, `/${encodeURIComponent(promotionId)}`), 'PUT', input, 'No se pudo guardar la promoción.')
 }
 
 export async function deleteCompanyPromotion(companyId: string, promotionId: string): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const promotionRef = doc(db, 'companies', companyId, 'promotions', promotionId)
-  await deleteDoc(promotionRef)
+  await callCompanyApi(promoPath(companyId, `/${encodeURIComponent(promotionId)}`), 'DELETE', undefined, 'No se pudo borrar la promoción.')
 }
 
 export async function setCompanyPromotionActive(
@@ -145,9 +61,5 @@ export async function setCompanyPromotionActive(
   active: boolean,
 ): Promise<void> {
   rejectIfDemoCompanyWrite(companyId)
-  const promotionRef = doc(db, 'companies', companyId, 'promotions', promotionId)
-  await updateDoc(promotionRef, {
-    active,
-    updatedAt: serverTimestamp(),
-  })
+  await callCompanyApi(promoPath(companyId, `/${encodeURIComponent(promotionId)}/active`), 'PATCH', { active }, 'No se pudo cambiar la promoción.')
 }

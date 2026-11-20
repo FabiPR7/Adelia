@@ -1,3 +1,4 @@
+import { callCompanyApi } from './companyApi'
 import {
   collection,
   doc,
@@ -6,13 +7,9 @@ import {
   limit,
   orderBy,
   query,
-  serverTimestamp,
-  Timestamp,
-  updateDoc,
   where,
 } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
-import { getFirestoreErrorMessage } from './firestoreErrors'
 import { pingCompanyGamification } from './companyGamification'
 import type { CustomerGamificationState } from '../types/gamification'
 import type {
@@ -219,13 +216,6 @@ function reviewRef(companyId: string, customerUid: string) {
   return doc(db, 'companies', companyId, 'reviews', customerUid)
 }
 
-async function runFirestoreSaveStep(label: string, action: () => Promise<void>) {
-  try {
-    await action()
-  } catch (error) {
-    throw new Error(`${label}: ${getFirestoreErrorMessage(error, 'save')}`)
-  }
-}
 
 function validateReviewInput(rating: number, comment: string) {
   const normalizedRating = normalizeReviewRating(rating)
@@ -260,9 +250,6 @@ function validateCompanyReplyInput(text: string) {
   return trimmed
 }
 
-function reviewDocumentRef(companyId: string, reviewId: string) {
-  return doc(db, 'companies', companyId, 'reviews', reviewId)
-}
 
 export async function getCompanyReviews(companyId: string): Promise<CompanyReview[]> {
   if (isDemoCompanyId(companyId)) {
@@ -377,39 +364,18 @@ export async function submitCompanyReviewReply(
 ): Promise<CompanyReviewOwnerReply> {
   rejectIfDemoCompanyWrite(companyId)
   const trimmed = validateCompanyReplyInput(text)
-  const reviewSnap = await getDoc(reviewDocumentRef(companyId, reviewId))
-
-  if (!reviewSnap.exists()) {
-    throw new Error('No encontramos la reseña para responder.')
-  }
-
-  const currentReply = mapReviewOwnerReply(reviewSnap.data().ownerReply)
-  if (currentReply && !existingReply) {
-    throw new Error('Esta reseña ya tiene una respuesta. Puedes editarla, pero no añadir otra.')
-  }
-
-  const ownerReplyPayload = existingReply
-    ? {
-        text: trimmed,
-        createdAt: Timestamp.fromDate(existingReply.createdAt),
-        updatedAt: serverTimestamp(),
-      }
-    : {
-        text: trimmed,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }
-
-  await runFirestoreSaveStep('No se pudo guardar la respuesta', async () => {
-    await updateDoc(reviewDocumentRef(companyId, reviewId), { ownerReply: ownerReplyPayload })
-  })
+  // Por la API: el servidor comprueba que eres el dueño y que no hay ya otra respuesta.
+  await callCompanyApi(
+    `/${encodeURIComponent(companyId)}/reviews/${encodeURIComponent(reviewId)}/reply`,
+    'PUT',
+    { text: trimmed, edit: Boolean(existingReply) },
+    'No se pudo guardar la respuesta.',
+  )
   pingCompanyGamification()
-
-  const createdAt = existingReply?.createdAt ?? new Date()
 
   return {
     text: trimmed,
-    createdAt,
+    createdAt: existingReply?.createdAt ?? new Date(),
     updatedAt: new Date(),
   }
 }

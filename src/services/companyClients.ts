@@ -1,20 +1,16 @@
 import {
   collection,
-  doc,
   getDocs,
-  increment,
   limit,
   orderBy,
   query,
-  runTransaction,
-  serverTimestamp,
   startAfter,
   Timestamp,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import type { CompanyClient } from '../types'
-import { clientDocIdFromEmail, isValidClientEmail, normalizeClientEmail } from '../utils/clientIdentity'
+import { normalizeClientEmail } from '../utils/clientIdentity'
 import type { Reservation } from '../types'
 import {
   getDemoClients,
@@ -86,67 +82,3 @@ export function isNewCompanyClient(client: CompanyClient, withinDays = 30): bool
   return client.firstReservationDate.getTime() >= threshold
 }
 
-export async function upsertCompanyClientFromReservation(
-  companyId: string,
-  reservationId: string,
-  input: {
-    clientEmail: string
-    clientName: string
-    clientPhone: string
-    reservationDate: Date
-  },
-): Promise<boolean> {
-  const email = normalizeClientEmail(input.clientEmail)
-
-  if (!isValidClientEmail(email)) {
-    return false
-  }
-
-  const reservationRef = doc(db, 'reservations', reservationId)
-  const clientRef = doc(db, 'companies', companyId, 'clients', clientDocIdFromEmail(email))
-  const name = input.clientName.trim() || 'Cliente'
-  const phone = input.clientPhone.trim()
-  const reservationTimestamp = Timestamp.fromDate(input.reservationDate)
-
-  let synced = false
-
-  await runTransaction(db, async (tx) => {
-    const reservationSnap = await tx.get(reservationRef)
-
-    if (!reservationSnap.exists() || reservationSnap.data()?.clientSyncedAt) {
-      return
-    }
-
-    const clientSnap = await tx.get(clientRef)
-
-    if (clientSnap.exists()) {
-      tx.update(clientRef, {
-        email,
-        name,
-        phone,
-        lastReservationDate: reservationTimestamp,
-        reservationCount: increment(1),
-        updatedAt: serverTimestamp(),
-      })
-    } else {
-      tx.set(clientRef, {
-        email,
-        name,
-        phone,
-        firstReservationDate: reservationTimestamp,
-        lastReservationDate: reservationTimestamp,
-        reservationCount: 1,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      })
-    }
-
-    tx.update(reservationRef, {
-      clientSyncedAt: serverTimestamp(),
-    })
-
-    synced = true
-  })
-
-  return synced
-}

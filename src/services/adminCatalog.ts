@@ -1,4 +1,5 @@
-import { doc, getDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
+import { adminApi, type AdminCatalogOp } from './adminApi'
 import { db } from '../config/firebase'
 import {
   applyCompanyCatalog,
@@ -65,19 +66,20 @@ export async function savePlanCatalog(
   plans: CompanyPlan[],
   capabilities: CompanyPlanCapability[],
 ): Promise<void> {
-  const batch = writeBatch(db)
+  // Por la API del admin: el servidor solo deja tocar los documentos de catálogos.
+  const ops: AdminCatalogOp[] = []
   const docs: CompanyPlanCatalogDoc[] = []
 
   COMPANY_PLAN_IDS.forEach((planId, order) => {
     const plan = plans.find((entry) => entry.id === planId) ?? getCompanyPlan(planId)
     const data: CompanyPlanCatalogDoc = { ...clean(plan), order, caps: planCapsFor(planId, capabilities) }
     docs.push(data)
-    batch.set(doc(db, 'planCatalog', planId), { ...data, updatedAt: serverTimestamp() }, { merge: true })
+    ops.push({ type: 'set', path: `planCatalog/${planId}`, data: data as unknown as Record<string, unknown>, merge: true })
   })
 
   const labels = capabilities.map(({ id, label }) => ({ id, label }))
-  batch.set(doc(db, 'appConfig', 'planCapabilities'), { items: labels, updatedAt: serverTimestamp() })
-  await batch.commit()
+  ops.push({ type: 'set', path: 'appConfig/planCapabilities', data: { items: labels } })
+  await adminApi.catalogBatch(ops)
 
   // El orden y el plan retirado no se tocan en memoria: solo precios, textos y capacidades.
   applyPlanCatalog(docs, labels)
@@ -87,7 +89,7 @@ export async function savePlanCatalog(
 
 export async function saveInventoryItem(item: InventoryItemDefinition): Promise<void> {
   const data = clean(item)
-  await setDoc(doc(db, 'inventoryItems', item.id), { ...data, updatedAt: serverTimestamp() }, { merge: true })
+  await adminApi.catalogBatch([{ type: 'set', path: `inventoryItems/${item.id}`, data: data as unknown as Record<string, unknown>, merge: true }])
 
   const exists = INVENTORY_ITEMS.some((entry) => entry.id === item.id)
   applyItemCatalog(exists
@@ -100,7 +102,7 @@ export async function saveInventoryItem(item: InventoryItemDefinition): Promise<
 export async function saveRewardsConfig(config: Required<RewardsConfig>): Promise<void> {
   const data = clean(config)
   // Sin merge: quitar un nivel o un ítem de una lista tiene que borrarlo de verdad.
-  await setDoc(doc(db, 'gameConfig', 'rewards'), { ...data, updatedAt: serverTimestamp() })
+  await adminApi.catalogBatch([{ type: 'set', path: 'gameConfig/rewards', data: data as unknown as Record<string, unknown> }])
   applyRewardsConfig(data)
 }
 
@@ -109,7 +111,7 @@ export async function savePenaltyConfig(config: {
   lockStrikes: number
 }): Promise<void> {
   const data = clean(config)
-  await setDoc(doc(db, 'gameConfig', 'penalties'), { ...data, updatedAt: serverTimestamp() })
+  await adminApi.catalogBatch([{ type: 'set', path: 'gameConfig/penalties', data: data as unknown as Record<string, unknown> }])
   applyPenaltyConfig(data)
 }
 
@@ -159,12 +161,11 @@ export async function saveBillingConfig(config: BillingConfig): Promise<void> {
       .filter((variant) => variant.variantId.trim())
       .map((variant) => [variant.variantId.trim(), { plan: variant.plan, period: variant.period }]),
   )
-  await setDoc(doc(db, 'appConfig', 'billing'), {
-    checkoutUrl: config.checkoutUrl.trim(),
-    storeId: config.storeId.trim(),
-    variants,
-    updatedAt: serverTimestamp(),
-  })
+  await adminApi.catalogBatch([{
+    type: 'set',
+    path: 'appConfig/billing',
+    data: { checkoutUrl: config.checkoutUrl.trim(), storeId: config.storeId.trim(), variants },
+  }])
   applyBillingConfig({ checkoutUrl: config.checkoutUrl.trim(), storeId: config.storeId.trim() })
 }
 
@@ -194,19 +195,20 @@ export function currentCompanyLevels(): CompanyGameDraft['levels'] {
 
 export async function saveCompanyGame(draft: CompanyGameDraft): Promise<void> {
   const levels = [...draft.levels].sort((left, right) => left.minXp - right.minXp)
-  const batch = writeBatch(db)
+  const ops: AdminCatalogOp[] = []
   for (const level of levels) {
-    batch.set(doc(db, 'companyLevelCatalog', String(level.level)), {
-      ...clean(level),
-      perk: level.perk.trim() || null,
-      updatedAt: serverTimestamp(),
-    }, { merge: true })
+    ops.push({
+      type: 'set',
+      path: `companyLevelCatalog/${level.level}`,
+      data: { ...(clean(level) as unknown as Record<string, unknown>), perk: level.perk.trim() || null },
+      merge: true,
+    })
   }
   for (const mission of draft.missions) {
-    batch.set(doc(db, 'companyMissionCatalog', mission.id), { ...clean(mission), updatedAt: serverTimestamp() }, { merge: true })
+    ops.push({ type: 'set', path: `companyMissionCatalog/${mission.id}`, data: clean(mission) as unknown as Record<string, unknown>, merge: true })
   }
-  batch.set(doc(db, 'gameConfig', 'company'), { ...draft.config, updatedAt: serverTimestamp() }, { merge: true })
-  await batch.commit()
+  ops.push({ type: 'set', path: 'gameConfig/company', data: { ...draft.config }, merge: true })
+  await adminApi.catalogBatch(ops)
 
   applyCompanyCatalog({
     levels: levels.map((level) => ({ ...level, perk: level.perk.trim() || undefined })),
@@ -240,9 +242,9 @@ export async function saveCustomerGame(draft: CustomerGameDraft): Promise<void> 
     // El tope sale del siguiente nivel, así editar un mínimo nunca deja huecos.
     .map((level, index, all) => ({ ...level, maxXp: all[index + 1] ? all[index + 1].minXp - 1 : null }))
 
-  const batch = writeBatch(db)
+  const ops: AdminCatalogOp[] = []
   for (const level of levels) {
-    batch.set(doc(db, 'levelCatalog', String(level.level)), {
+    ops.push({ type: 'set', path: `levelCatalog/${level.level}`, merge: true, data: {
       id: String(level.level),
       level: level.level,
       name: level.title,
@@ -253,11 +255,10 @@ export async function saveCustomerGame(draft: CustomerGameDraft): Promise<void> 
       colors: level.colors,
       styleClass: level.styleClass,
       reward: level.reward.trim() || null,
-      updatedAt: serverTimestamp(),
-    }, { merge: true })
+    } })
   }
-  batch.set(doc(db, 'gameConfig', 'adelia'), { ...draft.config, updatedAt: serverTimestamp() }, { merge: true })
-  await batch.commit()
+  ops.push({ type: 'set', path: 'gameConfig/adelia', data: { ...draft.config }, merge: true })
+  await adminApi.catalogBatch(ops)
 
   applyLevelCatalog(
     levels.map(({ reward: _reward, ...level }) => level),

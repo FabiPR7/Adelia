@@ -11,17 +11,17 @@ const firestore = vi.hoisted(() => {
 vi.mock('../../config/firebase', () => ({ db: {} }))
 vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, ...path: string[]) => ({ path: path.join('/') }),
-  serverTimestamp: () => 'TS',
   getDoc: vi.fn(),
-  setDoc: vi.fn(async (ref: { path: string }, data: Record<string, unknown>) => {
-    firestore.writes.push({ path: ref.path, data })
-  }),
-  writeBatch: () => ({
-    set: (ref: { path: string }, data: Record<string, unknown>) => {
-      firestore.writes.push({ path: ref.path, data })
-    },
-    commit: firestore.commit,
-  }),
+}))
+// Los catálogos se guardan por la API del admin: se recoge lo que se le manda.
+vi.mock('../adminApi', () => ({
+  adminApi: {
+    catalogBatch: vi.fn(async (ops: Array<{ path: string; data?: Record<string, unknown> }>) => {
+      for (const op of ops) firestore.writes.push({ path: op.path, data: op.data ?? {} })
+      await firestore.commit()
+      return { ok: true }
+    }),
+  },
 }))
 
 import { getCompanyPlan } from '../../data/companyPlans'

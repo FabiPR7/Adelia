@@ -275,4 +275,15 @@ export const adminApi = {
   audit: (limit = 80) => request<{ entries: AdminAuditEntry[] }>(`/audit?limit=${limit}`),
   logChange: (action: string, target: string, detail: Record<string, unknown> = {}) =>
     request<void>('/audit', 'POST', { action, target, detail }).catch(() => undefined),
+  /** Guarda catálogos (planes, ítems, juego…): el servidor solo deja tocar esos documentos. */
+  catalogBatch: (ops: AdminCatalogOp[]) => request<{ ok: true }>('/catalog/batch', 'POST', { ops }),
+  deleteReview: (companyId: string, customerUid: string, indexId: string) =>
+    request<{ ok: true; deleted: boolean }>('/reviews/delete', 'POST', { companyId, customerUid, indexId }),
+  markMustChangePassword: (companyId: string, ownerUid: string) =>
+    request<{ ok: true }>(`/companies/${encodeURIComponent(companyId)}/must-change-password`, 'POST', { ownerUid }),
+  syncLoginIndexes: () => request<{ ok: true; synced: number; cleaned: number }>('/login-index/sync', 'POST', {}),
 }
+
+export type AdminCatalogOp =
+  | { type: 'set'; path: string; data: Record<string, unknown>; merge?: boolean }
+  | { type: 'delete'; path: string }

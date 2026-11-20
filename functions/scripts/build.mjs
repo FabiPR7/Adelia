@@ -87,7 +87,25 @@ const external = [
   'dotenv/config',
 ]
 
+// El servidor reutiliza reglas de la web (src/). Al copiar server/ a functions/server,
+// las rutas relativas a src/ dejarían de apuntar a la web: se resuelven contra el
+// server/ original para que lleguen a la src/ de la raíz del proyecto.
+const webSourceDir = path.join(projectRoot, 'src')
+const resolveWebSource = {
+  name: 'resolve-web-source',
+  setup(pluginBuild) {
+    pluginBuild.onResolve({ filter: /^(\.\.\/)+src\// }, (args) => {
+      if (!args.importer.startsWith(targetDir)) return undefined
+      const originalImporter = path.join(sourceDir, path.relative(targetDir, args.importer))
+      const resolved = path.resolve(path.dirname(originalImporter), args.path)
+      if (!resolved.startsWith(webSourceDir)) return undefined
+      return { path: resolved }
+    })
+  },
+}
+
 await build({
+  plugins: [resolveWebSource],
   entryPoints: [path.join(functionsDir, 'src', 'index.ts')],
   bundle: true,
   platform: 'node',
