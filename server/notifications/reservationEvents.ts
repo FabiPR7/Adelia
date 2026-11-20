@@ -229,6 +229,11 @@ export async function notifyReservationCancelled(
   let body = intro
   if (penalty?.shielded) {
     body += ' Tu Escudo de Mesa ha cubierto esta cancelación: no pierdes XP ni acumulas aviso.'
+  } else if (penalty?.free) {
+    // Con 24 h o más de antelación no hay castigo: solo se explica.
+    if (penalty.warning) {
+      body += ` ${penalty.warning}`
+    }
   } else if (penalty) {
     if (penalty.xpLost > 0) {
       body += ` Se te restan ${penalty.xpLost} XP (−${penalty.percent}%).`
@@ -265,6 +270,7 @@ export async function notifyReservationCancelled(
             justLocked: penalty.justLocked,
             warning: penalty.warning,
             shielded: penalty.shielded === true,
+            free: penalty.free === true,
           }
         : {}),
     },

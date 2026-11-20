@@ -20,6 +20,9 @@ function isCancelPenaltyNotification(notification: CustomerNotification): boolea
   return typeof notification.data.strikeCount === 'number'
     && notification.data.strikeCount > 0
     && notification.data.shielded !== true
+    // Cancelar con 24 h o más es gratis: no hay nada que avisar (las antiguas no traen «free»).
+    && notification.data.free !== true
+    && !(typeof notification.data.warning === 'string' && notification.data.warning.startsWith('Cancelación gratis'))
 }
 
 function penaltyFromNotification(notification: CustomerNotification): CancellationPenaltyView {
