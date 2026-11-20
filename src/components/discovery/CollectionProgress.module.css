@@ -1,0 +1,180 @@
+.section {
+  margin: 0.4rem 0 1.4rem;
+  padding: 0 1rem;
+}
+
+.card {
+  padding: 1.15rem 1.15rem 1.2rem;
+  border-radius: 22px;
+  background: #241c15;
+  color: #fff8ef;
+  box-shadow: 0 16px 36px rgba(36, 28, 21, 0.18);
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #e9a133;
+}
+
+.title {
+  margin: 0.15rem 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.lead {
+  margin: 0 0 0.95rem;
+  max-width: 60ch;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: rgba(255, 248, 239, 0.72);
+}
+
+.areas {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 720px) {
+  .areas {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.4rem;
+  }
+}
+
+.areaHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.areaLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.count {
+  font-family: var(--font-epic);
+  font-size: 1.9rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.count span {
+  font-size: 1.2rem;
+  color: rgba(255, 248, 239, 0.55);
+}
+
+.track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 248, 239, 0.12);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  min-width: 6px;
+  border-radius: inherit;
+  background: #e9a133;
+  transition: width 0.4s ease-out;
+}
+
+.fillDone {
+  background: #3fae6a;
+}
+
+.celebrate {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(63, 174, 106, 0.18);
+  color: #c8f2d6;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.prize {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(233, 161, 51, 0.35);
+  border-radius: 16px;
+  background: rgba(233, 161, 51, 0.1);
+}
+
+.prizeIcon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  background: #e9a133;
+  color: #241c15;
+}
+
+.prizeText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.83rem;
+  line-height: 1.4;
+  color: rgba(255, 248, 239, 0.8);
+}
+
+.prizeText strong {
+  font-size: 1rem;
+  color: #fff8ef;
+}
+
+.reward {
+  font-weight: 600;
+  color: #f4c77b;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(63, 174, 106, 0.2);
+  color: #c8f2d6;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}
+
+.flush {
+  padding: 0;
+}

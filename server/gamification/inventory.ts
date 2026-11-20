@@ -67,6 +67,16 @@ function addGrants(inventory: Record<string, number>, grants: InventoryGrant[]):
   }
 }
 
+/** Suma ítems a una copia del inventario (los que no existen en el catálogo se ignoran). */
+export function addInventoryGrants(
+  inventory: Record<string, number>,
+  grants: InventoryGrant[],
+): Record<string, number> {
+  const next = { ...inventory }
+  addGrants(next, grants)
+  return next
+}
+
 export function inventoryQty(state: Record<string, unknown>, itemId: string): number {
   return numberValue(numberRecord(state.inventory)[itemId])
 }

@@ -11,6 +11,7 @@ import {
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
 import { trackAppEvent } from '../utils/appEvents'
+import { useRestaurantCollection, visitsForSlug } from '../services/restaurantCollection'
 import styles from './NearbyRestaurantFeedCard.module.css'
 
 interface NearbyRestaurantFeedCardProps {
@@ -44,6 +45,10 @@ function NearbyRestaurantFeedCard({
   ].filter(Boolean).slice(0, 3)
   const hasDistance = typeof distanceKm === 'number'
   const tier = prestige(restaurant.prestigeLevel)
+  // Tu mapa: borde verde donde ya has ido, oscuro donde aún no.
+  const collection = useRestaurantCollection()
+  const visits = visitsForSlug(collection, restaurant.slug)
+  const visitClass = collection ? (visits > 0 ? styles.cardVisited : styles.cardNew) : ''
 
   useEffect(() => {
     if (restaurant.id) {
@@ -59,7 +64,7 @@ function NearbyRestaurantFeedCard({
   }
 
   return (
-    <article className={styles.card}>
+    <article className={`${styles.card} ${visitClass}`}>
       <button type="button" className={styles.open} onClick={open} aria-label={`Ver ${restaurant.name}`}>
         <span className={styles.media} aria-hidden="true">
           {photoUrl ? (
@@ -69,6 +74,11 @@ function NearbyRestaurantFeedCard({
           )}
           {hasDistance ? <span className={styles.distance}>{formatDistanceKm(distanceKm)}</span> : null}
           {restaurant.discoveryFeatured ? <span className={styles.sponsored}>Patrocinado</span> : null}
+          {collection ? (
+            <span className={`${styles.visitPill} ${visits > 0 ? styles.visitPillDone : ''}`}>
+              {visits > 0 ? `✓ Has ido${visits > 1 ? ` · ${visits}` : ''}` : 'Sin visitar'}
+            </span>
+          ) : null}
         </span>
 
         <span className={styles.body}>

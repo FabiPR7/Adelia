@@ -1,0 +1,29 @@
+.status {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.fresh {
+  border: 1.5px solid #241c15;
+  background: #ffffff;
+  color: #241c15;
+}
+
+.visited {
+  border: 1.5px solid #2f9e5b;
+  background: #eaf7ef;
+  color: #1d6b3d;
+}
+
+.wrap {
+  max-width: 1120px;
+  margin: 0.6rem auto 0;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}

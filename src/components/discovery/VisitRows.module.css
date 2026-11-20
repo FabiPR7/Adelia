@@ -1,0 +1,148 @@
+.section {
+  margin: 0.4rem 0 1.4rem;
+  padding: 0 1rem;
+}
+
+.heading {
+  margin-bottom: 0.75rem;
+}
+
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+.kickerVisited {
+  color: #23824a;
+}
+
+.heading h2 {
+  margin: 0.1rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--color-text);
+}
+
+.row {
+  display: flex;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0.2rem 0.1rem 0.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  list-style: none;
+}
+
+.row li {
+  flex: 0 0 13.5rem;
+  scroll-snap-align: start;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #ffffff;
+  color: var(--color-text);
+  text-decoration: none;
+  transition: transform 0.18s ease-out, box-shadow 0.18s ease-out;
+}
+
+/* Sin visitar: borde oscuro. Visitado: borde verde. */
+.cardNew {
+  border: 2px solid #241c15;
+}
+
+.cardVisited {
+  border: 2px solid #2f9e5b;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(60, 45, 35, 0.12);
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 3px;
+}
+
+.media {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--color-sand-wash);
+}
+
+.media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fallback {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.pill {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: #241c15;
+  color: #fff8ef;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.pillVisited {
+  background: #2f9e5b;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem 0.85rem;
+}
+
+.name {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.place {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.cta {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-accent-strong);
+}

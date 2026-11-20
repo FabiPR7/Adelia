@@ -228,3 +228,28 @@
     transform: none;
   }
 }
+
+/* Tu mapa gastronómico: dónde has ido y dónde aún no. */
+.cardNew {
+  border: 2px solid #241c15;
+}
+
+.cardVisited {
+  border: 2px solid #2f9e5b;
+}
+
+.visitPill {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.65rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: #241c15;
+  color: #fff8ef;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.visitPillDone {
+  background: #2f9e5b;
+}

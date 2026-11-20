@@ -34,6 +34,8 @@ import {
 import { getLocationErrorMessage, requestUserLocation } from '../../utils/requestUserLocation'
 import type { DiscoveryVenueKind } from '../../data/companyProfileFacilities'
 import MonthPodium from '../../components/discovery/MonthPodium'
+import CollectionProgress from '../../components/discovery/CollectionProgress'
+import VisitRows from '../../components/discovery/VisitRows'
 import TopPromotionsSection from '../../components/discovery/TopPromotionsSection'
 import FriendsVisitedRow from '../../components/discovery/FriendsVisitedRow'
 import styles from './CustomerExploreTab.module.css'
@@ -500,7 +502,9 @@ function CustomerExploreTab() {
               onRequestGps={requestGpsLocation}
               onOpenRestaurant={openRestaurant}
             />
+            <CollectionProgress city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''} />
             <MonthPodium city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''} />
+            <VisitRows restaurants={local.list} />
             <FeaturedReviewHighlight
               restaurants={filteredRestaurants}
               onOpenRestaurant={openRestaurant}

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import AchievementBadgeCard from '../../components/AchievementBadgeCard'
 import MissionIcon from '../../components/MissionIcon'
 import { useAuth } from '../../context/AuthContext'
+import CollectionProgress from '../../components/discovery/CollectionProgress'
 import { useCustomerProductTourOptional } from '../../context/CustomerProductTourContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import CompiteHub from '../../components/CompiteHub'
@@ -471,6 +472,13 @@ function CustomerMissionsTab() {
           </span>
         </div>
       </button>
+
+      <CollectionProgress
+        city={profile?.homeMunicipality || profile?.homeCity || ''}
+        kicker="Misión única"
+        title="Completa tu mapa gastronómico"
+        flush
+      />
 
       <div className={styles.tabs} role="tablist" aria-label="Tipo de misiones">
         <button
