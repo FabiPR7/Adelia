@@ -40,6 +40,7 @@ function mapIndexDoc(id: string, data: Record<string, unknown>): PublicDiscovery
     reviewAdelinas: typeof data.reviewAdelinas === 'number' ? data.reviewAdelinas : 0,
     discoveryFeatured: data.discoveryFeatured === true,
     reservationMode: parseCompanyReservationMode(data.reservationMode),
+    canReserve: data.canReserve === true,
   } satisfies PublicDiscoveryRestaurant
 
   return restaurant.name && restaurant.slug ? restaurant : null

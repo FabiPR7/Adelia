@@ -79,6 +79,7 @@ function mapApiRestaurant(raw: Record<string, unknown>): PublicDiscoveryRestaura
     ...(typeof raw.prestigeLevel === 'number' ? { prestigeLevel: raw.prestigeLevel } : {}),
     ...(raw.leagueTop10 === true ? { leagueTop10: true } : {}),
     reservationMode: parseCompanyReservationMode(raw.reservationMode),
+    canReserve: raw.canReserve === true,
   }
 }
 

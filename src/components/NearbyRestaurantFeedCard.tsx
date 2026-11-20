@@ -3,7 +3,6 @@ import { MapPin } from 'lucide-react'
 import FavoriteButton from './FavoriteButton'
 import DiscoveryRatingBadge from './DiscoveryRatingBadge'
 import { getAmenityLabel, getPriceRangeSymbol, getVenueTypeLabel } from '../data/companyProfileFacilities'
-import { restaurantReserveCtaShortLabel } from '../data/companyReservationMode'
 import { formatDistanceKm } from '../utils/geo'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import {
@@ -112,7 +111,7 @@ function NearbyRestaurantFeedCard({
           ) : null}
 
           <span className={styles.cta}>
-            {restaurantReserveCtaShortLabel(restaurant.reservationMode)}
+            {restaurant.canReserve ? 'Reservar' : 'Ver restaurante'}
             <span aria-hidden="true">→</span>
           </span>
         </span>

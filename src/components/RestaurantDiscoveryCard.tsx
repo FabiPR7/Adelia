@@ -10,7 +10,6 @@ import {
 } from '../utils/publicDiscovery'
 import FavoriteButton from './FavoriteButton'
 import { getAmenityLabel, getVenueTypeLabel } from '../data/companyProfileFacilities'
-import { restaurantReserveCtaLabel } from '../data/companyReservationMode'
 import { trackAppEvent } from '../utils/appEvents'
 import styles from './RestaurantDiscoveryCard.module.css'
 
@@ -126,7 +125,7 @@ function RestaurantDiscoveryCard({
             className={styles.reserveButton}
             onClick={(event) => event.stopPropagation()}
           >
-            {restaurantReserveCtaLabel(restaurant.reservationMode)}
+            {restaurant.canReserve ? 'Reservar mesa' : 'Ver restaurante'}
           </Link>
         </div>
       </div>

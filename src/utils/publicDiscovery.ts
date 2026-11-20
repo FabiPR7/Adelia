@@ -35,6 +35,8 @@ export interface PublicDiscoveryRestaurant {
   /** Top 10 de su ciudad en alguna liga este mes o el anterior. */
   leagueTop10?: boolean
   reservationMode: import('../data/companyReservationMode').CompanyReservationMode
+  /** Se puede reservar ahora por Adelia (lo decide el servidor: modo del local y mesas). */
+  canReserve: boolean
 }
 
 export function getDiscoveryAverageRating(
@@ -151,6 +153,7 @@ export function mapCompanyToDiscoveryRestaurant(company: Company): PublicDiscove
     reviewAdelinas: company.reviewAdelinas ?? 0,
     discoveryFeatured: company.discoveryFeatured === true,
     reservationMode: parseCompanyReservationMode(company.reservationMode),
+    canReserve: parseCompanyReservationMode(company.reservationMode) !== 'none',
   }
 }
 

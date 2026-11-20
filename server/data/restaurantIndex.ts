@@ -4,6 +4,10 @@ import { COLLECTIONS } from './collections.ts'
 import { parseCompanyReservationMode } from '../utils.ts'
 import { cityKey, distanceKm, encodeGeohash, geohashPrefixesForRadius } from '../utils/geohash.ts'
 import { discoveryBoosts, discoveryBoostTier, type DiscoveryBoost } from '../league/monthlyLeague.ts'
+import { countBookableTables } from './companyTables.ts'
+import { ensureRemoteCatalog } from './remoteCatalog.ts'
+import { listPublicCompanyMenu } from './publicMenu.ts'
+import { buildBookingRules } from '../reservations/bookingRules.ts'
 
 /** Cap duro de lecturas por request de discovery (Admin SDK). */
 export const PUBLIC_DISCOVERY_LIMIT = 80
@@ -34,6 +38,8 @@ export interface RestaurantIndexDoc {
   reviewAdelinas: number
   reservationMode?: 'required' | 'optional' | 'none'
   deactivated?: boolean
+  /** Se puede reservar ahora por Adelia (modo del local y mesas): lo decide el servidor. */
+  canReserve?: boolean
   hasProfile: boolean
   discoveryFeatured?: boolean
   updatedAt: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp
@@ -63,6 +69,8 @@ export interface PublicDiscoveryRestaurantPayload {
   /** Top 10 de su ciudad en alguna liga, este mes o el anterior. */
   leagueTop10?: boolean
   reservationMode: 'required' | 'optional' | 'none'
+  /** Se puede reservar ahora por Adelia (lo decide el servidor: modo del local y mesas). */
+  canReserve: boolean
 }
 
 function asString(value: unknown): string {
@@ -119,6 +127,9 @@ export function mapRestaurantIndexDoc(
     reviewAdelinas: typeof data.reviewAdelinas === 'number' ? data.reviewAdelinas : 0,
     discoveryFeatured: data.discoveryFeatured === true,
     reservationMode: parseCompanyReservationMode(data.reservationMode),
+    canReserve: typeof data.canReserve === 'boolean'
+      ? data.canReserve
+      : parseCompanyReservationMode(data.reservationMode) !== 'none',
   }
 }
 
@@ -258,9 +269,17 @@ export async function listPublicDiscoveryRestaurants(query: DiscoveryQuery = {})
   return { restaurants: sortDiscovery(toPayload(snapshot.docs)), nextCursor }
 }
 
+/** Datos que no están en el documento del local: mesas y platos de la carta. */
+export interface RestaurantIndexExtras {
+  bookableTables: number
+  /** Nombres de los platos de las cartas publicadas (para buscar por plato). */
+  dishNames: string[]
+}
+
 export function buildRestaurantIndexPayload(
   companyId: string,
   data: FirebaseFirestore.DocumentData,
+  extras?: RestaurantIndexExtras,
 ): RestaurantIndexDoc {
   const name = asString(data.name)
   const location = asString(data.location)
@@ -297,9 +316,11 @@ export function buildRestaurantIndexPayload(
     venueTypes,
     amenities,
     priceRange,
-    searchText: [name, location, municipality, country, description, priceRange, ...characteristics, ...venueTypes, ...amenities]
+    searchText: [name, location, municipality, country, description, priceRange, ...characteristics, ...venueTypes, ...amenities, ...(extras?.dishNames ?? [])]
       .join(' ')
-      .toLowerCase(),
+      .toLowerCase()
+      .slice(0, 20000),
+    ...(extras ? { canReserve: buildBookingRules(data, extras.bookableTables).canReserve } : {}),
     reviewCount: typeof data.reviewCount === 'number' ? data.reviewCount : 0,
     reviewRatingSum: typeof data.reviewRatingSum === 'number' ? data.reviewRatingSum : 0,
     reviewAdelinas: typeof data.reviewAdelinas === 'number' ? data.reviewAdelinas : 0,
@@ -335,5 +356,28 @@ export async function syncRestaurantIndex(
     await indexRef.delete().catch(() => undefined)
     return
   }
-  await indexRef.set(buildRestaurantIndexPayload(companyId, data), { merge: true })
+  const extras = await loadRestaurantIndexExtras(companyId, data).catch((error) => {
+    console.error('Restaurant index extras error:', error)
+    return undefined
+  })
+  await indexRef.set(buildRestaurantIndexPayload(companyId, data, extras), { merge: true })
+}
+
+/** Mesas reservables y platos de las cartas publicadas del local. */
+export async function loadRestaurantIndexExtras(
+  companyId: string,
+  data: FirebaseFirestore.DocumentData,
+): Promise<RestaurantIndexExtras> {
+  // Los límites del plan (mesas, cartas) vienen del catálogo: en los disparadores no está cargado.
+  await ensureRemoteCatalog()
+  const [bookableTables, menu] = await Promise.all([
+    countBookableTables(companyId, data.planId),
+    listPublicCompanyMenu(companyId).catch(() => ({ boards: [], nodes: [] })),
+  ])
+  const dishNames = [...new Set(
+    menu.nodes
+      .filter((node) => node.nodeType === 'product' && node.name.trim())
+      .map((node) => node.name.trim()),
+  )].slice(0, 400)
+  return { bookableTables, dishNames }
 }

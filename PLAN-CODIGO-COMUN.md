@@ -101,9 +101,20 @@ Situación de partida (20 nov 2026):
      alta, promos guardadas), protegido por las reglas, y el panel del restaurante (ver 11).
    ⚠️ El disparador está publicado; se comprueba solo la próxima vez que se guarde un local
    (ver «Necesita a Fabi»).
-8. ⏳ **Buscar desde el servidor** (filtros y búsqueda, también por plato, y que las tarjetas
-   no ofrezcan «Reservar» si el local no tiene mesas).
-   Quita: `publicDiscovery` y `discoveryQuickFilters` duplicados.
+8. ✅ **Buscar: el servidor prepara los datos.** (20 nov)
+   - **Buscar por plato**: el índice de cada local incluye los platos de sus cartas
+     publicadas; la búsqueda de la web y la app ya los encuentra («tostadas» → Carolina).
+   - **«Reservar» en las tarjetas** solo si el local se puede reservar de verdad
+     (`canReserve`, con las reglas del punto 1); si no, «Ver restaurante».
+   - El índice se recalcula solo con disparadores nuevos cuando cambian las **mesas**
+     (`onTableWrittenSyncRestaurantIndex`) o la **carta** (`onMenuNodeWritten…`,
+     `onMenuBoardWritten…`), además del local. Relleno inicial hecho en los 17 locales
+     (`scripts/resync-restaurant-index.ts`).
+   - Arreglado de paso: el servidor leía los límites del plan sin cargar el catálogo en
+     los disparadores (habría dicho «0 mesas»), y el carrusel de la app salía vacío al
+     buscar si antes se había deslizado.
+   Queda (no urgente con 17 locales): la búsqueda por texto filtra los 80 locales que
+   carga la pantalla; con miles de locales hará falta buscar en el servidor (`?q=`).
 9. ⏳ **Catálogos solo desde la base de datos** (niveles, ítems, misiones): quitar las
    copias fijas del código cuando el punto 5 esté hecho.
 11. ⏳ **Panel del restaurante por la API.** El panel (solo web) cambia reservas, carta,
