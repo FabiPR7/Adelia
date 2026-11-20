@@ -195,3 +195,25 @@ contestan 401 sin sesión, la web pública carga sin errores, 653 tests pasan.
 
 👤 = para probarlo hace falta la sesión de un restaurante o del admin (contraseña que
 escribe Fabi).
+
+## Fase 2 — añadido el 20-21 nov (petición de Fabi)
+
+E. ⏳ **Todo dato de negocio en la base de datos, nada fijo en el código.** El servidor lo
+   lee de la base de datos (y la web/app del servidor). Ya están en la base: catálogo del
+   juego (misiones, niveles, ítems, ajustes), planes y sus límites, recompensas,
+   penalizaciones, facturación, juego de restaurantes. Siguen fijos en el código (a pasar a
+   `appConfig/businessRules`): horas de cancelación gratis (24), días máximos de fianza,
+   niveles y premios del mapa gastronómico, misiones por semana/mes (6/5) y bonus (5),
+   largo del @usuario (3–20) y nombres reservados, XP máxima por carta, versión legal
+   aceptada, correo de soporte. Las listas que quedan en el código solo serán copia de
+   emergencia si la base de datos no responde.
+F. ✅ **Registro de cada cambio.** (21 nov) Disparadores `onTopLevelDocWrittenAudit`,
+   `onCompanySubdocWrittenAudit`, `onUserSubdocWrittenAudit`: cada creación, cambio o
+   borrado de cualquier documento (reservas, usuarios, amigos, premios, locales, promos,
+   carta, avisos…) queda en `auditLog` con los campos que cambiaron, el antes y el
+   después, la fecha y quién (si el documento lo apunta). Nunca copia PIN ni contraseñas.
+   No registra ruido técnico (límites de peticiones, intentos de login, métricas). Solo lo
+   lee el admin. Probado: cambiar una promo guardada en la app deja su apunte.
+
+Hecho también el 20 nov: **A ✅** (perfil del cliente por la API; la app ya no escribe nada
+directamente en la base de datos; la web solo en el panel y el admin, puntos B y C).

@@ -15,3 +15,8 @@ export {
   onMenuNodeWrittenSyncRestaurantIndex,
   onMenuBoardWrittenSyncRestaurantIndex,
 } from './restaurantIndexTrigger.ts'
+export {
+  onTopLevelDocWrittenAudit,
+  onCompanySubdocWrittenAudit,
+  onUserSubdocWrittenAudit,
+} from './auditTrigger.ts'
