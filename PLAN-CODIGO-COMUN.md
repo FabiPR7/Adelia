@@ -41,9 +41,19 @@ Situación de partida (20 nov 2026):
    Tests: `server/promotions/__tests__/promotionAvailability.test.ts`.
    `reservationPromotionEligibility` (cómo se pinta el estado de la promo dentro de cada
    reserva) pasa a los puntos 3 y 5, porque lo usa también el motor de misiones.
-3. ⏳ **«En curso» de promos desde el servidor** (mapas con progreso, promos puntuales
-   con reserva, «A medias»).
-   Quita: `promotionReservationProgress` (448 líneas ×2).
+3. ✅ **Mapas de premios («En curso») desde el servidor.** (20 nov) `GET /api/customer/promotions/ladders`
+   (`server/promotions/ladderProgress.ts`) devuelve todos tus mapas: escalón activo, visitas,
+   qué está reclamado, listo, en curso o «a medias», con **las mismas reglas que el canje**
+   (el canje ahora usa el mismo orden y la misma regla de qué visita cuenta). La app hace
+   una sola llamada para todos los mapas (antes una por local). La web deja de calcularlo.
+   Quitado: ~550 líneas de cálculo de mapas en la web (`promotionLadderStatus`, la mayor
+   parte de `promotionReservationProgress`) y el cálculo de la app (`ladderProgress`).
+   Mismo orden de escalones en servidor, web y app (desempate por id).
+   Tests: `server/promotions/__tests__/ladderProgress.test.ts` (incluye que «listo para
+   reclamar» coincide siempre con lo que acepta el canje).
+   Probado en la app. ⚠️ La web no la he podido ver en pantalla (ver «Necesita a Fabi»).
+   Las promos puntuales «con reserva» de «En curso» siguen saliendo de tus reservas (que ya
+   vienen del servidor); su texto pasa al punto 6.
 4. ⏳ **Horas libres para reservar desde el servidor.** El servidor ya comprueba al
    reservar; que también devuelva las horas y mesas libres de un día.
    Quita: `reservationSlots` de web y app.
@@ -71,6 +81,11 @@ Situación de partida (20 nov 2026):
 
 - 👤 En el navegador integrado de Claude hay abierta una ventana de inicio de sesión de
   Google de una prueba antigua: bloquea los scripts y la navegación de Claude. Ciérrala.
+- 👤 Chrome (la extensión de Claude) no responde si la ventana no está al frente. Para
+  revisar la web de los puntos 3 en adelante: con la ventana visible, o cerrando la
+  ventana de Google de arriba, Claude lo comprueba en un momento. Mientras, mira tú
+  Promos → «En curso» y el mapa de Carolina en la web: debe verse igual que en la app
+  (premio 1 reclamado, premio 2 con 1/3).
 
 Cada punto: se hace en servidor, web y app, se prueba en las dos (navegador y
 emulador), se publica y se marca aquí con ✅.

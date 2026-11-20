@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { useNavigate } from 'react-router-dom'
 import { UtensilsCrossed } from 'lucide-react'
 import type { PublicPromotion } from '../../services/publicPromotions'
-import type { ClaimedPromotionRecord } from '../../types/gamification'
 import type { MenuNode } from '../../types/company'
 import type { RegisterConsumptionInput } from '../../services/firestore'
 import { getPublicCompanyMenuNodes } from '../../services/companyMenu'
@@ -20,17 +19,14 @@ import {
   pickLadderMapTheme,
   type LadderMapTheme,
 } from '../../utils/promotionLadderMapThemes'
+import { sortCompanyLadderPromotions } from '../../utils/promotionReservationProgress'
 import {
-  getCompanyLadderCompletions,
-  getLadderNodeStatus,
+  ladderNodeStatus,
+  ladderStepProgress,
+  loadCustomerLadders,
+  useCustomerLadders,
   type LadderNodeStatus,
-} from '../../utils/promotionLadderStatus'
-import {
-  getLadderProgress,
-  resolveActiveLadderPromotionId,
-  sortCompanyLadderPromotions,
-  type CompanyLadderRuntime,
-} from '../../utils/promotionReservationProgress'
+} from '../../services/customerLadders'
 import { buildPromotionBookingHref } from '../../utils/promotionBooking'
 import { resolvePromotionHighlight } from '../../utils/promotionOffer'
 import { loadPromotionAvailability, usePromotionAvailability } from '../../services/promotionAvailability'
@@ -50,10 +46,6 @@ export interface LadderRestaurantGroup {
 
 interface PromotionLadderMapModalProps {
   group: LadderRestaurantGroup | null
-  confirmedCounts: Record<string, number>
-  pendingCounts: Record<string, number>
-  ladderRuntime: CompanyLadderRuntime
-  claimedPromotions: ClaimedPromotionRecord[]
   onClose: () => void
   onClaim: (promotion: PublicPromotion) => void
   onRegisterConsumption: (
@@ -192,10 +184,6 @@ function MapNodeCard({
 
 export default function PromotionLadderMapModal({
   group,
-  confirmedCounts,
-  pendingCounts,
-  ladderRuntime,
-  claimedPromotions,
   onClose,
   onClaim,
   onRegisterConsumption,
@@ -268,8 +256,12 @@ export default function PromotionLadderMapModal({
 
   const availabilityState = usePromotionAvailability()
   const ladderCompanyId = group?.companyId
+  // El estado de tu mapa (escalón activo, visitas, qué se puede reclamar) lo calcula el servidor.
+  const ladders = useCustomerLadders()
   useEffect(() => {
-    if (ladderCompanyId) void loadPromotionAvailability()
+    if (!ladderCompanyId) return
+    void loadPromotionAvailability()
+    void loadCustomerLadders()
   }, [ladderCompanyId])
 
   if (!group) {
@@ -284,20 +276,11 @@ export default function PromotionLadderMapModal({
   const canvasHeight = getLadderMapCanvasHeight(sortedLadder.length)
   const viewBoxHeight = getLadderMapViewBoxHeight(sortedLadder.length)
   const mapPercentY = (y: number) => toMapPercentY(y, sortedLadder.length)
-  const completions = getCompanyLadderCompletions(
-    group.companyId,
-    ladderRuntime.ladderCompletionsByCompany,
-    claimedPromotions,
-    sortedLadder.length,
-  )
+  const ladderState = ladders[group.companyId]
+  const completions = ladderState?.completions ?? 0
   const theme: LadderMapTheme = pickLadderMapTheme(`${group.companyId}:${completions}`)
   const themeStyle = theme.cssVars as CSSProperties
-  const activePromotionId =
-    resolveActiveLadderPromotionId(
-      group.companyId,
-      sortedLadder,
-      ladderRuntime.activeLadderPromotionByCompany,
-    ) ?? sortedLadder[0]?.id
+  const activePromotionId = ladderState?.activePromotionId ?? sortedLadder[0]?.id
   const bookingHref = activePromotionId
     ? buildPromotionBookingHref(group.companySlug, activePromotionId, { fromPromotions: true })
     : `/reservar/${encodeURIComponent(group.companySlug)}?reservar=1`
@@ -307,17 +290,8 @@ export default function PromotionLadderMapModal({
     ?? sortedLadder[0]
     ?? null
 
-  const nodeStatus = (promotion: PublicPromotion) =>
-    getLadderNodeStatus(
-      promotion,
-      sortedLadder,
-      claimedPromotions,
-      ladderRuntime,
-      confirmedCounts,
-      pendingCounts,
-    )
-  const nodeProgress = (promotion: PublicPromotion) =>
-    getLadderProgress(promotion, confirmedCounts, ladderRuntime.ladderBaselinesByCompany)
+  const nodeStatus = (promotion: PublicPromotion) => ladderNodeStatus(ladders, promotion)
+  const nodeProgress = (promotion: PublicPromotion) => ladderStepProgress(ladders, promotion)
 
   const activeStatus = activePromotion ? nodeStatus(activePromotion) : 'locked'
   const activeProgress = activePromotion ? nodeProgress(activePromotion) : null

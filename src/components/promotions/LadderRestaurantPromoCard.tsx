@@ -1,13 +1,13 @@
 import PromotionPhotoCollage from './PromotionPhotoCollage'
 import type { LadderRestaurantGroup } from './PromotionLadderMapModal'
+import { formatLadderCompletionsLabel } from '../../utils/promotionLadderStatus'
+import { sortCompanyLadderPromotions } from '../../utils/promotionReservationProgress'
 import {
-  formatLadderCompletionsLabel,
-  getActiveLadderPromotionSummary,
-  getCompanyLadderCompletions,
-  getLadderNodeStatus,
-} from '../../utils/promotionLadderStatus'
-import { sortCompanyLadderPromotions, type CompanyLadderRuntime } from '../../utils/promotionReservationProgress'
-import type { ClaimedPromotionRecord } from '../../types/gamification'
+  activeLadderSummary,
+  ladderNodeStatus,
+  type LadderNodeStatus,
+  type LaddersByCompany,
+} from '../../services/customerLadders'
 import { formatDistanceKm } from '../../utils/geo'
 import { trackAppEvent } from '../../utils/appEvents'
 import styles from './LadderRestaurantPromoCard.module.css'
@@ -16,16 +16,14 @@ interface LadderRestaurantPromoCardProps {
   group: LadderRestaurantGroup
   variant?: 'compact' | 'full'
   className?: string
-  confirmedCounts: Record<string, number>
-  pendingCounts: Record<string, number>
-  ladderRuntime: CompanyLadderRuntime
-  claimedPromotions: ClaimedPromotionRecord[]
+  /** Estado de tus mapas que manda el servidor. */
+  ladders: LaddersByCompany
   onOpenMap: (group: LadderRestaurantGroup) => void
   onUseToken?: (group: LadderRestaurantGroup) => void
 }
 
 function milestoneDotClass(
-  status: ReturnType<typeof getLadderNodeStatus>,
+  status: LadderNodeStatus,
 ): string {
   if (status === 'claimed') {
     return styles.ladderDotDone
@@ -46,27 +44,13 @@ export default function LadderRestaurantPromoCard({
   group,
   variant = 'full',
   className = '',
-  confirmedCounts,
-  pendingCounts,
-  ladderRuntime,
-  claimedPromotions,
+  ladders,
   onOpenMap,
   onUseToken,
 }: LadderRestaurantPromoCardProps) {
   const sortedLadder = sortCompanyLadderPromotions(group.ladderPromotions)
-  const summary = getActiveLadderPromotionSummary(
-    sortedLadder,
-    confirmedCounts,
-    pendingCounts,
-    ladderRuntime,
-    claimedPromotions,
-  )
-  const completions = getCompanyLadderCompletions(
-    group.companyId,
-    ladderRuntime.ladderCompletionsByCompany,
-    claimedPromotions,
-    sortedLadder.length,
-  )
+  const summary = activeLadderSummary(ladders, sortedLadder)
+  const completions = ladders[group.companyId]?.completions ?? 0
   const completionsLabel = formatLadderCompletionsLabel(completions)
   const coverPromotion = summary?.promotion ?? sortedLadder[0]
   const productRefs = coverPromotion.productRefs ?? []
@@ -182,14 +166,7 @@ export default function LadderRestaurantPromoCard({
           <div className={styles.ladderMeta}>
             <div className={styles.ladderMilestones} aria-hidden="true">
               {sortedLadder.map((promotion) => {
-                const status = getLadderNodeStatus(
-                  promotion,
-                  sortedLadder,
-                  claimedPromotions,
-                  ladderRuntime,
-                  confirmedCounts,
-                  pendingCounts,
-                )
+                const status = ladderNodeStatus(ladders, promotion)
 
                 return (
                   <span

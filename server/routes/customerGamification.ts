@@ -1,4 +1,5 @@
 import { PIN_ATTEMPTS_MESSAGE, takePromotionPinAttempt } from '../security/rateLimit.ts'
+import { reservationCountsForLadder, sortLadderSteps } from '../promotions/ladderProgress.ts'
 import { Router, type Request, type Response } from 'express'
 import { verifyCustomerUid } from '../auth/verifyRequest.ts'
 import { adminDb } from '../firebase-admin.ts'
@@ -509,9 +510,7 @@ router.get('/ladder-progress', async (req: Request, res: Response) => {
     // mínimo solo suma si se validó que llegó a ese gasto.
     const reservationCount = reservationsSnap.docs.filter((docSnap) => {
       const reservation = docSnap.data()
-      if (reservation.companyId !== companyId || reservation.status !== 'confirmed') return false
-      const needsMinimum = typeof reservation.minimumSpendCents === 'number' && reservation.minimumSpendCents > 0
-      return !needsMinimum || reservation.promotionVisitStatus === 'eligible'
+      return reservation.companyId === companyId && reservationCountsForLadder(reservation)
     }).length
     const confirmedCount = reservationCount + tokenCredits
 
@@ -609,9 +608,7 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
     // mínimo solo suma si se validó que llegó a ese gasto.
     const reservationCount = reservationsSnap.docs.filter((docSnap) => {
       const reservation = docSnap.data()
-      if (reservation.companyId !== companyId || reservation.status !== 'confirmed') return false
-      const needsMinimum = typeof reservation.minimumSpendCents === 'number' && reservation.minimumSpendCents > 0
-      return !needsMinimum || reservation.promotionVisitStatus === 'eligible'
+      return reservation.companyId === companyId && reservationCountsForLadder(reservation)
     }).length
     const required = Math.max(1, Math.trunc(numberValue(promotion.requiredReservations, 1)))
 
@@ -648,13 +645,13 @@ router.post('/claim-ladder', async (req: Request, res: Response) => {
       if (windowError) {
         throw new ClaimError(409, windowError)
       }
-      const ladderIds = ladderPromotionsSnap.docs
-        .filter((docSnap) => docSnap.data().type === 'reservation_ladder')
-        .sort((left, right) => (
-          numberValue(left.data().requiredReservations)
-          - numberValue(right.data().requiredReservations)
-        ))
-        .map((docSnap) => docSnap.id)
+      // Mismo orden que el mapa que ve el cliente (promotions/ladderProgress.ts).
+      const ladderIds = sortLadderSteps(
+        ladderPromotionsSnap.docs
+          .filter((docSnap) => docSnap.data().type === 'reservation_ladder')
+          .map((docSnap) => ({ id: docSnap.id, requiredReservations: numberValue(docSnap.data().requiredReservations) }))
+          .filter((step) => step.requiredReservations > 0),
+      ).map((step) => step.id)
       const baselines = current.ladderBaselinesByCompany
         && typeof current.ladderBaselinesByCompany === 'object'
         ? current.ladderBaselinesByCompany as Record<string, number>

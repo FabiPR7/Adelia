@@ -47,15 +47,15 @@ import {
 import { DEMO_PREVIEW_COORDS, mergeDemoPromotions } from '../../data/demoNearbyPromotions'
 import { requestUserLocation } from '../../utils/requestUserLocation'
 import {
-  getActiveLadderPromotionSummary,
-  isLadderRestaurantActive,
-} from '../../utils/promotionLadderStatus'
+  compareLadderGroups,
+  isLadderGroupActive,
+  loadCustomerLadders,
+  useCustomerLadders,
+} from '../../services/customerLadders'
 import {
-  comparePromotionPriority,
   buildCompanyLadderPromotionsMap,
   persistClaimedPromotionId,
   sortCompanyLadderPromotions,
-  type CompanyLadderRuntime,
 } from '../../utils/promotionReservationProgress'
 import { buildPromotionBookingHref } from '../../utils/promotionBooking'
 import { loadPromotionAvailability, usePromotionAvailability } from '../../services/promotionAvailability'
@@ -102,42 +102,6 @@ function canUsePromoTokenOnGroup(
     inventory,
     promoMinimumCents(active.minimumSpendCents, active.minimumSpendEnabled),
   ).length > 0
-}
-
-function compareLadderRestaurantPriority(
-  left: LadderRestaurantGroup,
-  right: LadderRestaurantGroup,
-  confirmedCounts: Record<string, number>,
-  pendingCounts: Record<string, number>,
-  ladderRuntime: CompanyLadderRuntime,
-  claimedPromotions: ClaimedPromotionRecord[],
-): number {
-  const leftPromotion = getActiveLadderPromotionSummary(
-    left.ladderPromotions,
-    confirmedCounts,
-    pendingCounts,
-    ladderRuntime,
-    claimedPromotions,
-  )?.promotion ?? left.ladderPromotions[0]
-  const rightPromotion = getActiveLadderPromotionSummary(
-    right.ladderPromotions,
-    confirmedCounts,
-    pendingCounts,
-    ladderRuntime,
-    claimedPromotions,
-  )?.promotion ?? right.ladderPromotions[0]
-
-  return comparePromotionPriority(
-    leftPromotion,
-    rightPromotion,
-    confirmedCounts,
-    pendingCounts,
-    ladderRuntime,
-    left.ladderPromotions,
-    right.ladderPromotions,
-    left.distanceKm,
-    right.distanceKm,
-  )
 }
 
 function promotionFromClaim(claim: ClaimedPromotionRecord): PublicPromotion {
@@ -208,8 +172,6 @@ function CustomerPromotionsTab() {
   const {
     loading: gamificationLoading,
     state: gamificationState,
-    verifiedReservationCounts,
-    pendingReservationCounts,
     ladderRuntime,
     claimedPromotions,
     claimPromotion,
@@ -457,36 +419,19 @@ function CustomerPromotionsTab() {
     [promotions, coords],
   )
 
-  const activeLadderRestaurants = useMemo(() => {
-    const active = ladderRestaurants.filter((group) =>
-      isLadderRestaurantActive(
-        group.ladderPromotions,
-        verifiedReservationCounts,
-        pendingReservationCounts,
-        ladderRuntime,
-        claimedPromotions,
-      ),
-    )
+  // Tus mapas de premios: el estado lo calcula el servidor (mismas reglas que el canje).
+  const ladders = useCustomerLadders()
+  useEffect(() => {
+    if (!user) return
+    void loadCustomerLadders(true)
+  }, [user, claimedPromotions, gamificationState.inventory, customerReservations])
 
-    active.sort((left, right) =>
-      compareLadderRestaurantPriority(
-        left,
-        right,
-        verifiedReservationCounts,
-        pendingReservationCounts,
-        ladderRuntime,
-        claimedPromotions,
-      ),
-    )
-
-    return active
-  }, [
-    ladderRestaurants,
-    verifiedReservationCounts,
-    pendingReservationCounts,
-    ladderRuntime,
-    claimedPromotions,
-  ])
+  const activeLadderRestaurants = useMemo(
+    () => ladderRestaurants
+      .filter((group) => isLadderGroupActive(ladders, group.companyId))
+      .sort((left, right) => compareLadderGroups(ladders, left, right)),
+    [ladderRestaurants, ladders],
+  )
 
   const regularPromotions = useMemo(
     () => promotions.filter((promotion) => !isLadderStep(promotion)),
@@ -918,10 +863,7 @@ function CustomerPromotionsTab() {
                   key={group.companyId}
                   group={group}
                   variant="compact"
-                  confirmedCounts={verifiedReservationCounts}
-                  pendingCounts={pendingReservationCounts}
-                  ladderRuntime={ladderRuntime}
-                  claimedPromotions={claimedPromotions}
+                  ladders={ladders}
                   onOpenMap={setLadderMapGroup}
                   onUseToken={tokenHandlerFor(group)}
                 />
@@ -1081,10 +1023,6 @@ function CustomerPromotionsTab() {
 
       <PromotionLadderMapModal
         group={ladderMapGroup}
-        confirmedCounts={verifiedReservationCounts}
-        pendingCounts={pendingReservationCounts}
-        ladderRuntime={ladderRuntime}
-        claimedPromotions={claimedPromotions}
         onClose={() => setLadderMapGroup(null)}
         onClaim={handleClaimRequest}
         onRegisterConsumption={registerPromotionConsumption}
