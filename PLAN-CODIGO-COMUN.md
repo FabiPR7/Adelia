@@ -115,15 +115,23 @@ Situación de partida (20 nov 2026):
      buscar si antes se había deslizado.
    Queda (no urgente con 17 locales): la búsqueda por texto filtra los 80 locales que
    carga la pantalla; con miles de locales hará falta buscar en el servidor (`?q=`).
-9. ⏳ **Catálogos solo desde la base de datos** (niveles, ítems, misiones): quitar las
-   copias fijas del código cuando el punto 5 esté hecho.
-11. ⏳ **Panel del restaurante por la API.** El panel (solo web) cambia reservas, carta,
+9. ✅ **Catálogos del juego.** (20 nov) La base de datos manda (misiones, niveles, ítems,
+   ajustes). Las listas del código se quedan solo como respaldo si la base no responde
+   (sin ellas la app no pintaría nada sin red). Para que no se desincronicen: la de la app
+   se copia de la web (punto 6) y un test (`server/gamification/missions/__tests__/catalogParity.test.ts`)
+   falla si la del servidor difiere de la de la web.
+10. ✅ **Pruebas de contrato.** (20 nov) `src/__contracts__/serverContracts.ts`: si el
+    servidor cambia la forma de una respuesta (reglas de reserva, estado de promos, mapas,
+    horas libres, progreso de misiones, estado del juego) y la web no, la web deja de
+    compilar. La app usa esos mismos tipos (código común), así que también queda cubierta.
+    Comprobado que salta metiendo una diferencia a propósito.
+11. ⏳👤 **Panel del restaurante por la API.** El panel (solo web) cambia reservas, carta,
     promos y datos del local escribiendo directo en la base de datos, con las reglas como
     única protección. Pasarlo a rutas del servidor que validen cada cambio. No está
-    duplicado con la app, por eso va después.
-10. ⏳ **Pruebas de contrato**: tests que comprueban que cada respuesta de la API tiene
-    la forma que esperan la web y la app, para que un cambio en el servidor no rompa a
-    ninguna de las dos sin avisar.
+    duplicado con la app. **Necesita a Fabi para probarlo**: el panel solo se puede usar
+    con la sesión de un restaurante (contraseña que escribe Fabi) y ahora mismo el
+    navegador integrado está bloqueado por la ventana de Google (ver abajo). No se toca a
+    ciegas porque los restaurantes lo usan a diario.
 
 ## Necesita a Fabi (cuando puedas)
 
