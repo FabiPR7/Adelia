@@ -4,7 +4,6 @@ import PromotionClaimFlowModal from '../../components/promotions/PromotionClaimF
 import PromotionLadderMapModal, {
   type LadderRestaurantGroup,
 } from '../../components/promotions/PromotionLadderMapModal'
-import LadderRestaurantPromoCard from '../../components/promotions/LadderRestaurantPromoCard'
 import PromotionDetailView from '../../components/promotions/PromotionDetailView'
 import {
   LadderMapCard,
@@ -39,7 +38,6 @@ import {
   promoMinimumCents,
 } from '../../data/inventoryItems'
 import {
-  findTimeLimitedReservationForStrip,
   findReservationForActivasFeed,
   getTimeLimitedPromotionPresentation,
   isTimeLimitedPromotionVisitComplete,
@@ -47,11 +45,20 @@ import {
 import { DEMO_PREVIEW_COORDS, mergeDemoPromotions } from '../../data/demoNearbyPromotions'
 import { requestUserLocation } from '../../utils/requestUserLocation'
 import {
+  activeLadderSummary,
   compareLadderGroups,
   isLadderGroupActive,
   loadCustomerLadders,
   useCustomerLadders,
 } from '../../services/customerLadders'
+
+/** Filtro de «Mapas del tesoro». */
+type MapFilter = 'todos' | 'en-curso' | 'nuevos'
+const MAP_FILTERS: Array<{ id: MapFilter; label: string }> = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'en-curso', label: 'En curso' },
+  { id: 'nuevos', label: 'Nuevos' },
+]
 import {
   buildCompanyLadderPromotionsMap,
   persistClaimedPromotionId,
@@ -441,6 +448,20 @@ function CustomerPromotionsTab() {
     return () => window.clearTimeout(timer)
   }, [user, promoDataKey])
 
+  const [mapFilter, setMapFilter] = useState<MapFilter>('todos')
+  // Mapas ordenados: primero los que llevas en curso (y lo listo para reclamar), luego el resto.
+  const sortedLadderRestaurants = useMemo(
+    () => [...ladderRestaurants].sort((left, right) => compareLadderGroups(ladders, left, right)),
+    [ladderRestaurants, ladders],
+  )
+  const isNewLadderGroup = (companyId: string) =>
+    !isLadderGroupActive(ladders, companyId)
+    && !(ladders[companyId]?.steps ?? []).some((step) => step.status === 'claimed')
+  const filteredLadderRestaurants = sortedLadderRestaurants.filter((group) => (
+    mapFilter === 'todos'
+      || (mapFilter === 'en-curso' ? isLadderGroupActive(ladders, group.companyId) : isNewLadderGroup(group.companyId))
+  ))
+
   const activeLadderRestaurants = useMemo(
     () => ladderRestaurants
       .filter((group) => isLadderGroupActive(ladders, group.companyId))
@@ -451,16 +472,6 @@ function CustomerPromotionsTab() {
   const regularPromotions = useMemo(
     () => promotions.filter((promotion) => !isLadderStep(promotion)),
     [promotions],
-  )
-
-  const inProgressTimeLimited = useMemo(
-    () =>
-      regularPromotions.filter(
-        (promotion) =>
-          promotion.type === 'time_limited'
-          && findTimeLimitedReservationForStrip(customerReservations, promotion.id) != null,
-      ),
-    [regularPromotions, customerReservations],
   )
 
   const restaurantRows = useMemo(
@@ -755,10 +766,34 @@ function CustomerPromotionsTab() {
           <p className={panelStyles.panelSub}>
             Restaurantes con sendero de premios. Reserva o consume para avanzar.
           </p>
+          {ladderRestaurants.length > 0 ? (
+            <div className={panelStyles.mapFilters} role="group" aria-label="Filtrar mapas">
+              {MAP_FILTERS.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  className={mapFilter === filter.id ? panelStyles.mapFilterOn : panelStyles.mapFilter}
+                  aria-pressed={mapFilter === filter.id}
+                  onClick={() => setMapFilter(filter.id)}
+                >
+                  {filter.label}
+                  {filter.id === 'en-curso' && activeLadderRestaurants.length > 0 ? (
+                    <span className={panelStyles.mapFilterCount}>{activeLadderRestaurants.length}</span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
           {ladderRestaurants.length === 0 ? (
             <p className={panelStyles.panelEmpty}>No hay mapas activos ahora mismo.</p>
+          ) : filteredLadderRestaurants.length === 0 ? (
+            <p className={panelStyles.panelEmpty}>
+              {mapFilter === 'en-curso'
+                ? 'Aún no llevas ningún mapa empezado. Reserva en uno para empezar.'
+                : 'Ya has empezado todos los mapas que hay.'}
+            </p>
           ) : (
-            ladderRestaurants.map((group) => {
+            filteredLadderRestaurants.map((group) => {
               const totalVisits = group.ladderPromotions.reduce(
                 (sum, step) => sum + Math.max(0, step.requiredReservations ?? 0),
                 0,
@@ -772,6 +807,9 @@ function CustomerPromotionsTab() {
 
               // También aquí: un mapa a 0 no sale en «En curso» y la llave no tendría dónde usarse.
               const useToken = tokenHandlerFor(group)
+              const summary = isLadderGroupActive(ladders, group.companyId)
+                ? activeLadderSummary(ladders, group.ladderPromotions)
+                : null
 
               return (
                 <div key={group.companyId} className={panelStyles.mapRowWrap}>
@@ -783,6 +821,13 @@ function CustomerPromotionsTab() {
                   <RestaurantAvatar name={group.companyName} photoUrl={group.companyPhotoUrl} size="lg" />
                   <span className={panelStyles.mapRowCopy}>
                     <span className={panelStyles.mapRowName}>{group.companyName}</span>
+                    {summary ? (
+                      <span className={panelStyles.inProgressBadge}>
+                        {summary.status === 'claimable'
+                          ? '¡Premio listo!'
+                          : `En curso ${Math.min(summary.current, summary.required)}/${summary.required}`}
+                      </span>
+                    ) : null}
                     <span className={panelStyles.mapRowMeta}>
                       <span className={panelStyles.metaChip}>
                         {missions} {missions === 1 ? 'misión' : 'misiones'}
@@ -862,51 +907,18 @@ function CustomerPromotionsTab() {
       )
     }
 
-    const inCursoCount = activeLadderRestaurants.length + inProgressTimeLimited.length
-
     return (
       <div className={styles.feed}>
-        <TreasureMapsCard
-          mapCount={ladderRestaurants.length}
-          onOpen={() => openParams({ ver: 'mapas', local: null, promo: null })}
-        />
-
-        {inCursoCount > 0 ? (
-          <section className={styles.inCurso} aria-label="Promociones en curso">
-            <div className={styles.sectionHead}>
-              <h2>En curso</h2>
-              <span>{inCursoCount}</span>
-            </div>
-            <div className={styles.inCursoRail}>
-              {activeLadderRestaurants.map((group) => (
-                <LadderRestaurantPromoCard
-                  key={group.companyId}
-                  group={group}
-                  variant="compact"
-                  ladders={ladders}
-                  onOpenMap={setLadderMapGroup}
-                  onUseToken={tokenHandlerFor(group)}
-                />
-              ))}
-              {inProgressTimeLimited.map((promotion, index) => (
-                <div key={promotion.id} className={styles.inCursoItem}>
-                  <PromoAppCard promotion={promotion} index={index} showRestaurant onOpen={openPromotion} />
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
         {!coords ? (
-          <div className={styles.locationHint}>
-            <p>Activa tu ubicación y te enseñamos primero los restaurantes más cercanos.</p>
+          <div className={styles.locationBar}>
+            <span className={styles.locationBarText}>📍 Las más cercanas primero</span>
             <button
               type="button"
-              className={styles.locationButton}
+              className={styles.locationBarButton}
               onClick={() => void handleRequestLocation()}
               disabled={locationRequesting}
             >
-              {locationRequesting ? 'Buscando…' : 'Usar mi ubicación'}
+              {locationRequesting ? 'Buscando…' : 'Usar ubicación'}
             </button>
             {locationDenied ? (
               <p className={styles.locationError} role="status">
@@ -919,6 +931,15 @@ function CustomerPromotionsTab() {
             Sin GPS: usamos Logroño como ubicación para enseñarte esta pestaña.
           </p>
         ) : null}
+
+        <TreasureMapsCard
+          mapCount={ladderRestaurants.length}
+          inProgressCount={activeLadderRestaurants.length}
+          onOpen={() => {
+            setMapFilter('todos')
+            openParams({ ver: 'mapas', local: null, promo: null })
+          }}
+        />
 
         <div className={styles.rows} data-tour="tour-promos-feed">
           {restaurantRows.length === 0 ? (

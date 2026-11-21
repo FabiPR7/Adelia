@@ -417,3 +417,71 @@
     opacity: 0.5;
   }
 }
+
+
+/* Aviso de ubicación: una barrita pequeña arriba, no un bloque en medio. */
+.locationBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-white);
+}
+
+.locationBarText {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.locationBarButton {
+  min-height: 32px;
+  padding: 0 0.85rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-strong);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--color-white);
+  cursor: pointer;
+  transition: transform 0.15s ease-out;
+}
+
+.locationBarButton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.locationBarButton:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.locationBarButton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.locationBar .locationError {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0 0.4rem 0.2rem;
+  font-size: 0.78rem;
+  color: var(--color-error);
+}
+
+.locationBarText {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.locationBarButton {
+  flex: 0 0 auto;
+}

@@ -117,12 +117,24 @@ export function PromoAppCard({
   )
 }
 
-export function TreasureMapsCard({ mapCount, onOpen }: { mapCount: number; onOpen: () => void }) {
-  const countLabel = mapCount === 0
+export function TreasureMapsCard({
+  mapCount,
+  inProgressCount = 0,
+  onOpen,
+}: {
+  mapCount: number
+  /** Mapas que ya has empezado: se dicen primero. */
+  inProgressCount?: number
+  onOpen: () => void
+}) {
+  const mapsLabel = mapCount === 0
     ? 'Pronto habrá nuevos senderos'
     : mapCount === 1
       ? '1 restaurante con mapa activo'
       : `${mapCount} restaurantes con mapa activo`
+  const countLabel = inProgressCount > 0
+    ? `${inProgressCount} en curso · ${mapsLabel}`
+    : mapsLabel
 
   return (
     <button type="button" className={styles.mapsCard} onClick={onOpen}>
