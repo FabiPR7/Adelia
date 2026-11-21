@@ -21,8 +21,9 @@ import {
   reportStyles as styles,
   TableCard,
 } from '../../components/reports/ReportKit'
-import { getFirestoreErrorMessage, getReservationsByCompany } from '../../services/firestore'
-import { COMPANY_RESERVATION_RANGE_LIMIT, reportYearOptions, yearBounds } from '../../services/firestoreQuery'
+import { getFirestoreErrorMessage } from '../../services/firestore'
+import { reportYearOptions } from '../../services/firestoreQuery'
+import { fetchYearReservationsForReports } from '../../services/companyReports'
 import type { Reservation } from '../../types'
 import {
   compareDates,
@@ -95,10 +96,10 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
     setError(null)
 
     try {
-      const range = yearBounds(config.year)
-      const data = await getReservationsByCompany(companyId, { from: range.start, to: range.end })
-      setReservations(data)
-      setTruncated(data.length >= COMPANY_RESERVATION_RANGE_LIMIT)
+      // El año entero lo lee el servidor (sin el tope de 800 y guardado 5 minutos).
+      const data = await fetchYearReservationsForReports(companyId, config.year)
+      setReservations(data.reservations)
+      setTruncated(data.truncated)
     } catch (err) {
       setError(getFirestoreErrorMessage(err))
     } finally {
@@ -223,8 +224,8 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
       {error ? <div className={styles.error} role="alert">{error}</div> : null}
       {truncated ? (
         <div className={styles.error} role="status">
-          Este periodo tiene más de {COMPANY_RESERVATION_RANGE_LIMIT} reservas y solo se cuentan las
-          primeras. Elige un periodo más corto (mes o trimestre) para ver las cifras completas.
+          Este año tiene más de 10.000 reservas y solo se cuentan las primeras. Escríbenos y lo
+          ampliamos para tu local.
         </div>
       ) : null}
 

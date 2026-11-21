@@ -11,12 +11,21 @@ export interface SecurityConfig {
   guestBookingMinScore: number
   /** Días como máximo de antelación para reservar (0 = sin límite). */
   maxBookingDaysAhead: number
+  /** Puntuación mínima del captcha al registrarse desde la web. */
+  registerMinScore: number
+  /**
+   * Lo mismo desde la app: Google puntúa más bajo dentro de una app y rechazaba a
+   * gente real. Sigue haciendo falta confirmar el correo y hay límite de intentos.
+   */
+  registerAppMinScore: number
 }
 
 export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   guestBookingCaptcha: true,
   guestBookingMinScore: 0.5,
   maxBookingDaysAhead: 180,
+  registerMinScore: 0.7,
+  registerAppMinScore: 0.3,
 }
 
 const CACHE_MS = 5 * 60_000
@@ -26,6 +35,9 @@ export function parseSecurityConfig(data: FirebaseFirestore.DocumentData | undef
   const source = data ?? {}
   const score = typeof source.guestBookingMinScore === 'number' ? source.guestBookingMinScore : NaN
   const days = typeof source.maxBookingDaysAhead === 'number' ? source.maxBookingDaysAhead : NaN
+  const scoreOr = (value: unknown, fallback: number) => (
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1 ? value : fallback
+  )
   return {
     guestBookingCaptcha: typeof source.guestBookingCaptcha === 'boolean'
       ? source.guestBookingCaptcha
@@ -36,6 +48,8 @@ export function parseSecurityConfig(data: FirebaseFirestore.DocumentData | undef
     maxBookingDaysAhead: Number.isFinite(days) && days >= 0 && days <= 3650
       ? Math.floor(days)
       : DEFAULT_SECURITY_CONFIG.maxBookingDaysAhead,
+    registerMinScore: scoreOr(source.registerMinScore, DEFAULT_SECURITY_CONFIG.registerMinScore),
+    registerAppMinScore: scoreOr(source.registerAppMinScore, DEFAULT_SECURITY_CONFIG.registerAppMinScore),
   }
 }
 

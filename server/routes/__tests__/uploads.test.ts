@@ -31,6 +31,6 @@ describe('ajustes de seguridad de la base de datos', () => {
 
   it('respeta lo que se ponga en la base de datos', () => {
     expect(parseSecurityConfig({ guestBookingCaptcha: false, guestBookingMinScore: 0.3, maxBookingDaysAhead: 60 }))
-      .toEqual({ guestBookingCaptcha: false, guestBookingMinScore: 0.3, maxBookingDaysAhead: 60 })
+      .toEqual({ ...DEFAULT_SECURITY_CONFIG, guestBookingCaptcha: false, guestBookingMinScore: 0.3, maxBookingDaysAhead: 60 })
   })
 })

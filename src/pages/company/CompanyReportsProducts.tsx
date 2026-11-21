@@ -34,10 +34,10 @@ import {
 } from '../../components/reports/ReportKit'
 import {
   getFirestoreErrorMessage,
-  getReservationsByCompany,
   getVerifiedConsumptionsByCompany,
 } from '../../services/firestore'
-import { COMPANY_RESERVATION_RANGE_LIMIT, reportYearOptions, yearBounds } from '../../services/firestoreQuery'
+import { reportYearOptions } from '../../services/firestoreQuery'
+import { fetchYearReservationsForReports } from '../../services/companyReports'
 import type { VerifiedConsumptionRecord } from '../../types/verifiedConsumption'
 import { formatDateSpanish, formatTimeSpanish } from '../../utils/helpers'
 import { formatCentsAsEuros } from '../../utils/minimumSpendVerification'
@@ -104,14 +104,14 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
     setError(null)
 
     try {
-      const range = yearBounds(config.year)
-      const [fromSubcollection, reservations] = await Promise.all([
+      // El año entero lo lee el servidor (sin el tope de 800 y guardado 5 minutos).
+      const [fromSubcollection, yearData] = await Promise.all([
         getVerifiedConsumptionsByCompany(companyId),
-        getReservationsByCompany(companyId, { from: range.start, to: range.end }),
+        fetchYearReservationsForReports(companyId, config.year),
       ])
 
-      setRecords(mergeVerifiedConsumptions(fromSubcollection, reservations))
-      setTruncated(reservations.length >= COMPANY_RESERVATION_RANGE_LIMIT)
+      setRecords(mergeVerifiedConsumptions(fromSubcollection, yearData.reservations))
+      setTruncated(yearData.truncated)
     } catch (err) {
       setError(getFirestoreErrorMessage(err))
     } finally {
@@ -250,8 +250,8 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
       {error ? <div className={styles.error} role="alert">{error}</div> : null}
       {truncated ? (
         <div className={styles.error} role="status">
-          Este periodo tiene más de {COMPANY_RESERVATION_RANGE_LIMIT} reservas y solo se cuentan las
-          primeras. Elige un periodo más corto (mes o trimestre) para ver las cifras completas.
+          Este año tiene más de 10.000 reservas y solo se cuentan las primeras. Escríbenos y lo
+          ampliamos para tu local.
         </div>
       ) : null}
 

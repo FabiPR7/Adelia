@@ -1670,7 +1670,7 @@ function mapTable(id: string, data: Record<string, unknown>): RestaurantTable {
   }
 }
 
-function mapMinSpendVerification(
+export function mapMinSpendVerification(
   data: unknown,
 ): Reservation['minSpendVerification'] {
   if (!data || typeof data !== 'object') {

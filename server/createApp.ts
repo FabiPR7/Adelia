@@ -5,6 +5,7 @@ import authRouter from './routes/auth.ts'
 import companyEmailRouter from './routes/companyEmail.ts'
 import companyReservationsRouter from './routes/companyReservations.ts'
 import companyStripeRouter from './routes/companyStripe.ts'
+import companyReportsRouter from './routes/companyReports.ts'
 import companyBillingRouter from './routes/companyBilling.ts'
 import publicBookingRouter from './routes/public.ts'
 import publicBillingRouter from './routes/publicBilling.ts'
@@ -125,6 +126,7 @@ export function createApp() {
   app.use('/api/company', companyEmailRouter)
   app.use('/api/company', companyBillingRouter)
   app.use('/api/company', companyStripeRouter)
+  app.use('/api/company', companyReportsRouter)
   app.use('/api/company', reservationDepositRouter)
   app.use('/api/reservations', reservationEmailRouter)
   app.use('/api/public/billing', publicBillingRouter)

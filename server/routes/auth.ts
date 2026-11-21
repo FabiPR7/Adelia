@@ -30,6 +30,7 @@ import { requireSpanishPhone } from '../security/phone.ts'
 import { buildCustomerProfileDoc } from '../data/customerProfile.ts'
 import { requireAcceptedLegalVersion } from '../data/legalAcceptance.ts'
 import { settleMinDuration } from '../security/timing.ts'
+import { getSecurityConfig } from '../security/securityConfig.ts'
 
 const router = Router()
 
@@ -569,6 +570,12 @@ router.post('/customer/pre-login', async (req: Request, res: Response) => {
   }
 })
 
+/** Mínimo del captcha al registrarse: sale de appConfig/security (web y app por separado). */
+async function registerMinScoreFor(req: Request): Promise<number> {
+  const config = await getSecurityConfig()
+  return req.body?.client === 'app' ? config.registerAppMinScore : config.registerMinScore
+}
+
 router.post('/customer/register', async (req: Request, res: Response) => {
   try {
     if (!canUseAdminSdk) {
@@ -576,7 +583,7 @@ router.post('/customer/register', async (req: Request, res: Response) => {
       return
     }
 
-    await requireRecaptcha(req.body?.recaptchaToken, 'register', 0.7)
+    await requireRecaptcha(req.body?.recaptchaToken, 'register', await registerMinScoreFor(req))
     const acceptedLegalVersion = requireAcceptedLegalVersion(req.body?.acceptedLegalVersion)
 
     const emailRaw = typeof req.body?.email === 'string' ? req.body.email : ''
@@ -688,7 +695,7 @@ router.post('/customer/bootstrap', async (req: Request, res: Response) => {
       return
     }
 
-    await requireRecaptcha(req.body?.recaptchaToken, 'register_google', 0.7)
+    await requireRecaptcha(req.body?.recaptchaToken, 'register_google', await registerMinScoreFor(req))
     const acceptedLegalVersion = requireAcceptedLegalVersion(req.body?.acceptedLegalVersion)
 
     const email = (userRecord.email ?? '').trim().toLowerCase()
