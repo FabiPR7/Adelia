@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { readCompanyOps, writeCompanyOps } from '../data/companyOps.ts'
 import { createStripeClient, getAppBaseUrl } from './config.ts'
+import { ensurePaymentMethodDomains } from './paymentDomains.ts'
 
 export interface CompanyStripeSnapshot {
   stripeAccountId: string | null
@@ -73,6 +74,12 @@ export async function syncCompanyStripeStatus(
   }
 
   await persistStripeSnapshot(companyId, snapshot)
+
+  // En cuanto el local puede cobrar, se da de alta el dominio para Apple Pay / Google Pay.
+  if (snapshot.stripeChargesEnabled) {
+    void ensurePaymentMethodDomains(account.id)
+      .catch((error) => console.warn('payment domains:', error instanceof Error ? error.message : error))
+  }
 
   return snapshot
 }

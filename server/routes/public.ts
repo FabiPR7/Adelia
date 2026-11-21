@@ -47,6 +47,7 @@ import {
   isPromotionSoldOut,
   readMaxClaimsPerCustomer,
 } from '../promotions/customerPromotionUses.ts'
+import { ensurePaymentMethodDomains } from '../stripe/paymentDomains.ts'
 
 const router = Router()
 
@@ -454,6 +455,11 @@ router.post('/:slug/deposit-intent', async (req: Request<Record<string, string>>
       res.status(409).json({ error: depositTooFarMessage() })
       return
     }
+
+    // Apple Pay / Google Pay en la web: el dominio tiene que estar dado de alta en la
+    // cuenta de Stripe del local. Se hace una vez y no frena la reserva si falla.
+    void ensurePaymentMethodDomains(stripeAccountId)
+      .catch((error) => console.warn('payment domains:', error instanceof Error ? error.message : error))
 
     const payment = await createDepositPaymentIntent({
       connectedAccountId: stripeAccountId,

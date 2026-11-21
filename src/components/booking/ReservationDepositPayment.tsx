@@ -130,9 +130,11 @@ const DepositPaymentFields = forwardRef<
             onReady={() => onError?.(null)}
             options={{
               layout: 'tabs',
+              // Apple Pay y Google Pay salen solos si el navegador los tiene
+              // (el servidor da de alta nuestro dominio en el Stripe de cada local).
               wallets: {
-                applePay: 'never',
-                googlePay: 'never',
+                applePay: 'auto',
+                googlePay: 'auto',
               },
             }}
           />
