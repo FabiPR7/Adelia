@@ -149,3 +149,21 @@ export function mergeDiscoveryRestaurants(
   const seen = new Set(base.map((item) => item.id))
   return [...base, ...extra.filter((item) => !seen.has(item.id))]
 }
+
+export interface FeaturedReviewEntry<TReview> {
+  slug: string
+  review: TReview
+}
+
+/**
+ * «Últimas valoraciones» en una sola llamada: la mejor reseña reciente de hasta 8
+ * locales (el servidor la guarda 10 minutos).
+ */
+export async function fetchFeaturedReviews<TReview>(slugs: string[]): Promise<FeaturedReviewEntry<TReview>[]> {
+  const unique = [...new Set(slugs.map((slug) => slug.trim().toLowerCase()).filter(Boolean))].slice(0, 8).sort()
+  if (unique.length === 0) return []
+  const response = await fetch(`${API_BASE}/api/public/discovery/featured-reviews?slugs=${encodeURIComponent(unique.join(','))}`)
+  if (!response.ok) return []
+  const payload = (await response.json()) as { items?: FeaturedReviewEntry<TReview>[] }
+  return Array.isArray(payload.items) ? payload.items : []
+}

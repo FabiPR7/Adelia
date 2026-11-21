@@ -5,6 +5,8 @@ import { computeLeague, currentMonthKey, leagueRestaurants, prestigeForLevel, pr
 import { computeCompanyBadges } from '../league/companyBadges.ts'
 import { getCompanyLevelForXp } from '../gamification/companyCatalog.ts'
 import { adminDb } from '../firebase-admin.ts'
+import { mapPublicReview } from './public.ts'
+import { pickHighestRatedReview, type FeaturedReviewLike } from '../../src/utils/featuredReviewHighlight.ts'
 
 const router = Router()
 
@@ -62,6 +64,64 @@ router.get('/by-slugs', async (req: Request, res: Response) => {
     res.json({ restaurants })
   } catch (error) {
     console.error('discovery by slugs error:', error)
+    res.status(500).json({ error: 'No se pudo cargar.' })
+  }
+})
+
+/**
+ * «Últimas valoraciones»: la mejor reseña reciente de unos pocos locales, en UNA
+ * llamada. Antes la pantalla pedía las reseñas de cada restaurante por separado
+ * (hasta 24 locales × 80 reseñas). Ahora: máximo 8 locales × 6 reseñas, y la
+ * respuesta se guarda 10 minutos en memoria y en la CDN.
+ */
+const FEATURED_REVIEWS_MAX_RESTAURANTS = 8
+const FEATURED_REVIEWS_PER_RESTAURANT = 6
+const FEATURED_REVIEWS_CACHE_MS = 10 * 60_000
+const featuredReviewsCache = new Map<string, { at: number; items: unknown[] }>()
+
+router.get('/featured-reviews', async (req: Request, res: Response) => {
+  try {
+    const raw = typeof req.query.slugs === 'string' ? req.query.slugs : ''
+    const slugs = [...new Set(raw.split(',').map((slug) => slug.trim().toLowerCase()).filter((slug) => /^[a-z0-9-]{1,80}$/.test(slug)))]
+      .slice(0, FEATURED_REVIEWS_MAX_RESTAURANTS)
+      .sort()
+    if (slugs.length === 0) {
+      res.json({ items: [] })
+      return
+    }
+    const key = slugs.join(',')
+    const hit = featuredReviewsCache.get(key)
+    if (hit && Date.now() - hit.at < FEATURED_REVIEWS_CACHE_MS) {
+      allowPublicCache(res, 300, 600)
+      res.json({ items: hit.items })
+      return
+    }
+
+    const indexSnap = await adminDb.collection('restaurantIndex').where('slug', 'in', slugs).get()
+    const items = (await Promise.all(indexSnap.docs.map(async (docSnap) => {
+      const data = docSnap.data()
+      const companyId = String(data.companyId ?? docSnap.id)
+      if (!companyId || Number(data.reviewCount ?? 0) <= 0) return null
+      const reviewsSnap = await adminDb
+        .collection('companies')
+        .doc(companyId)
+        .collection('reviews')
+        .orderBy('createdAt', 'desc')
+        .limit(FEATURED_REVIEWS_PER_RESTAURANT)
+        .get()
+      const reviews = reviewsSnap.docs
+        .map((reviewDoc) => mapPublicReview(reviewDoc.id, reviewDoc.data()))
+        .filter((review): review is NonNullable<typeof review> => review !== null)
+      const review = pickHighestRatedReview(reviews as Array<(typeof reviews)[number] & FeaturedReviewLike>)
+      return review ? { slug: String(data.slug ?? ''), review } : null
+    }))).filter((item) => item !== null)
+
+    featuredReviewsCache.set(key, { at: Date.now(), items })
+    if (featuredReviewsCache.size > 200) featuredReviewsCache.delete(featuredReviewsCache.keys().next().value as string)
+    allowPublicCache(res, 300, 600)
+    res.json({ items })
+  } catch (error) {
+    console.error('featured reviews error:', error)
     res.status(500).json({ error: 'No se pudo cargar.' })
   }
 })

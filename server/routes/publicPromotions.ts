@@ -310,8 +310,27 @@ router.post('/validate-pin', validatePinRateLimit, async (req: Request, res: Res
   }
 })
 
-/** Promos activas de todos los locales (respetando plan y locales desactivados). */
-export async function loadActivePromotionPayloads(): Promise<PublicPromotionPayload[]> {
+/**
+ * Promos activas de todos los locales (respetando plan y locales desactivados).
+ * Se guardan 2 minutos en memoria: la pantalla de inicio, Promos y la ficha las
+ * piden a menudo y cada vez se leían promos, locales y mesas.
+ */
+const ACTIVE_PROMOTIONS_CACHE_MS = 2 * 60_000
+let activePromotionsCache: { at: number; promise: Promise<PublicPromotionPayload[]> } | null = null
+
+export function loadActivePromotionPayloads(): Promise<PublicPromotionPayload[]> {
+  if (activePromotionsCache && Date.now() - activePromotionsCache.at < ACTIVE_PROMOTIONS_CACHE_MS) {
+    return activePromotionsCache.promise
+  }
+  const promise = readActivePromotionPayloads()
+  activePromotionsCache = { at: Date.now(), promise }
+  promise.catch(() => {
+    activePromotionsCache = null
+  })
+  return promise
+}
+
+async function readActivePromotionPayloads(): Promise<PublicPromotionPayload[]> {
   const activeSnap = await adminDb
     .collectionGroup('promotions')
     .where('active', '==', true)

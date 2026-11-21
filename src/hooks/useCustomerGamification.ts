@@ -71,8 +71,11 @@ export function useCustomerGamification({
   useEffect(() => {
     if (!enabled || !user || profile?.role !== 'customer') return
     if (fingerprint === lastFingerprintRef.current) return
-    lastFingerprintRef.current = fingerprint
     let cancelled = false
+    // Se espera a que los datos se asienten: al abrir llegan reservas, consumos y
+    // favoritos por separado y antes se evaluaba dos veces (cada vez lee mucho).
+    const timer = setTimeout(() => {
+    lastFingerprintRef.current = fingerprint
     setSyncing(true)
     void evaluateCustomerMissions()
       .then((result) => {
@@ -99,8 +102,10 @@ export function useCustomerGamification({
       .finally(() => {
         if (!cancelled) setSyncing(false)
       })
+    }, 1200)
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
   }, [enabled, user, profile?.role, fingerprint])
 

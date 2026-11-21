@@ -362,7 +362,7 @@ function mapOwnerReply(value: unknown) {
   }
 }
 
-function mapPublicReview(id: string, data: FirebaseFirestore.DocumentData) {
+export function mapPublicReview(id: string, data: FirebaseFirestore.DocumentData) {
   const rating = typeof data.rating === 'number' ? data.rating : null
   const comment = typeof data.comment === 'string' ? data.comment : ''
   const createdAt = (data.createdAt as Timestamp | undefined)?.toDate?.()

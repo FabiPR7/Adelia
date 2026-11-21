@@ -16,7 +16,7 @@ import AdelinaCoin from '../../components/AdelinaCoin'
 import { useAuth } from '../../context/AuthContext'
 import { useFavoriteRestaurants } from '../../hooks/useFavoriteRestaurants'
 import { usePromotionCounts } from '../../hooks/usePromotionCounts'
-import { fetchPublicDiscoveryRestaurants, mergeDiscoveryRestaurants } from '../../services/publicDiscovery'
+import { fetchPublicDiscoveryPage, fetchPublicDiscoveryRestaurants, mergeDiscoveryRestaurants } from '../../services/publicDiscovery'
 import type { CitySuggestion } from '../../services/citySearch'
 import { haversineDistanceKm, type GeoCoordinates } from '../../utils/geo'
 import { toGeoCoordinates } from '../../utils/mapCoordinates'
@@ -38,6 +38,7 @@ import VisitRows from '../../components/discovery/VisitRows'
 import TopPromotionsSection from '../../components/discovery/TopPromotionsSection'
 import FriendsVisitedRow from '../../components/discovery/FriendsVisitedRow'
 import FoodCategoryButtons from '../../components/discovery/FoodCategoryButtons'
+import LazySection from '../../components/LazySection'
 import { findFoodCategory, MAIN_FOOD_CATEGORIES, restaurantMatchesFoodCategory } from '../../data/foodCategories'
 import styles from './CustomerExploreTab.module.css'
 
@@ -57,6 +58,9 @@ function CustomerExploreTab() {
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Siguiente página del listado general (el servidor manda 80 cada vez).
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [searchDraft, setSearchDraft] = useState('')
   // Ciudad escrita a mano sin elegir sugerencia: filtra al pulsar Buscar.
   const [cityDraft, setCityDraft] = useState('')
@@ -77,10 +81,11 @@ function CustomerExploreTab() {
   useEffect(() => {
     let cancelled = false
 
-    void fetchPublicDiscoveryRestaurants()
-      .then((data) => {
+    void fetchPublicDiscoveryPage()
+      .then((page) => {
         if (!cancelled) {
-          setRestaurants(data)
+          setRestaurants((previous) => mergeDiscoveryRestaurants(page.restaurants, previous))
+          setNextCursor(page.nextCursor)
         }
       })
       .catch((err) => {
@@ -359,6 +364,19 @@ function CustomerExploreTab() {
     requestGpsLocation()
   }
 
+  // Al llegar al final de «Todos los restaurantes» se pide la página siguiente.
+  const loadMoreRestaurants = useCallback(() => {
+    if (!nextCursor || loadingMore) return
+    setLoadingMore(true)
+    void fetchPublicDiscoveryPage({ cursor: nextCursor })
+      .then((page) => {
+        setRestaurants((previous) => mergeDiscoveryRestaurants(previous, page.restaurants))
+        setNextCursor(page.nextCursor)
+      })
+      .catch(() => setNextCursor(null))
+      .finally(() => setLoadingMore(false))
+  }, [nextCursor, loadingMore])
+
   const openRestaurant = useCallback(
     (restaurant: PublicDiscoveryRestaurant) => {
       navigate(`/reservar/${restaurant.slug}`)
@@ -490,34 +508,49 @@ function CustomerExploreTab() {
               </section>
             ) : null}
 
-            <FriendsVisitedRow />
+            {/* De aquí para abajo, cada sección pide sus datos al llegar a ella. */}
+            <LazySection minHeight={160}>
+              <FriendsVisitedRow />
+            </LazySection>
           </>
         )}
 
         {!loading && !error && filteredRestaurants.length > 0 && (
           <>
-            <NearbyRestaurantsMap
-              restaurants={filteredRestaurants}
-              userCoords={userCoords}
-              homeCoords={homeCoords}
-              locating={nearbyState === 'locating'}
-              locationError={nearbyState === 'error' ? nearbyMessage : null}
-              promoCounts={promoCounts}
-              onRequestGps={requestGpsLocation}
-              onOpenRestaurant={openRestaurant}
-            />
-            <CollectionProgress
-              city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''}
-              restaurants={restaurants}
-              onOpenRestaurant={openRestaurant}
-            />
-            <MonthPodium city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''} />
-            <VisitRows restaurants={local.list} />
-            <FeaturedReviewHighlight
-              restaurants={filteredRestaurants}
-              onOpenRestaurant={openRestaurant}
-            />
-            <TopPromotionsSection />
+            <LazySection minHeight={420}>
+              <NearbyRestaurantsMap
+                restaurants={filteredRestaurants}
+                userCoords={userCoords}
+                homeCoords={homeCoords}
+                locating={nearbyState === 'locating'}
+                locationError={nearbyState === 'error' ? nearbyMessage : null}
+                promoCounts={promoCounts}
+                onRequestGps={requestGpsLocation}
+                onOpenRestaurant={openRestaurant}
+              />
+            </LazySection>
+            <LazySection minHeight={280}>
+              <CollectionProgress
+                city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''}
+                restaurants={restaurants}
+                onOpenRestaurant={openRestaurant}
+              />
+            </LazySection>
+            <LazySection minHeight={480}>
+              <MonthPodium city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''} />
+            </LazySection>
+            <LazySection minHeight={300}>
+              <VisitRows restaurants={local.list} />
+            </LazySection>
+            <LazySection minHeight={220}>
+              <FeaturedReviewHighlight
+                restaurants={filteredRestaurants}
+                onOpenRestaurant={openRestaurant}
+              />
+            </LazySection>
+            <LazySection minHeight={320}>
+              <TopPromotionsSection />
+            </LazySection>
             <FoodCategoryButtons restaurants={restaurants} />
             <NearbyRestaurantFeed
               restaurants={local.list}
@@ -526,6 +559,9 @@ function CustomerExploreTab() {
               locating={nearbyState === 'locating'}
               onRequestLocation={requestGpsLocation}
               onOpenRestaurant={openRestaurant}
+              hasMoreRemote={Boolean(nextCursor)}
+              loadingMoreRemote={loadingMore}
+              onLoadMoreRemote={loadMoreRestaurants}
             />
           </>
         )}

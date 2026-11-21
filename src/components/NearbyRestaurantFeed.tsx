@@ -15,6 +15,10 @@ interface NearbyRestaurantFeedProps {
   locating?: boolean
   onRequestLocation: () => void
   onOpenRestaurant: (restaurant: PublicDiscoveryRestaurant) => void
+  /** Quedan más restaurantes en el servidor (se piden al llegar al final). */
+  hasMoreRemote?: boolean
+  loadingMoreRemote?: boolean
+  onLoadMoreRemote?: () => void
 }
 
 function NearbyRestaurantFeed({
@@ -24,6 +28,9 @@ function NearbyRestaurantFeed({
   locating = false,
   onRequestLocation,
   onOpenRestaurant,
+  hasMoreRemote = false,
+  loadingMoreRemote = false,
+  onLoadMoreRemote,
 }: NearbyRestaurantFeedProps) {
   const [visibleCount, setVisibleCount] = useState(NEARBY_FEED_PAGE_SIZE)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -42,7 +49,8 @@ function NearbyRestaurantFeed({
   }, [restaurantKey, origin?.lat, origin?.lng, sorted.length])
 
   const visible = sliceNearbyFeed(sorted, visibleCount)
-  const hasMore = visibleCount < sorted.length
+  const hasMoreLocal = visibleCount < sorted.length
+  const hasMore = hasMoreLocal || hasMoreRemote
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -58,7 +66,11 @@ function NearbyRestaurantFeed({
         }
 
         observer.disconnect()
-        setVisibleCount((current) => nextNearbyFeedCount(current, sorted.length))
+        if (hasMoreLocal) {
+          setVisibleCount((current) => nextNearbyFeedCount(current, sorted.length))
+        } else if (!loadingMoreRemote) {
+          onLoadMoreRemote?.()
+        }
       },
       { rootMargin: '160px 0px' },
     )
@@ -66,7 +78,7 @@ function NearbyRestaurantFeed({
     observer.observe(sentinel)
 
     return () => observer.disconnect()
-  }, [hasMore, visibleCount, sorted.length])
+  }, [hasMore, hasMoreLocal, loadingMoreRemote, onLoadMoreRemote, visibleCount, sorted.length])
 
   if (sorted.length === 0) {
     return null

@@ -3,18 +3,12 @@ import AdelinaCoin from './AdelinaCoin'
 import {
   type PublicDiscoveryRestaurant,
 } from '../utils/publicDiscovery'
-import {
-  fetchPublicReviews,
-  type PublicCompanyReview,
-} from '../services/publicApi'
+import { type PublicCompanyReview } from '../services/publicApi'
+import { fetchFeaturedReviews } from '../services/publicDiscovery'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import { getAdelinaSlotStates } from '../types/review'
 import { getReviewCommentPlainText } from '../utils/reviewCommentTags'
-import {
-  pickFeaturedReviewCandidates,
-  pickHighestRatedReview,
-  pickNextRandomIndex,
-} from '../utils/featuredReviewHighlight'
+import { pickNextRandomIndex, shuffleCopy } from '../utils/featuredReviewHighlight'
 import styles from './FeaturedReviewHighlight.module.css'
 
 const ROTATE_MS = 3000
@@ -46,9 +40,12 @@ function FeaturedReviewHighlight({
 
   useEffect(() => {
     let cancelled = false
-    // restaurantKey fija la identidad de la lista; usamos restaurants del mismo render.
-    const source = restaurants
-    const candidates = pickFeaturedReviewCandidates(source)
+    // Una sola llamada: los 8 locales con más reseñas (el servidor elige la mejor de cada uno).
+    const bySlug = new Map(restaurants.map((restaurant) => [restaurant.slug.trim().toLowerCase(), restaurant]))
+    const candidates = [...restaurants]
+      .filter((restaurant) => restaurant.reviewCount > 0)
+      .sort((left, right) => right.reviewCount - left.reviewCount)
+      .slice(0, 8)
 
     if (candidates.length === 0) {
       setItems([])
@@ -56,32 +53,25 @@ function FeaturedReviewHighlight({
       return
     }
 
-    setItems([])
-    setIndex(0)
     setLoading(true)
-
-    void Promise.all(
-      candidates.map(async (restaurant) => {
-        try {
-          const payload = await fetchPublicReviews(restaurant.slug)
-          const review = pickHighestRatedReview(payload.reviews ?? [])
-          if (!review) {
-            return null
-          }
-          return { restaurant, review }
-        } catch {
-          return null
-        }
-      }),
-    ).then((rows) => {
-      if (cancelled) {
-        return
-      }
-      const next = rows.filter((row): row is FeaturedReviewItem => row !== null)
-      setItems(next)
-      setIndex(0)
-      setLoading(false)
-    })
+    void fetchFeaturedReviews<PublicCompanyReview>(candidates.map((restaurant) => restaurant.slug))
+      .then((entries) => {
+        if (cancelled) return
+        const next = entries
+          .map((entry) => {
+            const restaurant = bySlug.get(entry.slug.trim().toLowerCase())
+            return restaurant ? { restaurant, review: entry.review } : null
+          })
+          .filter((row): row is FeaturedReviewItem => row !== null)
+        setItems(shuffleCopy(next))
+        setIndex(0)
+      })
+      .catch(() => {
+        if (!cancelled) setItems([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
     return () => {
       cancelled = true

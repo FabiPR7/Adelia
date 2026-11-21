@@ -28,8 +28,9 @@ interface IndexEntry {
   country: string
 }
 
-// Todos los restaurantes publicados (pocos campos), 10 min en memoria.
-const INDEX_CACHE_MS = 10 * 60_000
+// Todos los restaurantes publicados (pocos campos), 1 hora en memoria: con miles de
+// locales, leerlos cada pocos minutos sale caro y el recuento no necesita ir al segundo.
+const INDEX_CACHE_MS = 60 * 60_000
 let indexCache: { entries: IndexEntry[]; at: number } | null = null
 
 async function loadIndex(): Promise<IndexEntry[]> {
