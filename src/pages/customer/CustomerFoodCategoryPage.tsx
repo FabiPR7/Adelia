@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import NearbyRestaurantFeedCard from '../../components/NearbyRestaurantFeedCard'
-import FoodCategoryButtons from '../../components/discovery/FoodCategoryButtons'
 import DiscoverySkeleton from '../../components/DiscoverySkeleton'
 import { findFoodCategory, restaurantMatchesFoodCategory } from '../../data/foodCategories'
 import { fetchPublicDiscoveryRestaurants, mergeDiscoveryRestaurants } from '../../services/publicDiscovery'
@@ -92,8 +91,6 @@ function CustomerFoodCategoryPage() {
           ) : null}
         </div>
       </header>
-
-      <FoodCategoryButtons restaurants={restaurants} activeId={category.id} title={null} />
 
       <main className={styles.main}>
         {loading ? <DiscoverySkeleton /> : null}
