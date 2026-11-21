@@ -48,12 +48,17 @@ interface PlanLockCopyProps {
   onUpgrade?: () => void
 }
 
+type PopoverCoords = { left: number } & ({ top: number; bottom?: never } | { bottom: number; top?: never })
+
+/** Alto aproximado del aviso (título, texto y botón) más margen. */
+const POPOVER_MIN_ROOM = 180
+
 function useLockLayer() {
   const wrapRef = useRef<HTMLSpanElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [hover, setHover] = useState(false)
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null)
+  const [coords, setCoords] = useState<PopoverCoords | null>(null)
   const visible = open || hover
 
   useLayoutEffect(() => {
@@ -64,8 +69,13 @@ function useLockLayer() {
     const rect = wrapRef.current.getBoundingClientRect()
     const width = 280
     const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))
-    const top = rect.bottom + 8
-    setCoords({ top, left })
+    // Cerca del borde inferior (p. ej. últimas opciones del menú en móvil) se abre hacia arriba.
+    const roomBelow = window.innerHeight - rect.bottom
+    if (roomBelow < POPOVER_MIN_ROOM && rect.top > roomBelow) {
+      setCoords({ bottom: window.innerHeight - rect.top + 8, left })
+    } else {
+      setCoords({ top: rect.bottom + 8, left })
+    }
   }, [visible])
 
   useEffect(() => {
@@ -113,7 +123,7 @@ function LockPopover({
   copy: ReturnType<typeof planUpgradeHint>
   onUpgrade: () => void
   labelledBy: string
-  coords: { top: number; left: number }
+  coords: PopoverCoords
   popoverRef: { current: HTMLDivElement | null }
   onEnter: () => void
   onLeave: () => void
@@ -124,7 +134,7 @@ function LockPopover({
       className={styles.popover}
       role="tooltip"
       id={labelledBy}
-      style={{ top: coords.top, left: coords.left }}
+      style={{ top: coords.top, bottom: coords.bottom, left: coords.left }}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
     >

@@ -283,6 +283,8 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
     if (tab && KNOWN_TABS.has(tab)) {
       const nextTab = tab as CompanyTab
       setActiveTab(nextTab)
+      // En móvil, «Ver planes» desde un candado del menú lateral: cerrar el menú para ver la página.
+      setSidebarOpen(false)
       if (isSettingsEditorTab(nextTab)) {
         setLastSettingsSection(nextTab)
       }
