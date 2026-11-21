@@ -46,7 +46,7 @@ async function mapFriendProfile(
   const completed = Array.isArray(stats.completedMissions) ? stats.completedMissions.length : 0
   const weekly = Array.isArray(stats.weeklyCompleted) ? stats.weeklyCompleted.length : 0
   const badges = Array.isArray(stats.completedMissions)
-    ? (stats.completedMissions as string[]).slice(0, 12)
+    ? (stats.completedMissions as string[]).filter((id) => typeof id === 'string').slice(0, 120)
     : []
 
   return {
