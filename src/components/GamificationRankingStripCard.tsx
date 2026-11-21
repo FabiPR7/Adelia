@@ -1,7 +1,14 @@
 import type { CSSProperties } from 'react'
-import { MEDAL_PALETTES, levelMedalTier } from '../data/achievementMedal'
+import {
+  getStripBackground,
+  getStripEmblem,
+  getStripEmblemBlendMode,
+} from '../utils/levelRankingStripAssets'
+import { getLevelRankingStripTheme } from '../utils/levelRankingStripThemes'
+import StripDynamicName from './StripDynamicName'
+import StripLevelTitle from './StripLevelTitle'
+import StripRankBadge from './StripRankBadge'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
-import LevelEmblem from './LevelEmblem'
 import styles from './GamificationRankingStripCard.module.css'
 
 interface GamificationRankingStripCardProps {
@@ -26,11 +33,6 @@ function initials(name: string): string {
     .toUpperCase()
 }
 
-/**
- * Tira de un jugador en Compite: puesto, foto con aro del metal de su nivel, nombre,
- * rango y XP. El fondo es un cristal oscuro teñido de su metal (bronce, plata, oro o
- * legendario); los 3 primeros llevan el puesto en oro, plata y bronce.
- */
 function GamificationRankingStripCard({
   level,
   levelTitle,
@@ -43,59 +45,72 @@ function GamificationRankingStripCard({
   profileSize = false,
   className = '',
 }: GamificationRankingStripCardProps) {
-  const tier = levelMedalTier(level)
-  const palette = MEDAL_PALETTES[tier]
-  const progressPercent = Math.min(100, Math.max(6, Math.round(levelProgress * 100)))
-  const podium = rank != null && rank <= 3 ? rank : null
+  const theme = getLevelRankingStripTheme(level)
+  const background = getStripBackground(level)
+  const emblem = getStripEmblem(level)
+  const emblemBlend = getStripEmblemBlendMode(level)
+  const progressPercent = Math.min(100, Math.max(8, Math.round(levelProgress * 100)))
+  const levelClass = `level${Math.min(Math.max(level, 1), 12)}`
 
-  const vars = {
-    '--strip-rim-a': palette.rim[0],
-    '--strip-rim-b': palette.rim[1],
-    '--strip-rim-c': palette.rim[2],
-    '--strip-glow': palette.glow,
+  const cssVars = {
+    '--strip-overlay': theme.overlay,
+    '--strip-border': theme.cardBorder,
+    '--strip-xp-track': theme.xpTrack,
+    '--strip-xp-fill': theme.xpFill,
+    '--strip-xp-label': theme.xpLabelColor,
+    '--strip-avatar-border': theme.avatarBorder,
+    '--strip-emblem-blend': emblemBlend,
   } as CSSProperties
 
   return (
     <article
-      className={`${styles.strip} ${styles[`tier_${tier}`]} ${highlight ? styles.highlight : ''} ${profileSize ? styles.profileSize : ''} ${className}`}
-      style={vars}
-      aria-label={`${rank != null ? `Puesto ${rank}, ` : ''}${displayName}, ${levelTitle}, ${xp.toLocaleString('es-ES')} XP`}
+      className={`${styles.strip} ${styles[levelClass]} ${highlight ? styles.highlight : ''} ${profileSize ? styles.profileSize : ''} ${className}`}
+      style={cssVars}
+      aria-label={`${displayName}, ${levelTitle}, ${xp.toLocaleString('es-ES')} XP`}
     >
-      <span className={styles.sheen} aria-hidden="true" />
+      <img src={background} alt="" className={styles.bgArt} draggable={false} decoding="async" />
+      <div className={styles.bgOverlay} aria-hidden="true" />
 
-      {rank != null ? (
-        <span className={`${styles.rank} ${podium ? styles[`podium${podium}`] : ''}`} aria-hidden="true">
-          {podium ? <span className={styles.crown}>{podium === 1 ? '👑' : ''}</span> : null}
-          {rank}
-        </span>
-      ) : null}
+      <div className={styles.row}>
+        <div className={styles.avatar}>
+          {photoUrl ? (
+            <img
+              src={optimizeCloudinaryUrl(photoUrl, CLOUDINARY_DISPLAY.logo)}
+              alt=""
+              className={styles.avatarPhoto}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span className={styles.avatarInitials}>{initials(displayName)}</span>
+          )}
+        </div>
 
-      <span className={styles.avatar}>
-        {photoUrl ? (
-          <img
-            src={optimizeCloudinaryUrl(photoUrl, CLOUDINARY_DISPLAY.logo)}
-            alt=""
-            className={styles.avatarPhoto}
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <span className={styles.avatarInitials}>{initials(displayName)}</span>
-        )}
-      </span>
+        <div className={styles.body}>
+          <StripLevelTitle level={level} levelTitle={levelTitle} />
 
-      <span className={styles.body}>
-        <span className={styles.name}>{displayName}</span>
-        <span className={styles.title}>{levelTitle}</span>
-        <span className={styles.xpRow}>
-          <span className={styles.xpTrack} aria-hidden="true">
-            <span className={styles.xpFill} style={{ width: `${progressPercent}%` }} />
-          </span>
-          <span className={styles.xp}>{xp.toLocaleString('es-ES')} XP</span>
-        </span>
-      </span>
+          <div className={styles.centerStack}>
+            <div className={styles.nameRow}>
+              {rank != null ? <StripRankBadge rank={rank} level={level} /> : null}
+              <StripDynamicName level={level} displayName={displayName} />
+            </div>
 
-      <LevelEmblem level={level} size={profileSize ? 64 : 48} />
+            <div
+              className={styles.xpBar}
+              aria-label={`${xp.toLocaleString('es-ES')} puntos de experiencia`}
+            >
+              <div className={styles.xpTrack}>
+                <div className={styles.xpFill} style={{ width: `${progressPercent}%` }} />
+              </div>
+              <span className={styles.xpLabel}>{xp.toLocaleString('es-ES')} XP</span>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.emblemWrap}>
+          <img src={emblem} alt="" className={styles.emblemArt} draggable={false} aria-hidden="true" />
+        </div>
+      </div>
     </article>
   )
 }

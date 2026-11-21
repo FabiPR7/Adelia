@@ -39,7 +39,6 @@ interface FriendProfilePanelsProps {
   xp: number
   progressPercent: number
   reservationsTotal: number
-  promotionsEstimate: number
   missionsCompleted: number
   foodPreferences: string[]
   earnedAchievements: MissionProgress[]
@@ -87,7 +86,6 @@ function FriendProfilePanels({
   xp,
   progressPercent,
   reservationsTotal,
-  promotionsEstimate,
   missionsCompleted,
   foodPreferences,
   earnedAchievements,
@@ -143,14 +141,14 @@ function FriendProfilePanels({
         <StatBubble
           icon={<IconCalendar className={styles.medallionIcon} />}
           value={reservationsTotal}
-          label="Reservas"
+          label="Locales"
           ornament={ornament}
           level={level}
         />
         <StatBubble
           icon={<IconTag className={styles.medallionIcon} />}
-          value={promotionsEstimate}
-          label="Promos"
+          value={earnedAchievements.length}
+          label="Medallas"
           ornament={ornament}
           level={level}
         />

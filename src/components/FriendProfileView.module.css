@@ -1,455 +1,412 @@
-/* Carta de jugador: oscuro, con el metal de su nivel como acento. */
 .page {
+  --strip-overlay: linear-gradient(90deg, rgba(74, 47, 32, 0.72), rgba(74, 47, 32, 0.2));
+  --strip-border: #c4a574;
+  --strip-name: #fff8ef;
+  --strip-title: #f5e6c8;
+  --strip-name-shadow: 0 1px 4px rgba(58, 35, 20, 0.55);
+  --strip-xp-track: rgba(58, 35, 20, 0.35);
+  --strip-xp-fill: linear-gradient(90deg, #8b6914, #e8c547);
+  --strip-xp-label: #fff8ef;
+  --strip-avatar-border: #d4af37;
+  --pill-number-bg: #3d2817;
+  --pill-number-color: #fff;
+  --pill-title-bg: #e8dcc8;
+  --pill-title-color: #4a2f20;
+  --body-art-position: center 75%;
+  --hero-height: 56%;
+  --hero-object-position: center 30%;
+  --body-top: 52%;
+  --body-height: 58%;
+  --body-object-position: center 75%;
+  --page-glow: none;
+  --page-vignette: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.35));
+  --body-text: #fff8ef;
+  --body-muted: #f5e6c8;
+  --metric-bg: rgba(255, 255, 255, 0.1);
+  --metric-border: #c4a574;
+  --chip-bg: rgba(255, 255, 255, 0.12);
+  --chip-text: #f5e6c8;
+  --chip-border: rgba(196, 165, 116, 0.5);
+  --divider: rgba(255, 255, 255, 0.18);
+  --section-accent: #c4a574;
+  --level-bg: none;
+
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin: 0.85rem 1rem 0;
-  padding: 0 0 1.4rem;
-  color: #fff8ef;
-  animation: cardIn 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  margin: -0.85rem 0 0;
+  min-height: calc(100dvh - var(--customer-nav-height, 4.5rem) - 5rem);
+  overflow-x: hidden;
+  color: var(--body-text);
+}
+
+/* ─── Lienzo strip inmersivo (hero + cuerpo) ─── */
+.pageCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pageBgHero,
+.pageBgBody {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+  filter: saturate(1.08) contrast(1.03);
+}
+
+.pageBgHero {
+  top: 0;
+  height: var(--hero-height);
+  object-position: var(--hero-object-position);
+}
+
+.pageBgBody {
+  top: var(--body-top);
+  height: var(--body-height);
+  object-position: var(--body-object-position);
+}
+
+.pageOverlay {
+  position: absolute;
+  inset: 0;
+  background:
+    var(--strip-overlay),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.12) 45%, rgba(0, 0, 0, 0.28) 100%);
+}
+
+.pageGlow {
+  position: absolute;
+  inset: 0;
+  background: var(--page-glow);
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+.pageVignette {
+  position: absolute;
+  inset: 0;
+  background: var(--page-vignette);
+}
+
+.pageShine {
+  position: absolute;
+  top: -40%;
+  left: -30%;
+  width: 60%;
+  height: 180%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: rotate(14deg);
+  animation: pageShine 7s ease-in-out infinite;
+}
+
+/* ─── Hero ─── */
+.hero {
+  position: relative;
+  min-height: 19rem;
 }
 
 .backBtn {
   position: absolute;
-  top: 0.2rem;
-  left: 0;
-  z-index: 3;
+  z-index: 4;
+  top: 0.7rem;
+  left: 0.7rem;
+  width: 2.35rem;
+  height: 2.35rem;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff8ef;
+  border: 1.5px solid var(--strip-border);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--strip-name);
   cursor: pointer;
-  transition: transform 0.16s ease-out;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .backBtn svg {
-  width: 20px;
-  height: 20px;
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
-.backBtn:active {
-  transform: scale(0.94);
+.backBtn:hover {
+  transform: translateX(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.36);
 }
 
-.backBtn:focus-visible {
-  outline: 2px solid var(--card-rim-b);
-  outline-offset: 2px;
-}
-
-.hero {
+.heroInner {
   position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1.6rem 1rem 1.2rem;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--card-rim-b) 45%, transparent);
-  border-radius: 26px;
-  background:
-    radial-gradient(90% 70% at 50% 0%, color-mix(in srgb, var(--card-rim-b) 35%, transparent), transparent 70%),
-    linear-gradient(180deg, #1d1726 0%, #110d17 100%);
+  gap: 0.5rem;
+  padding: 2.85rem 1.1rem 1.5rem;
   text-align: center;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
 }
 
-.tier_legend .hero {
-  background:
-    radial-gradient(90% 70% at 50% 0%, rgba(162, 116, 255, 0.45), transparent 70%),
-    radial-gradient(60% 50% at 100% 100%, rgba(80, 200, 255, 0.15), transparent 70%),
-    linear-gradient(180deg, #1e1538 0%, #0d0820 100%);
-}
-
-.heroGlow {
+.titleArt {
   position: absolute;
-  top: -20%;
   left: 50%;
-  width: 70%;
-  height: 60%;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: var(--card-glow);
-  filter: blur(40px);
-  opacity: 0.45;
+  top: 2rem;
+  transform: translateX(-50%) scale(1.38);
+  width: min(94%, 23rem);
+  max-height: 4.75rem;
+  object-fit: contain;
+  opacity: 0.42;
   pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.3));
 }
 
 .avatarStage {
   position: relative;
-  margin-bottom: 0.6rem;
+  width: 6.25rem;
+  height: 6.25rem;
+  margin-top: 0.25rem;
+}
+
+.avatarGlow {
+  position: absolute;
+  inset: -0.55rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--strip-border) 0%, transparent 70%);
+  opacity: 0.6;
+  filter: blur(8px);
 }
 
 .avatarRing {
-  display: grid;
-  place-items: center;
-  width: 7rem;
-  height: 7rem;
-  padding: 4px;
-  border-radius: 50%;
-  background: conic-gradient(from 200deg, var(--card-rim-a), var(--card-rim-b), var(--card-rim-c), var(--card-rim-a));
-  box-shadow: 0 0 30px var(--card-glow);
-  animation: ringSpin 14s linear infinite;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 3.5px solid var(--strip-avatar-border);
+  background: rgba(15, 23, 42, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 14px 36px rgba(0, 0, 0, 0.42);
 }
 
 .avatar,
 .avatarFallback {
   width: 100%;
   height: 100%;
-  border: 3px solid #15101c;
-  border-radius: 50%;
-  animation: ringSpin 14s linear infinite reverse;
-}
-
-.avatar {
   object-fit: cover;
+  display: block;
 }
 
 .avatarFallback {
   display: grid;
   place-items: center;
-  background: #2a2133;
   font-family: var(--font-display);
-  font-size: 2.6rem;
-  font-weight: 700;
+  font-size: 1.85rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(160deg, rgba(100, 116, 139, 0.92), rgba(51, 65, 85, 0.96));
 }
 
-.emblem {
+.level1 .avatarFallback {
+  color: #4a2f20;
+  background: linear-gradient(160deg, #e8dcc8, #c4a574);
+}
+
+.levelEmblem {
   position: absolute;
-  right: -1.4rem;
-  bottom: -0.6rem;
-}
-
-.name {
-  margin: 0.2rem 0 0;
-  font-family: var(--font-display);
-  font-size: 1.9rem;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  z-index: 2;
+  right: -0.4rem;
+  bottom: -0.35rem;
+  width: 2.35rem;
+  height: 2.35rem;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
 }
 
 .username {
-  margin: 0.15rem 0 0;
+  margin: 0.1rem 0 0;
   font-size: 0.85rem;
-  color: rgba(255, 248, 239, 0.55);
-}
-
-.levelTitle {
-  margin: 0.45rem 0 0;
-  padding: 0.2rem 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--card-rim-b) 55%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--card-rim-b) 16%, transparent);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--card-rim-a);
-}
-
-.location {
-  margin: 0.55rem 0 0;
-  font-size: 0.8rem;
-  color: rgba(255, 248, 239, 0.65);
-}
-
-.xpBlock {
-  width: 100%;
-  margin-top: 1rem;
-}
-
-.xpTop {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 0.35rem;
-}
-
-.xpTop strong {
-  font-family: var(--font-epic);
-  font-size: 1.5rem;
-  letter-spacing: 0.02em;
-}
-
-.xpTop span {
-  font-size: 0.75rem;
-  color: rgba(255, 248, 239, 0.6);
-}
-
-.xpTrack {
-  display: block;
-  height: 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.xpFill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--card-rim-c), var(--card-rim-b), var(--card-rim-a));
-  box-shadow: 0 0 12px var(--card-glow);
-}
-
-/* Duelo tú vs él */
-.duel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  padding: 1rem;
-  border: 1px solid rgba(255, 106, 61, 0.35);
-  border-radius: 22px;
-  background:
-    linear-gradient(90deg, rgba(255, 106, 61, 0.14), rgba(124, 58, 237, 0.14)),
-    #15101c;
-}
-
-.duelHead {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  font-size: 0.9rem;
-  font-weight: 800;
-}
-
-.duelHead span:last-child {
-  text-align: right;
-}
-
-.duelHead strong {
-  padding: 0.15rem 0.6rem;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #ff6a3d, #7c3aed);
-  font-family: var(--font-epic);
-  font-size: 1.2rem;
-  letter-spacing: 0.06em;
-}
-
-.duelVerdict {
-  margin: 0;
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-align: center;
-}
-
-.verdictWin {
-  color: #6fd39a;
-}
-
-.verdictLose {
-  color: #ffb08a;
-}
-
-.duelRow {
-  display: grid;
-  grid-template-columns: 3.4rem minmax(0, 1fr) 3.4rem;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.duelValue {
-  font-family: var(--font-epic);
-  font-size: 1.05rem;
-  color: rgba(255, 248, 239, 0.7);
-  font-variant-numeric: tabular-nums;
-}
-
-.duelRight {
-  text-align: right;
-}
-
-.duelWin {
-  color: #fff8ef;
-  text-shadow: 0 0 10px rgba(255, 200, 70, 0.6);
-}
-
-.duelMiddle {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.duelLabel {
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-align: center;
-  text-transform: uppercase;
-  color: rgba(255, 248, 239, 0.55);
-}
-
-.duelBar {
-  display: flex;
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.duelMine {
-  background: linear-gradient(90deg, #e0452a, #ff8a3d);
-  transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.duelTheirs {
-  background: linear-gradient(90deg, #a274ff, #6a34e0);
-  transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-/* Bloques */
-.block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-}
-
-.blockHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.blockHead h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-}
-
-.blockHead span {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 248, 239, 0.55);
-}
-
-.empty {
-  margin: 0;
-  padding: 1rem;
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-  border-radius: 16px;
-  font-size: 0.85rem;
-  text-align: center;
-  color: rgba(255, 248, 239, 0.6);
-}
-
-.medals {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.6rem 0.4rem;
-  margin: 0;
-  padding: 0.9rem 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  background: rgba(0, 0, 0, 0.25);
-  list-style: none;
-}
-
-.medal {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.medal span {
-  display: -webkit-box;
-  overflow: hidden;
-  font-size: 0.64rem;
-  font-weight: 700;
-  line-height: 1.2;
-  text-align: center;
-  color: rgba(255, 248, 239, 0.8);
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.stats div {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0.75rem 0.4rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.stats strong {
-  font-family: var(--font-epic);
-  font-size: 1.7rem;
-  line-height: 1;
-}
-
-.stats span {
-  font-size: 0.66rem;
-  font-weight: 700;
-  text-align: center;
-  color: rgba(255, 248, 239, 0.6);
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.chips li {
-  padding: 0.3rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 0.78rem;
   font-weight: 600;
+  color: var(--strip-title);
+  text-shadow: var(--strip-name-shadow);
 }
 
-@media (min-width: 640px) {
-  .medals {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
+.displayName {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 4.2vw, 1.85rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--strip-name);
+  text-shadow: var(--strip-name-shadow);
 }
 
-@keyframes cardIn {
-  from {
+/* ─── Cuerpo: misma strip, continuidad visual ─── */
+.body {
+  position: relative;
+  min-height: 14rem;
+}
+
+.bodyBridge {
+  height: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.bodyInner {
+  padding: 0.35rem 0.85rem 2.25rem;
+}
+
+.pageLevel1 {
+  color: #4a2f20;
+}
+
+.pageLevel1 .backBtn {
+  background: rgba(255, 248, 239, 0.88);
+  color: #4a2f20;
+  border-color: #c4956a;
+  box-shadow: 0 4px 16px rgba(92, 74, 58, 0.18);
+}
+
+.pageLevel1 .titleArt {
+  opacity: 0.55;
+  filter: drop-shadow(0 2px 8px rgba(92, 74, 58, 0.2));
+}
+
+.pageLevel1 .avatarGlow {
+  background: radial-gradient(circle, #d4a574 0%, transparent 68%);
+  opacity: 0.45;
+}
+
+.pageLevel1 .avatarRing {
+  border: 4px solid #c4956a;
+  background: #f5ebe0;
+  box-shadow:
+    0 0 0 2px #e8dcc8,
+    0 0 0 5px #b8895a,
+    0 10px 28px rgba(92, 74, 58, 0.28);
+}
+
+.level10 .avatarGlow {
+  background: radial-gradient(circle, rgba(186, 230, 253, 0.75) 0%, transparent 70%);
+}
+
+.level11 .avatarGlow {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 0%, rgba(232, 121, 249, 0.75) 35%, transparent 72%);
+  animation: legendGlowPulse 2.2s ease-in-out infinite;
+  filter: blur(9px);
+}
+
+.level12 .avatarGlow {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.35) 0%, rgba(251, 146, 60, 0.45) 30%, rgba(255, 215, 0, 0.22) 50%, transparent 72%);
+  animation: fireGlowPulse 2.4s ease-in-out infinite;
+}
+
+.level5 .pageBgHero,
+.level5 .pageBgBody {
+  animation: flamePulse 3.2s ease-in-out infinite;
+}
+
+.level7 .pageBgHero,
+.level7 .pageBgBody {
+  animation: holoShift 6s ease-in-out infinite alternate;
+}
+
+@keyframes pageShine {
+  0%,
+  100% {
+    transform: translateX(-120%) rotate(14deg);
     opacity: 0;
-    transform: translateY(14px);
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  45% {
+    opacity: 0.85;
+  }
+  55% {
+    transform: translateX(220%) rotate(14deg);
+    opacity: 0;
   }
 }
 
-@keyframes ringSpin {
+@keyframes flamePulse {
+  0%,
+  100% {
+    filter: saturate(1.08) contrast(1.03) brightness(1);
+  }
+  50% {
+    filter: saturate(1.08) contrast(1.03) brightness(1.07);
+  }
+}
+
+@keyframes holoShift {
+  from {
+    filter: saturate(1.08) contrast(1.03) hue-rotate(0deg);
+  }
   to {
-    transform: rotate(360deg);
+    filter: saturate(1.12) contrast(1.03) hue-rotate(14deg);
+  }
+}
+
+@keyframes legendGlowPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes fireGlowPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    filter: blur(8px);
+  }
+  50% {
+    opacity: 0.95;
+    filter: blur(10px);
+  }
+}
+
+@media (min-width: 900px) {
+  .page {
+    margin: -1.25rem 0 0;
+  }
+
+  .hero {
+    min-height: 20.5rem;
+  }
+
+  .pageBgHero {
+    height: var(--hero-height);
+  }
+
+  .titleArt {
+    transform: translateX(-50%) scale(1.58);
+    max-height: 5.25rem;
+  }
+
+  .bodyInner {
+    padding-inline: 1.1rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page,
-  .avatarRing,
-  .avatar,
-  .avatarFallback {
-    animation: none;
-  }
-
-  .duelMine,
-  .duelTheirs {
-    transition: none;
+  .pageShine,
+  .level5 .pageBgHero,
+  .level5 .pageBgBody,
+  .level7 .pageBgHero,
+  .level7 .pageBgBody,
+  .level11 .avatarGlow,
+  .level12 .avatarGlow {
+    animation: none !important;
   }
 }

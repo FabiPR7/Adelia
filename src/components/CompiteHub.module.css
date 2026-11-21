@@ -54,20 +54,3 @@
     font-size: 1.05rem;
   }
 }
-
-/* Arena 2.0: pestañas Amigos / Rankings en oscuro. */
-.zoneTabs {
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: none;
-}
-
-.zoneTab {
-  color: rgba(255, 248, 239, 0.6);
-}
-
-.zoneTabActive {
-  background: linear-gradient(135deg, rgba(255, 106, 61, 0.28), rgba(124, 58, 237, 0.28));
-  color: #fff8ef;
-  box-shadow: inset 0 0 0 1px rgba(255, 106, 61, 0.45);
-}

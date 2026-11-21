@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LeaderboardEntry } from '../data/gamificationLeaderboard'
 import GamificationRankingStripCard from './GamificationRankingStripCard'
-import RankingPodium from './RankingPodium'
 import styles from './RankingStripList.module.css'
 
 interface RankingStripListProps {
@@ -20,8 +19,6 @@ interface RankingStripListProps {
   onFriendEntryClick?: (entry: LeaderboardEntry) => void
   isEntryFavorite?: (entry: LeaderboardEntry) => boolean
   renderEntryActions?: (entry: LeaderboardEntry) => ReactNode
-  /** Podio de los 3 primeros encima de la lista. */
-  showPodium?: boolean
 }
 
 function entryKey(entry: LeaderboardEntry): string {
@@ -47,7 +44,6 @@ function RankingStripList({
   onFriendEntryClick,
   isEntryFavorite,
   renderEntryActions,
-  showPodium = false,
 }: RankingStripListProps) {
   const userEntry = entries.find((entry) => entry.isYou)
   const userRowRef = useRef<HTMLDivElement | null>(null)
@@ -129,7 +125,6 @@ function RankingStripList({
       )}
 
       {toolbar}
-      {showPodium ? <RankingPodium entries={entries} /> : null}
 
       <div className={styles.list}>
         {entries.map((entry) => {
