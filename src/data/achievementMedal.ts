@@ -139,3 +139,28 @@ export const MEDAL_RIBBONS = {
 
 /** Anillo de progreso alrededor de las bloqueadas. */
 export const MEDAL_PROGRESS_RADIUS = 47
+
+/** Metal del emblema de nivel: 1-3 bronce, 4-6 plata, 7-8 oro, 9-10 legendaria. */
+export function levelMedalTier(level: number): MedalTier {
+  if (level >= 9) return 'legend'
+  if (level >= 7) return 'gold'
+  if (level >= 4) return 'silver'
+  return 'bronze'
+}
+
+/** Cuánto falta para que se renueven las misiones (semana: domingo a medianoche; mes: fin de mes). */
+export function missionResetLabel(cadence: 'weekly' | 'monthly', now = new Date()): string {
+  const end = new Date(now)
+  if (cadence === 'weekly') {
+    const day = end.getDay() || 7
+    end.setDate(end.getDate() + (7 - day) + 1)
+  } else {
+    end.setMonth(end.getMonth() + 1, 1)
+  }
+  end.setHours(0, 0, 0, 0)
+  const minutes = Math.max(0, Math.round((end.getTime() - now.getTime()) / 60_000))
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  if (days > 0) return `${days} d ${hours} h`
+  return `${hours} h ${minutes % 60} min`
+}

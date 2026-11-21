@@ -671,3 +671,368 @@
     max-width: 60rem;
   }
 }
+
+/* ===================================================================
+   ARENA 2.0 — toda la zona de Misiones en oscuro, con brillo y pique.
+   =================================================================== */
+.page {
+  --arena-bg: #0d0a12;
+  --arena-card: rgba(255, 255, 255, 0.045);
+  --arena-card-strong: rgba(255, 255, 255, 0.07);
+  --arena-line: rgba(255, 255, 255, 0.09);
+  --arena-text: #fff8ef;
+  --arena-muted: rgba(255, 248, 239, 0.62);
+  --arena-gold: #f2b544;
+  --arena-green: #43c37b;
+  color: var(--arena-text);
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(126, 72, 214, 0.35), transparent 60%),
+    radial-gradient(80% 40% at 100% 30%, rgba(242, 181, 68, 0.1), transparent 70%),
+    var(--arena-bg);
+}
+
+.hero {
+  padding: 1.4rem 1rem 1.3rem;
+  background: transparent !important;
+}
+
+.hero h1 {
+  font-size: 2.2rem;
+  letter-spacing: -0.02em;
+}
+
+.levelPanel {
+  gap: 1rem;
+  margin-top: 1.1rem;
+}
+
+.levelCopy strong {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.xpTrack {
+  height: 12px;
+  margin-top: 1rem;
+  border: 1px solid var(--arena-line);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.xpFill {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #ff8a3d, var(--arena-gold) 60%, #ffe08a);
+  box-shadow: 0 0 18px rgba(242, 181, 68, 0.55);
+  transition: width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.xpFill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: arenaShimmer 2.8s ease-in-out infinite;
+}
+
+.rivalChip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.95rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(255, 106, 61, 0.45);
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255, 106, 61, 0.18), rgba(255, 106, 61, 0.05));
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: var(--arena-text);
+}
+
+.rivalChip strong {
+  color: #ffb08a;
+}
+
+.rivalLead {
+  border-color: rgba(242, 181, 68, 0.5);
+  background: linear-gradient(90deg, rgba(242, 181, 68, 0.2), rgba(242, 181, 68, 0.05));
+}
+
+.rivalLead strong {
+  color: var(--arena-gold);
+}
+
+.rivalIcon {
+  font-size: 1.2rem;
+}
+
+.heroStats > div {
+  border: 1px solid var(--arena-line);
+  background: var(--arena-card);
+  backdrop-filter: blur(6px);
+}
+
+.heroStats strong {
+  font-family: var(--font-epic);
+  font-size: 2rem;
+  letter-spacing: 0.02em;
+}
+
+/* Pestañas Misiones / Ítems / Compite */
+.arenaTabs {
+  border: 1px solid var(--arena-line);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+
+.arenaTab {
+  color: var(--arena-muted);
+  background: transparent;
+}
+
+.arenaTabActive {
+  background: linear-gradient(135deg, #ff6a3d, #e0452a);
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(224, 69, 42, 0.45);
+}
+
+/* Bonus de temporada: tarjeta con borde dorado. */
+.bonusCard {
+  border: 1px solid rgba(242, 181, 68, 0.45);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(242, 181, 68, 0.2), transparent 55%),
+    var(--arena-card);
+  color: var(--arena-text);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease-out, border-color 0.18s ease;
+}
+
+.bonusCard:hover {
+  border-color: var(--arena-gold);
+}
+
+.bonusCard:active {
+  transform: scale(0.98);
+}
+
+.bonusCard h2 {
+  color: var(--arena-gold);
+}
+
+.bonusCard p,
+.bonusMeter span {
+  color: var(--arena-muted);
+}
+
+.bonusMeter strong {
+  font-family: var(--font-epic);
+  font-size: 2rem;
+  color: var(--arena-text);
+}
+
+/* Semana / Mes / Logros */
+.tabs {
+  border: 1px solid var(--arena-line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tab {
+  color: var(--arena-muted);
+  background: transparent;
+}
+
+.tabActive {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--arena-text);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.resetTimer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 1rem 0;
+  font-size: 0.8rem;
+  color: var(--arena-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.resetTimer strong {
+  color: var(--arena-text);
+}
+
+/* Tarjetas de misión: cristal oscuro, anillo de progreso y XP dorado. */
+.missionCard {
+  border: 1px solid var(--arena-line);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  color: var(--arena-text);
+  transition: transform 0.18s ease-out, border-color 0.18s ease;
+}
+
+@media (hover: hover) {
+  .missionCard:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+}
+
+.missionCard h3 {
+  color: var(--arena-text);
+}
+
+.missionCard p,
+.missionLeft,
+.missionProgressWrap span {
+  color: var(--arena-muted);
+}
+
+.missionXp {
+  border: 1px solid rgba(242, 181, 68, 0.5);
+  background: rgba(242, 181, 68, 0.14);
+  color: var(--arena-gold);
+  font-weight: 800;
+}
+
+.missionIconWrap {
+  position: relative;
+  width: 3.6rem;
+  height: 3.6rem;
+  border: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+}
+
+.missionRing {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  transform: rotate(-90deg);
+}
+
+.missionRingTrack {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 4;
+}
+
+.missionRingFill {
+  fill: none;
+  stroke: var(--arena-gold);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.missionCheck {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--arena-bg);
+  border-radius: 50%;
+  background: var(--arena-green);
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.missionProgressTrack {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.missionProgressFill {
+  background: linear-gradient(90deg, #ff8a3d, var(--arena-gold));
+  box-shadow: 0 0 10px rgba(242, 181, 68, 0.45);
+}
+
+.missionAction {
+  color: #ffb08a;
+}
+
+/* A punto de completarse: borde naranja que late. */
+.missionHot {
+  border-color: rgba(255, 106, 61, 0.55);
+  animation: arenaHot 2.4s ease-in-out infinite;
+}
+
+/* Completada: verde, con brillo. */
+.missionDone {
+  border-color: rgba(67, 195, 123, 0.5);
+  background: linear-gradient(160deg, rgba(67, 195, 123, 0.16), rgba(255, 255, 255, 0.02));
+}
+
+.missionDone .missionRingFill {
+  stroke: var(--arena-green);
+}
+
+.missionCompleteTag {
+  color: var(--arena-green);
+}
+
+.logrosArena {
+  border-color: var(--arena-line);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(242, 181, 68, 0.12), transparent 50%),
+    rgba(0, 0, 0, 0.25);
+}
+
+.cta {
+  background: linear-gradient(135deg, #ff6a3d, #e0452a);
+  box-shadow: 0 10px 26px rgba(224, 69, 42, 0.45);
+}
+
+.loading {
+  color: var(--color-text-muted);
+}
+
+@keyframes arenaShimmer {
+  0%,
+  55% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes arenaHot {
+  0%,
+  100% {
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(255, 106, 61, 0);
+  }
+  50% {
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(255, 106, 61, 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xpFill::after,
+  .missionHot {
+    animation: none;
+  }
+
+  .xpFill,
+  .missionRingFill {
+    transition: none;
+  }
+}
+
+.missionGlyph {
+  position: relative;
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--arena-gold);
+  filter: drop-shadow(0 0 6px rgba(242, 181, 68, 0.45));
+}
+
+.missionDone .missionGlyph {
+  color: var(--arena-green);
+  filter: drop-shadow(0 0 6px rgba(67, 195, 123, 0.5));
+}
