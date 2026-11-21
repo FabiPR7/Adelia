@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import AdelinaCoin from '../AdelinaCoin'
 import ReviewCommentBody from '../ReviewCommentBody'
 import {
-  fetchPublicReviews,
+  fetchPublicReviewsPage,
   type PublicCompanyReview,
 } from '../../services/publicApi'
 import type { AdelinaSlotState } from '../../types/review'
-import { getAdelinaSlotStates, normalizeReviewRating } from '../../types/review'
+import { getAdelinaSlotStates } from '../../types/review'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../../utils/cloudinaryUrl'
 import { LEGAL_CONTACT_EMAIL } from '../../content/publicLegal'
 import styles from './PublicRestaurantReviews.module.css'
@@ -170,6 +170,15 @@ export default function PublicRestaurantReviews({
   const [ratingFilter, setRatingFilter] = useState<AdelinaRatingFilter>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Reseñas por páginas de 10: «Ver más reseñas» pide las siguientes. El filtro
+  // de Adelinas lo aplica el servidor.
+  const [nextBefore, setNextBefore] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasAnyReview, setHasAnyReview] = useState(false)
+
+  useEffect(() => {
+    setRatingFilter('all')
+  }, [companySlug])
 
   useEffect(() => {
     let cancelled = false
@@ -179,13 +188,17 @@ export default function PublicRestaurantReviews({
       setError(null)
 
       try {
-        const data = await fetchPublicReviews(companySlug)
+        const data = await fetchPublicReviewsPage(companySlug, {
+          rating: ratingFilter === 'all' ? null : ratingFilter,
+        })
         if (!cancelled) {
           setReviews(data.reviews)
+          setNextBefore(data.nextBefore)
           setStats({
             reviewCount: data.stats.reviewCount,
             averageRating: data.stats.averageRating,
           })
+          setHasAnyReview(data.stats.reviewCount > 0 || data.reviews.length > 0)
         }
       } catch (err) {
         if (!cancelled) {
@@ -199,12 +212,31 @@ export default function PublicRestaurantReviews({
     }
 
     void load()
-    setRatingFilter('all')
 
     return () => {
       cancelled = true
     }
-  }, [companySlug])
+  }, [companySlug, ratingFilter])
+
+  const loadMore = async () => {
+    if (!nextBefore || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const data = await fetchPublicReviewsPage(companySlug, {
+        before: nextBefore,
+        rating: ratingFilter === 'all' ? null : ratingFilter,
+      })
+      setReviews((current) => {
+        const seen = new Set(current.map((review) => review.id))
+        return [...current, ...data.reviews.filter((review) => !seen.has(review.id))]
+      })
+      setNextBefore(data.nextBefore)
+    } catch {
+      setNextBefore(null)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const ratingBadge = useMemo(() => (
     stats.averageRating > 0
@@ -216,12 +248,7 @@ export default function PublicRestaurantReviews({
   ), [stats.averageRating])
 
   const summarySlots = getAdelinaSlotStates(stats.averageRating, stats.reviewCount)
-  const visibleReviews = useMemo(() => {
-    if (ratingFilter === 'all') {
-      return reviews
-    }
-    return reviews.filter((review) => normalizeReviewRating(review.rating) === ratingFilter)
-  }, [ratingFilter, reviews])
+  const visibleReviews = reviews
 
   return (
     <section className={styles.section} aria-labelledby="public-reviews-heading">
@@ -272,7 +299,7 @@ export default function PublicRestaurantReviews({
 
       {loading ? (
         <p className={styles.loading}>Cargando reseñas…</p>
-      ) : reviews.length === 0 ? (
+      ) : !hasAnyReview ? (
         <div className={styles.empty}>
           <AdelinaCoin size="sm" variant="review" alt="" />
           <p>Sé el primero en dejar tu opinión tras visitar {companyName}.</p>
@@ -296,6 +323,11 @@ export default function PublicRestaurantReviews({
               companyName={companyName}
             />
           ))}
+          {nextBefore ? (
+            <button type="button" className={styles.loadMore} onClick={() => void loadMore()} disabled={loadingMore}>
+              {loadingMore ? 'Cargando…' : 'Ver más reseñas'}
+            </button>
+          ) : null}
         </div>
       )}
     </section>

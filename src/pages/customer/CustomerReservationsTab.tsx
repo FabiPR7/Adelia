@@ -197,12 +197,23 @@ function CustomerReservationsTab() {
     setReviewsByCompanyId(reviews)
   }, [])
 
+  // Solo se vuelve a pedir al servidor si cambian de verdad tus reservas (no cada
+  // vez que el perfil o las listas se recrean con lo mismo).
+  const reservationsDataKey = useMemo(() => JSON.stringify({
+    reservations: loadedReservations.map((row) => `${row.id}:${row.status}:${row.promotionId ?? ''}:${row.companyId}`).sort(),
+    restaurants: loadedRestaurants.map((item) => `${item.id}:${item.slug}`).sort(),
+  }), [loadedReservations, loadedRestaurants])
+  const latestRowsRef = useRef({ loadedReservations, loadedRestaurants })
+  latestRowsRef.current = { loadedReservations, loadedRestaurants }
+  const hasProfile = Boolean(profile)
+
   useEffect(() => {
-    if (!profile || !user) {
+    if (!hasProfile || !user) {
       return
     }
 
     let cancelled = false
+    const { loadedReservations, loadedRestaurants } = latestRowsRef.current
 
     void Promise.all([
       fetchReservationInvitesState().catch(() => ({
@@ -241,7 +252,7 @@ function CustomerReservationsTab() {
     return () => {
       cancelled = true
     }
-  }, [profile, user, loadCustomerReviews, reloadNonce, loadedReservations, loadedRestaurants])
+  }, [hasProfile, user, loadCustomerReviews, reloadNonce, reservationsDataKey])
 
   useEffect(() => {
     if (!pickerOpen) {

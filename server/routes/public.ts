@@ -508,6 +508,37 @@ router.get('/:slug/reviews', async (req: Request<Record<string, string>>, res: R
       ? companyData.reviewRatingSum
       : 0
 
+    // Por páginas (?limit=10&before=<fecha ISO>&rating=1..5): la ficha pide 10 y
+    // «Ver más» trae las siguientes. Sin ?limit sigue el modo antiguo (80 de golpe)
+    // para las versiones de la app que aún no lo usan.
+    const pageLimit = Number(req.query.limit)
+    if (Number.isFinite(pageLimit) && pageLimit > 0) {
+      const size = Math.min(20, Math.max(1, Math.trunc(pageLimit)))
+      const rating = Number(req.query.rating)
+      const before = typeof req.query.before === 'string' ? new Date(req.query.before) : null
+      let pageQuery: FirebaseFirestore.Query = adminDb.collection('companies').doc(companyDoc.id).collection('reviews')
+      if (Number.isInteger(rating) && rating >= 1 && rating <= 5) pageQuery = pageQuery.where('rating', '==', rating)
+      pageQuery = pageQuery.orderBy('createdAt', 'desc')
+      if (before && !Number.isNaN(before.getTime())) pageQuery = pageQuery.startAfter(Timestamp.fromDate(before))
+      const pageSnap = await pageQuery.limit(size + 1).get()
+      const pageReviews = pageSnap.docs
+        .slice(0, size)
+        .map((item) => mapPublicReview(item.id, item.data()))
+        .filter((review): review is NonNullable<typeof review> => review !== null)
+      const hasMore = pageSnap.size > size
+      allowPublicCache(res, 60)
+      res.json({
+        stats: {
+          reviewCount,
+          reviewRatingSum,
+          averageRating: reviewCount > 0 ? Math.round((reviewRatingSum / reviewCount) * 10) / 10 : 0,
+        },
+        reviews: pageReviews,
+        nextBefore: hasMore && pageReviews.length > 0 ? pageReviews[pageReviews.length - 1].createdAt : null,
+      })
+      return
+    }
+
     const reviewsSnapshot = await adminDb
       .collection('companies')
       .doc(companyDoc.id)

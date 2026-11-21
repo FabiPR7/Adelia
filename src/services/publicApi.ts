@@ -383,3 +383,22 @@ export async function cancelPublicReservation(
     xpPenalty: data.xpPenalty ?? null,
   }
 }
+
+/** Reseñas de la ficha por páginas de 10 (con filtro de Adelinas opcional). */
+export async function fetchPublicReviewsPage(
+  slug: string,
+  options: { before?: string | null; rating?: number | null; limit?: number } = {},
+): Promise<PublicReviewsResponse & { nextBefore: string | null }> {
+  const params = new URLSearchParams({ limit: String(options.limit ?? 10) })
+  if (options.before) params.set('before', options.before)
+  if (options.rating) params.set('rating', String(options.rating))
+  return cachedPublicGet(`reviews:${slug}:${params.toString()}`, async () => {
+    const response = await fetch(`${API_BASE}/api/public/booking/${encodeURIComponent(slug)}/reviews?${params.toString()}`)
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { error?: string }
+      throw new Error(payload.error ?? 'No se pudieron cargar las reseñas.')
+    }
+    const payload = (await response.json()) as PublicReviewsResponse & { nextBefore?: string | null }
+    return { ...payload, nextBefore: typeof payload.nextBefore === 'string' ? payload.nextBefore : null }
+  })
+}

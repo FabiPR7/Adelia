@@ -293,19 +293,44 @@ function reservationBelongsToCustomer(
     && String(reservation.clientEmail ?? '').trim().toLowerCase() === customer.email
 }
 
-router.get('/leaderboard', async (req: Request, res: Response) => {
-  try {
-    const customer = await verifyCustomerUid(req)
-    const scope = req.query.scope === 'country' ? 'country' : 'world'
+/**
+ * Los 80 con más XP y sus perfiles: es igual para todos, así que se lee una vez
+ * cada 2 minutos y se comparte (antes eran ~160 lecturas por cada visita y ámbito).
+ */
+const LEADERBOARD_CACHE_MS = 2 * 60_000
+type LeaderboardTop = {
+  statsDocs: FirebaseFirestore.QueryDocumentSnapshot[]
+  userSnaps: FirebaseFirestore.DocumentSnapshot[]
+}
+let leaderboardTopCache: { at: number; promise: Promise<LeaderboardTop> } | null = null
+
+function loadLeaderboardTop(): Promise<LeaderboardTop> {
+  if (leaderboardTopCache && Date.now() - leaderboardTopCache.at < LEADERBOARD_CACHE_MS) {
+    return leaderboardTopCache.promise
+  }
+  const promise = (async () => {
     const statsSnap = await adminDb
       .collection('userGamification')
       .orderBy('xp', 'desc')
       .limit(80)
       .get()
     const userRefs = statsSnap.docs.map((docSnap) => adminDb.collection('users').doc(docSnap.id))
-    const userSnaps = userRefs.length > 0
-      ? await adminDb.getAll(...userRefs)
-      : []
+    const userSnaps = userRefs.length > 0 ? await adminDb.getAll(...userRefs) : []
+    return { statsDocs: statsSnap.docs, userSnaps }
+  })()
+  leaderboardTopCache = { at: Date.now(), promise }
+  promise.catch(() => {
+    leaderboardTopCache = null
+  })
+  return promise
+}
+
+router.get('/leaderboard', async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    const scope = req.query.scope === 'country' ? 'country' : 'world'
+    const { statsDocs, userSnaps } = await loadLeaderboardTop()
+    const statsSnap = { docs: statsDocs }
     const [selfSnap, selfStatsSnap] = await Promise.all([
       adminDb.collection('users').doc(customer.uid).get(),
       adminDb.collection('userGamification').doc(customer.uid).get(),

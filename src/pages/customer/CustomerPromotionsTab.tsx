@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import PromotionClaimFlowModal from '../../components/promotions/PromotionClaimFlowModal'
 import PromotionLadderMapModal, {
@@ -419,12 +419,27 @@ function CustomerPromotionsTab() {
     [promotions, coords],
   )
 
+  // Lo que cambia el estado de tus promos. Se compara el contenido (no la
+  // referencia): así no se vuelve a pedir al servidor si los datos son los mismos.
+  const promoDataKey = useMemo(() => JSON.stringify({
+    claims: claimedPromotions.map((claim) => `${claim.promotionId}:${claim.claimedAt}`).sort(),
+    reservations: customerReservations.map((item) => `${item.id}:${item.status}:${item.promotionVisitStatus ?? ''}`).sort(),
+    inventory: gamificationState.inventory,
+  }), [claimedPromotions, customerReservations, gamificationState.inventory])
+  // Las plazas y horarios dependen de la hora: se refrescan cada 5 minutos, no cada minuto.
+  const timeBucket = Math.floor(now.getTime() / (5 * 60_000))
+
   // Tus mapas de premios: el estado lo calcula el servidor (mismas reglas que el canje).
   const ladders = useCustomerLadders()
+  const laddersKeyRef = useRef('')
   useEffect(() => {
     if (!user) return
-    void loadCustomerLadders(true)
-  }, [user, claimedPromotions, gamificationState.inventory, customerReservations])
+    const force = laddersKeyRef.current !== '' && laddersKeyRef.current !== promoDataKey
+    laddersKeyRef.current = promoDataKey
+    // Pequeña espera: al abrir llegan canjes, reservas e inventario por separado.
+    const timer = window.setTimeout(() => void loadCustomerLadders(force), 600)
+    return () => window.clearTimeout(timer)
+  }, [user, promoDataKey])
 
   const activeLadderRestaurants = useMemo(
     () => ladderRestaurants
@@ -470,10 +485,15 @@ function CustomerPromotionsTab() {
 
   // El estado de cada promo (candados, plazas, usos, horario) lo decide el servidor.
   const availabilityState = usePromotionAvailability()
+  const availabilityKeyRef = useRef('')
   useEffect(() => {
     if (!user) return
-    void loadPromotionAvailability(true)
-  }, [user, now, claimedPromotions, customerReservations])
+    const key = `${promoDataKey}|${timeBucket}`
+    const force = availabilityKeyRef.current !== '' && availabilityKeyRef.current !== key
+    availabilityKeyRef.current = key
+    const timer = window.setTimeout(() => void loadPromotionAvailability(force), 600)
+    return () => window.clearTimeout(timer)
+  }, [user, promoDataKey, timeBucket])
   const availabilityById = useMemo(
     () => new Map(Object.entries(availabilityState?.availability ?? {})),
     [availabilityState],
