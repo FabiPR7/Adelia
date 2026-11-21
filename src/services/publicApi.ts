@@ -11,6 +11,7 @@ import { getPublicCompanyMenuBoards, getPublicCompanyMenuNodes } from './company
 import type { MenuBoard, MenuNode } from '../types/company'
 import { dateToIsoDate } from '../utils/helpers'
 import { getIdToken } from './auth'
+import { invalidatePublicPromotions } from './publicPromotions'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -249,6 +250,7 @@ export async function createPublicReservation(
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo crear la reserva.')
   }
+  invalidatePublicPromotions()
 
   return {
     id: data.id ?? '',

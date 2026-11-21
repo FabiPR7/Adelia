@@ -38,7 +38,29 @@ export interface PublicPromotion {
   completePath?: 'choose' | 'reserve' | 'consume'
 }
 
-export async function fetchPublicPromotions(): Promise<PublicPromotion[]> {
+// Varias partes de la página piden la lista a la vez: una sola petición, y se
+// guarda 1 minuto (el navegador también la cachea, pero no junta las simultáneas).
+const PROMOTIONS_CACHE_MS = 60_000
+let promotionsCache: { at: number; list: Promise<PublicPromotion[]> } | null = null
+
+/** Tras reservar o reclamar: los contadores de las promos cambian. */
+export function invalidatePublicPromotions(): void {
+  promotionsCache = null
+}
+
+export function fetchPublicPromotions(options: { force?: boolean } = {}): Promise<PublicPromotion[]> {
+  if (!options.force && promotionsCache && Date.now() - promotionsCache.at < PROMOTIONS_CACHE_MS) {
+    return promotionsCache.list
+  }
+  const list = loadPublicPromotions()
+  list.catch(() => {
+    if (promotionsCache?.list === list) promotionsCache = null
+  })
+  promotionsCache = { at: Date.now(), list }
+  return list
+}
+
+async function loadPublicPromotions(): Promise<PublicPromotion[]> {
   const response = await fetch(`${API_BASE}/api/public/promotions`)
 
   if (!response.ok) {

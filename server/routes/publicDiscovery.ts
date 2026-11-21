@@ -126,9 +126,32 @@ router.get('/featured-reviews', async (req: Request, res: Response) => {
   }
 })
 
+/**
+ * Resultados del listado guardados 60 s en memoria (por consulta ya normalizada):
+ * la CDN no comparte caché entre sus nodos y cada instancia nueva empieza vacía.
+ * Las peticiones iguales que llegan a la vez comparten una sola lectura.
+ */
+const DISCOVERY_MEMO_MS = 60_000
+const DISCOVERY_MEMO_MAX = 300
+const discoveryMemo = new Map<string, { at: number; page: Promise<Awaited<ReturnType<typeof listPublicDiscoveryRestaurants>>> }>()
+
+function cachedDiscoveryPage(query: DiscoveryQuery) {
+  const key = JSON.stringify(query)
+  const hit = discoveryMemo.get(key)
+  if (hit && Date.now() - hit.at < DISCOVERY_MEMO_MS) return hit.page
+  const page = listPublicDiscoveryRestaurants(query)
+  page.catch(() => discoveryMemo.delete(key))
+  if (discoveryMemo.size >= DISCOVERY_MEMO_MAX) {
+    const oldest = discoveryMemo.keys().next().value
+    if (oldest !== undefined) discoveryMemo.delete(oldest)
+  }
+  discoveryMemo.set(key, { at: Date.now(), page })
+  return page
+}
+
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const page = await listPublicDiscoveryRestaurants(parseDiscoveryQuery(req.query))
+    const page = await cachedDiscoveryPage(parseDiscoveryQuery(req.query))
     allowPublicCache(res, 60, 120)
     res.json(page)
   } catch (error) {

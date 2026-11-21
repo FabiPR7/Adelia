@@ -461,6 +461,8 @@ export async function recordPromotionClaim(
     promotionId: claim.promotionId,
     pin,
   })
+  const { invalidatePublicPromotions } = await import('./publicPromotions')
+  invalidatePublicPromotions()
   return next
 }
 
