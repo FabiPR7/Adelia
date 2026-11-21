@@ -53,6 +53,30 @@ export function sendRestaurantReport(input: {
   return post('/api/customer/reports', input, 'No se pudo enviar el reporte.')
 }
 
+/** Motivos para reportar una reseña o a un usuario (mismos que el servidor). */
+export const CONTENT_REPORT_REASON_OPTIONS = [
+  { value: 'offensive', label: 'Ofensivo, odio o insultos' },
+  { value: 'harassment', label: 'Acoso o amenazas' },
+  { value: 'sexual', label: 'Contenido sexual o foto inapropiada' },
+  { value: 'spam', label: 'Spam o publicidad' },
+  { value: 'fake', label: 'Falso o engañoso' },
+  { value: 'impersonation', label: 'Se hace pasar por otra persona' },
+  { value: 'other', label: 'Otro motivo' },
+] as const
+
+export type ContentReportReason = (typeof CONTENT_REPORT_REASON_OPTIONS)[number]['value']
+
+export type ContentReportTarget =
+  | { targetType: 'review'; companySlug: string; reviewId: string }
+  | { targetType: 'user'; targetUid: string }
+
+export function sendContentReport(
+  target: ContentReportTarget,
+  input: { reason: ContentReportReason; message: string },
+): Promise<void> {
+  return post('/api/customer/reports/content', { ...target, ...input }, 'No se pudo enviar el reporte.')
+}
+
 export function sendSuggestion(input: { topic: SuggestionTopic; message: string }): Promise<void> {
   return post('/api/customer/suggestions', input, 'No se pudo enviar la sugerencia.')
 }

@@ -141,6 +141,16 @@ export async function takeRestaurantReport(uid: string): Promise<boolean> {
   return takeDistributed('restaurant-report', uid, 5, 24 * 60 * 60_000)
 }
 
+/** Reportes de reseñas o usuarios: 10 al día por cliente. */
+export async function takeContentReport(uid: string): Promise<boolean> {
+  return takeDistributed('content-report', uid, 10, 24 * 60 * 60_000)
+}
+
+/** Bloquear / desbloquear usuarios: 30 al día por cliente. */
+export async function takeUserBlockChange(uid: string): Promise<boolean> {
+  return takeDistributed('user-block', uid, 30, 24 * 60 * 60_000)
+}
+
 /** Sugerencias por cliente: 5 al día. */
 export async function takeSuggestion(uid: string): Promise<boolean> {
   return takeDistributed('suggestion', uid, 5, 24 * 60 * 60_000)

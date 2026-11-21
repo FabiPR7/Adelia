@@ -11,6 +11,14 @@ import {
 import { createCustomerNotification } from '../notifications/service.ts'
 import { getLevelDetailsForXp } from '../data/gameCatalog.ts'
 import { findUidsByUsernamePrefix, normalizeUsername } from '../data/usernames.ts'
+import {
+  MAX_BLOCKS_PER_USER,
+  isBlockedEitherWay,
+  listBlockedByMe,
+  listBlockedEitherWay,
+  userBlockId,
+} from '../data/userBlocks.ts'
+import { takeUserBlockChange } from '../security/rateLimit.ts'
 
 const router = Router()
 
@@ -113,6 +121,11 @@ router.post('/requests/:targetUid', async (req: Request, res: Response) => {
       return
     }
 
+    if (await isBlockedEitherWay(from.uid, toUid)) {
+      res.status(403).json({ error: 'No puedes enviar una solicitud a esta persona.' })
+      return
+    }
+
     const pairId = friendshipId(from.uid, toUid)
     const existingFriend = await adminDb.collection(COLLECTIONS.friendships).doc(pairId).get()
     if (existingFriend.exists) {
@@ -183,6 +196,11 @@ router.post('/requests/:fromUid/accept', async (req: Request, res: Response) => 
     const requestRef = adminDb.collection(COLLECTIONS.friendRequests).doc(friendRequestId(fromUid, to.uid))
     const requestSnap = await requestRef.get()
     if (!requestSnap.exists || requestSnap.data()?.toUid !== to.uid) {
+      res.status(404).json({ error: 'Solicitud no encontrada.' })
+      return
+    }
+    if (await isBlockedEitherWay(fromUid, to.uid)) {
+      await requestRef.delete()
       res.status(404).json({ error: 'Solicitud no encontrada.' })
       return
     }
@@ -398,10 +416,11 @@ router.get('/search', async (req: Request, res: Response) => {
       ? (await adminDb.getAll(...extraRefs)).filter((docSnap) => docSnap.exists && docSnap.data()?.role === 'customer') as FirebaseFirestore.QueryDocumentSnapshot[]
       : []
     const customerDocs = [...nameDocs, ...usernameDocs]
+    const blocked = await listBlockedEitherWay(user.uid)
 
     const ranked = customerDocs
       // Una cuenta bloqueada no sale en la búsqueda.
-      .filter((docSnap) => docSnap.id !== user.uid && docSnap.data().blocked !== true)
+      .filter((docSnap) => docSnap.id !== user.uid && docSnap.data().blocked !== true && !blocked.has(docSnap.id))
       .map((docSnap) => ({
         id: docSnap.id,
         data: docSnap.data(),
@@ -502,11 +521,12 @@ router.get('/visits', async (req: Request, res: Response) => {
 router.get('/state', async (req: Request, res: Response) => {
   try {
     const user = await verifyCustomerUid(req)
-    const [friendsSnap, incomingSnap, outgoingSnap, favoritesSnap] = await Promise.all([
+    const [friendsSnap, incomingSnap, outgoingSnap, favoritesSnap, blockedIds] = await Promise.all([
       adminDb.collection(COLLECTIONS.friendships).where('userIds', 'array-contains', user.uid).limit(80).get(),
       adminDb.collection(COLLECTIONS.friendRequests).where('toUid', '==', user.uid).where('status', '==', 'pending').limit(40).get(),
       adminDb.collection(COLLECTIONS.friendRequests).where('fromUid', '==', user.uid).where('status', '==', 'pending').limit(40).get(),
       adminDb.collection(COLLECTIONS.friendFavorites).where('ownerUid', '==', user.uid).limit(40).get(),
+      listBlockedByMe(user.uid),
     ])
 
     const friendEntries = friendsSnap.docs.map((docSnap) => {
@@ -515,7 +535,7 @@ router.get('/state', async (req: Request, res: Response) => {
       return { uid: other, since: data.createdAt as Timestamp | undefined }
     }).filter((entry) => entry.uid).slice(0, 40)
 
-    const [friends, incoming, outgoing] = await Promise.all([
+    const [friends, incoming, outgoing, blockedProfiles] = await Promise.all([
       mapFriendProfiles(friendEntries),
       mapFriendProfiles(
         incomingSnap.docs.slice(0, 20).map((docSnap) => ({ uid: String(docSnap.data().fromUid) })),
@@ -523,6 +543,7 @@ router.get('/state', async (req: Request, res: Response) => {
       mapFriendProfiles(
         outgoingSnap.docs.slice(0, 20).map((docSnap) => ({ uid: String(docSnap.data().toUid) })),
       ),
+      mapFriendProfiles(blockedIds.slice(0, 50).map((uid) => ({ uid }))),
     ])
 
     res.json({
@@ -533,10 +554,78 @@ router.get('/state', async (req: Request, res: Response) => {
       friendIds: friends.map((item) => item.id),
       incomingRequestIds: incoming.map((item) => item.id),
       outgoingRequestIds: outgoing.map((item) => item.id),
+      blocked: blockedProfiles,
+      blockedIds,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo cargar el estado social.'
     res.status(message.includes('cliente') ? 401 : 500).json({ error: message })
+  }
+})
+
+/**
+ * Bloquear a alguien: se rompe la amistad, se borran las solicitudes y favoritos
+ * entre los dos y ya no os podéis buscar, invitar ni retar. Sus reseñas dejan de
+ * salirte. La otra persona no recibe ningún aviso.
+ */
+router.post('/blocks/:targetUid', async (req: Request, res: Response) => {
+  try {
+    const user = await verifyCustomerUid(req)
+    const targetUid = String(req.params.targetUid ?? '').trim()
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(targetUid) || targetUid === user.uid) {
+      res.status(400).json({ error: 'Usuario no válido.' })
+      return
+    }
+    const targetSnap = await adminDb.collection(COLLECTIONS.users).doc(targetUid).get()
+    if (!targetSnap.exists || targetSnap.data()?.role !== 'customer') {
+      res.status(404).json({ error: 'Usuario no encontrado.' })
+      return
+    }
+    if ((await listBlockedByMe(user.uid)).length >= MAX_BLOCKS_PER_USER) {
+      res.status(400).json({ error: 'Has llegado al máximo de usuarios bloqueados.' })
+      return
+    }
+    if (!(await takeUserBlockChange(user.uid))) {
+      res.status(429).json({ error: 'Demasiados cambios hoy. Inténtalo mañana.' })
+      return
+    }
+
+    const batch = adminDb.batch()
+    batch.set(adminDb.collection(COLLECTIONS.userBlocks).doc(userBlockId(user.uid, targetUid)), {
+      blockerUid: user.uid,
+      blockedUid: targetUid,
+      createdAt: Timestamp.now(),
+    })
+    batch.delete(adminDb.collection(COLLECTIONS.friendships).doc(friendshipId(user.uid, targetUid)))
+    batch.delete(adminDb.collection(COLLECTIONS.friendRequests).doc(friendRequestId(user.uid, targetUid)))
+    batch.delete(adminDb.collection(COLLECTIONS.friendRequests).doc(friendRequestId(targetUid, user.uid)))
+    batch.delete(adminDb.collection(COLLECTIONS.friendFavorites).doc(friendFavoriteId(user.uid, targetUid)))
+    batch.delete(adminDb.collection(COLLECTIONS.friendFavorites).doc(friendFavoriteId(targetUid, user.uid)))
+    await batch.commit()
+    res.json({ ok: true })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo bloquear.'
+    res.status(message.includes('cliente') ? 401 : 500).json({ error: message.includes('cliente') ? message : 'No se pudo bloquear.' })
+  }
+})
+
+router.delete('/blocks/:targetUid', async (req: Request, res: Response) => {
+  try {
+    const user = await verifyCustomerUid(req)
+    const targetUid = String(req.params.targetUid ?? '').trim()
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(targetUid)) {
+      res.status(400).json({ error: 'Usuario no válido.' })
+      return
+    }
+    if (!(await takeUserBlockChange(user.uid))) {
+      res.status(429).json({ error: 'Demasiados cambios hoy. Inténtalo mañana.' })
+      return
+    }
+    await adminDb.collection(COLLECTIONS.userBlocks).doc(userBlockId(user.uid, targetUid)).delete()
+    res.json({ ok: true })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo desbloquear.'
+    res.status(message.includes('cliente') ? 401 : 500).json({ error: message.includes('cliente') ? message : 'No se pudo desbloquear.' })
   }
 })
 

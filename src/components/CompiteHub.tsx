@@ -25,6 +25,9 @@ interface CompiteHubProps {
   onRejectFriendRequest: (id: string) => boolean
   hasOutgoingRequest: (id: string) => boolean
   onRemoveFriend: (id: string) => void
+  blockedUsers: FriendProfile[]
+  onBlockUser: (id: string) => Promise<void>
+  onUnblockUser: (id: string) => Promise<void>
   onToggleFavorite: (id: string) => void
   isFavorite: (id: string) => boolean
   onFriendProfileActiveChange?: (active: boolean) => void
@@ -50,6 +53,9 @@ function CompiteHub({
   onRejectFriendRequest,
   hasOutgoingRequest,
   onRemoveFriend,
+  blockedUsers,
+  onBlockUser,
+  onUnblockUser,
   onToggleFavorite,
   isFavorite,
   onFriendProfileActiveChange,
@@ -116,6 +122,9 @@ function CompiteHub({
           onRejectFriendRequest={onRejectFriendRequest}
           hasOutgoingRequest={hasOutgoingRequest}
           onRemoveFriend={onRemoveFriend}
+          blockedUsers={blockedUsers}
+          onBlockUser={onBlockUser}
+          onUnblockUser={onUnblockUser}
           onToggleFavorite={onToggleFavorite}
           isFavorite={isFavorite}
           onFriendProfileActiveChange={handleFriendProfileActiveChange}

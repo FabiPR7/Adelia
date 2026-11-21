@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FriendProfile } from '../types/friends'
 import {
   acceptFriendRequest as acceptFriendRequestApi,
+  blockUser as blockUserApi,
+  unblockUser as unblockUserApi,
   fetchFriendsState,
   rejectFriendRequest as rejectFriendRequestApi,
   removeFriend as removeFriendApi,
@@ -16,6 +18,7 @@ export function useCustomerFriends(userId: string | undefined) {
   const [incomingRequests, setIncomingRequests] = useState<FriendProfile[]>(EMPTY)
   const [outgoingIds, setOutgoingIds] = useState<string[]>([])
   const [favoriteIds, setFavoriteIds] = useState<string[]>([])
+  const [blockedUsers, setBlockedUsers] = useState<FriendProfile[]>(EMPTY)
   const [loading, setLoading] = useState(false)
 
   const reload = useCallback(async () => {
@@ -33,6 +36,7 @@ export function useCustomerFriends(userId: string | undefined) {
       setIncomingRequests(state.incoming ?? [])
       setOutgoingIds(state.outgoingRequestIds ?? [])
       setFavoriteIds(state.favoriteIds ?? [])
+      setBlockedUsers(state.blocked ?? EMPTY)
     } catch {
       setFriends(EMPTY)
       setIncomingRequests(EMPTY)
@@ -129,6 +133,22 @@ export function useCustomerFriends(userId: string | undefined) {
 
   const isFavorite = useCallback((id: string) => favoriteIds.includes(id), [favoriteIds])
 
+  const blockUser = useCallback(
+    async (id: string) => {
+      await blockUserApi(id)
+      await reload()
+    },
+    [reload],
+  )
+
+  const unblockUser = useCallback(
+    async (id: string) => {
+      await unblockUserApi(id)
+      await reload()
+    },
+    [reload],
+  )
+
   const getFriendRankAmongFriends = useCallback(
     (userXp: number): number => {
       const higher = friends.filter((friend) => friend.xp > userXp).length
@@ -153,6 +173,9 @@ export function useCustomerFriends(userId: string | undefined) {
     removeFriend,
     toggleFavorite,
     isFavorite,
+    blockedUsers,
+    blockUser,
+    unblockUser,
     getFriendRankAmongFriends,
   }
 }

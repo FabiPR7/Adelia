@@ -492,6 +492,9 @@ function CustomerMissionsTab() {
           onRejectFriendRequest={friends.rejectFriendRequest}
           hasOutgoingRequest={friends.hasOutgoingRequest}
           onRemoveFriend={friends.removeFriend}
+          blockedUsers={friends.blockedUsers}
+          onBlockUser={friends.blockUser}
+          onUnblockUser={friends.unblockUser}
           onToggleFavorite={friends.toggleFavorite}
           isFavorite={friends.isFavorite}
           onFriendProfileActiveChange={setFriendProfileActive}

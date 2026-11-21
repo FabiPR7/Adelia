@@ -13,7 +13,7 @@ export interface PublicLegalDocument {
 }
 
 export const LEGAL_CONTACT_EMAIL = 'contacto@adeliareservas.com'
-export const LEGAL_UPDATED_LABEL = '16 de noviembre de 2026'
+export const LEGAL_UPDATED_LABEL = '21 de noviembre de 2026'
 /** Versión estable que se guarda en el perfil al aceptar legales en el registro. */
 export const LEGAL_ACCEPTANCE_VERSION = '2026-11-07'
 export const LEGAL_SITE_URL = 'https://adeliareservas.com'
@@ -152,6 +152,7 @@ export const PUBLIC_LEGAL_DOCUMENTS: Record<PublicLegalDocId, PublicLegalDocumen
           'Promociones y consumo: reclamaciones de promociones, consumos verificados en el local (cuando el restaurante o el flujo de la app lo registran) e información necesaria para aplicar cartas o tokens de Compite a una promo.',
           'Compite (gamificación): experiencia (XP), nivel, Adelinas, misiones completadas (semanales, mensuales e históricas), inventario de cartas/ítems virtuales, claves de recompensas ya otorgadas, créditos de visita por restaurante, penalizaciones o avisos por cancelaciones, y estado de celebraciones o tutoriales de recompensa. Son recompensas virtuales sin valor de dinero de curso legal.',
           'Social (amigos y retos): solicitudes y amistades (nombre y foto visibles a tus amigos, y los restaurantes donde has estado, que puedes ocultarles en tu perfil), invitaciones a reservas y retos asociados a una reserva, en la medida en que uses esas funciones. Otros clientes pueden encontrarte por tu nombre para enviarte una solicitud.',
+          'Reportes y bloqueos: si reportas una reseña o a un usuario guardamos el motivo, lo que escribas y quién lo envía, para revisarlo (la persona reportada no sabe quién ha sido). Si bloqueas a alguien guardamos ese bloqueo mientras exista; solo lo usamos para que no podáis interactuar y no se lo enseñamos a nadie.',
           '**Ranking de Compite**: tu nombre, foto, ciudad y XP son visibles para otros clientes con cuenta. Si no quieres aparecer, puedes usar un nombre distinto al real y no subir foto, o darte de baja.',
           'Notificaciones in-app: avisos sobre reservas, promos u otros eventos del servicio, guardados en tu cuenta. Los emails transaccionales (confirmación, cancelación, verificación de email, restablecimiento de contraseña, recordatorios) se envían a la dirección que nos facilitas.',
           'CRM del restaurante: al reservar, el local puede conservar en su historial de clientes de Adelia tu nombre, email, teléfono y contadores de visitas asociados a esa relación comercial con el establecimiento.',
@@ -350,8 +351,10 @@ export const PUBLIC_LEGAL_DOCUMENTS: Record<PublicLegalDocId, PublicLegalDocumen
       {
         heading: '8. Contenidos prohibidos y cómo denunciarlos',
         paragraphs: [
-          'No puedes publicar contenido ilícito, ofensivo, discriminatorio, engañoso, que infrinja derechos de terceros o que revele datos personales de otras personas sin necesidad. Tampoco suplantar a nadie, atacar el servicio o extraer datos de forma masiva.',
-          `Cualquier persona puede denunciar un contenido con el enlace «Denunciar» de cada reseña o escribiendo a ${LEGAL_CONTACT_EMAIL}. Indica dónde está el contenido (enlace o local y fecha), por qué crees que es ilícito o contrario a estos términos, tu nombre y tu correo, y una declaración de que actúas de buena fe. Si lo que denuncias es un posible delito contra la libertad sexual de menores no hace falta que te identifiques.`,
+          'No puedes publicar contenido ilícito, ofensivo, discriminatorio, engañoso, que infrinja derechos de terceros o que revele datos personales de otras personas sin necesidad. Tampoco suplantar a nadie, acosar o amenazar a otros usuarios, atacar el servicio o extraer datos de forma masiva.',
+          'Tolerancia cero: no se admite contenido inaceptable ni usuarios que abusen de otros. Si alguien incumple estas normas, retiramos el contenido y podemos suspender o cerrar su cuenta, sin perjuicio de lo indicado más abajo sobre cómo reclamar.',
+          'Si tienes cuenta, en la web y en la app puedes pulsar «Reportar» en cualquier reseña o en el perfil de otro usuario, y también «Bloquear» a una persona: dejaréis de ser amigos, no podrá buscarte, agregarte, invitarte ni retarte, y no verás sus reseñas. No recibe ningún aviso y puedes desbloquearla cuando quieras. Revisamos los reportes en menos de 24 horas.',
+          `Cualquier persona, también sin cuenta, puede denunciar un contenido con el enlace «Denunciar» de cada reseña o escribiendo a ${LEGAL_CONTACT_EMAIL}. Indica dónde está el contenido (enlace o local y fecha), por qué crees que es ilícito o contrario a estos términos, tu nombre y tu correo, y una declaración de que actúas de buena fe. Si lo que denuncias es un posible delito contra la libertad sexual de menores no hace falta que te identifiques.`,
           'Revisamos las denuncias personalmente, sin decisiones automatizadas, y te contestamos. Si retiramos un contenido o limitamos una cuenta, comunicamos a la persona afectada el motivo, los hechos y cómo reclamar. Puedes pedir la revisión de la decisión escribiendo al mismo correo. Podemos dejar de atender a quien presente denuncias manifiestamente infundadas de forma reiterada.',
           'También puedes acudir a los tribunales. Si una conducta pudiera ser delito grave para la vida o la seguridad de las personas, avisaremos a las autoridades.',
         ],

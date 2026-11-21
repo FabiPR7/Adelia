@@ -11,6 +11,8 @@ import type { AdelinaSlotState } from '../../types/review'
 import { getAdelinaSlotStates } from '../../types/review'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../../utils/cloudinaryUrl'
 import { LEGAL_CONTACT_EMAIL } from '../../content/publicLegal'
+import { fetchBlockedIds } from '../../services/customerFriends'
+import ReportContentModal from '../ReportContentModal'
 import styles from './PublicRestaurantReviews.module.css'
 
 function buildReportHref(companyName: string, authorName: string, createdAt: string): string {
@@ -85,10 +87,12 @@ function PublicReviewCard({
   review,
   companySlug,
   companyName,
+  onBlocked,
 }: {
   review: PublicCompanyReview
   companySlug: string
   companyName: string
+  onBlocked: (uid: string) => void
 }) {
   const authorName = review.customerName.trim() || 'Cliente'
   const ratingSlots = getAdelinaSlotStates(review.rating, 1)
@@ -98,6 +102,7 @@ function PublicReviewCard({
   const [voted, setVoted] = useState(false)
   const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState<string | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
 
   const vote = async () => {
     if (voted || voting || isOwn) return
@@ -195,10 +200,25 @@ function PublicReviewCard({
             <span aria-hidden="true">👍</span> Útil{helpful > 0 ? ` · ${helpful}` : ''}
           </button>
         )}
-        <a className={styles.reportLink} href={buildReportHref(companyName, authorName, review.createdAt)}>
-          Denunciar
-        </a>
+        {user && !isOwn ? (
+          <button type="button" className={styles.reportLink} onClick={() => setReportOpen(true)}>
+            Reportar
+          </button>
+        ) : !user ? (
+          <a className={styles.reportLink} href={buildReportHref(companyName, authorName, review.createdAt)}>
+            Denunciar
+          </a>
+        ) : null}
       </div>
+      {reportOpen ? (
+        <ReportContentModal
+          target={{ targetType: 'review', companySlug, reviewId: review.id }}
+          authorName={authorName}
+          blockableUid={review.id}
+          onClose={() => setReportOpen(false)}
+          onBlocked={onBlocked}
+        />
+      ) : null}
       {voteError ? <p className={styles.helpfulError} role="status">{voteError}</p> : null}
     </article>
   )
@@ -291,7 +311,26 @@ export default function PublicRestaurantReviews({
   ), [stats.averageRating])
 
   const summarySlots = getAdelinaSlotStates(stats.averageRating, stats.reviewCount)
-  const visibleReviews = reviews
+  // Las reseñas de quien has bloqueado no te salen.
+  const { user } = useAuth()
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(() => new Set())
+  useEffect(() => {
+    if (!user) {
+      setBlockedIds(new Set())
+      return
+    }
+    let cancelled = false
+    void fetchBlockedIds(user.uid).then((ids) => {
+      if (!cancelled) setBlockedIds(ids)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+  const visibleReviews = useMemo(
+    () => (blockedIds.size > 0 ? reviews.filter((review) => !blockedIds.has(review.id)) : reviews),
+    [reviews, blockedIds],
+  )
 
   return (
     <section className={styles.section} aria-labelledby="public-reviews-heading">
@@ -364,6 +403,7 @@ export default function PublicRestaurantReviews({
               review={review}
               companySlug={companySlug}
               companyName={companyName}
+              onBlocked={(uid) => setBlockedIds((current) => new Set([...current, uid]))}
             />
           ))}
           {nextBefore ? (

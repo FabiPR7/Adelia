@@ -227,6 +227,12 @@ export interface AdminRestaurantReport {
   reservationId: string | null
   reservationStart: string | null
   promotionTitle: string | null
+  /** Qué se reporta: un restaurante (lo de siempre), una reseña o un usuario. */
+  targetType?: 'restaurant' | 'review' | 'user'
+  targetUid?: string | null
+  targetName?: string | null
+  reviewId?: string | null
+  contentExcerpt?: string | null
   status: AdminReportStatus
   adminNote: string
   createdAt: string | null

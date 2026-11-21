@@ -424,3 +424,12 @@
   font-size: 0.75rem;
   color: var(--color-error);
 }
+
+/* «Reportar» es un botón (abre el formulario), con el mismo aspecto que el enlace. */
+button.reportLink {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 36px;
+}

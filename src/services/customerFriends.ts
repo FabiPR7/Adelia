@@ -11,6 +11,9 @@ export interface FriendsStatePayload {
   friendIds: string[]
   incomingRequestIds: string[]
   outgoingRequestIds: string[]
+  /** A quién has bloqueado (solo lo ves tú). */
+  blocked?: FriendProfile[]
+  blockedIds?: string[]
 }
 
 async function authHeaders(): Promise<HeadersInit> {
@@ -33,7 +36,48 @@ export async function fetchFriendsState(): Promise<FriendsStatePayload> {
   if (!response.ok) {
     throw new Error(await readError(response, 'No se pudo cargar amigos.'))
   }
-  return (await response.json()) as FriendsStatePayload
+  const state = (await response.json()) as FriendsStatePayload
+  return state
+}
+
+/**
+ * Bloquear: se rompe la amistad y las solicitudes, ya no os podéis buscar, invitar
+ * ni retar y sus reseñas dejan de salirte. La otra persona no recibe aviso.
+ */
+export async function blockUser(targetUid: string): Promise<void> {
+  const response = await fetch(
+    `${API_BASE}/api/customer/friends/blocks/${encodeURIComponent(targetUid)}`,
+    { method: 'POST', headers: await authHeaders() },
+  )
+  if (!response.ok) {
+    throw new Error(await readError(response, 'No se pudo bloquear.'))
+  }
+  blockedIdsCache = null
+}
+
+export async function unblockUser(targetUid: string): Promise<void> {
+  const response = await fetch(
+    `${API_BASE}/api/customer/friends/blocks/${encodeURIComponent(targetUid)}`,
+    { method: 'DELETE', headers: await authHeaders() },
+  )
+  if (!response.ok) {
+    throw new Error(await readError(response, 'No se pudo desbloquear.'))
+  }
+  blockedIdsCache = null
+}
+
+let blockedIdsCache: { uid: string; at: number; ids: Promise<Set<string>> } | null = null
+
+/** Bloqueados (para ocultar sus reseñas): se guarda 2 min por cuenta. */
+export function fetchBlockedIds(uid: string): Promise<Set<string>> {
+  if (blockedIdsCache && blockedIdsCache.uid === uid && Date.now() - blockedIdsCache.at < 120_000) {
+    return blockedIdsCache.ids
+  }
+  const ids = fetchFriendsState()
+    .then((state) => new Set(state.blockedIds ?? []))
+    .catch(() => new Set<string>())
+  blockedIdsCache = { uid, at: Date.now(), ids }
+  return ids
 }
 
 export async function sendFriendRequest(targetUid: string): Promise<void> {

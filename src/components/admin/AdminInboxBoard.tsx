@@ -86,6 +86,39 @@ function AdminInboxBoard() {
     }
   }
 
+  // Reportes de reseñas o usuarios: el admin puede borrar la reseña o bloquear la cuenta.
+  const deleteReportedReview = async (report: AdminRestaurantReport) => {
+    if (!report.targetUid || !report.companyId) return
+    if (!window.confirm(`¿Borrar la reseña de ${report.targetName || 'este cliente'} en ${report.companyName}? No se puede deshacer.`)) return
+    setSavingId(report.id)
+    setError(null)
+    try {
+      await adminApi.deleteReview(report.companyId, report.targetUid, `${report.companyId}_${report.targetUid}`)
+      await adminApi.setReportStatus(report.id, 'resolved', report.adminNote || 'Reseña borrada')
+      setReports((current) => current.map((item) => (item.id === report.id ? { ...item, status: 'resolved' } : item)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo borrar la reseña.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const blockReportedUser = async (report: AdminRestaurantReport) => {
+    if (!report.targetUid) return
+    if (!window.confirm(`¿Bloquear la cuenta de ${report.targetName || 'este cliente'}? No podrá usar Adelia hasta que la desbloquees.`)) return
+    setSavingId(report.id)
+    setError(null)
+    try {
+      await adminApi.blockCustomer(report.targetUid, true, `Reporte ${report.id}: ${report.reasonLabel}`)
+      await adminApi.setReportStatus(report.id, 'resolved', report.adminNote || 'Cuenta bloqueada')
+      setReports((current) => current.map((item) => (item.id === report.id ? { ...item, status: 'resolved' } : item)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo bloquear la cuenta.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   const updateSuggestion = async (suggestion: AdminSuggestion, status: AdminSuggestionStatus) => {
     setSavingId(suggestion.id)
     setError(null)
@@ -156,14 +189,21 @@ function AdminInboxBoard() {
             <article key={report.id} className={styles.item}>
               <header className={styles.itemHead}>
                 <div>
-                  <strong>{report.companyName || 'Restaurante'}</strong>
+                  <strong>
+                    {report.targetType === 'review'
+                      ? `Reseña de ${report.targetName || 'cliente'} · ${report.companyName}`
+                      : report.targetType === 'user'
+                        ? `Usuario: ${report.targetName || report.targetUid}`
+                        : report.companyName || 'Restaurante'}
+                  </strong>
                   <span className={styles.reason}>{report.reasonLabel}</span>
                 </div>
                 <span className={`${ops.chip} ${report.status === 'open' ? ops.pending : report.status === 'reviewing' ? ops.due : ops.paid}`}>
                   {REPORT_STATUS_LABEL[report.status] ?? report.status}
                 </span>
               </header>
-              <p className={styles.message}>{report.message}</p>
+              {report.contentExcerpt ? <p className={styles.message}>«{report.contentExcerpt}»</p> : null}
+              {report.message ? <p className={styles.message}>{report.message}</p> : null}
               <p className={styles.meta}>
                 {[
                   formatDate(report.createdAt),
@@ -177,6 +217,16 @@ function AdminInboxBoard() {
                   <a className={styles.mailLink} href={`mailto:${report.customerEmail}?subject=${encodeURIComponent(`Tu reporte sobre ${report.companyName}`)}`}>
                     Escribir al cliente
                   </a>
+                ) : null}
+                {report.targetType === 'review' && report.status !== 'resolved' ? (
+                  <button type="button" className={ops.ghost} disabled={savingId === report.id} onClick={() => void deleteReportedReview(report)}>
+                    Borrar reseña
+                  </button>
+                ) : null}
+                {(report.targetType === 'review' || report.targetType === 'user') && report.targetUid && report.status !== 'resolved' ? (
+                  <button type="button" className={ops.ghost} disabled={savingId === report.id} onClick={() => void blockReportedUser(report)}>
+                    Bloquear cuenta
+                  </button>
                 ) : null}
                 {(['reviewing', 'resolved', 'dismissed', 'open'] as AdminReportStatus[])
                   .filter((status) => status !== report.status)

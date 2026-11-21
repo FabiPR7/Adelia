@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { getGamificationLevelTitle } from '../data/gamificationLevels'
 import { getAchievementBadgeArt } from '../data/achievementBadgeArt'
 import { MEDAL_TIER_BY_DIFFICULTY } from '../data/achievementMedal'
@@ -10,11 +10,15 @@ import { useCustomerGamificationContext } from '../context/CustomerGamificationC
 import type { FriendProfile } from '../types/friends'
 import AchievementMedal from './AchievementMedal'
 import LevelPlayerCard from './LevelPlayerCard'
+import ConfirmDialog from './ConfirmDialog'
+import ReportContentModal from './ReportContentModal'
 import styles from './FriendProfileView.module.css'
 
 interface FriendProfileViewProps {
   friend: FriendProfile
   onBack: () => void
+  /** Bloquear a esta persona (rompe la amistad). */
+  onBlock?: (id: string) => Promise<void>
 }
 
 const TIER_ORDER = { legend: 0, gold: 1, silver: 2, bronze: 3 } as const
@@ -44,7 +48,10 @@ function DuelRow({ label, mine, theirs }: { label: string; mine: number; theirs:
  * sala de su nivel, laurel y aro de su color, su escudo, «NIVEL N · rango» y XP.
  * Debajo, el duelo contigo y sus medallas reales.
  */
-function FriendProfileView({ friend, onBack }: FriendProfileViewProps) {
+function FriendProfileView({ friend, onBack, onBlock }: FriendProfileViewProps) {
+  const [reportOpen, setReportOpen] = useState(false)
+  const [blockOpen, setBlockOpen] = useState(false)
+  const [blocking, setBlocking] = useState(false)
   const gamification = useCustomerGamificationContext()
   const level = Math.min(12, Math.max(1, friend.level))
   const strip = getLevelRankingStripTheme(level)
@@ -169,6 +176,41 @@ function FriendProfileView({ friend, onBack }: FriendProfileViewProps) {
           </ul>
         </section>
       ) : null}
+
+      <div className={styles.safetyActions}>
+        <button type="button" onClick={() => setReportOpen(true)}>Reportar</button>
+        {onBlock ? <button type="button" onClick={() => setBlockOpen(true)}>Bloquear</button> : null}
+      </div>
+
+      {reportOpen ? (
+        <ReportContentModal
+          target={{ targetType: 'user', targetUid: friend.id }}
+          authorName={friend.displayName}
+          onClose={() => setReportOpen(false)}
+        />
+      ) : null}
+
+      <ConfirmDialog
+        elevated
+        isOpen={blockOpen}
+        title={`¿Bloquear a ${friend.displayName}?`}
+        message="Dejaréis de ser amigos. No podrá buscarte, agregarte, invitarte ni retarte, y no verás sus reseñas. No recibirá ningún aviso. Puedes desbloquearle cuando quieras."
+        confirmLabel="Sí, bloquear"
+        cancelLabel="Cancelar"
+        variant="danger"
+        isLoading={blocking}
+        onConfirm={() => {
+          if (!onBlock) return
+          setBlocking(true)
+          void onBlock(friend.id)
+            .catch(() => undefined)
+            .finally(() => {
+              setBlocking(false)
+              setBlockOpen(false)
+            })
+        }}
+        onCancel={() => setBlockOpen(false)}
+      />
     </article>
   )
 }

@@ -598,3 +598,24 @@
     transition: none;
   }
 }
+
+/* Reportar / Bloquear: discretos al final del perfil. */
+.safetyActions {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 0.5rem 0 1.5rem;
+}
+
+.safetyActions button {
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}

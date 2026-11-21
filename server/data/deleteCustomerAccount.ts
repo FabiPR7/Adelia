@@ -83,6 +83,12 @@ export async function deleteCustomerAccount(uid: string): Promise<void> {
     adminDb.collection(COLLECTIONS.friendFavorites).where('friendUid', '==', uid),
   )
   await deleteQueryInBatches(
+    adminDb.collection(COLLECTIONS.userBlocks).where('blockerUid', '==', uid),
+  )
+  await deleteQueryInBatches(
+    adminDb.collection(COLLECTIONS.userBlocks).where('blockedUid', '==', uid),
+  )
+  await deleteQueryInBatches(
     adminDb.collection(COLLECTIONS.reservationInvites).where('fromUid', '==', uid),
   )
   await deleteQueryInBatches(

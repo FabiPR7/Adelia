@@ -29,6 +29,7 @@ export const COLLECTIONS = {
   companyLevelCatalog: 'companyLevelCatalog',
   companyMissionCatalog: 'companyMissionCatalog',
   saasSubscriptions: 'saasSubscriptions',
+  userBlocks: 'userBlocks',
 } as const
 
 export function friendshipId(uidA: string, uidB: string): string {

@@ -24,6 +24,9 @@ interface CustomerFriendsBoardProps {
   onRejectFriendRequest: (id: string) => boolean
   hasOutgoingRequest: (id: string) => boolean
   onRemoveFriend: (id: string) => void
+  blockedUsers: FriendProfile[]
+  onBlockUser: (id: string) => Promise<void>
+  onUnblockUser: (id: string) => Promise<void>
   onToggleFavorite: (id: string) => void
   isFavorite: (id: string) => boolean
   onFriendProfileActiveChange?: (active: boolean) => void
@@ -61,6 +64,9 @@ function CustomerFriendsBoard({
   onRejectFriendRequest,
   hasOutgoingRequest,
   onRemoveFriend,
+  blockedUsers,
+  onBlockUser,
+  onUnblockUser,
   onToggleFavorite,
   isFavorite,
   onFriendProfileActiveChange,
@@ -78,6 +84,9 @@ function CustomerFriendsBoard({
   const [addSubmittedQuery, setAddSubmittedQuery] = useState('')
   const [requestsModalOpen, setRequestsModalOpen] = useState(openRequestsOnMount)
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
+  const [blockedModalOpen, setBlockedModalOpen] = useState(false)
+  const [blockConfirmFriend, setBlockConfirmFriend] = useState<{ id: string; displayName: string } | null>(null)
+  const [unblockingId, setUnblockingId] = useState<string | null>(null)
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null)
   const [acceptingFriendId, setAcceptingFriendId] = useState<string | null>(null)
   const [rejectConfirmFriend, setRejectConfirmFriend] = useState<FriendProfile | null>(null)
@@ -355,6 +364,10 @@ function CustomerFriendsBoard({
       <FriendProfileView
         friend={selectedFriend}
         onBack={() => setSelectedFriendId(null)}
+        onBlock={async (id) => {
+          await onBlockUser(id)
+          setSelectedFriendId(null)
+        }}
       />
     )
   }
@@ -496,6 +509,42 @@ function CustomerFriendsBoard({
         isEntryFavorite={(entry) => Boolean(entry.id && isFavorite(entry.id))}
         renderEntryActions={renderFriendActions}
       />
+
+      {blockedUsers.length > 0 ? (
+        <button type="button" className={styles.blockedLink} onClick={() => setBlockedModalOpen(true)}>
+          Usuarios bloqueados ({blockedUsers.length})
+        </button>
+      ) : null}
+
+      {blockedModalOpen && (
+        <FriendsStripModal
+          title="Usuarios bloqueados"
+          subtitle="No te pueden buscar, agregar, invitar ni retar, y no ves sus reseñas. No saben que les has bloqueado."
+          level={userEntry.level}
+          onClose={() => setBlockedModalOpen(false)}
+          isEmpty={blockedUsers.length === 0}
+          emptyMessage="No has bloqueado a nadie"
+        >
+          <div className={styles.blockedList}>
+            {blockedUsers.map((person) => (
+              <div key={person.id} className={styles.blockedRow}>
+                <span>{person.displayName}</span>
+                <button
+                  type="button"
+                  className={styles.blockedUnblock}
+                  disabled={unblockingId === person.id}
+                  onClick={() => {
+                    setUnblockingId(person.id)
+                    void onUnblockUser(person.id).finally(() => setUnblockingId(null))
+                  }}
+                >
+                  {unblockingId === person.id ? 'Desbloqueando…' : 'Desbloquear'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </FriendsStripModal>
+      )}
 
       {addModalOpen && (
         <FriendsStripModal
@@ -655,6 +704,15 @@ function CustomerFriendsBoard({
                       </button>
                       <button
                         type="button"
+                        className={`${styles.decisionBtn} ${styles.decisionReject}`}
+                        aria-label={`Bloquear a ${friend.displayName}`}
+                        disabled={rowBusy}
+                        onClick={() => setBlockConfirmFriend({ id: friend.id, displayName: friend.displayName })}
+                      >
+                        Bloquear
+                      </button>
+                      <button
+                        type="button"
                         className={`${styles.decisionBtn} ${styles.decisionAccept} ${isAccepting ? styles.decisionLoading : ''}`}
                         title="Aceptar"
                         aria-label={isAccepting ? 'Aceptando solicitud' : 'Aceptar solicitud'}
@@ -693,6 +751,27 @@ function CustomerFriendsBoard({
           setRemoveConfirmFriend(null)
         }}
         onCancel={() => setRemoveConfirmFriend(null)}
+      />
+
+      <ConfirmDialog
+        elevated
+        isOpen={blockConfirmFriend != null}
+        title="¿Bloquear?"
+        message={
+          blockConfirmFriend
+            ? `${blockConfirmFriend.displayName} no podrá buscarte, agregarte, invitarte ni retarte, y no verás sus reseñas. No recibirá ningún aviso. Puedes desbloquearle cuando quieras.`
+            : ''
+        }
+        confirmLabel="Sí, bloquear"
+        cancelLabel="Cancelar"
+        variant="danger"
+        onConfirm={() => {
+          if (blockConfirmFriend) {
+            void onBlockUser(blockConfirmFriend.id).catch(() => undefined)
+          }
+          setBlockConfirmFriend(null)
+        }}
+        onCancel={() => setBlockConfirmFriend(null)}
       />
 
       <ConfirmDialog
