@@ -9,6 +9,7 @@ import {
 import type { CompanyPromotion, MenuNode, PromotionInput } from '../types/company'
 import { mapPromotion } from '../utils/promotionSerialize'
 import { callCompanyApi } from './companyApi'
+import { panelCached } from '../utils/panelCache'
 
 
 const promoPath = (companyId: string, suffix = '') => `/${encodeURIComponent(companyId)}/promotions${suffix}`
@@ -17,6 +18,10 @@ export async function getCompanyPromotions(companyId: string): Promise<CompanyPr
   if (isDemoCompanyId(companyId)) {
     return getDemoPromotions()
   }
+  return panelCached(`promotions:${companyId}`, () => loadCompanyPromotions(companyId))
+}
+
+async function loadCompanyPromotions(companyId: string): Promise<CompanyPromotion[]> {
 
   const promotionsRef = collection(db, 'companies', companyId, 'promotions')
   const snapshot = await getDocs(query(promotionsRef, limit(COMPANY_PROMOTION_LIMIT)))

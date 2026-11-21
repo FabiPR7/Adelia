@@ -35,10 +35,6 @@ export function useCompanyNotifications() {
       },
     )
 
-    void fetchCompanyNotifications()
-      .then((payload) => setNotifications(payload.notifications))
-      .catch(() => undefined)
-
     return () => {
       unsubscribe()
     }

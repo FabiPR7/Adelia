@@ -32,7 +32,7 @@ import {
   TableCard,
 } from '../../components/reports/ReportKit'
 import { getFirestoreErrorMessage, getReservationsByCompany } from '../../services/firestore'
-import { reportYearOptions, yearBounds } from '../../services/firestoreQuery'
+import { COMPANY_RESERVATION_RANGE_LIMIT, reportYearOptions } from '../../services/firestoreQuery'
 import type { Reservation } from '../../types'
 import { formatDateSpanish, formatTimeSpanish } from '../../utils/helpers'
 import { downloadExcelFile, formatExcelDate, formatExcelDateTime } from '../../utils/exportSpreadsheet'
@@ -109,6 +109,7 @@ function CompanyReportsReservations({ companyId }: CompanyReportsReservationsPro
     quarter: Math.floor(now.getMonth() / 3) + 1,
   })
   const [reservations, setReservations] = useState<Reservation[]>([])
+  const [truncated, setTruncated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sort, setSort] = useState<SortState>({ key: 'startTime', direction: 'desc' })
@@ -120,15 +121,20 @@ function CompanyReportsReservations({ companyId }: CompanyReportsReservationsPro
     setError(null)
 
     try {
-      const range = yearBounds(config.year)
-      const data = await getReservationsByCompany(companyId, { from: range.start, to: range.end })
+      // Se lee solo lo que se enseña: el periodo elegido y el anterior para comparar.
+      const current = getReportDateRange(config)
+      const previous = previousPeriodConfig(config)
+      const from = previous ? getReportDateRange(previous).start : current.start
+      const to = new Date(current.end.getTime() + 1)
+      const data = await getReservationsByCompany(companyId, { from, to })
       setReservations(data)
+      setTruncated(data.length >= COMPANY_RESERVATION_RANGE_LIMIT)
     } catch (err) {
       setError(getFirestoreErrorMessage(err))
     } finally {
       setLoading(false)
     }
-  }, [companyId, config.year])
+  }, [companyId, config])
 
   useEffect(() => {
     void loadReservations()
@@ -240,6 +246,12 @@ function CompanyReportsReservations({ companyId }: CompanyReportsReservationsPro
       />
 
       {error ? <div className={styles.error} role="alert">{error}</div> : null}
+      {truncated ? (
+        <div className={styles.error} role="status">
+          Este periodo tiene más de {COMPANY_RESERVATION_RANGE_LIMIT} reservas y solo se cuentan las
+          primeras. Elige un periodo más corto (mes o trimestre) para ver las cifras completas.
+        </div>
+      ) : null}
 
       {loading && reservations.length === 0 ? (
         <LoadingState />

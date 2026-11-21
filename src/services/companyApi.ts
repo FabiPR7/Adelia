@@ -1,4 +1,5 @@
 import { getIdToken } from './auth'
+import { clearPanelCache } from '../utils/panelCache'
 
 // Llamadas del panel del restaurante a su API. El panel ya no escribe en la base de
 // datos: pide el cambio y el servidor comprueba que eres el dueño del local y que
@@ -38,5 +39,7 @@ export async function callCompanyApi<T = Record<string, unknown>>(
   if (!response.ok) {
     throw new CompanyApiError(data.error ?? fallbackError, response.status)
   }
+  // Algo cambió: mesas, promos y reseñas se vuelven a leer la próxima vez.
+  if (method !== 'GET') clearPanelCache()
   return data
 }

@@ -34,6 +34,7 @@ import {
   isDemoCompanyId,
   rejectIfDemoCompanyWrite,
 } from '../data/companyPanelDemo'
+import { panelCached } from '../utils/panelCache'
 
 export interface SubmitCustomerReviewInput {
   reservationId: string
@@ -255,6 +256,10 @@ export async function getCompanyReviews(companyId: string): Promise<CompanyRevie
   if (isDemoCompanyId(companyId)) {
     return getDemoReviews()
   }
+  return panelCached(`reviews:${companyId}`, () => loadCompanyReviews(companyId))
+}
+
+async function loadCompanyReviews(companyId: string): Promise<CompanyReview[]> {
 
   const snapshot = await getDocs(
     query(

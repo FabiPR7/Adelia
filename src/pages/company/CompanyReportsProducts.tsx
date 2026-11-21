@@ -37,7 +37,7 @@ import {
   getReservationsByCompany,
   getVerifiedConsumptionsByCompany,
 } from '../../services/firestore'
-import { reportYearOptions, yearBounds } from '../../services/firestoreQuery'
+import { COMPANY_RESERVATION_RANGE_LIMIT, reportYearOptions, yearBounds } from '../../services/firestoreQuery'
 import type { VerifiedConsumptionRecord } from '../../types/verifiedConsumption'
 import { formatDateSpanish, formatTimeSpanish } from '../../utils/helpers'
 import { formatCentsAsEuros } from '../../utils/minimumSpendVerification'
@@ -97,6 +97,8 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
   const [verificationSort, setVerificationSort] = useState<SortState>({ key: 'verifiedAt', direction: 'desc' })
   const [query, setQuery] = useState('')
 
+  const [truncated, setTruncated] = useState(false)
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -109,6 +111,7 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
       ])
 
       setRecords(mergeVerifiedConsumptions(fromSubcollection, reservations))
+      setTruncated(reservations.length >= COMPANY_RESERVATION_RANGE_LIMIT)
     } catch (err) {
       setError(getFirestoreErrorMessage(err))
     } finally {
@@ -245,6 +248,12 @@ function CompanyReportsProducts({ companyId }: CompanyReportsProductsProps) {
       />
 
       {error ? <div className={styles.error} role="alert">{error}</div> : null}
+      {truncated ? (
+        <div className={styles.error} role="status">
+          Este periodo tiene más de {COMPANY_RESERVATION_RANGE_LIMIT} reservas y solo se cuentan las
+          primeras. Elige un periodo más corto (mes o trimestre) para ver las cifras completas.
+        </div>
+      ) : null}
 
       {loading && records.length === 0 ? (
         <LoadingState />

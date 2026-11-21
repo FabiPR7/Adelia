@@ -22,7 +22,7 @@ import {
   TableCard,
 } from '../../components/reports/ReportKit'
 import { getFirestoreErrorMessage, getReservationsByCompany } from '../../services/firestore'
-import { reportYearOptions, yearBounds } from '../../services/firestoreQuery'
+import { COMPANY_RESERVATION_RANGE_LIMIT, reportYearOptions, yearBounds } from '../../services/firestoreQuery'
 import type { Reservation } from '../../types'
 import {
   compareDates,
@@ -82,6 +82,8 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
   const [query, setQuery] = useState('')
   const [visibleCount, setVisibleCount] = useState(PAGE_STEP)
 
+  const [truncated, setTruncated] = useState(false)
+
   const loadReservations = useCallback(async () => {
     if (!companyId) {
       setError('No se encontró la empresa activa.')
@@ -96,6 +98,7 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
       const range = yearBounds(config.year)
       const data = await getReservationsByCompany(companyId, { from: range.start, to: range.end })
       setReservations(data)
+      setTruncated(data.length >= COMPANY_RESERVATION_RANGE_LIMIT)
     } catch (err) {
       setError(getFirestoreErrorMessage(err))
     } finally {
@@ -218,6 +221,12 @@ function CompanyReportsClients({ companyId }: CompanyReportsClientsProps) {
       />
 
       {error ? <div className={styles.error} role="alert">{error}</div> : null}
+      {truncated ? (
+        <div className={styles.error} role="status">
+          Este periodo tiene más de {COMPANY_RESERVATION_RANGE_LIMIT} reservas y solo se cuentan las
+          primeras. Elige un periodo más corto (mes o trimestre) para ver las cifras completas.
+        </div>
+      ) : null}
 
       {loading && reservations.length === 0 ? (
         <LoadingState />

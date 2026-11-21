@@ -80,6 +80,7 @@ import {
   parseCompanyQrBranding,
 } from '../utils/qrBranding'
 import { listUserFavoriteSlugs } from './userFavorites'
+import { panelCached } from '../utils/panelCache'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -1464,6 +1465,10 @@ export async function getTablesByCompany(companyId: string): Promise<RestaurantT
   if (isDemoCompanyId(companyId)) {
     return getDemoTables()
   }
+  return panelCached(`tables:${companyId}`, () => loadTablesByCompany(companyId))
+}
+
+async function loadTablesByCompany(companyId: string): Promise<RestaurantTable[]> {
 
   const snapshot = await getDocs(
     query(collection(db, 'tables'), where('companyId', '==', companyId), limit(COMPANY_TABLE_LIMIT)),
