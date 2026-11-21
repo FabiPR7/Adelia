@@ -1,0 +1,90 @@
+.medal {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.svg {
+  overflow: visible;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+}
+
+/* Ganada: halo del metal detrás. */
+.earned::before {
+  content: '';
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: var(--medal-glow);
+  filter: blur(14px);
+  opacity: 0.7;
+  z-index: -1;
+}
+
+.tier_legend.earned::before {
+  animation: legendPulse 3.2s ease-in-out infinite;
+}
+
+/* Destello que cruza la medalla cada pocos segundos. */
+.shine {
+  transform: translateX(0) rotate(20deg);
+  transform-origin: 50px 50px;
+  animation: shineSweep 4.6s ease-in-out infinite;
+}
+
+.tier_gold .shine,
+.tier_legend .shine {
+  animation-duration: 3.4s;
+}
+
+.locked .svg {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+}
+
+.lock {
+  position: absolute;
+  right: 6%;
+  bottom: 14%;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #1c1a19;
+  border-radius: 50%;
+  background: #3a3633;
+  color: rgba(255, 248, 239, 0.8);
+}
+
+@keyframes shineSweep {
+  0%,
+  62% {
+    transform: translateX(0) rotate(20deg);
+  }
+  100% {
+    transform: translateX(190px) rotate(20deg);
+  }
+}
+
+@keyframes legendPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shine,
+  .tier_legend.earned::before {
+    animation: none;
+  }
+
+  .shine {
+    display: none;
+  }
+}

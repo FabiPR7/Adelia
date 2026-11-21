@@ -649,3 +649,25 @@
   outline: 2px solid var(--color-accent-strong);
   outline-offset: 2px;
 }
+
+
+/* Vitrina de medallas: 3 por fila en móvil, más en pantallas grandes. */
+.logrosGrid {
+  align-items: stretch;
+  justify-items: stretch;
+  gap: 0.6rem;
+}
+
+@media (min-width: 640px) {
+  .logrosGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    max-width: 40rem;
+  }
+}
+
+@media (min-width: 960px) {
+  .logrosGrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    max-width: 60rem;
+  }
+}
