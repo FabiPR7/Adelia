@@ -89,6 +89,8 @@ export interface PublicCompanyReview {
   taggedProducts: ReviewTaggedProduct[]
   taggedPromotions: ReviewTaggedPromotion[]
   createdAt: string
+  /** Veces que otros clientes la han marcado como útil. */
+  helpfulCount?: number
   ownerReply?: {
     text: string
     createdAt: string
@@ -401,4 +403,18 @@ export async function fetchPublicReviewsPage(
     const payload = (await response.json()) as PublicReviewsResponse & { nextBefore?: string | null }
     return { ...payload, nextBefore: typeof payload.nextBefore === 'string' ? payload.nextBefore : null }
   })
+}
+
+/** Marca como útil la reseña de otro cliente (una vez). Devuelve el nuevo total. */
+export async function markReviewHelpful(companySlug: string, reviewId: string): Promise<number> {
+  const { getIdToken } = await import('./auth')
+  const token = await getIdToken()
+  if (!token) throw new Error('Entra en tu cuenta para marcar reseñas como útiles.')
+  const response = await fetch(
+    `${API_BASE}/api/customer/reviews/${encodeURIComponent(companySlug)}/${encodeURIComponent(reviewId)}/helpful`,
+    { method: 'POST', headers: { Authorization: `Bearer ${token}` } },
+  )
+  const payload = (await response.json().catch(() => ({}))) as { helpfulCount?: number; error?: string }
+  if (!response.ok) throw new Error(payload.error ?? 'No se pudo marcar como útil.')
+  return typeof payload.helpfulCount === 'number' ? payload.helpfulCount : 0
 }

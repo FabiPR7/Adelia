@@ -476,4 +476,64 @@ router.delete('/:companyId', async (req: Request, res: Response) => {
   }
 })
 
+/**
+ * «Útil»: un cliente marca útil la reseña de otro (una vez, nunca la suya). Suma a
+ * la reseña y al contador del autor, que es lo que mide «Guía Michelin de Barrio».
+ */
+router.post('/:companyId/:reviewId/helpful', async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    const companyId = String(req.params.companyId ?? '').trim()
+    const authorUid = String(req.params.reviewId ?? '').trim()
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(companyId) || !/^[A-Za-z0-9_-]{1,128}$/.test(authorUid)) {
+      res.status(400).json({ error: 'Reseña no válida.' })
+      return
+    }
+    if (authorUid === customer.uid) {
+      res.status(400).json({ error: 'No puedes marcar como útil tu propia reseña.' })
+      return
+    }
+    // Vale el id del local o su dirección (la ficha pública solo conoce la dirección).
+    let companyRef = adminDb.collection('companies').doc(companyId)
+    if (!(await companyRef.get()).exists) {
+      const bySlug = await adminDb.collection('companies').where('slug', '==', companyId.toLowerCase()).limit(1).get()
+      if (bySlug.empty) {
+        res.status(404).json({ error: 'Restaurante no encontrado.' })
+        return
+      }
+      companyRef = bySlug.docs[0].ref
+    }
+    const reviewRef = companyRef.collection('reviews').doc(authorUid)
+    const voteRef = reviewRef.collection('helpfulVotes').doc(customer.uid)
+    const authorRef = adminDb.collection('users').doc(authorUid)
+    const authorStatsRef = userGamificationRef(authorUid)
+
+    const helpfulCount = await adminDb.runTransaction(async (transaction) => {
+      const [reviewSnap, voteSnap, authorSnap, authorStatsSnap] = await Promise.all([
+        transaction.get(reviewRef),
+        transaction.get(voteRef),
+        transaction.get(authorRef),
+        transaction.get(authorStatsRef),
+      ])
+      if (!reviewSnap.exists) throw new Error('Esa reseña ya no existe.')
+      const current = count(reviewSnap.data()?.helpfulCount)
+      if (voteSnap.exists) return current
+      transaction.create(voteRef, { voterUid: customer.uid, createdAt: FieldValue.serverTimestamp() })
+      transaction.update(reviewRef, { helpfulCount: current + 1 })
+      if (authorSnap.exists) {
+        const stored = readGamificationFromDocs(authorStatsSnap.data(), authorSnap.data())
+        writeGamification(transaction, authorUid, {
+          ...stored,
+          helpfulReviewVotes: count(stored.helpfulReviewVotes) + 1,
+        })
+      }
+      return current + 1
+    })
+    res.json({ helpfulCount, voted: true })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo marcar como útil.'
+    res.status(message.includes('cliente') ? 401 : 400).json({ error: message })
+  }
+})
+
 export default router

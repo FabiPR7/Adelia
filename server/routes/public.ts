@@ -385,6 +385,7 @@ export function mapPublicReview(id: string, data: FirebaseFirestore.DocumentData
     taggedPromotions: mapReviewTaggedPromotions(data.taggedPromotions),
     createdAt: createdAt.toISOString(),
     ownerReply: mapOwnerReply(data.ownerReply),
+    helpfulCount: typeof data.helpfulCount === 'number' ? data.helpfulCount : 0,
   }
 }
 

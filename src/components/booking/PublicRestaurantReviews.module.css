@@ -357,3 +357,70 @@
   opacity: 0.6;
   cursor: wait;
 }
+
+
+/* Pie de cada reseña: «Útil» y denunciar. */
+.reviewFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+
+.reviewFooter .reportLink {
+  margin-top: 0;
+}
+
+.helpfulButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.16s ease-out, background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.helpfulButton:hover:not(:disabled) {
+  border-color: var(--color-accent-strong);
+}
+
+.helpfulButton:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.helpfulButton:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.helpfulButton:disabled {
+  cursor: default;
+}
+
+.helpfulOn {
+  border-color: #2f9e5b;
+  background: #e6f5ec;
+  color: #1f7a45;
+}
+
+.helpfulOwn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.helpfulError {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-error);
+}

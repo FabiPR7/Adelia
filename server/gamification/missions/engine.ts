@@ -1,6 +1,7 @@
 // Motor de misiones del cliente. Lo ejecuta el SERVIDOR (antes la web y la app).
 // Las fechas que recibe ya están en hora de pared de España (ver engineSupport.toMadridWall).
 import { MONTHLY_MISSION_POOL, WEEKLY_MISSIONS } from './missionsData.ts'
+import { findFoodCategory } from '../../../src/data/foodCategories.ts'
 import { GAMIFICATION_LEVELS } from './levelsData.ts'
 import type {
   CustomerGamificationState,
@@ -69,6 +70,8 @@ const INTERNATIONAL_CUISINE_TAGS = new Set([
   'Fusión',
   'Fine dining',
   'Steakhouse',
+  // Más los de «Comida extranjera» de ¿Qué te apetece? (kebab, tacos, poke…).
+  ...(findFoodCategory('extranjera')?.matches ?? []),
 ])
 
 export function getWeekKey(date = engineNow()): string {

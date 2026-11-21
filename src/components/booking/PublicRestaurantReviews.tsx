@@ -3,8 +3,10 @@ import AdelinaCoin from '../AdelinaCoin'
 import ReviewCommentBody from '../ReviewCommentBody'
 import {
   fetchPublicReviewsPage,
+  markReviewHelpful,
   type PublicCompanyReview,
 } from '../../services/publicApi'
+import { useAuth } from '../../context/AuthContext'
 import type { AdelinaSlotState } from '../../types/review'
 import { getAdelinaSlotStates } from '../../types/review'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../../utils/cloudinaryUrl'
@@ -90,6 +92,30 @@ function PublicReviewCard({
 }) {
   const authorName = review.customerName.trim() || 'Cliente'
   const ratingSlots = getAdelinaSlotStates(review.rating, 1)
+  const { user } = useAuth()
+  const isOwn = Boolean(user && user.uid === review.id)
+  const [helpful, setHelpful] = useState(review.helpfulCount ?? 0)
+  const [voted, setVoted] = useState(false)
+  const [voting, setVoting] = useState(false)
+  const [voteError, setVoteError] = useState<string | null>(null)
+
+  const vote = async () => {
+    if (voted || voting || isOwn) return
+    setVoting(true)
+    setVoteError(null)
+    // Se suma al momento y se confirma con el servidor.
+    setHelpful((count) => count + 1)
+    setVoted(true)
+    try {
+      setHelpful(await markReviewHelpful(companySlug, review.id))
+    } catch (error) {
+      setHelpful((count) => Math.max(0, count - 1))
+      setVoted(false)
+      setVoteError(error instanceof Error ? error.message : 'No se pudo marcar como útil.')
+    } finally {
+      setVoting(false)
+    }
+  }
 
   return (
     <article className={styles.reviewCard}>
@@ -154,9 +180,26 @@ function PublicReviewCard({
         </div>
       ) : null}
 
-      <a className={styles.reportLink} href={buildReportHref(companyName, authorName, review.createdAt)}>
-        Denunciar
-      </a>
+      <div className={styles.reviewFooter}>
+        {isOwn ? (
+          helpful > 0 ? <span className={styles.helpfulOwn}>👍 {helpful} {helpful === 1 ? 'persona la ha' : 'personas la han'} marcado útil</span> : null
+        ) : (
+          <button
+            type="button"
+            className={`${styles.helpfulButton} ${voted ? styles.helpfulOn : ''}`}
+            onClick={() => void vote()}
+            disabled={voting || voted || !user}
+            aria-pressed={voted}
+            title={user ? undefined : 'Entra en tu cuenta para votar'}
+          >
+            <span aria-hidden="true">👍</span> Útil{helpful > 0 ? ` · ${helpful}` : ''}
+          </button>
+        )}
+        <a className={styles.reportLink} href={buildReportHref(companyName, authorName, review.createdAt)}>
+          Denunciar
+        </a>
+      </div>
+      {voteError ? <p className={styles.helpfulError} role="status">{voteError}</p> : null}
     </article>
   )
 }
