@@ -73,6 +73,8 @@ export async function requireRecaptcha(
   const value = typeof token === 'string' ? token : ''
   const result = await verifyRecaptchaToken(value, expectedAction, minScore)
   if (!result.valid) {
+    // Sin datos del usuario: solo el motivo, para saber si la app falla por puntuación.
+    console.warn(`[captcha] rechazado: ${result.reason ?? 'desconocido'} (${expectedAction})`)
     throw new Error('No se pudo verificar que no eres un robot. Recarga e inténtalo de nuevo.')
   }
 }
