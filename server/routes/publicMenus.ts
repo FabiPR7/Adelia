@@ -10,7 +10,8 @@ router.get('/:companyId', async (req: Request, res: Response) => {
     const companyId = asId(req.params.companyId, 'Restaurante')
     const boardIdRaw = typeof req.query.boardId === 'string' ? req.query.boardId.trim() : ''
     const boardId = boardIdRaw && boardIdRaw.length <= 80 ? boardIdRaw : undefined
-    const menu = await listPublicCompanyMenu(companyId, boardId)
+    // ?boardsOnly=1: solo la lista de cartas (sin leer los platos).
+    const menu = await listPublicCompanyMenu(companyId, boardId, { boardsOnly: req.query.boardsOnly === '1' })
     allowPublicCache(res, 45, 90)
     res.json(menu)
   } catch (error) {

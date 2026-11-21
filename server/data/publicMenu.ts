@@ -93,10 +93,61 @@ function mapNode(id: string, companyId: string, data: FirebaseFirestore.Document
   }
 }
 
+type PublicMenu = { boards: PublicMenuBoardPayload[]; nodes: PublicMenuNodePayload[] }
+
+/**
+ * Una carta son hasta ~200 lecturas. Se guarda 60 s en memoria por restaurante
+ * (la CDN no comparte caché entre nodos) y una carta concreta se sirve desde la
+ * completa si ya está guardada. Las peticiones simultáneas comparten la lectura.
+ */
+const MENU_MEMO_MS = 60_000
+const MENU_MEMO_MAX = 200
+const menuMemo = new Map<string, { at: number; menu: Promise<PublicMenu> }>()
+
+function memoGet(key: string): Promise<PublicMenu> | null {
+  const hit = menuMemo.get(key)
+  return hit && Date.now() - hit.at < MENU_MEMO_MS ? hit.menu : null
+}
+
+function memoSet(key: string, menu: Promise<PublicMenu>): Promise<PublicMenu> {
+  menu.catch(() => menuMemo.delete(key))
+  if (menuMemo.size >= MENU_MEMO_MAX) {
+    const oldest = menuMemo.keys().next().value
+    if (oldest !== undefined) menuMemo.delete(oldest)
+  }
+  menuMemo.set(key, { at: Date.now(), menu })
+  return menu
+}
+
+/** El dueño ha cambiado su carta: que la vea al momento en esta instancia. */
+export function forgetPublicCompanyMenu(companyId: string): void {
+  for (const key of [...menuMemo.keys()]) {
+    if (key.startsWith(companyId + '|')) menuMemo.delete(key)
+  }
+}
+
 export async function listPublicCompanyMenu(
   companyId: string,
   boardId?: string,
-): Promise<{ boards: PublicMenuBoardPayload[]; nodes: PublicMenuNodePayload[] }> {
+  options: { boardsOnly?: boolean } = {},
+): Promise<PublicMenu> {
+  const full = memoGet(companyId + '|')
+  if (full) {
+    const menu = await full
+    if (options.boardsOnly) return { boards: menu.boards, nodes: [] }
+    if (!boardId) return menu
+    if (!menu.boards.some((board) => board.id === boardId)) return { boards: menu.boards, nodes: [] }
+    return { boards: menu.boards, nodes: menu.nodes.filter((node) => node.boardId === boardId) }
+  }
+  const key = companyId + '|' + (options.boardsOnly ? '#boards' : boardId ?? '')
+  return memoGet(key) ?? memoSet(key, readPublicCompanyMenu(companyId, boardId, options.boardsOnly === true))
+}
+
+async function readPublicCompanyMenu(
+  companyId: string,
+  boardId: string | undefined,
+  boardsOnly: boolean,
+): Promise<PublicMenu> {
   const companySnap = await adminDb.collection('companies').doc(companyId).get()
   if (!companySnap.exists || companySnap.data()?.deactivated === true) {
     return { boards: [], nodes: [] }
@@ -120,6 +171,8 @@ export async function listPublicCompanyMenu(
   if (maxMenus != null) {
     boards = boards.slice(0, maxMenus)
   }
+
+  if (boardsOnly) return { boards, nodes: [] }
 
   const allowedBoardIds = new Set(boards.map((board) => board.id))
   const nodesRef = adminDb.collection('companies').doc(companyId).collection('menuNodes')

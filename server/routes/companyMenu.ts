@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '../firebase-admin.ts'
 import { ensureCompanyOwner } from '../auth/verifyRequest.ts'
+import { forgetPublicCompanyMenu } from '../data/publicMenu.ts'
 import { serializeMenuBoard, serializeMenuNode } from '../../src/utils/menuSerialize.ts'
 import type { MenuBoardInput, MenuNodeInput } from '../../src/types/company.ts'
 
@@ -11,6 +12,17 @@ import type { MenuBoardInput, MenuNodeInput } from '../../src/types/company.ts'
 
 const router = Router()
 type Params = Record<string, string>
+
+// Al cambiar la carta, la copia pública guardada en memoria se olvida.
+router.use('/:companyId/menu', (req: Request<Params>, res: Response, next) => {
+  if (req.method !== 'GET') {
+    const companyId = req.params.companyId
+    res.on('finish', () => {
+      if (res.statusCode < 400 && idOk(companyId)) forgetPublicCompanyMenu(companyId)
+    })
+  }
+  next()
+})
 
 const MAX_BOARDS = 40
 const MAX_NODES_PER_REQUEST = 2000

@@ -88,7 +88,8 @@ export async function getPublicCompanyMenuBoards(
   }
 
   const API_BASE = import.meta.env.VITE_API_URL ?? ''
-  const response = await fetch(`${API_BASE}/api/public/menus/${encodeURIComponent(companyId)}`)
+  // Solo la lista de cartas: el servidor no lee los platos.
+  const response = await fetch(`${API_BASE}/api/public/menus/${encodeURIComponent(companyId)}?boardsOnly=1`)
   if (!response.ok) {
     throw new Error('No se pudo cargar la carta.')
   }
