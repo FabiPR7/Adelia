@@ -5,11 +5,11 @@ import { MEDAL_TIER_BY_DIFFICULTY } from '../data/achievementMedal'
 import { getFriendEarnedAchievements } from '../utils/friendAchievementProgress'
 import { getLevelProfileBodyTheme } from '../utils/levelProfileBodyThemes'
 import { getLevelRankingStripTheme } from '../utils/levelRankingStripThemes'
-import { getStripBackground, getStripEmblem } from '../utils/levelRankingStripAssets'
+import { getStripBackground } from '../utils/levelRankingStripAssets'
 import { useCustomerGamificationContext } from '../context/CustomerGamificationContext'
 import type { FriendProfile } from '../types/friends'
 import AchievementMedal from './AchievementMedal'
-import LevelLaurel from './LevelLaurel'
+import LevelPlayerCard from './LevelPlayerCard'
 import styles from './FriendProfileView.module.css'
 
 interface FriendProfileViewProps {
@@ -51,7 +51,6 @@ function FriendProfileView({ friend, onBack }: FriendProfileViewProps) {
   const body = getLevelProfileBodyTheme(level)
   const levelTitle = friend.levelTitle || getGamificationLevelTitle(level)
   const locationLabel = [friend.homeCity, friend.homeCountry].filter(Boolean).join(' · ')
-  const progressPercent = Math.round(friend.levelProgress * 100)
   const firstName = friend.displayName.split(' ')[0] || friend.displayName
 
   const medals = useMemo(
@@ -92,53 +91,16 @@ function FriendProfileView({ friend, onBack }: FriendProfileViewProps) {
         </svg>
       </button>
 
-      {/* Tarjeta de nivel: la misma composición que las tarjetas de referencia. */}
-      <header className={styles.card}>
-        <span className={styles.cardBg} aria-hidden="true" />
-        <span className={styles.cardOverlay} aria-hidden="true" />
-        <span className={styles.cardFrame} aria-hidden="true" />
-        <span className={`${styles.corner} ${styles.cornerTl}`} aria-hidden="true" />
-        <span className={`${styles.corner} ${styles.cornerTr}`} aria-hidden="true" />
-        <span className={`${styles.corner} ${styles.cornerBl}`} aria-hidden="true" />
-        <span className={`${styles.corner} ${styles.cornerBr}`} aria-hidden="true" />
-
-        <div className={styles.cardTop}>
-          <div className={styles.portrait}>
-            <LevelLaurel color={strip.avatarBorder} className={styles.laurel} />
-            <span className={styles.avatarRing}>
-              {friend.photoUrl ? (
-                <img src={friend.photoUrl} alt="" className={styles.avatar} />
-              ) : (
-                <span className={styles.avatarFallback}>{friend.displayName.charAt(0).toUpperCase()}</span>
-              )}
-            </span>
-          </div>
-          <img src={getStripEmblem(level)} alt="" className={styles.shield} draggable={false} />
-        </div>
-
-        <h1 className={styles.name}>{friend.displayName}</h1>
-        {friend.username ? <p className={styles.username}>@{friend.username}</p> : null}
-        <span className={styles.divider} aria-hidden="true"><span>✦</span></span>
-
-        <div className={styles.levelRow}>
-          <span className={styles.levelPill}>
-            <span className={styles.levelNumber}>NIVEL {level}</span>
-            <span className={styles.levelTitle}>{levelTitle}</span>
-          </span>
-          <span className={styles.xpBox}>
-            <strong>{friend.xp.toLocaleString('es-ES')}</strong>
-            <span>XP</span>
-          </span>
-        </div>
-
-        <div className={styles.progress}>
-          <span className={styles.track} aria-hidden="true">
-            <span className={styles.fill} style={{ width: `${Math.max(4, progressPercent)}%` }} />
-          </span>
-          <span className={styles.progressText}>{progressPercent}% para el nivel {Math.min(12, level + 1)}</span>
-        </div>
-        {locationLabel ? <p className={styles.location}>📍 {locationLabel}</p> : null}
-      </header>
+      <LevelPlayerCard
+        level={level}
+        levelTitle={levelTitle}
+        displayName={friend.displayName}
+        username={friend.username}
+        photoUrl={friend.photoUrl}
+        xp={friend.xp}
+        levelProgress={friend.levelProgress}
+        location={locationLabel || undefined}
+      />
 
       <section className={styles.panel} aria-label={`Tú contra ${firstName}`}>
         <div className={styles.duelHead}>

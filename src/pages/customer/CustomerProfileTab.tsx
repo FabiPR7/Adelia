@@ -2,7 +2,7 @@ import type { PublicDiscoveryRestaurant } from '../../utils/publicDiscovery'
 import { fetchDiscoveryRestaurantsBySlugs } from '../../services/publicDiscovery'
 import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import GamificationRankingStripCard from '../../components/GamificationRankingStripCard'
+import LevelPlayerCard from '../../components/LevelPlayerCard'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import { logout } from '../../services/auth'
@@ -115,13 +115,11 @@ function CustomerProfileTab() {
   const stripTheme = getLevelRankingStripTheme(levelNumber)
   const bodyTheme = getLevelProfileBodyTheme(levelNumber)
   const levelBackground = getLevelProfileBackground(levelNumber)
-  const progressPercent = Math.round(levelProgress * 100)
 
   const photo = profile.photoUrl
     ? optimizeCloudinaryUrl(profile.photoUrl, CLOUDINARY_DISPLAY.photoPreview)
     : ''
 
-  const locationLabel = [profile.homeCity, profile.homeMunicipality].filter(Boolean).join(', ')
   // Antes salía el principio del correo; ahora el @usuario elegido.
   const profileHandle = profile.username ? `@${profile.username}` : ''
 
@@ -155,37 +153,25 @@ function CustomerProfileTab() {
         </header>
 
         <section className={styles.showcase}>
-          <GamificationRankingStripCard
+          <LevelPlayerCard
             level={levelNumber}
             levelTitle={level.title}
             displayName={profile.displayName}
+            username={profile.username || undefined}
             xp={state.xp}
             levelProgress={levelProgress}
             photoUrl={photo || undefined}
-            highlight
-            profileSize
-            className={styles.heroStrip}
+            location={[profile.homeCity, profile.homeCountry].filter(Boolean).join(' · ') || undefined}
           />
 
-          <div className={styles.levelPill} aria-label={`Nivel ${levelNumber}, ${level.title}`}>
-            <span className={styles.levelPillNumber}>Nivel {levelNumber}</span>
-            <span className={styles.levelPillTitle}>{level.title}</span>
-          </div>
-
-          <div className={styles.identityMeta}>
-            {profileHandle ? (
-              <span className={styles.handle}>{profileHandle}</span>
-            ) : (
+          {!profileHandle ? (
+            <div className={styles.identityMeta}>
               <Link to="/cuenta/completar-perfil?edit=1" className={styles.handle}>Elige tu @usuario</Link>
-            )}
-            {locationLabel ? <span className={styles.location}>📍 {locationLabel}</span> : null}
-          </div>
-
-          <p className={styles.progressHint}>
-            {xpToNext == null
-              ? 'Has alcanzado el rango máximo'
-              : `${progressPercent}% al siguiente nivel · faltan ${xpToNext.toLocaleString('es-ES')} XP`}
-          </p>
+            </div>
+          ) : null}
+          {xpToNext != null ? (
+            <p className={styles.progressHint}>Te faltan {xpToNext.toLocaleString('es-ES')} XP para subir de nivel</p>
+          ) : null}
         </section>
 
         <section className={styles.metrics}>
