@@ -133,3 +133,18 @@
     font-size: 1.28rem;
   }
 }
+
+/* Arena 2.0 */
+.sectionHead h2 {
+  font-size: 1.35rem;
+  color: #fff8ef;
+}
+
+.sectionHead span {
+  color: rgba(255, 248, 239, 0.55);
+}
+
+.rowWrapActive {
+  background: rgba(255, 106, 61, 0.1);
+  border-color: rgba(255, 106, 61, 0.35);
+}

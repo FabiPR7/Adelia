@@ -110,3 +110,29 @@
     font-size: 1.28rem;
   }
 }
+
+/* Arena 2.0 */
+.scopeTabs {
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  box-shadow: none !important;
+}
+
+.scopeTab {
+  color: rgba(255, 248, 239, 0.6) !important;
+  background: transparent !important;
+}
+
+.scopeTabActive {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #fff8ef !important;
+}
+
+.scopeHint,
+.chaseCopy {
+  color: rgba(255, 248, 239, 0.6) !important;
+}
+
+.sectionHead h2 {
+  color: #fff8ef !important;
+}
