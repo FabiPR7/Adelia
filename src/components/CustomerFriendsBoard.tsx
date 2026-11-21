@@ -6,7 +6,7 @@ import ConfirmDialog from './ConfirmDialog'
 import FriendActionBar from './FriendActionBar'
 import FriendProfileView from './FriendProfileView'
 import FriendsStripModal from './FriendsStripModal'
-import GamificationRankingStripCard from './GamificationRankingStripCard'
+import LeaderboardRow from './LeaderboardRow'
 import RankingStripList from './RankingStripList'
 import styles from './CustomerFriendsBoard.module.css'
 
@@ -542,7 +542,7 @@ function CustomerFriendsBoard({
                 return (
                   <article key={entry.id} className={styles.addCard}>
                     <div className={styles.addCardStrip}>
-                      <GamificationRankingStripCard
+                      <LeaderboardRow
                         level={entry.level}
                         levelTitle={entry.levelTitle}
                         displayName={entry.displayName}
@@ -616,7 +616,7 @@ function CustomerFriendsBoard({
                   <p className={styles.requestCardEyebrow}>Quiere ser tu amigo</p>
                   <div className={styles.requestCardRow}>
                     <div className={styles.requestCardStrip}>
-                      <GamificationRankingStripCard {...profileToStripProps(friend)} />
+                      <LeaderboardRow {...profileToStripProps(friend)} />
                     </div>
                     <div className={styles.decisionGroup} role="group" aria-label={`Responder a ${friend.displayName}`}>
                       <button

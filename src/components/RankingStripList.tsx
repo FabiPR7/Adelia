@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LeaderboardEntry } from '../data/gamificationLeaderboard'
-import GamificationRankingStripCard from './GamificationRankingStripCard'
+import LeaderboardRow from './LeaderboardRow'
 import RankingPodium from './RankingPodium'
 import styles from './RankingStripList.module.css'
 
@@ -152,7 +152,7 @@ function RankingStripList({
                   aria-expanded={isActive}
                   aria-label={`${entry.displayName}, puesto ${entry.rank}`}
                 >
-                  <GamificationRankingStripCard
+                  <LeaderboardRow
                     level={entry.level}
                     levelTitle={entry.levelTitle}
                     displayName={entry.displayName}
@@ -161,19 +161,19 @@ function RankingStripList({
                     rank={entry.rank}
                     levelProgress={entry.levelProgress}
                     highlight={showFavoriteGlow || isActive}
+                    hint={userEntry && entry.rank === userRank - 1 ? `+${Math.max(1, entry.xp - userEntry.xp + 1).toLocaleString('es-ES')} para pasarle` : undefined}
                   />
                 </button>
               ) : (
-                <GamificationRankingStripCard
+                <LeaderboardRow
                   level={entry.level}
                   levelTitle={entry.levelTitle}
-                  displayName={entry.isYou ? 'Tú' : entry.displayName}
+                  displayName={entry.displayName}
                   photoUrl={entry.photoUrl}
                   xp={entry.xp}
                   rank={entry.rank}
                   levelProgress={entry.levelProgress}
-                  highlight={entry.isYou}
-                  className={entry.isYou ? styles.userCard : undefined}
+                  isYou={entry.isYou}
                 />
               )}
 
@@ -203,16 +203,15 @@ function RankingStripList({
           aria-label={`Ir a tu posición, #${userRank}`}
         >
           <span className={styles.floatLabel}>Tu puesto · #{userRank}</span>
-          <GamificationRankingStripCard
+          <LeaderboardRow
             level={userEntry.level}
             levelTitle={userEntry.levelTitle}
-            displayName="Tú"
+            displayName={userEntry.displayName}
             photoUrl={userEntry.photoUrl}
             xp={userEntry.xp}
             rank={userRank}
             levelProgress={userEntry.levelProgress}
-            highlight
-            className={styles.userCard}
+            isYou
           />
         </button>
       )}

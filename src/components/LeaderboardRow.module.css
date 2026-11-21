@@ -1,0 +1,218 @@
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.1rem auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 68px;
+  padding: 0.55rem 0.85rem 0.55rem 0.6rem;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid color-mix(in srgb, var(--row-border) 70%, transparent);
+  border-radius: 16px;
+  color: #fff8ef;
+  box-shadow: 0 6px 16px rgba(40, 24, 12, 0.16);
+  transition: transform 0.16s ease-out, box-shadow 0.16s ease;
+}
+
+.noRank {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--row-overlay);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(40, 24, 12, 0.22);
+  }
+}
+
+.you {
+  border: 2px solid #ff7a45;
+  box-shadow: 0 0 0 3px rgba(255, 122, 69, 0.22), 0 10px 24px rgba(40, 24, 12, 0.22);
+}
+
+.highlight {
+  border-color: #f2b544;
+  box-shadow: 0 0 0 3px rgba(242, 181, 68, 0.25), 0 10px 24px rgba(40, 24, 12, 0.22);
+}
+
+/* Puesto: columna fija; el podio en oro, plata y bronce. */
+.rank {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  font-family: var(--font-epic);
+  font-size: 1.3rem;
+  line-height: 1;
+  color: #fff8ef;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.medal1,
+.medal2,
+.medal3 {
+  border-radius: 50%;
+  color: #2a1a06;
+  text-shadow: none;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.medal1 {
+  background: radial-gradient(circle at 35% 30%, #fff6c4, #e8b53a 55%, #a66d07);
+}
+
+.medal2 {
+  background: radial-gradient(circle at 35% 30%, #ffffff, #c3ccd6 55%, #77828f);
+}
+
+.medal3 {
+  background: radial-gradient(circle at 35% 30%, #ffe0bf, #c98048 55%, #7a3f1b);
+}
+
+.avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border: 2.5px solid var(--row-ring);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.avatar > img:not(.shield),
+.initials {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.initials {
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+/* Escudo de su nivel en la esquina de la foto. */
+.shield {
+  position: absolute;
+  right: -0.55rem;
+  bottom: -0.45rem;
+  width: 1.55rem;
+  height: 1.55rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
+}
+
+.body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.nameLine {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.name {
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.youTag {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.4rem;
+  border-radius: 6px;
+  background: #ff7a45;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+}
+
+.title {
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--row-title);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.track {
+  display: block;
+  height: 4px;
+  margin-top: 0.25rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--row-track);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--row-fill);
+}
+
+.score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.score strong {
+  font-family: var(--font-epic);
+  font-size: 1.35rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.score span {
+  max-width: 7rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--row-title);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row {
+    transition: none;
+  }
+}
