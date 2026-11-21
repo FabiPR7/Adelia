@@ -24,6 +24,7 @@ import NotFoundPage from './pages/NotFoundPage'
 import CookieConsentBanner from './components/CookieConsentBanner'
 import OpenInAppPrompt from './components/OpenInAppPrompt'
 import RouteTitle from './components/RouteTitle'
+import ScrollToTop from './components/ScrollToTop'
 import { getPostLoginPath } from './utils/authProfile'
 
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
@@ -127,6 +128,7 @@ function App() {
   return (
     <>
     <RouteTitle />
+    <ScrollToTop />
     <Routes>
       <Route
         path="/olvide-contrasena"

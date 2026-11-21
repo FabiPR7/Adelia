@@ -106,10 +106,22 @@
   border: 1px solid rgba(107, 83, 68, 0.14);
 }
 
+.businessLabelShort {
+  display: none;
+}
+
 @media (max-width: 480px) {
-  /* En móvil sobra: la banda de restaurantes y el pie ya enlazan a empresas. */
+  /* En móvil se muestra con texto corto para que quepa junto a Iniciar/Registrarse. */
   .headerBusinessLink {
+    padding: 0.42rem 0.55rem;
+  }
+
+  .businessLabelLong {
     display: none;
+  }
+
+  .businessLabelShort {
+    display: inline;
   }
 }
 

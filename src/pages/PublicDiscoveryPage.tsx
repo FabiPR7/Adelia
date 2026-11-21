@@ -313,8 +313,9 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
               </Link>
             </>
           )}
-          <Link to="/empresa" className={styles.headerBusinessLink}>
-            ¿Eres empresa?
+          <Link to="/empresa" className={styles.headerBusinessLink} aria-label="¿Eres empresa?">
+            <span className={styles.businessLabelLong}>¿Eres empresa?</span>
+            <span className={styles.businessLabelShort} aria-hidden="true">Empresa</span>
           </Link>
         </div>
       </header>
