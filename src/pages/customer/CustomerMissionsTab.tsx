@@ -1,7 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import AchievementBadgeCard from '../../components/AchievementBadgeCard'
-import MissionIcon from '../../components/MissionIcon'
 import { useAuth } from '../../context/AuthContext'
 import CollectionProgress from '../../components/discovery/CollectionProgress'
 import { useCustomerProductTourOptional } from '../../context/CustomerProductTourContext'
@@ -26,7 +25,24 @@ import SeasonPackModal from '../../components/SeasonPackModal'
 import InventoryItemCard from '../../components/InventoryItemCard'
 import type { SeasonPackKind } from '../../data/inventoryItems'
 import { isAlmostDone, missionAction, remainingLabel } from '../../utils/missionNudges'
+import { achievementGlyphFor } from '../../data/achievementGlyphs'
+import { getLevelRankingStripTheme } from '../../utils/levelRankingStripThemes'
 import styles from './CustomerMissionsTab.module.css'
+
+/** Cuánto falta para que se renueven (semana: domingo a medianoche; mes: fin de mes). */
+function resetLabel(cadence: 'weekly' | 'monthly', now = new Date()): string {
+  const end = new Date(now)
+  if (cadence === 'weekly') {
+    end.setDate(end.getDate() + (7 - (end.getDay() || 7)) + 1)
+  } else {
+    end.setMonth(end.getMonth() + 1, 1)
+  }
+  end.setHours(0, 0, 0, 0)
+  const minutes = Math.max(0, Math.round((end.getTime() - now.getTime()) / 60_000))
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  return days > 0 ? `${days} d ${hours} h` : `${hours} h ${minutes % 60} min`
+}
 
 type MissionSection = 'weekly' | 'monthly' | 'historical'
 type ArenaView = 'missions' | 'compite' | 'items'
@@ -49,9 +65,28 @@ function MissionCard({
   return (
     <article className={`${styles.missionCard} ${item.completed ? styles.missionDone : ''} ${isAlmostDone(item) ? styles.missionHot : ''}`}>
       <div className={styles.missionGlow} aria-hidden="true" />
+      <span className={styles.ticketEdge} aria-hidden="true" />
       <div className={styles.missionIconWrap}>
-        <MissionIcon mission={item.mission} size="lg" />
+        <svg className={styles.missionRing} viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r="29" className={styles.missionRingTrack} />
+          <circle
+            cx="32"
+            cy="32"
+            r="29"
+            className={styles.missionRingFill}
+            strokeDasharray={`${2 * Math.PI * 29} ${2 * Math.PI * 29}`}
+            strokeDashoffset={2 * Math.PI * 29 * (1 - (item.completed ? 1 : item.progress))}
+          />
+        </svg>
+        <svg className={styles.missionGlyph} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {achievementGlyphFor(item.mission.id, item.mission.category).map(([tag, attrs], index) => {
+            const Tag = tag
+            return <Tag key={index} {...attrs} />
+          })}
+        </svg>
       </div>
+      {item.completed ? <span className={styles.servedStamp} aria-hidden="true">¡Servido!</span> : null}
+      {!item.completed && isAlmostDone(item) ? <span className={styles.hotRibbon} aria-hidden="true">¡Casi!</span> : null}
       <div className={styles.missionBody}>
         <div className={styles.missionTop}>
           <h3>{item.mission.name}</h3>
@@ -72,7 +107,8 @@ function MissionCard({
           <div className={styles.missionNext}>
             <span className={styles.missionLeft}>{isAlmostDone(item) ? `Casi: ${remainingLabel(item).toLowerCase()}` : remainingLabel(item)}</span>
             <Link to={missionAction(item.mission).to} className={styles.missionAction}>
-              {missionAction(item.mission).label} →
+              {missionAction(item.mission).label}
+              <span aria-hidden="true">→</span>
             </Link>
           </div>
         ) : null}
@@ -315,6 +351,20 @@ function CustomerMissionsTab() {
   const countryRank = liveCountryLeaderboard?.find((entry) => entry.isYou)?.rank ?? showcaseCountryRank
   const worldRank = liveWorldLeaderboard?.find((entry) => entry.isYou)?.rank ?? showcaseWorldRank
 
+  // Pique: cuánto te falta para pasar al de delante (o tu ventaja si vas primero).
+  const rival = useMemo(() => {
+    const ordered = [...countryLeaderboard].sort((left, right) => left.rank - right.rank)
+    const index = ordered.findIndex((entry) => entry.isYou)
+    if (index < 0) return null
+    const you = ordered[index]
+    if (index === 0) {
+      const second = ordered[1]
+      return second ? { lead: true, name: second.displayName, gap: Math.max(0, you.xp - second.xp), rank: 2 } : null
+    }
+    const ahead = ordered[index - 1]
+    return { lead: false, name: ahead.displayName, gap: Math.max(1, ahead.xp - you.xp + 1), rank: ahead.rank }
+  }, [countryLeaderboard])
+
   const friends = useCustomerFriends(user?.uid)
   const userRankAmongFriends = friends.getFriendRankAmongFriends(gamification.state.xp)
 
@@ -361,6 +411,17 @@ function CustomerMissionsTab() {
             ? 'Has alcanzado el rango máximo'
             : `${progressPercent}% del siguiente nivel`}
         </p>
+
+        {rival ? (
+          <p className={styles.rivalChip}>
+            <span aria-hidden="true">{rival.lead ? '👑' : '🔥'}</span>
+            {rival.lead ? (
+              <span>Vas <strong>#1 de {userCountry}</strong> · {rival.gap.toLocaleString('es-ES')} XP de ventaja sobre {rival.name}</span>
+            ) : (
+              <span>Te faltan <strong>{rival.gap.toLocaleString('es-ES')} XP</strong> para pasar a {rival.name} (#{rival.rank})</span>
+            )}
+          </p>
+        ) : null}
 
         <div className={styles.heroStats}>
           <div>
@@ -510,7 +571,19 @@ function CustomerMissionsTab() {
         </button>
       </div>
 
-      <section className={styles.missionSection}>
+      {section !== 'historical' ? (
+        <p className={styles.resetTimer}>
+          <span aria-hidden="true">⏳</span> Se renuevan en <strong>{resetLabel(section)}</strong>
+        </p>
+      ) : null}
+
+      <section
+        className={styles.missionSection}
+        style={{
+          ['--mission-accent' as string]: getLevelRankingStripTheme(gamification.level.level).avatarBorder,
+          ['--mission-fill' as string]: getLevelRankingStripTheme(gamification.level.level).xpFill,
+        }}
+      >
         {section === 'historical' ? (
           <div className={styles.logrosArena}>
             <div className={styles.logrosArenaClip} aria-hidden="true">

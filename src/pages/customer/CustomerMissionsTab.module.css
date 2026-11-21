@@ -671,3 +671,247 @@
     max-width: 60rem;
   }
 }
+
+
+/* ===== Misiones como comandas de restaurante ===== */
+.missionSection {
+  --mission-accent: #e0452a;
+  --mission-fill: linear-gradient(90deg, #e0452a, #ff9a4d);
+}
+
+.missionCard {
+  grid-template-columns: auto 1fr;
+  gap: 0.9rem;
+  padding: 1.15rem 1rem 1rem;
+  border: 1px solid #ecdcc6;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, #fffdf8 0%, #fff8ee 100%);
+  box-shadow: 0 8px 20px rgba(90, 60, 30, 0.1);
+  transition: transform 0.16s ease-out, box-shadow 0.16s ease;
+}
+
+@media (hover: hover) {
+  .missionCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(90, 60, 30, 0.16);
+  }
+}
+
+/* Borde de ticket arrancado arriba. */
+.ticketEdge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 7px;
+  background:
+    radial-gradient(circle at 7px -2px, transparent 5px, var(--mission-accent) 5.5px) 0 0 / 14px 7px repeat-x;
+  opacity: 0.9;
+}
+
+.missionCard h3 {
+  font-size: 1.12rem;
+  color: #3b2a1e;
+}
+
+.missionCard p {
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: #6b5544;
+}
+
+.missionXp {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid #e8c56a;
+  background: linear-gradient(135deg, #fff4cc, #f7d77a);
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #6b4500;
+  box-shadow: 0 2px 6px rgba(160, 110, 10, 0.25);
+}
+
+.missionIconWrap {
+  position: relative;
+  width: 3.7rem;
+  height: 3.7rem;
+  border: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #f4e7d4);
+  box-shadow: inset 0 0 0 1px rgba(120, 80, 40, 0.12);
+}
+
+.missionRing {
+  position: absolute;
+  inset: -5px;
+  width: calc(100% + 10px);
+  height: calc(100% + 10px);
+  transform: rotate(-90deg);
+}
+
+.missionRingTrack {
+  fill: none;
+  stroke: #efe2cf;
+  stroke-width: 4;
+}
+
+.missionRingFill {
+  fill: none;
+  stroke: var(--mission-accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.missionGlyph {
+  position: relative;
+  width: 1.7rem;
+  height: 1.7rem;
+  color: #8a4b2a;
+}
+
+.missionProgressTrack {
+  height: 9px;
+  background: #f1e4d2;
+}
+
+.missionProgressFill {
+  background: var(--mission-fill);
+}
+
+.missionLeft {
+  font-weight: 700;
+  color: #8a4b2a;
+}
+
+.missionAction {
+  gap: 0.35rem;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  background: #2b1f17;
+  color: #ffffff;
+  transition: transform 0.16s ease-out;
+}
+
+.missionAction:active {
+  transform: scale(0.96);
+}
+
+/* Completada: sello de «¡Servido!» y tarjeta en verde suave. */
+.missionDone {
+  border-color: #bfe3cb;
+  background: linear-gradient(180deg, #f6fdf8 0%, #ecf8f0 100%);
+}
+
+.missionDone .missionRingFill {
+  stroke: #2f9e5b;
+}
+
+.missionDone .missionGlyph {
+  color: #1f7a45;
+}
+
+.servedStamp {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.8rem;
+  padding: 0.15rem 0.55rem;
+  border: 2.5px solid #2f9e5b;
+  border-radius: 8px;
+  font-family: var(--font-epic);
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  color: #2f9e5b;
+  text-transform: uppercase;
+  transform: rotate(-10deg);
+  opacity: 0.9;
+  animation: stampIn 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+/* Casi lista: cinta naranja que late. */
+.hotRibbon {
+  position: absolute;
+  top: 0.85rem;
+  right: -2.2rem;
+  width: 8rem;
+  padding: 0.12rem 0;
+  background: linear-gradient(90deg, #ff7a45, #e0452a);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-transform: uppercase;
+  color: #ffffff;
+  transform: rotate(35deg);
+  box-shadow: 0 3px 8px rgba(224, 69, 42, 0.35);
+}
+
+.missionHot {
+  border-color: #f6b58f;
+  animation: hotPulse 2.4s ease-in-out infinite;
+}
+
+.resetTimer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 1rem 0;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.resetTimer strong {
+  color: var(--color-text);
+}
+
+.rivalChip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: #fff8ef;
+}
+
+.rivalChip strong {
+  color: #ffd58a;
+}
+
+@keyframes stampIn {
+  from {
+    opacity: 0;
+    transform: rotate(-10deg) scale(1.8);
+  }
+  to {
+    opacity: 0.9;
+    transform: rotate(-10deg) scale(1);
+  }
+}
+
+@keyframes hotPulse {
+  0%,
+  100% {
+    box-shadow: 0 8px 20px rgba(90, 60, 30, 0.1), 0 0 0 0 rgba(224, 69, 42, 0);
+  }
+  50% {
+    box-shadow: 0 8px 20px rgba(90, 60, 30, 0.1), 0 0 0 4px rgba(224, 69, 42, 0.14);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .servedStamp,
+  .missionHot {
+    animation: none;
+  }
+
+  .missionRingFill {
+    transition: none;
+  }
+}

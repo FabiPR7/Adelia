@@ -161,6 +161,166 @@ export const ACHIEVEMENT_GLYPHS: Record<string, GlyphNode[]> = {
       }
     ]
   ],
+  "calendar-clock": [
+    [
+      "path",
+      {
+        "d": "M16 14v2.2l1.6 1"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M16 2v3"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M21 7.338V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h2.338"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M3 9h5.859"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M8 2v3"
+      }
+    ],
+    [
+      "circle",
+      {
+        "cx": "16",
+        "cy": "16",
+        "r": "6"
+      }
+    ]
+  ],
+  "calendar-days": [
+    [
+      "path",
+      {
+        "d": "M8 2v3"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M16 2v3"
+      }
+    ],
+    [
+      "rect",
+      {
+        "x": "3",
+        "y": "3",
+        "width": "18",
+        "height": "18",
+        "rx": "2"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M3 9h18"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M8 13h.01"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M12 13h.01"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M16 13h.01"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M8 17h.01"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M12 17h.01"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M16 17h.01"
+      }
+    ]
+  ],
+  "calendar-range": [
+    [
+      "rect",
+      {
+        "x": "3",
+        "y": "3",
+        "width": "18",
+        "height": "18",
+        "rx": "2"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M16 2v3"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M3 9h18"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M8 2v3"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M17 13h-6"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M13 17H7"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M7 13h.01"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M17 17h.01"
+      }
+    ]
+  ],
   "camera": [
     [
       "path",
@@ -224,6 +384,20 @@ export const ACHIEVEMENT_GLYPHS: Record<string, GlyphNode[]> = {
       "path",
       {
         "d": "M6 3v8"
+      }
+    ]
+  ],
+  "chef-hat": [
+    [
+      "path",
+      {
+        "d": "M17 21a1 1 0 0 0 1-1v-5.35c0-.457.316-.844.727-1.041a4 4 0 0 0-2.134-7.589 5 5 0 0 0-9.186 0 4 4 0 0 0-2.134 7.588c.411.198.727.585.727 1.041V20a1 1 0 0 0 1 1Z"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M6 17h12"
       }
     ]
   ],
@@ -329,6 +503,26 @@ export const ACHIEVEMENT_GLYPHS: Record<string, GlyphNode[]> = {
       "path",
       {
         "d": "M5 21h14"
+      }
+    ]
+  ],
+  "euro": [
+    [
+      "path",
+      {
+        "d": "M4 10h12"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M4 14h9"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"
       }
     ]
   ],
@@ -919,6 +1113,38 @@ export const ACHIEVEMENT_GLYPHS: Record<string, GlyphNode[]> = {
       }
     ]
   ],
+  "shuffle": [
+    [
+      "path",
+      {
+        "d": "m18 14 4 4-4 4"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "m18 2 4 4-4 4"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M2 6h1.972a4 4 0 0 1 3.6 2.2"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"
+      }
+    ]
+  ],
   "sparkles": [
     [
       "path",
@@ -1143,6 +1369,46 @@ export const ACHIEVEMENT_GLYPHS: Record<string, GlyphNode[]> = {
         "d": "M6 11c1.5 0 2.5.5 3 2"
       }
     ]
+  ],
+  "wallet": [
+    [
+      "path",
+      {
+        "d": "M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"
+      }
+    ]
+  ],
+  "wine": [
+    [
+      "path",
+      {
+        "d": "M8 22h8"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M7 10h10"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M12 15v7"
+      }
+    ],
+    [
+      "path",
+      {
+        "d": "M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z"
+      }
+    ]
   ]
 }
 
@@ -1203,7 +1469,30 @@ const GLYPH_BY_MISSION: Record<string, string> = {
   "maestro_respuesta": "reply",
   "adelinas_100": "coins",
   "adelinas_500": "piggy-bank",
-  "emblema_fogon": "flame-kindling"
+  "emblema_fogon": "flame-kindling",
+  "reserva_confirmada_semana": "calendar-check",
+  "reserva_obligatoria_semana": "calendar-days",
+  "consumo_sin_reserva_semana": "receipt",
+  "consumo_productos_semana": "book-open",
+  "gasto_minimo_semana": "credit-card",
+  "ticket_30_semana": "euro",
+  "visita_bar_semana": "beer",
+  "visita_restaurante_semana": "utensils-crossed",
+  "promo_consumo_semana": "tag",
+  "reserva_anticipada": "calendar-clock",
+  "mesa_compartida_semana": "users",
+  "fiel_seguidor": "heart",
+  "critico_foto": "camera",
+  "voz_experiencia": "message-circle",
+  "reservas_mes": "calendar-range",
+  "consumos_mes": "receipt-text",
+  "gastos_minimos_mes": "wallet",
+  "gasto_acumulado_mes": "piggy-bank",
+  "bar_y_restaurante_mes": "wine",
+  "productos_mes": "chef-hat",
+  "dos_modalidades_mes": "shuffle",
+  "critico_consistente": "pen-line",
+  "ruta_especialidades": "compass"
 }
 
 const GLYPH_BY_CATEGORY: Record<string, string> = {
