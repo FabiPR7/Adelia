@@ -112,6 +112,7 @@ export const COMPANY_CHARACTERISTIC_OPTIONS = [
   'Gofres',
   'Crepes',
   'Gastrobar',
+  'Comida internacional',
 ] as const
 
 export type CompanyCharacteristicOption = (typeof COMPANY_CHARACTERISTIC_OPTIONS)[number]

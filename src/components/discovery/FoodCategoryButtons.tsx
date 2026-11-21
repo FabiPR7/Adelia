@@ -39,7 +39,8 @@ function FoodCategoryButtons({
     }))
     return withCount
       .filter(({ category, count }) => category.main || count > 0 || category.id === activeId)
-      .sort((a, b) => Number(b.count > 0) - Number(a.count > 0))
+      // Primero los que tienen restaurantes y, entre ellos, los principales.
+      .sort((a, b) => Number(b.count > 0) - Number(a.count > 0) || Number(Boolean(b.category.main)) - Number(Boolean(a.category.main)))
   }, [restaurants, activeId])
 
   const visible = expanded ? items : items.slice(0, COLLAPSED)
