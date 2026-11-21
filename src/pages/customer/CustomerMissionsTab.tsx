@@ -85,8 +85,6 @@ function MissionCard({
           })}
         </svg>
       </div>
-      {item.completed ? <span className={styles.servedStamp} aria-hidden="true">¡Servido!</span> : null}
-      {!item.completed && isAlmostDone(item) ? <span className={styles.hotRibbon} aria-hidden="true">¡Casi!</span> : null}
       <div className={styles.missionBody}>
         <div className={styles.missionTop}>
           <h3>{item.mission.name}</h3>
@@ -105,7 +103,10 @@ function MissionCard({
         ) : null}
         {!item.completed ? (
           <div className={styles.missionNext}>
-            <span className={styles.missionLeft}>{isAlmostDone(item) ? `Casi: ${remainingLabel(item).toLowerCase()}` : remainingLabel(item)}</span>
+            <span className={styles.missionLeft}>
+              {isAlmostDone(item) ? <span className={styles.hotTag}>¡Casi!</span> : null}
+              {remainingLabel(item)}
+            </span>
             <Link to={missionAction(item.mission).to} className={styles.missionAction}>
               {missionAction(item.mission).label}
               <span aria-hidden="true">→</span>
@@ -124,7 +125,7 @@ function MissionCard({
             </span>
           </div>
         ) : (
-          <span className={styles.missionCompleteTag}>✓ Completada</span>
+          <span className={styles.servedStamp}>¡Servido!</span>
         )}
       </div>
     </article>

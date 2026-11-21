@@ -915,3 +915,39 @@
     transition: none;
   }
 }
+
+/* Los carteles van en la fila de abajo, sin tapar los puntos. */
+.servedStamp {
+  position: static;
+  align-self: flex-end;
+  margin-top: 0.4rem;
+  transform: rotate(-6deg);
+}
+
+.missionLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hotTag {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff7a45, #e0452a);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+@keyframes stampIn {
+  from {
+    opacity: 0;
+    transform: rotate(-6deg) scale(1.8);
+  }
+  to {
+    opacity: 0.9;
+    transform: rotate(-6deg) scale(1);
+  }
+}

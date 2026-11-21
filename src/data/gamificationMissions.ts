@@ -229,7 +229,7 @@ export let MONTHLY_MISSION_POOL: MissionDefinition[] = [
     xp: 250,
     cadence: 'monthly',
     category: 'reviews',
-    description: 'Publica 3 reseñas detalladas con foto',
+    description: 'Publica 3 reseñas con foto este mes',
     icon: 'adelina-review',
     target: 3,
     rotationGroup: 'community',

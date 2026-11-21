@@ -394,46 +394,46 @@ function evaluateMission(
 
   switch (mission.id) {
     case 'reserva_confirmada_semana':
-      return { current: weekReservations.length, completed: weekReservations.length >= 1 }
+      return { current: weekReservations.length, completed: weekReservations.length >= mission.target }
     case 'reserva_obligatoria_semana': {
       const matches = weekReservations.filter(
         (reservation) => context.restaurantReservationModes.get(reservation.companyId) === 'required',
       )
-      return { current: matches.length, completed: matches.length >= 1 }
+      return { current: matches.length, completed: matches.length >= mission.target }
     }
     case 'consumo_sin_reserva_semana':
-      return { current: weekWalkIns.length, completed: weekWalkIns.length >= 1 }
+      return { current: weekWalkIns.length, completed: weekWalkIns.length >= mission.target }
     case 'consumo_productos_semana': {
       const matches = weekConsumptions.filter(
         (consumption) => consumption.mode === 'products' && consumption.lineItems.length > 0,
       )
-      return { current: matches.length, completed: matches.length >= 1 }
+      return { current: matches.length, completed: matches.length >= mission.target }
     }
     case 'gasto_minimo_semana': {
       const matches = weekConsumptions.filter((consumption) => consumption.minimumSpendCents > 0)
-      return { current: matches.length, completed: matches.length >= 1 }
+      return { current: matches.length, completed: matches.length >= mission.target }
     }
     case 'ticket_30_semana': {
       const matches = weekConsumptions.filter((consumption) => consumption.totalCents >= 3000)
-      return { current: matches.length, completed: matches.length >= 1 }
+      return { current: matches.length, completed: matches.length >= mission.target }
     }
     case 'visita_bar_semana': {
       const matches = weekVisits.filter((visit) => venueTypesIncludeKind(
         context.restaurantVenueTypes.get(visit.companyId) ?? [],
         'bar',
       ))
-      return { current: matches.length, completed: matches.length >= 1 }
+      return { current: matches.length, completed: matches.length >= mission.target }
     }
     case 'visita_restaurante_semana': {
       const matches = weekVisits.filter((visit) => venueTypesIncludeKind(
         context.restaurantVenueTypes.get(visit.companyId) ?? [],
         'restaurant',
       ))
-      return { current: matches.length, completed: matches.length >= 1 }
+      return { current: matches.length, completed: matches.length >= mission.target }
     }
     case 'promo_consumo_semana': {
       const matches = weekWalkIns.filter((consumption) => Boolean(consumption.promotionId))
-      return { current: matches.length, completed: matches.length >= 1 }
+      return { current: matches.length, completed: matches.length >= mission.target }
     }
     case 'mesa_compartida_semana': {
       const matches = weekReservations.filter((reservation) => reservation.pax >= 3)
@@ -457,7 +457,7 @@ function evaluateMission(
       )
       return {
         current: matches.length,
-        completed: matches.length >= 1,
+        completed: matches.length >= mission.target,
       }
     }
     case 'reserva_anticipada': {
@@ -468,16 +468,16 @@ function evaluateMission(
       )
       return {
         current: matches.length,
-        completed: matches.length >= 1,
+        completed: matches.length >= mission.target,
       }
     }
     case 'gourmet_reincidente': {
-      return { current: weekVisits.length, completed: weekVisits.length >= 2 }
+      return { current: weekVisits.length, completed: weekVisits.length >= mission.target }
     }
     case 'descubrimiento_semanal':
       return {
         current: firstVisits.length,
-        completed: firstVisits.length >= 1,
+        completed: firstVisits.length >= mission.target,
       }
     case 'en_busca_ofertas': {
       const promoVisits = weekVisits.filter(
@@ -485,13 +485,13 @@ function evaluateMission(
       )
       return {
         current: promoVisits.length,
-        completed: promoVisits.length >= 1,
+        completed: promoVisits.length >= mission.target,
       }
     }
     case 'fiel_seguidor':
       return {
         current: favoritesAddedThisWeek,
-        completed: favoritesAddedThisWeek >= 3,
+        completed: favoritesAddedThisWeek >= mission.target,
       }
     case 'critico_foto': {
       const current = countSinceBaseline(
@@ -535,17 +535,17 @@ function evaluateMission(
     case 'ruta_gastronomica':
       return {
         current: monthVisits.length,
-        completed: monthVisits.length >= 4,
+        completed: monthVisits.length >= mission.target,
       }
     case 'reservas_mes':
-      return { current: monthReservations.length, completed: monthReservations.length >= 3 }
+      return { current: monthReservations.length, completed: monthReservations.length >= mission.target }
     case 'consumos_mes':
-      return { current: monthWalkIns.length, completed: monthWalkIns.length >= 3 }
+      return { current: monthWalkIns.length, completed: monthWalkIns.length >= mission.target }
     case 'gastos_minimos_mes': {
       const current = monthConsumptions.filter(
         (consumption) => consumption.minimumSpendCents > 0,
       ).length
-      return { current, completed: current >= 2 }
+      return { current, completed: current >= mission.target }
     }
     case 'gasto_acumulado_mes': {
       const current = Math.floor(
@@ -560,7 +560,7 @@ function evaluateMission(
       const current = monthConsumptions.filter(
         (consumption) => consumption.mode === 'products' && consumption.lineItems.length > 0,
       ).length
-      return { current, completed: current >= 3 }
+      return { current, completed: current >= mission.target }
     }
     case 'dos_modalidades_mes': {
       const withReservation = monthReservations.length > 0
@@ -573,13 +573,13 @@ function evaluateMission(
         state.redemptionsCount,
         state.redemptionsCountAtMonthStart,
       )
-      return { current, completed: current >= 1 }
+      return { current, completed: current >= mission.target }
     }
-    case 'explorador_ciudad':
-      return {
-        current: uniqueZones(monthVisits, context.restaurantZones),
-        completed: uniqueZones(monthVisits, context.restaurantZones) >= 3,
-      }
+    case 'explorador_ciudad': {
+      // Restaurantes distintos este mes (antes «zonas» = municipios: en una sola ciudad era imposible).
+      const venues = new Set(monthVisits.map((visit) => visit.companyId)).size
+      return { current: venues, completed: venues >= mission.target }
+    }
     case 'menu_completo': {
       const lunch = monthVisits.some((visit) => isLunchHour(visit.visitedAt))
       const dinner = monthVisits.some((visit) => isDinnerHour(visit.visitedAt))
@@ -589,7 +589,7 @@ function evaluateMission(
     case 'maraton_mensual':
       return {
         current: monthVisits.length,
-        completed: monthVisits.length >= 6,
+        completed: monthVisits.length >= mission.target,
       }
     case 'grupo_grande_mes':
       return {
@@ -600,28 +600,28 @@ function evaluateMission(
       const promoCount = monthBooked.filter(
         (reservation) => context.promotionCompanyIds.has(reservation.companyId),
       ).length
-      return { current: promoCount, completed: promoCount >= 2 }
+      return { current: promoCount, completed: promoCount >= mission.target }
     }
     case 'finde_gourmet_mes':
       return {
         current: monthVisits.filter((visit) => isWeekend(visit.visitedAt)).length,
-        completed: monthVisits.filter((visit) => isWeekend(visit.visitedAt)).length >= 2,
+        completed: monthVisits.filter((visit) => isWeekend(visit.visitedAt)).length >= mission.target,
       }
     case 'valle_laboral_mes':
       return {
         current: monthBooked.filter((reservation) => isWeekdaySlow(reservation.startTime)).length,
-        completed: monthBooked.filter((reservation) => isWeekdaySlow(reservation.startTime)).length >= 2,
+        completed: monthBooked.filter((reservation) => isWeekdaySlow(reservation.startTime)).length >= mission.target,
       }
     case 'descubridor_mes':
       return {
         current: firstVisitsThisMonth(visits).length,
-        completed: firstVisitsThisMonth(visits).length >= 2,
+        completed: firstVisitsThisMonth(visits).length >= mission.target,
       }
     case 'debut_gastronomico':
-      return { current: attended.length, completed: attended.length >= 1 }
+      return { current: attended.length, completed: attended.length >= mission.target }
     case 'primer_consumo_libre': {
       const walkIns = verifiedWalkInConsumptions(context.consumptions)
-      return { current: walkIns.length, completed: walkIns.length >= 1 }
+      return { current: walkIns.length, completed: walkIns.length >= mission.target }
     }
     case 'primer_gasto_minimo': {
       const current = consumptions.filter((consumption) => consumption.minimumSpendCents > 0).length
@@ -658,7 +658,7 @@ function evaluateMission(
     case 'corazon_favorito':
       return {
         current: context.favoriteSlugs.length,
-        completed: context.favoriteSlugs.length >= 1,
+        completed: context.favoriteSlugs.length >= mission.target,
       }
     case 'almuerzo_sol':
       return {
@@ -694,20 +694,20 @@ function evaluateMission(
         ),
       }
     case 'club_10_mesas':
-      return { current: attended.length, completed: attended.length >= 10 }
+      return { current: attended.length, completed: attended.length >= mission.target }
     case 'racha_mensual':
       return {
         current: monthReservations.length,
-        completed: monthReservations.length >= 3,
+        completed: monthReservations.length >= mission.target,
       }
     case 'cazador_ofertas': {
       const promoCount = visits.filter(
         (visit) => Boolean(visit.promotionId) || context.promotionCompanyIds.has(visit.companyId),
       ).length
-      return { current: promoCount, completed: promoCount >= 3 }
+      return { current: promoCount, completed: promoCount >= mission.target }
     }
     case 'voz_barrio':
-      return { current: state.reviewsCount, completed: state.reviewsCount >= 5 }
+      return { current: state.reviewsCount, completed: state.reviewsCount >= mission.target }
     case 'mesa_grande':
       return {
         current: attended.filter((reservation) => reservation.pax >= 5).length,
@@ -715,7 +715,7 @@ function evaluateMission(
       }
     case 'explorador_zona': {
       const zones = uniqueZones(visits, context.restaurantZones)
-      return { current: zones, completed: zones >= 5 }
+      return { current: zones, completed: zones >= mission.target }
     }
     case 'reserva_planificada':
       return {
@@ -731,39 +731,39 @@ function evaluateMission(
         ),
       }
     case 'socio_veterano':
-      return { current: attended.length, completed: attended.length >= 25 }
+      return { current: attended.length, completed: attended.length >= mission.target }
     case 'embajador_local': {
       const uniqueVenues = new Set(visits.map((visit) => visit.companyId)).size
-      return { current: uniqueVenues, completed: uniqueVenues >= 20 }
+      return { current: uniqueVenues, completed: uniqueVenues >= mission.target }
     }
     case 'maestro_resenas':
-      return { current: state.reviewsCount, completed: state.reviewsCount >= 20 }
+      return { current: state.reviewsCount, completed: state.reviewsCount >= mission.target }
     case 'coleccionista_premios':
-      return { current: state.redemptionsCount, completed: state.redemptionsCount >= 8 }
+      return { current: state.redemptionsCount, completed: state.redemptionsCount >= mission.target }
     case 'maraton_gastro':
-      return { current: attended.length, completed: attended.length >= 30 }
+      return { current: attended.length, completed: attended.length >= mission.target }
     case 'leyenda_restaurante':
-      return { current: attended.length, completed: attended.length >= 50 }
+      return { current: attended.length, completed: attended.length >= mission.target }
     case 'centurion_mesas':
-      return { current: attended.length, completed: attended.length >= 100 }
+      return { current: attended.length, completed: attended.length >= mission.target }
     case 'llama_eterna':
-      return { current: attended.length, completed: attended.length >= 75 }
+      return { current: attended.length, completed: attended.length >= mission.target }
     case 'oraculo_sabores':
-      return { current: state.reviewsCount, completed: state.reviewsCount >= 50 }
+      return { current: state.reviewsCount, completed: state.reviewsCount >= mission.target }
     case 'corona_gastro': {
       const venues = new Set(visits.map((visit) => visit.companyId)).size
-      return { current: venues, completed: venues >= 40 }
+      return { current: venues, completed: venues >= mission.target }
     }
     case 'emperador_adelia': {
       const level = getLevelForXp(state.xp).level
-      return { current: level, completed: level >= 7 }
+      return { current: level, completed: level >= mission.target }
     }
     case 'cliente_fiel_meson': {
       const completions = totalLadderCompletions(state.ladderCompletionsByCompany)
-      return { current: completions, completed: completions >= 1 }
+      return { current: completions, completed: completions >= mission.target }
     }
     case 'primera_opinion':
-      return { current: state.reviewsCount, completed: state.reviewsCount >= 1 }
+      return { current: state.reviewsCount, completed: state.reviewsCount >= mission.target }
     case 'fotografo_gourmet':
       return {
         current: state.reviewsWithPhotoCount,
@@ -777,15 +777,15 @@ function evaluateMission(
     case 'guia_michelin':
       return {
         current: state.helpfulReviewVotes,
-        completed: state.helpfulReviewVotes >= 50,
+        completed: state.helpfulReviewVotes >= mission.target,
       }
     case 'primer_botin':
-      return { current: state.redemptionsCount, completed: state.redemptionsCount >= 1 }
+      return { current: state.redemptionsCount, completed: state.redemptionsCount >= mission.target }
     case 'cazador_tesoros':
-      return { current: state.redemptionsCount, completed: state.redemptionsCount >= 5 }
+      return { current: state.redemptionsCount, completed: state.redemptionsCount >= mission.target }
     case 'nomada_digital': {
       const unique = new Set(visits.map((visit) => visit.companyId)).size
-      return { current: unique, completed: unique >= 10 }
+      return { current: unique, completed: unique >= mission.target }
     }
     case 'ruta_internacional': {
       const cuisines = uniqueInternationalCuisines(visits, context.restaurantCategories)
