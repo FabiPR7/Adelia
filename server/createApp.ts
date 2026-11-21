@@ -93,6 +93,16 @@ export function createApp() {
 
   app.use(express.json({ limit: '256kb' }))
   app.use(express.urlencoded({ extended: false, limit: '32kb' }))
+  // Los identificadores de la URL se usan como rutas de la base de datos: una barra
+  // codificada (%2F, %5C) o «..» podría apuntar a otro documento. Se rechazan aquí.
+  app.use((req, res, next) => {
+    const rawPath = (req.originalUrl || '').split('?')[0] ?? ''
+    if (/%2f|%5c|%00/i.test(rawPath) || /(^|\/)\.\.(\/|$)/.test(rawPath)) {
+      res.status(400).json({ error: 'Ruta no válida.' })
+      return
+    }
+    next()
+  })
   app.use(sanitizeRequest)
   app.use(apiRateLimit)
   app.use(remoteCatalogMiddleware)

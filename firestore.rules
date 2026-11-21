@@ -611,7 +611,9 @@ service cloud.firestore {
     }
 
     match /appConfig/{configId} {
-      allow read: if true;
+      // Solo lo que la web necesita es público; la configuración de seguridad y
+      // de reglas de negocio solo la ve el admin (el servidor la lee con su cuenta).
+      allow read: if configId in ['billing', 'planCapabilities'] || isAdmin();
       allow write: if false;
     }
 

@@ -1,9 +1,7 @@
 import { getMissionCatalogEntry, getLevelForXpFromCatalog } from '../data/gameCatalog.ts'
 import { getBusinessRules } from '../config/businessRules.ts'
+import * as liveGame from './missions/types.ts'
 import {
-  MONTHLY_MISSION_SLOT_COUNT,
-  WEEKLY_BONUS_TARGET,
-  WEEKLY_MISSION_SLOT_COUNT,
   getInventoryItem,
   promoMinimumCents,
   rewardsForLevel,
@@ -194,14 +192,17 @@ export function claimSeasonPack(
   ).length
   const monthlyCount = stringArray(state.monthlyCompleted).length
 
-  if (kind === 'weekly_bonus' && weeklyCount < WEEKLY_BONUS_TARGET) {
-    throw new Error(`Completa ${WEEKLY_BONUS_TARGET} misiones de la semana para reclamar este pack.`)
+  // Los mismos valores que usa el motor de misiones (vienen de la base de datos).
+  const bonusTarget = liveGame.WEEKLY_BONUS_TARGET
+  const { weeklyMissionSlots, monthlyMissionSlots } = getBusinessRules()
+  if (kind === 'weekly_bonus' && weeklyCount < bonusTarget) {
+    throw new Error(`Completa ${bonusTarget} misiones de la semana para reclamar este pack.`)
   }
-  if (kind === 'weekly_clear' && weeklyCount < WEEKLY_MISSION_SLOT_COUNT) {
-    throw new Error(`Completa las ${WEEKLY_MISSION_SLOT_COUNT} misiones de la semana para reclamar este pack.`)
+  if (kind === 'weekly_clear' && weeklyCount < weeklyMissionSlots) {
+    throw new Error(`Completa las ${weeklyMissionSlots} misiones de la semana para reclamar este pack.`)
   }
-  if (kind === 'monthly_clear' && monthlyCount < MONTHLY_MISSION_SLOT_COUNT) {
-    throw new Error(`Completa las ${MONTHLY_MISSION_SLOT_COUNT} misiones del mes para reclamar este pack.`)
+  if (kind === 'monthly_clear' && monthlyCount < monthlyMissionSlots) {
+    throw new Error(`Completa las ${monthlyMissionSlots} misiones del mes para reclamar este pack.`)
   }
 
   const grantKey = seasonPackGrantKey(kind, weekKey, monthKey)
