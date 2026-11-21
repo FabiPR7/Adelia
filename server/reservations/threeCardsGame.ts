@@ -1,3 +1,5 @@
+// Tiempos y tamaños del juego: vienen de la base de datos (gameConfig/minigames).
+import { getMinigameRules } from '../config/minigameRules.ts'
 export type ThreeCardsPhase =
   | 'pick_deck'
   | 'remove'
@@ -34,10 +36,6 @@ export interface ThreeCardsGame {
   winnerUid: string | null
 }
 
-export const TURN_MS = 15_000
-export const REVEAL_MS = 2_800
-export const SHOWDOWN_MS = 4_500
-export const TIE_MS = 3_200
 
 const RANKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
@@ -163,7 +161,7 @@ function startRemoveRound(game: ThreeCardsGame, now: number) {
   game.phase = 'remove'
   game.firstPlayerUid = Math.random() < 0.5 ? game.challengerUid : game.challengedUid
   game.turnUid = game.firstPlayerUid
-  game.turnDeadlineAt = isoIn(TURN_MS, now)
+  game.turnDeadlineAt = isoIn(getMinigameRules().threeCards.turnMs, now)
   game.revealUntil = null
   game.lastRemoved = null
   game.showdown = null
@@ -205,7 +203,7 @@ function startFinalPick(game: ThreeCardsGame, now: number) {
   game.phase = 'final_pick'
   game.firstPlayerUid = Math.random() < 0.5 ? game.challengerUid : game.challengedUid
   game.turnUid = game.firstPlayerUid
-  game.turnDeadlineAt = isoIn(TURN_MS, now)
+  game.turnDeadlineAt = isoIn(getMinigameRules().threeCards.turnMs, now)
   game.tieUntil = null
   game.lastRemoved = null
 }
@@ -238,7 +236,7 @@ function resolveShowdown(game: ThreeCardsGame, now: number) {
   }
 
   game.phase = 'tie'
-  game.tieUntil = isoIn(TIE_MS, now)
+  game.tieUntil = isoIn(getMinigameRules().threeCards.tieMs, now)
   game.turnUid = null
   game.turnDeadlineAt = null
 }
@@ -258,7 +256,7 @@ function afterReveal(game: ThreeCardsGame, now: number) {
       challengerRank: mine.rank,
       challengedRank: theirs.rank,
     }
-    game.showdownUntil = isoIn(SHOWDOWN_MS, now)
+    game.showdownUntil = isoIn(getMinigameRules().threeCards.showdownMs, now)
     game.turnUid = null
     game.turnDeadlineAt = null
     return
@@ -269,7 +267,7 @@ function afterReveal(game: ThreeCardsGame, now: number) {
   }
   game.phase = 'remove'
   game.turnUid = otherUid(game, game.turnUid)
-  game.turnDeadlineAt = isoIn(TURN_MS, now)
+  game.turnDeadlineAt = isoIn(getMinigameRules().threeCards.turnMs, now)
 }
 
 function applyRemove(game: ThreeCardsGame, uid: string, cardId: string, now: number) {
@@ -290,7 +288,7 @@ function applyRemove(game: ThreeCardsGame, uid: string, cardId: string, now: num
     byUid: uid,
   }
   game.phase = 'reveal'
-  game.revealUntil = isoIn(REVEAL_MS, now)
+  game.revealUntil = isoIn(getMinigameRules().threeCards.revealMs, now)
   game.turnDeadlineAt = null
 }
 
@@ -315,14 +313,14 @@ function applyFinalPick(game: ThreeCardsGame, uid: string, cardId: string, now: 
       challengerRank: challengerCard.rank,
       challengedRank: challengedCard.rank,
     }
-    game.showdownUntil = isoIn(SHOWDOWN_MS, now)
+    game.showdownUntil = isoIn(getMinigameRules().threeCards.showdownMs, now)
     game.turnUid = null
     game.turnDeadlineAt = null
     return
   }
 
   game.turnUid = otherUid(game, uid)
-  game.turnDeadlineAt = isoIn(TURN_MS, now)
+  game.turnDeadlineAt = isoIn(getMinigameRules().threeCards.turnMs, now)
 }
 
 function autoRemove(game: ThreeCardsGame, now: number) {

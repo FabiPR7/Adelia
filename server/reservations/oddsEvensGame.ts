@@ -1,3 +1,5 @@
+// Tiempos y tamaños del juego: vienen de la base de datos (gameConfig/minigames).
+import { getMinigameRules } from '../config/minigameRules.ts'
 export type OddsEvensPhase = 'choose_side' | 'pick_number' | 'reveal' | 'done'
 export type OddsEvensSide = 'even' | 'odd'
 
@@ -32,8 +34,6 @@ export interface OddsEvensRoundLogEntry {
   winnerUid: string
 }
 
-export const TURN_MS = 15_000
-export const REVEAL_MS = 3_400
 
 function isoIn(ms: number, now: number): string {
   return new Date(now + ms).toISOString()
@@ -184,7 +184,7 @@ export function createOddsEvensGame(challengerUid: string, challengedUid: string
     challengedScore: 0,
     challengerPick: null,
     challengedPick: null,
-    chooseDeadlineAt: isoIn(TURN_MS, Date.now()),
+    chooseDeadlineAt: isoIn(getMinigameRules().oddsEvens.turnMs, Date.now()),
     pickDeadlineAt: null,
     revealUntil: null,
     lastSum: null,
@@ -255,7 +255,7 @@ function beginNumberPick(game: OddsEvensGame, now: number) {
   game.phase = 'pick_number'
   clearPicks(game)
   game.chooseDeadlineAt = null
-  game.pickDeadlineAt = isoIn(TURN_MS, now)
+  game.pickDeadlineAt = isoIn(getMinigameRules().oddsEvens.turnMs, now)
   game.revealUntil = null
   game.lastSum = null
   game.lastParity = null
@@ -276,7 +276,7 @@ function beginReveal(game: OddsEvensGame, now: number) {
   game.lastParity = parity
   game.lastRoundWinnerUid = winnerUid
   game.pickDeadlineAt = null
-  game.revealUntil = isoIn(REVEAL_MS, now)
+  game.revealUntil = isoIn(getMinigameRules().oddsEvens.revealMs, now)
   game.roundLog = [
     ...copyLog(game).filter((entry) => entry.round !== game.round),
     { round: game.round, challengerPick: left, challengedPick: right, sum, parity, winnerUid },

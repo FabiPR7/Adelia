@@ -1,12 +1,10 @@
+// Tiempos y tamaños del juego: vienen de la base de datos (gameConfig/minigames).
+import { getMinigameRules } from '../config/minigameRules.ts'
 export type HotColdPhase = 'pick_secret' | 'probe' | 'guess' | 'done'
 export type HotColdTemperature = 'boiling' | 'hot' | 'warm' | 'cold' | 'freezing'
 export type HotColdDirection = 'higher' | 'lower' | 'exact'
 export type HotColdGuessOutcome = 'tie' | 'both_miss' | null
 
-export const HOT_COLD_MIN = 1
-export const HOT_COLD_MAX = 99
-export const HOT_COLD_GUESS_COUNTDOWN_MS = 3_000
-export const HOT_COLD_TIE_MS = 80
 
 export interface HotColdGame {
   phase: HotColdPhase
@@ -53,7 +51,7 @@ function asInt(value: unknown): number | null {
 
 function asHotNumber(value: unknown): number | null {
   const parsed = asInt(value)
-  if (parsed == null || parsed < HOT_COLD_MIN || parsed > HOT_COLD_MAX) {
+  if (parsed == null || parsed < getMinigameRules().hotCold.min || parsed > getMinigameRules().hotCold.max) {
     return null
   }
   return parsed
@@ -128,7 +126,7 @@ function shuffle<T>(items: T[]): T[] {
 function pickDistinct(count: number, exclude: number[] = []): number[] {
   const banned = new Set(exclude)
   const pool: number[] = []
-  for (let value = HOT_COLD_MIN; value <= HOT_COLD_MAX; value += 1) {
+  for (let value = getMinigameRules().hotCold.min; value <= getMinigameRules().hotCold.max; value += 1) {
     if (!banned.has(value)) {
       pool.push(value)
     }
@@ -155,10 +153,10 @@ function placements(secret: number, distance: number, banned: Set<number>): numb
   const out: number[] = []
   const low = secret - distance
   const high = secret + distance
-  if (low >= HOT_COLD_MIN && low <= HOT_COLD_MAX && !banned.has(low)) {
+  if (low >= getMinigameRules().hotCold.min && low <= getMinigameRules().hotCold.max && !banned.has(low)) {
     out.push(low)
   }
-  if (high >= HOT_COLD_MIN && high <= HOT_COLD_MAX && !banned.has(high) && high !== low) {
+  if (high >= getMinigameRules().hotCold.min && high <= getMinigameRules().hotCold.max && !banned.has(high) && high !== low) {
     out.push(high)
   }
   return out
@@ -201,7 +199,7 @@ function randomDecoyBands(): HotColdTemperature[] {
 }
 
 function numbersFromBands(secret: number, bands: HotColdTemperature[], extraBan: number[] = []): number[] {
-  const banned = new Set<number>([secret, ...extraBan.filter((value) => value >= HOT_COLD_MIN)])
+  const banned = new Set<number>([secret, ...extraBan.filter((value) => value >= getMinigameRules().hotCold.min)])
   const picked: number[] = []
   for (const band of bands) {
     const distance = pickDistanceInBand(secret, band, banned)
@@ -376,7 +374,7 @@ function beginGuess(game: HotColdGame, outcome: HotColdGuessOutcome, now: number
   game.challengedGuess = null
   game.challengerGuessAt = 0
   game.challengedGuessAt = 0
-  game.guessStartAt = now + HOT_COLD_GUESS_COUNTDOWN_MS
+  game.guessStartAt = now + getMinigameRules().hotCold.guessCountdownMs
   game.guessAttempt += 1
   game.lastGuessOutcome = outcome
 }
@@ -419,7 +417,7 @@ function resolveGuess(game: HotColdGame) {
 
   if (challengerOk && challengedOk) {
     const delta = Math.abs(game.challengerGuessAt - game.challengedGuessAt)
-    if (delta <= HOT_COLD_TIE_MS) {
+    if (delta <= getMinigameRules().hotCold.tieMs) {
       beginGuess(game, 'tie', Date.now())
       return
     }
@@ -611,7 +609,7 @@ export function pickHotColdNumber(game: HotColdGame, uid: string, value: number,
     return game
   }
   const picked = Math.trunc(Number(value))
-  if (!Number.isInteger(picked) || picked < HOT_COLD_MIN || picked > HOT_COLD_MAX) {
+  if (!Number.isInteger(picked) || picked < getMinigameRules().hotCold.min || picked > getMinigameRules().hotCold.max) {
     throw new Error('Elige uno de los tres números.')
   }
 

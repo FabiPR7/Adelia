@@ -51,10 +51,7 @@ Revisión punto por punto de seguridad, arquitectura, base de datos y rendimient
 ### 1.5 Dependencias
 - ✅ `@grpc/grpc-js` aparece en `npm audit`, pero la versión instalada (1.14.7) ya es
   la corregida: falso positivo.
-- ⚠️ `xlsx` (importar/exportar la carta en Excel) tiene fallos conocidos sin arreglo en
-  npm. Riesgo bajo: solo procesa archivos que sube el propio restaurante en su
-  navegador. **Propuesta:** cambiar a la versión oficial de SheetJS (cdn.sheetjs.com)
-  o a `exceljs`.
+- 🔧 `xlsx`: cambiada a la versión oficial corregida de SheetJS (0.20.3). Ya no sale en `npm audit`.
 
 ---
 
@@ -69,9 +66,7 @@ Revisión punto por punto de seguridad, arquitectura, base de datos y rendimient
   `appConfig/businessRules`.
 - ✅ Todas las escrituras de web y app van por la API; reservar, horas libres,
   misiones, promos, ranking y buscador los calcula el servidor.
-- ⚠️ Constantes de los minijuegos (tiempos de turno, tamaño del laberinto…) siguen
-  en el código. Son reglas del juego, no de negocio; se pueden pasar a `gameConfig`
-  si se quiere ajustarlas sin publicar.
+- 🔧 Minijuegos: tiempos, tamaños y rangos en `gameConfig/minigames` (con límites de cordura y valores por defecto). El servidor los relee cada 5 minutos.
 
 ---
 
@@ -100,14 +95,10 @@ Revisión punto por punto de seguridad, arquitectura, base de datos y rendimient
 - ✅ Las secciones de abajo de Explorar se cargan al llegar a ellas.
 - ✅ Imágenes con carga diferida y tamaños de Cloudinary optimizados.
 - ✅ Páginas cargadas bajo demanda (`lazy`) en el router.
-- ⚠️ Las misiones se evalúan en el servidor en cada cambio de datos (con espera de
-  1,2 s). Con muchos usuarios conviene guardar el resultado y recalcular solo al
-  validar una visita o consumo.
+- 🔧 Misiones: si no ha cambiado nada (reservas, consumos, favoritos, estado guardado, semana y mes) se devuelve el último cálculo guardado (2 lecturas en vez de leer todo). Máximo 6 horas. Comprobado en producción.
 
 ---
 
-## 5. Pendiente de decidir
-1. Cambiar `xlsx` por la versión oficial o `exceljs` (1.5).
-2. Pasar las constantes de minijuegos a `gameConfig` (2).
-3. Evaluar misiones solo cuando entra una visita/consumo (4).
-4. Borrar en producción la función vieja `processScheduledNotifications`.
+## 5. Hecho después de la revisión (21 nov)
+- 🔧 Borrada en producción la función vieja `processScheduledNotifications`.
+- 🔧 Los cuatro puntos pendientes, resueltos (ver 1.5, 2 y 4).

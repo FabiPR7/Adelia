@@ -1,5 +1,5 @@
-export const MAZE_SIZE = 15
-export const MAZE_COUNTDOWN_MS = 5_000
+// Tiempos y tamaños del juego: vienen de la base de datos (gameConfig/minigames).
+import { getMinigameRules } from '../config/minigameRules.ts'
 export type MazePhase = 'playing' | 'done'
 export type MazeDirection = 'up' | 'down' | 'left' | 'right'
 
@@ -521,10 +521,10 @@ function buildMaze(size: number, seed: number): MazeBuild & { seed: number } {
 }
 
 export function createMazeGame(challengerUid: string, challengedUid: string): MazeGame {
-  const built = buildMaze(MAZE_SIZE, freshSeed())
+  const built = buildMaze(getMinigameRules().maze.size, freshSeed())
   return {
     phase: 'playing',
-    size: MAZE_SIZE,
+    size: getMinigameRules().maze.size,
     seed: built.seed,
     walls: built.walls,
     startX: built.startX,
@@ -540,7 +540,7 @@ export function createMazeGame(challengerUid: string, challengedUid: string): Ma
     challengerMoves: 0,
     challengedMoves: 0,
     winnerUid: null,
-    startAt: Date.now() + MAZE_COUNTDOWN_MS,
+    startAt: Date.now() + getMinigameRules().maze.countdownMs,
   }
 }
 
@@ -554,7 +554,7 @@ export function parseMazeGame(value: unknown): MazeGame | null {
   if (!challengerUid || !challengedUid) {
     return null
   }
-  const size = Math.min(17, Math.max(7, asInt(data.size) ?? MAZE_SIZE))
+  const size = Math.min(17, Math.max(7, asInt(data.size) ?? getMinigameRules().maze.size))
   const seed = (asInt(data.seed) ?? 1) >>> 0
   const clamp = (coord: unknown, fallback: number) => Math.max(0, Math.min(size - 1, asInt(coord) ?? fallback))
   const generated = generateMaze(size, seed)

@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { verifyCustomerUid } from '../auth/verifyRequest.ts'
+import { ensureMinigameRules } from '../config/minigameRules.ts'
 import {
   acceptReservationChallenge,
   ackChallengeResult,
@@ -19,6 +20,11 @@ import {
 } from '../reservations/challenges.ts'
 
 const router = Router()
+
+// Reglas de los minijuegos (tiempos, tamaños) desde la base de datos, cacheadas 5 min.
+router.use((_req, _res, next) => {
+  ensureMinigameRules().then(() => next(), () => next())
+})
 
 function statusForError(message: string): number {
   if (message.includes('cliente') || message.includes('autorizado')) return 401

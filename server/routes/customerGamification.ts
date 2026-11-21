@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { PIN_ATTEMPTS_MESSAGE, takePromotionPinAttempt } from '../security/rateLimit.ts'
 import { reservationCountsForLadder, sortLadderSteps } from '../promotions/ladderProgress.ts'
 import { Router, type Request, type Response } from 'express'
@@ -425,12 +426,76 @@ async function evaluateAndSaveMissions(customer: { uid: string; email: string; e
   })
 }
 
+/**
+ * Ahorro de lecturas: evaluar lee todas tus reservas, consumos y locales. Si nada ha
+ * cambiado desde la última vez se devuelve el resultado guardado (2 lecturas).
+ * «Nada ha cambiado» = misma huella de la web/app (reservas, consumos, favoritos),
+ * mismo estado guardado en el servidor (reseñas, canjes, votos…), misma semana y
+ * mes, y como mucho 6 horas (así entran también cambios del catálogo del admin).
+ */
+const EVALUATION_CACHE_MS = 6 * 60 * 60_000
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    if (typeof (value as { toDate?: unknown }).toDate === 'function') {
+      return JSON.stringify((value as { toDate: () => Date }).toDate().toISOString())
+    }
+    return `{${Object.keys(value as Record<string, unknown>)
+      .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value ?? null)
+}
+
+function evaluationKey(clientKey: string, storedState: unknown): string {
+  const now = new Date()
+  const period = `${getWeekKey(now)}|${now.getFullYear()}-${now.getMonth() + 1}`
+  return createHash('sha1').update(`${clientKey}|${period}|${stableJson(storedState ?? {})}`).digest('hex')
+}
+
+async function evaluateMissionsWithCache(
+  customer: { uid: string; email: string; emailVerified: boolean },
+  rawClientKey: unknown,
+) {
+  const clientKey = typeof rawClientKey === 'string' && rawClientKey.length > 0 && rawClientKey.length <= 20_000
+    ? createHash('sha1').update(rawClientKey).digest('hex')
+    : ''
+  const statsRef = userGamificationRef(customer.uid)
+  const cacheRef = statsRef.collection('cache').doc('missions')
+  if (clientKey) {
+    const [statsSnap, cacheSnap] = await Promise.all([statsRef.get(), cacheRef.get()])
+    const cached = cacheSnap.data()
+    if (
+      cached
+      && typeof cached.result === 'string'
+      && cached.key === evaluationKey(clientKey, statsSnap.data()?.state)
+      && Date.now() - Number(cached.at ?? 0) < EVALUATION_CACHE_MS
+    ) {
+      return { ...(JSON.parse(cached.result) as Record<string, unknown>), newItemGrantBatches: [], cached: true }
+    }
+  }
+  const result = await evaluateAndSaveMissions(customer)
+  if (clientKey) {
+    // La clave se calcula con el estado tal y como quedó guardado.
+    const savedState = (await statsRef.get()).data()?.state
+    await cacheRef.set({
+      key: evaluationKey(clientKey, savedState),
+      at: Date.now(),
+      result: JSON.stringify({ ...result, newItemGrantBatches: [] }),
+    }).catch((error) => console.error('Missions cache write error:', error))
+  }
+  return result
+}
+
 const evaluateRateLimit = createRateLimit(30, 60_000, 'missions-evaluate')
 
 router.post('/evaluate', evaluateRateLimit, async (req: Request, res: Response) => {
   try {
     const customer = await verifyCustomerUid(req)
-    res.json(await evaluateAndSaveMissions(customer))
+    res.json(await evaluateMissionsWithCache(customer, req.body?.fingerprint))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo calcular tu progreso.'
     const status = message.includes('cliente') ? 401 : 500

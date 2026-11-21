@@ -77,7 +77,7 @@ export function useCustomerGamification({
     const timer = setTimeout(() => {
     lastFingerprintRef.current = fingerprint
     setSyncing(true)
-    void evaluateCustomerMissions()
+    void evaluateCustomerMissions(fingerprint)
       .then((result) => {
         if (cancelled) return
         setState((current) => mergeMonotonicCelebrations(current, result.state))

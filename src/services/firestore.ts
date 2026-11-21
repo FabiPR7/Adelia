@@ -1768,12 +1768,14 @@ export interface ServerMissionsProgress {
  * Pide al servidor que evalúe tus misiones con tus datos (reservas, consumos,
  * favoritos) y guarde el resultado. La web ya no calcula ni propone XP.
  */
-export async function evaluateCustomerMissions(): Promise<{
+export async function evaluateCustomerMissions(fingerprint?: string): Promise<{
   state: CustomerGamificationState
   progress: ServerMissionsProgress
   newItemGrantBatches: Array<{ grantKey: string; grants: Array<{ itemId: string; quantity: number }> }>
 }> {
-  const data = await callCustomerGamificationApi('/evaluate', {})
+  // La huella (reservas, consumos, favoritos) deja al servidor reutilizar el último
+  // cálculo si nada ha cambiado: muchas menos lecturas.
+  const data = await callCustomerGamificationApi('/evaluate', fingerprint ? { fingerprint } : {})
   const raw = data.gamification && typeof data.gamification === 'object' ? data.gamification : {}
   const progress = (data.progress && typeof data.progress === 'object' ? data.progress : {}) as Partial<ServerMissionsProgress>
   const batches = Array.isArray(data.newItemGrantBatches)

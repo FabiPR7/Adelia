@@ -1,3 +1,5 @@
+// Tiempos y tamaños del juego: vienen de la base de datos (gameConfig/minigames).
+import { getMinigameRules } from '../config/minigameRules.ts'
 export type StopwatchPhase = 'idle' | 'running' | 'done'
 
 export interface StopwatchGame {
@@ -15,9 +17,6 @@ export interface StopwatchGame {
   winnerUid: string | null
 }
 
-export const MAX_RUN_MS = 20_000
-export const MIN_TARGET = 300
-export const MAX_TARGET = 1000
 
 function isoIn(ms: number, now = Date.now()): string {
   return new Date(now + ms).toISOString()
@@ -51,12 +50,12 @@ function asTimes(value: unknown): number[] {
 }
 
 export function randomTargetHundredths(): number {
-  return MIN_TARGET + Math.floor(Math.random() * (MAX_TARGET - MIN_TARGET + 1))
+  return getMinigameRules().stopwatch.minTarget + Math.floor(Math.random() * (getMinigameRules().stopwatch.maxTarget - getMinigameRules().stopwatch.minTarget + 1))
 }
 
 function asTarget(value: unknown): number | null {
   const parsed = asInt(value)
-  if (parsed == null || parsed < MIN_TARGET || parsed > MAX_TARGET) {
+  if (parsed == null || parsed < getMinigameRules().stopwatch.minTarget || parsed > getMinigameRules().stopwatch.maxTarget) {
     return null
   }
   return parsed
@@ -120,7 +119,7 @@ export function errorForTime(timeHundredths: number, targetHundredths: number): 
 
 export function totalError(times: number[], targets: number[]): number {
   return times.reduce((sum, time, index) => {
-    const target = targets[index] ?? targets[targets.length - 1] ?? MIN_TARGET
+    const target = targets[index] ?? targets[targets.length - 1] ?? getMinigameRules().stopwatch.minTarget
     return sum + errorForTime(time, target)
   }, 0)
 }
@@ -208,7 +207,7 @@ export function parseStopwatchGame(value: unknown): StopwatchGame | null {
   if (!challengerUid || !challengedUid) {
     return null
   }
-  const target = asTarget(data.targetHundredths) ?? MIN_TARGET
+  const target = asTarget(data.targetHundredths) ?? getMinigameRules().stopwatch.minTarget
   const targetHundredthsList = asTargets(data.targetHundredthsList, target)
   return {
     phase: data.phase === 'running' || data.phase === 'done' ? data.phase : 'idle',
@@ -232,7 +231,7 @@ export function tickStopwatch(game: StopwatchGame, now = Date.now()): { game: St
 
   if (next.phase === 'running' && next.turnDeadlineAt && now >= Date.parse(next.turnDeadlineAt)) {
     const uid = turnUidForIndex(next, next.turnIndex)
-    const started = next.startedAt ? Date.parse(next.startedAt) : now - MAX_RUN_MS
+    const started = next.startedAt ? Date.parse(next.startedAt) : now - getMinigameRules().stopwatch.maxRunMs
     const elapsed = clampHundredths((now - started) / 10)
     recordTime(next, uid, elapsed)
   }
@@ -258,7 +257,7 @@ export function startStopwatch(game: StopwatchGame, uid: string, now = Date.now(
   }
   next.phase = 'running'
   next.startedAt = new Date(now).toISOString()
-  next.turnDeadlineAt = isoIn(MAX_RUN_MS, now)
+  next.turnDeadlineAt = isoIn(getMinigameRules().stopwatch.maxRunMs, now)
   return next
 }
 
