@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, type CSSProperties, type ReactNode } from 'react'
+import { getStripBackground, getStripEmblem } from '../utils/levelRankingStripAssets'
+import { getLevelRankingStripTheme } from '../utils/levelRankingStripThemes'
 import styles from './FriendsStripModal.module.css'
 
 export type FriendsStripModalVariant = 'notifications' | 'add'
@@ -8,6 +10,8 @@ interface FriendsStripModalProps {
   subtitle?: string
   variant?: FriendsStripModalVariant
   badgeCount?: number
+  /** Tu nivel: la cabecera lleva la sala y el escudo de tu nivel. */
+  level?: number
   onClose: () => void
   children: ReactNode
   emptyMessage?: string
@@ -15,65 +19,84 @@ interface FriendsStripModalProps {
   isEmpty?: boolean
 }
 
+/**
+ * Ventana completa (hoja que sube desde abajo en móvil, centrada en escritorio)
+ * para «Añadir amigos» y «Solicitudes», con la cabecera del tema de tu nivel.
+ */
 function FriendsStripModal({
   title,
   subtitle,
   variant = 'add',
   badgeCount = 0,
+  level: rawLevel = 1,
   onClose,
   children,
   emptyMessage,
   emptyHint,
   isEmpty = false,
 }: FriendsStripModalProps) {
-  const variantClass = variant === 'notifications' ? styles.variantNotifications : styles.variantAdd
+  const level = Math.min(12, Math.max(1, rawLevel || 1))
+  const theme = getLevelRankingStripTheme(level)
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previous
+    }
+  }, [onClose])
+
+  const vars = {
+    '--sheet-overlay': theme.overlay,
+    '--sheet-border': theme.cardBorder,
+    '--sheet-ring': theme.avatarBorder,
+    '--sheet-title': theme.titleColor,
+    '--sheet-bg': `url(${getStripBackground(level)})`,
+  } as CSSProperties
 
   return (
     <div className={styles.overlay} onClick={onClose} role="presentation">
       <div
-        className={`${styles.modal} ${variantClass}`}
+        className={styles.sheet}
+        style={vars}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="friends-strip-modal-title"
+        aria-labelledby="friends-sheet-title"
       >
+        <span className={styles.grabber} aria-hidden="true" />
         <header className={styles.header}>
-          <div className={styles.headerGlow} aria-hidden="true" />
-          <div className={styles.headerMain}>
-            <div className={styles.headerIconWrap} aria-hidden="true">
-              {variant === 'notifications' ? (
-                <span className={styles.headerIcon}>🔔</span>
-              ) : (
-                <svg viewBox="0 0 24 24" className={styles.headerSvg}>
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  <path d="M19 11h-2V9h-2v2h-2v2h2v2h2v-2h2z" />
-                </svg>
-              )}
-            </div>
-            <div className={styles.headerCopy}>
-              <p className={styles.headerEyebrow}>
-                {variant === 'notifications' ? 'Bandeja social' : 'Descubre foodies'}
-              </p>
-              <h2 id="friends-strip-modal-title">{title}</h2>
-              {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
-            </div>
+          <span className={styles.headerBg} aria-hidden="true" />
+          <span className={styles.headerOverlay} aria-hidden="true" />
+          <img src={getStripEmblem(level)} alt="" className={styles.headerShield} draggable={false} />
+          <div className={styles.headerCopy}>
+            <p className={styles.eyebrow}>
+              {variant === 'notifications' ? '🔔 Bandeja social' : '🍽️ Tu mesa de amigos'}
+            </p>
+            <h2 id="friends-sheet-title">{title}</h2>
+            {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
           </div>
-          <div className={styles.headerAside}>
-            {variant === 'notifications' && badgeCount > 0 ? (
-              <span className={styles.headerBadge}>{badgeCount} nueva{badgeCount === 1 ? '' : 's'}</span>
-            ) : null}
-            <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">
-              ✕
-            </button>
-          </div>
+          {variant === 'notifications' && badgeCount > 0 ? (
+            <span className={styles.badge}>{badgeCount}</span>
+          ) : null}
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+            </svg>
+          </button>
         </header>
 
         <div className={styles.body}>
           {isEmpty ? (
             <div className={styles.emptyState}>
-              <div className={styles.emptyIconWrap} aria-hidden="true">
-                {variant === 'notifications' ? '🤝' : '🔎'}
-              </div>
+              <span className={styles.emptyIllustration} aria-hidden="true">
+                {variant === 'notifications' ? '🥂' : '🔎'}
+              </span>
               <p className={styles.emptyTitle}>{emptyMessage}</p>
               {emptyHint ? <p className={styles.emptyHint}>{emptyHint}</p> : null}
             </div>

@@ -696,3 +696,203 @@
     font-size: 1.28rem;
   }
 }
+
+/* ===== Ventanas de añadir amigos y solicitudes (rediseño) ===== */
+.shareCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  border: 1.5px dashed #d8b98a;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff8ec, #fdebd3);
+}
+
+.shareIcon {
+  font-size: 1.6rem;
+}
+
+.shareCopy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.shareCopy strong {
+  overflow: hidden;
+  font-size: 0.92rem;
+  color: var(--color-brown, #5c4a3a);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.shareCopy span {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #7a6b5d);
+}
+
+.shareBtn {
+  min-height: 38px;
+  padding: 0 0.9rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-text, #2b1f17);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  cursor: pointer;
+  transition: transform 0.16s ease-out;
+}
+
+.shareBtn:active {
+  transform: scale(0.96);
+}
+
+.modalSearchPanel {
+  padding: 0.9rem !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 20px !important;
+  background: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(60, 40, 20, 0.08) !important;
+}
+
+.modalSearchForm {
+  min-height: 52px;
+  border: 2px solid #ecd9bf !important;
+  border-radius: 16px !important;
+  background: #fffdf9 !important;
+}
+
+.modalSearchForm:focus-within {
+  border-color: #e0452a !important;
+}
+
+.modalSearchInput {
+  font-size: 1rem !important;
+}
+
+.modalSearchBtn {
+  min-height: 42px;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #ff6a3d, #e0452a) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+.modalSearchBtn:disabled {
+  opacity: 0.45;
+}
+
+.modalList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.addCard {
+  display: flex !important;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.addCardBtn {
+  align-self: stretch;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #ff6a3d, #e0452a) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+.addCardBtnSent {
+  background: #e6f5ec !important;
+  color: #1f7a45 !important;
+}
+
+.requestCard {
+  padding: 0.75rem !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 20px !important;
+  background: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(60, 40, 20, 0.08);
+  animation: requestIn 0.3s ease-out both;
+}
+
+.requestCardEyebrow {
+  font-weight: 800 !important;
+  color: #e0452a !important;
+}
+
+.requestCardRow {
+  display: flex !important;
+  flex-direction: column;
+  gap: 0.6rem !important;
+}
+
+.decisionGroup {
+  display: grid !important;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 0.5rem !important;
+}
+
+.decisionBtn {
+  width: auto !important;
+  min-height: 44px;
+  height: auto !important;
+  border-radius: 14px !important;
+  font-size: 0.9rem !important;
+  font-weight: 800 !important;
+}
+
+.decisionReject {
+  border: 1.5px solid #e8d6c4 !important;
+  background: #ffffff !important;
+  color: #8a5a3c !important;
+}
+
+.decisionAccept {
+  border: none !important;
+  background: linear-gradient(135deg, #34b26b, #1f8a4f) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 16px rgba(31, 138, 79, 0.3);
+}
+
+@keyframes requestIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.addCardStrip,
+.requestCardStrip {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.addCardBtn {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.4rem !important;
+  font-size: 0.9rem !important;
+}
+
+.addCardBtnIcon {
+  font-size: 1rem !important;
+}

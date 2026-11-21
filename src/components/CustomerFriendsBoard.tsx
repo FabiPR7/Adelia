@@ -6,6 +6,7 @@ import ConfirmDialog from './ConfirmDialog'
 import FriendActionBar from './FriendActionBar'
 import FriendProfileView from './FriendProfileView'
 import FriendsStripModal from './FriendsStripModal'
+import { useAuth } from '../context/AuthContext'
 import LeaderboardRow from './LeaderboardRow'
 import RankingStripList from './RankingStripList'
 import styles from './CustomerFriendsBoard.module.css'
@@ -65,6 +66,8 @@ function CustomerFriendsBoard({
   onFriendProfileActiveChange,
   openRequestsOnMount = false,
 }: CustomerFriendsBoardProps) {
+  const { profile } = useAuth()
+  const [copiedUsername, setCopiedUsername] = useState(false)
   const [friendQuery, setFriendQuery] = useState('')
   const [peopleQuery, setPeopleQuery] = useState('')
   const [peopleResults, setPeopleResults] = useState<FriendProfile[]>([])
@@ -498,9 +501,28 @@ function CustomerFriendsBoard({
         <FriendsStripModal
           variant="add"
           title="Añadir amigos"
-          subtitle="Encuentra foodies y mándales una solicitud"
+          subtitle="Busca a tus amigos por su nombre o @usuario y picaos en el ranking."
+          level={userEntry.level}
           onClose={() => setAddModalOpen(false)}
         >
+          {profile?.username ? (
+            <div className={styles.shareCard}>
+              <span className={styles.shareIcon} aria-hidden="true">🪪</span>
+              <span className={styles.shareCopy}>
+                <strong>Tu @usuario: @{profile.username}</strong>
+                <span>Pásaselo a tus amigos para que te encuentren.</span>
+              </span>
+              <button
+                type="button"
+                className={styles.shareBtn}
+                onClick={() => {
+                  void navigator.clipboard?.writeText(`@${profile.username}`).then(() => setCopiedUsername(true)).catch(() => undefined)
+                }}
+              >
+                {copiedUsername ? '¡Copiado!' : 'Copiar'}
+              </button>
+            </div>
+          ) : null}
           <div className={styles.modalSearchPanel}>
             <form className={styles.modalSearchForm} onSubmit={handleAddSearch}>
               <span className={styles.modalSearchIcon} aria-hidden="true">🔎</span>
@@ -508,8 +530,9 @@ function CustomerFriendsBoard({
                 type="search"
                 value={addQuery}
                 onChange={(event) => setAddQuery(event.target.value)}
-                placeholder="Nombre…"
+                placeholder="Nombre o @usuario"
                 className={styles.modalSearchInput}
+                autoFocus
               />
               <button type="submit" className={styles.modalSearchBtn} disabled={!addQuery.trim()}>
                 Buscar
@@ -599,12 +622,13 @@ function CustomerFriendsBoard({
         <FriendsStripModal
           variant="notifications"
           title="Solicitudes"
-          subtitle="Usuarios que quieren conectar contigo"
+          subtitle="Foodies que quieren sentarse en tu mesa. Acepta y compite con ellos."
+          level={userEntry.level}
           badgeCount={incomingRequestCount}
           onClose={() => setRequestsModalOpen(false)}
           isEmpty={incomingRequests.length === 0}
-          emptyMessage="No tienes solicitudes pendientes"
-          emptyHint="Cuando alguien te invite, aparecerá aquí para que aceptes o rechaces."
+          emptyMessage="Tu mesa está tranquila"
+          emptyHint="Cuando alguien quiera ser tu amigo, aparecerá aquí para que le aceptes."
         >
           <div className={styles.modalList}>
             {incomingRequests.map((friend) => {
@@ -627,7 +651,7 @@ function CustomerFriendsBoard({
                         disabled={rowBusy}
                         onClick={() => setRejectConfirmFriend(friend)}
                       >
-                        ✕
+                        Rechazar
                       </button>
                       <button
                         type="button"
@@ -638,7 +662,7 @@ function CustomerFriendsBoard({
                         disabled={rowBusy}
                         onClick={() => handleAcceptRequest(friend.id)}
                       >
-                        {isAccepting ? '…' : '✓'}
+                        {isAccepting ? 'Aceptando…' : '✓ Aceptar'}
                       </button>
                     </div>
                   </div>
