@@ -68,6 +68,7 @@ function CustomerRankingsBoard({
         sectionTitle={`Top ${tab === 'country' ? 'nacional' : 'mundial'}`}
         sectionMeta={`${tabLabel} · XP`}
         showChaseCopy
+        showPodium
       />
     </div>
   )

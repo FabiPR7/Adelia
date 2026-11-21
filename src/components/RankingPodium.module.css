@@ -1,0 +1,194 @@
+.podium {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 0.45rem;
+  margin: 0.2rem 0 0.9rem;
+  padding: 2rem 0.55rem 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 22px;
+  box-shadow: 0 14px 34px rgba(40, 24, 12, 0.28);
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(20, 12, 8, 0.25) 0%, rgba(20, 12, 8, 0.7) 100%);
+}
+
+.spot {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  color: #fff8ef;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+  animation: podiumRise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.place2 {
+  animation-delay: 0.12s;
+}
+
+.place3 {
+  animation-delay: 0.22s;
+}
+
+.avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 0.7rem;
+  border: 3px solid var(--spot-ring);
+  border-radius: 50%;
+  background: #2b2018;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25), 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
+.place1 .avatar {
+  width: 4.5rem;
+  height: 4.5rem;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25), 0 0 24px var(--spot-ring);
+}
+
+.avatar > img:not(.shield),
+.initials {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.initials {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+/* Escudo del nivel colgando del aro. */
+.shield {
+  position: absolute;
+  bottom: -0.95rem;
+  left: 50%;
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5));
+}
+
+.place1 .shield {
+  width: 2.4rem;
+  height: 2.4rem;
+  bottom: -1.1rem;
+}
+
+.crown {
+  position: absolute;
+  top: -1.25rem;
+  font-size: 1.35rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+  animation: crownBob 2.6s ease-in-out infinite;
+}
+
+.name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.levelTitle {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.xp {
+  font-family: var(--font-epic);
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.block {
+  display: grid;
+  place-items: start center;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding-top: 0.35rem;
+  border: 1px solid var(--spot-border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  background: var(--spot-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.place1 .block {
+  height: 4.8rem;
+}
+
+.place2 .block {
+  height: 3.5rem;
+}
+
+.place3 .block {
+  height: 2.6rem;
+}
+
+.number {
+  font-family: var(--font-epic);
+  font-size: 1.6rem;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes podiumRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes crownBob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(6deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spot,
+  .crown {
+    animation: none;
+  }
+}
