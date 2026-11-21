@@ -16,12 +16,13 @@ import { useCustomerProductTourOptional } from '../../context/CustomerProductTou
 import { useCustomerGamificationContext } from '../../context/CustomerGamificationContext'
 import { useReservationChallengeContext } from '../../context/ReservationChallengeContext'
 import { getPublicCompanyMenuNodes } from '../../services/companyMenu'
-import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../../services/publicPromotions'
+import { fetchPublicPromotions, fetchPublicPromotionsBySlug, type PublicPromotion } from '../../services/publicPromotions'
+import { listMyReviews } from '../../services/userReviews'
 import { fetchPublicDiscoveryRestaurants } from '../../services/publicDiscovery'
 import { companyAllowsWalkInConsumption } from '../../data/companyReservationMode'
 import {
   deleteCustomerReview,
-  getCustomerReviewsByCompanyIds,
+  getCustomerReviewForCompany,
   submitCustomerReview,
   updateCustomerReview,
 } from '../../services/companyReviews'
@@ -134,7 +135,10 @@ function CustomerReservationsTab() {
   const { challengeReservation, visibleChallenge, error: challengeError } = useReservationChallengeContext()
   const restaurants = loadedRestaurants
   const reservations = loadedReservations
+  // Reseñas completas: solo se leen al abrir una (como la app). Para saber dónde ya
+  // opinaste basta una petición al servidor (listMyReviews).
   const [reviewsByCompanyId, setReviewsByCompanyId] = useState<Record<string, CompanyReview>>({})
+  const [reviewedCompanyIds, setReviewedCompanyIds] = useState<Set<string>>(() => new Set())
   const [tab, setTab] = useState<ReservationTab>('upcoming')
   const [loading, setLoading] = useState(true)
   const [verifyReservation, setVerifyReservation] = useState<Reservation | null>(null)
@@ -179,22 +183,13 @@ function CustomerReservationsTab() {
   }, [productTour?.stepId])
 
   const loadCustomerReviews = useCallback(async (
-    reservationRows: Reservation[],
-    customerUid: string,
+    _reservationRows: Reservation[],
+    _customerUid: string,
   ) => {
-    const companyIds = [...new Set(
-      reservationRows
-        .filter((reservation) => reservation.status === 'confirmed')
-        .map((reservation) => reservation.companyId),
-    )]
-
-    if (companyIds.length === 0) {
-      setReviewsByCompanyId({})
-      return
-    }
-
-    const reviews = await getCustomerReviewsByCompanyIds(companyIds, customerUid)
-    setReviewsByCompanyId(reviews)
+    const rows = await listMyReviews()
+    setReviewedCompanyIds(new Set(rows.map((row) => row.companyId)))
+    // Se olvidan las reseñas abiertas: si cambiaste una, se vuelve a leer al abrirla.
+    setReviewsByCompanyId({})
   }, [])
 
   // Solo se vuelve a pedir al servidor si cambian de verdad tus reservas (no cada
@@ -213,7 +208,7 @@ function CustomerReservationsTab() {
     }
 
     let cancelled = false
-    const { loadedReservations, loadedRestaurants } = latestRowsRef.current
+    const { loadedReservations } = latestRowsRef.current
 
     void Promise.all([
       fetchReservationInvitesState().catch(() => ({
@@ -221,14 +216,10 @@ function CustomerReservationsTab() {
         accepted: [] as ReservationInvite[],
         sent: [] as ReservationInvite[],
       })),
-      Promise.all(
-        [...new Set(
-          loadedReservations
-            .filter((row) => row.promotionId)
-            .map((row) => loadedRestaurants.find((item) => item.id === row.companyId)?.slug)
-            .filter((slug): slug is string => Boolean(slug)),
-        )].map((slug) => fetchPublicPromotionsBySlug(slug).catch(() => [] as PublicPromotion[])),
-      ),
+      // Una sola petición (la misma lista que usa Promos, guardada 1 minuto).
+      loadedReservations.some((row) => row.promotionId)
+        ? fetchPublicPromotions().catch(() => [] as PublicPromotion[])
+        : Promise.resolve([] as PublicPromotion[]),
     ])
       .then(async ([inviteData, promotionGroups]) => {
         if (cancelled) {
@@ -236,7 +227,7 @@ function CustomerReservationsTab() {
         }
 
         setPromotionsById(Object.fromEntries(
-          promotionGroups.flat().map((promotion) => [promotion.id, promotion]),
+          promotionGroups.map((promotion) => [promotion.id, promotion]),
         ))
         setPendingInvites(inviteData.pending)
         setAcceptedInvites(inviteData.accepted)
@@ -545,6 +536,24 @@ function CustomerReservationsTab() {
     ? reviewsByCompanyId[reviewReservation.companyId] ?? null
     : null
 
+  const reviewCompanyToLoad = reviewReservation
+    && reviewedCompanyIds.has(reviewReservation.companyId)
+    && !reviewsByCompanyId[reviewReservation.companyId]
+    ? reviewReservation.companyId
+    : null
+  useEffect(() => {
+    if (!reviewCompanyToLoad || !user) return
+    let cancelled = false
+    void getCustomerReviewForCompany(reviewCompanyToLoad, user.uid)
+      .then((review) => {
+        if (!cancelled && review) setReviewsByCompanyId((current) => ({ ...current, [reviewCompanyToLoad]: review }))
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [reviewCompanyToLoad, user])
+
   if (!profile || loading || gamificationLoading) {
     return <div className={styles.loading}>Cargando reservas y consumo…</div>
   }
@@ -727,7 +736,7 @@ function CustomerReservationsTab() {
                   }
                 }}
                 onLeaveReview={setReviewReservation}
-                hasReviewForRestaurant={Boolean(reviewsByCompanyId[item.reservation.companyId])}
+                hasReviewForRestaurant={reviewedCompanyIds.has(item.reservation.companyId)}
                 onReport={setReportReservation}
                 onInviteFriends={setInviteReservation}
               />
