@@ -583,8 +583,24 @@ router.get('/:slug/reviews', async (req: Request<Record<string, string>>, res: R
   }
 })
 
+/**
+ * Ficha pública guardada 60 s en memoria por local: la web y la app precargan los
+ * restaurantes de al lado (para deslizar sin esperas) y así no se multiplican las
+ * lecturas. La CDN no comparte caché entre nodos ni entre instancias nuevas.
+ */
+const BOOKING_MEMO_MS = 60_000
+const BOOKING_MEMO_MAX = 300
+const bookingMemo = new Map<string, { at: number; body: unknown }>()
+
 router.get('/:slug', async (req: Request<Record<string, string>>, res: Response) => {
   try {
+    const memoKey = String(req.params.slug ?? '').trim().toLowerCase()
+    const memo = bookingMemo.get(memoKey)
+    if (memo && Date.now() - memo.at < BOOKING_MEMO_MS) {
+      allowPublicCache(res, 60)
+      res.json(memo.body)
+      return
+    }
     const record = await getCompanyRecordBySlug(req.params.slug)
     const company = record?.public
 
@@ -610,7 +626,13 @@ router.get('/:slug', async (req: Request<Record<string, string>>, res: Response)
 
     allowPublicCache(res, 60)
     // Las reglas (si se puede reservar, avisos y fianza) se deciden aquí, no en la web ni en la app.
-    res.json({ company, tables, booking: buildBookingRules(record.data, tables.length) })
+    const body = { company, tables, booking: buildBookingRules(record.data, tables.length) }
+    if (bookingMemo.size >= BOOKING_MEMO_MAX) {
+      const oldest = bookingMemo.keys().next().value
+      if (oldest !== undefined) bookingMemo.delete(oldest)
+    }
+    bookingMemo.set(memoKey, { at: Date.now(), body })
+    res.json(body)
   } catch (error) {
     console.error('Public booking load error:', error)
     res.status(500).json({ error: 'No se pudo cargar la información del restaurante.' })

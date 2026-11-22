@@ -17,7 +17,7 @@ import {
   createPublicReservation,
   fetchPublicAvailability,
   type DayAvailability,
-  fetchPublicBookingPage,
+  fetchPublicBookingPage, peekPublicBookingPage,
   type PublicBookingCompany,
   type PublicBookingTable,
 } from '../services/publicApi'
@@ -221,7 +221,14 @@ function PublicBookingPage() {
     let cancelled = false
 
     const boot = async () => {
-      setIsBootLoading(true)
+      // Precargada al deslizar desde la ficha de al lado: se pinta al momento.
+      const preloaded = peekPublicBookingPage(slug)
+      if (preloaded) {
+        setCompany(preloaded.company)
+        setTables(preloaded.tables)
+        setBookingRules(preloaded.booking)
+      }
+      setIsBootLoading(!preloaded)
       setError(null)
 
       try {

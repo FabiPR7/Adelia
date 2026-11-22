@@ -15,8 +15,9 @@ import { invalidatePublicPromotions } from './publicPromotions'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
-const publicGetCache = new Map<string, { expiresAt: number; value: Promise<unknown> }>()
-const PUBLIC_GET_TTL_MS = 30_000
+const publicGetCache = new Map<string, { expiresAt: number; value: Promise<unknown>; resolved?: unknown }>()
+// 2 minutos: al deslizar entre fichas se precargan las de al lado y deben seguir ahí.
+const PUBLIC_GET_TTL_MS = 120_000
 
 function cachedPublicGet<T>(key: string, loader: () => Promise<T>): Promise<T> {
   const now = Date.now()
@@ -25,12 +26,28 @@ function cachedPublicGet<T>(key: string, loader: () => Promise<T>): Promise<T> {
     return hit.value as Promise<T>
   }
 
-  const value = loader().catch((error) => {
-    publicGetCache.delete(key)
-    throw error
-  })
-  publicGetCache.set(key, { expiresAt: now + PUBLIC_GET_TTL_MS, value })
+  const entry: { expiresAt: number; value: Promise<unknown>; resolved?: unknown } = { expiresAt: now + PUBLIC_GET_TTL_MS, value: Promise.resolve() }
+  const value = loader().then(
+    (result) => {
+      entry.resolved = result
+      return result
+    },
+    (error) => {
+      publicGetCache.delete(key)
+      throw error
+    },
+  )
+  entry.value = value
+  publicGetCache.set(key, entry)
   return value
+}
+
+/** Lo ya descargado, sin esperar (para pintar la ficha al momento al deslizar). */
+export function peekPublicBookingPage(slug: string) {
+  const hit = publicGetCache.get(`booking:${slug}`)
+  return hit && hit.expiresAt > Date.now() && hit.resolved !== undefined
+    ? (hit.resolved as Awaited<ReturnType<typeof fetchPublicBookingPage>>)
+    : null
 }
 
 export interface PublicBookingTable {
