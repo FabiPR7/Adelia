@@ -37,6 +37,10 @@ interface PublicRestaurantReviewsProps {
   headerAction?: ReactNode
   /** Cambia tras escribir o editar tu reseña: se vuelven a pedir. */
   refreshKey?: number
+  /** «Tu reseña», encima de la lista. */
+  pinned?: ReactNode
+  /** Reseña que ya sale arriba (la tuya): no se repite en la lista. */
+  hiddenReviewId?: string | null
 }
 
 const ADELINA_RATING_FILTERS = ['all', 1, 2, 3, 4, 5] as const
@@ -233,6 +237,8 @@ export default function PublicRestaurantReviews({
   companyName,
   headerAction,
   refreshKey = 0,
+  pinned,
+  hiddenReviewId = null,
 }: PublicRestaurantReviewsProps) {
   const [reviews, setReviews] = useState<PublicCompanyReview[]>([])
   const [stats, setStats] = useState({ reviewCount: 0, averageRating: 0 })
@@ -335,8 +341,8 @@ export default function PublicRestaurantReviews({
     }
   }, [user])
   const visibleReviews = useMemo(
-    () => (blockedIds.size > 0 ? reviews.filter((review) => !blockedIds.has(review.id)) : reviews),
-    [reviews, blockedIds],
+    () => reviews.filter((review) => !blockedIds.has(review.id) && review.id !== hiddenReviewId),
+    [reviews, blockedIds, hiddenReviewId],
   )
 
   return (
@@ -385,6 +391,8 @@ export default function PublicRestaurantReviews({
         <p className={styles.verifiedNote}>Solo pueden opinar clientes con una reserva confirmada en este local.</p>
       </header>
 
+      {pinned}
+
       {error ? <p className={styles.error}>{error}</p> : null}
 
       {loading ? (
@@ -398,9 +406,11 @@ export default function PublicRestaurantReviews({
         <div className={styles.empty}>
           <AdelinaCoin size="sm" variant="review" alt="" />
           <p>
-            {ratingFilter === 1
-              ? 'Nadie ha dejado aún una reseña de 1 Adelina.'
-              : `Nadie ha dejado aún una reseña de ${ratingFilter} Adelinas.`}
+            {ratingFilter === 'all'
+              ? 'Aún no hay más reseñas.'
+              : ratingFilter === 1
+                ? 'Nadie ha dejado aún una reseña de 1 Adelina.'
+                : `Nadie ha dejado aún una reseña de ${ratingFilter} Adelinas.`}
           </p>
         </div>
       ) : (

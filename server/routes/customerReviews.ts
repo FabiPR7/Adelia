@@ -195,11 +195,26 @@ router.get('/eligibility/:companyId', async (req: Request, res: Response) => {
       findReviewProof(companyId, customer),
     ])
     res.setHeader('Cache-Control', 'private, no-store')
+    // Tu reseña (si la hay) para enseñarla arriba como «Tu reseña» y poder editarla.
+    const review = reviewSnap.data()
     res.json({
-      canReview: proof != null,
+      // Con reseña ya escrita siempre puedes editarla.
+      canReview: proof != null || reviewSnap.exists,
       hasReview: reviewSnap.exists,
       proofId: proof,
-      message: proof ? null : REVIEW_PROOF_REQUIRED_MESSAGE,
+      message: proof || reviewSnap.exists ? null : REVIEW_PROOF_REQUIRED_MESSAGE,
+      review: review
+        ? {
+            rating: typeof review.rating === 'number' ? review.rating : 0,
+            comment: typeof review.comment === 'string' ? review.comment : '',
+            mediaItems: Array.isArray(review.mediaItems) ? review.mediaItems : [],
+            taggedProducts: Array.isArray(review.taggedProducts) ? review.taggedProducts : [],
+            taggedPromotions: Array.isArray(review.taggedPromotions) ? review.taggedPromotions : [],
+            reservationId: typeof review.reservationId === 'string' ? review.reservationId : '',
+            createdAt: review.createdAt?.toDate?.()?.toISOString?.() ?? null,
+            updatedAt: review.updatedAt?.toDate?.()?.toISOString?.() ?? null,
+          }
+        : null,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : ''

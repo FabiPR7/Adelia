@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpen, CalendarCheck, Clock, Mail, MapPin, Navigation, Phone, Tag } from 'lucide-react'
 import PublicRestaurantReviews from './PublicRestaurantReviews'
-import WriteReviewButton from './WriteReviewButton'
+import { useReviewWriter } from './WriteReviewButton'
 import RestaurantRouteMapModal from './RestaurantRouteMapModal'
 import RestaurantPhotoCollage from './RestaurantPhotoCollage'
 import AdelinaCoin from '../AdelinaCoin'
@@ -85,6 +85,7 @@ export default function BookingRestaurantLanding({
   const isCustomer = profile?.role === 'customer'
   const [promotions, setPromotions] = useState<PublicPromotion[]>([])
   const [reviewsKey, setReviewsKey] = useState(0)
+  const reviewWriter = useReviewWriter(company, promotions, () => setReviewsKey((key) => key + 1))
   const [showAllAmenities, setShowAllAmenities] = useState(false)
   const locationLine = formatRestaurantLocation(company)
   const restaurantCoords = toGeoCoordinates(company.latitude, company.longitude)
@@ -455,10 +456,11 @@ export default function BookingRestaurantLanding({
           companySlug={company.slug}
           companyName={company.name}
           refreshKey={reviewsKey}
-          headerAction={
-            <WriteReviewButton company={company} promotions={promotions} onChanged={() => setReviewsKey((key) => key + 1)} />
-          }
+          headerAction={reviewWriter.button}
+          pinned={reviewWriter.pinned}
+          hiddenReviewId={reviewWriter.hiddenReviewId}
         />
+        {reviewWriter.overlays}
       </div>
 
       {isCustomer ? (
