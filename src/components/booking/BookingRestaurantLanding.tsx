@@ -27,7 +27,6 @@ import {
 } from '../../data/companyProfileFacilities'
 import type { BookingRules } from '../../types/bookingRules'
 import RestaurantPrestige from './RestaurantPrestige'
-import RestaurantVisitStatus from './RestaurantVisitStatus'
 import { useRestaurantBrowse } from './useRestaurantBrowse'
 import styles from './BookingRestaurantLanding.module.css'
 
@@ -141,6 +140,15 @@ export default function BookingRestaurantLanding({
     : null
   const todaySchedule = formatTodaySchedule(company)
   const reservationNote = booking.note
+  // Sin reservas: el botón se ve apagado y al pulsarlo lo explica (igual que la app).
+  const [noReservationsOpen, setNoReservationsOpen] = useState(false)
+  useEffect(() => {
+    if (!noReservationsOpen) return
+    const timer = window.setTimeout(() => setNoReservationsOpen(false), 4500)
+    return () => window.clearTimeout(timer)
+  }, [noReservationsOpen])
+  const reserveOrExplain = acceptsReservations ? onReserve : () => setNoReservationsOpen(true)
+  const reserveOffClass = acceptsReservations ? '' : ` ${styles.reserveOff}`
 
   const mainPhotoUrl = getCompanyMainPhotoUrl(allPhotos, mainPhotoIndex)
   const heroImage = mainPhotoUrl
@@ -157,7 +165,7 @@ export default function BookingRestaurantLanding({
       ref={pageRef}
       className={[
         styles.page,
-        acceptsReservations ? styles.pageWithBar : '',
+        styles.pageWithBar,
         browseNav.enter === 'next' ? styles.enterFromRight : '',
         browseNav.enter === 'prev' ? styles.enterFromLeft : '',
       ].filter(Boolean).join(' ')}
@@ -262,12 +270,15 @@ export default function BookingRestaurantLanding({
           data-tour="tour-restaurant-actions"
           data-tour-measure="children"
         >
-          {acceptsReservations ? (
-            <button type="button" className={styles.actionPrimary} onClick={onReserve}>
-              <CalendarCheck size={20} aria-hidden="true" />
-              Reservar mesa
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className={`${styles.actionPrimary}${reserveOffClass}`}
+            onClick={reserveOrExplain}
+            aria-disabled={!acceptsReservations}
+          >
+            <CalendarCheck size={20} aria-hidden="true" />
+            Reservar mesa
+          </button>
           <Link to={menuHref} className={styles.actionSecondary}>
             <BookOpen size={20} aria-hidden="true" />
             Ver la carta
@@ -281,7 +292,6 @@ export default function BookingRestaurantLanding({
       </div>
 
       <RestaurantPrestige slug={company.slug} />
-      <RestaurantVisitStatus slug={company.slug} />
 
       <div className={styles.layout}>
         <div className={styles.mainColumn}>
@@ -390,20 +400,16 @@ export default function BookingRestaurantLanding({
 
         <aside className={styles.aside}>
           <div className={styles.asideCard}>
-            {acceptsReservations ? (
-              <>
-                <h2>Reserva tu mesa</h2>
-                <p>{reservationNote}</p>
-                <button type="button" className={styles.asideReserve} onClick={onReserve}>
-                  Reservar mesa
-                </button>
-              </>
-            ) : (
-              <>
-                <h2>Reservas</h2>
-                <p>{reservationNote}</p>
-              </>
-            )}
+            <h2>Reserva tu mesa</h2>
+            {acceptsReservations && reservationNote ? <p>{reservationNote}</p> : null}
+            <button
+              type="button"
+              className={`${styles.asideReserve}${reserveOffClass}`}
+              onClick={reserveOrExplain}
+              aria-disabled={!acceptsReservations}
+            >
+              Reservar mesa
+            </button>
 
             <ul className={styles.contactList}>
               {todaySchedule ? (
@@ -464,8 +470,17 @@ export default function BookingRestaurantLanding({
         />
       ) : null}
 
-      {acceptsReservations ? (
-        <div className={styles.mobileBar}>
+      {noReservationsOpen ? (
+        <div className={styles.noReservationsToast} role="alert">
+          <strong>Sin reservas en Adelia</strong>
+          <span>Este local no cuenta con gestión de reservas en Adelia. Puedes ver su carta y sus promos, o ir directamente.</span>
+          <button type="button" onClick={() => setNoReservationsOpen(false)} aria-label="Cerrar aviso">
+            ×
+          </button>
+        </div>
+      ) : null}
+
+      <div className={styles.mobileBar}>
           <Link to={menuHref} className={styles.mobileBarLink}>
             <BookOpen size={18} aria-hidden="true" />
             Carta
@@ -474,11 +489,15 @@ export default function BookingRestaurantLanding({
             <Tag size={18} aria-hidden="true" />
             Promos
           </Link>
-          <button type="button" className={styles.mobileBarReserve} onClick={onReserve}>
+          <button
+            type="button"
+            className={`${styles.mobileBarReserve}${reserveOffClass}`}
+            onClick={reserveOrExplain}
+            aria-disabled={!acceptsReservations}
+          >
             Reservar mesa
           </button>
         </div>
-      ) : null}
     </div>
   )
 }
