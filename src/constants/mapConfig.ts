@@ -31,3 +31,13 @@ export function getMapTileConfig(): MapTileConfig {
       '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
   }
 }
+
+/**
+ * Mapa base limpio (igual que la app): calles, nombres, parques y agua, sin
+ * tiendas, bancos, cafés ni otros negocios. OpenFreeMap, estilo «Positron»:
+ * gratis y sin cuenta. Se dibuja con MapLibre dentro de Leaflet, así que los
+ * marcadores de nuestros restaurantes siguen igual.
+ */
+export const CLEAN_MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
+export const CLEAN_MAP_ATTRIBUTION =
+  '<a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'

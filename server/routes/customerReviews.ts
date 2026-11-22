@@ -96,7 +96,7 @@ function reviewInput(body: unknown) {
   const comment = stripHtmlFromComment(String(data.comment ?? '').trim()).slice(0, 2000)
   const rating = ratingValue(data.rating)
   const media = mediaItems(data.mediaItems)
-  if (!companyId || !reservationId || comment.length < 10) {
+  if (!companyId || comment.length < 10) {
     throw new Error('Completa los datos de la reseña y escribe al menos 10 caracteres.')
   }
   const hasPhoto = media.some((item) => item.type === 'image')
@@ -140,17 +140,91 @@ async function assertReservationOwnership(
   }
 }
 
+export const REVIEW_PROOF_REQUIRED_MESSAGE =
+  'Para escribir una reseña tienes que haber ido con una reserva (y que el local la haya completado) o haber registrado un consumo en este local.'
+
+/** Reserva a la que fuiste: confirmada o completada, ya pasada y sin «no se presentó». */
+function reservationWasAttended(data: FirebaseFirestore.DocumentData | undefined, companyId: string, now = Date.now()): boolean {
+  if (!data || data.companyId !== companyId) return false
+  if (data.status !== 'confirmed' && data.status !== 'completed') return false
+  if (data.noShow === true) return false
+  const start = data.startTime?.toDate?.() as Date | undefined
+  return Boolean(start && start.getTime() <= now)
+}
+
+/**
+ * Prueba de que estuviste en el local para poder reseñarlo: una reserva a la que
+ * fuiste o un consumo validado. Lo busca el servidor (no se fía de la web ni de la app).
+ * Devuelve el id que queda guardado en la reseña («consumo:…» si es un consumo).
+ */
+export async function findReviewProof(
+  companyId: string,
+  customer: { uid: string; email: string; emailVerified: boolean },
+): Promise<string | null> {
+  const reservations = adminDb.collection('reservations')
+  const fields = ['companyId', 'status', 'noShow', 'startTime'] as const
+  const [byUid, byEmail] = await Promise.all([
+    reservations.where('customerUid', '==', customer.uid).where('companyId', '==', companyId).select(...fields).limit(40).get(),
+    customer.emailVerified && customer.email
+      ? reservations.where('clientEmail', '==', customer.email).where('companyId', '==', companyId).select(...fields).limit(40).get()
+      : Promise.resolve(null),
+  ])
+  const attended = [...byUid.docs, ...(byEmail?.docs ?? [])].find((doc) => reservationWasAttended(doc.data(), companyId))
+  if (attended) return attended.id
+  const consumption = await adminDb
+    .collection('companies').doc(companyId)
+    .collection('verifiedConsumptions')
+    .where('customerUid', '==', customer.uid)
+    .select()
+    .limit(1)
+    .get()
+  return consumption.empty ? null : `consumo:${consumption.docs[0].id}`
+}
+
+/** ¿Puedes reseñar este local? (para enseñar el botón o el aviso en la ficha). */
+router.get('/eligibility/:companyId', async (req: Request, res: Response) => {
+  try {
+    const customer = await verifyCustomerUid(req)
+    const companyId = String(req.params.companyId ?? '').trim()
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(companyId)) {
+      res.status(400).json({ error: 'Restaurante no válido.' })
+      return
+    }
+    const [reviewSnap, proof] = await Promise.all([
+      adminDb.collection('companies').doc(companyId).collection('reviews').doc(customer.uid).get(),
+      findReviewProof(companyId, customer),
+    ])
+    res.setHeader('Cache-Control', 'private, no-store')
+    res.json({
+      canReview: proof != null,
+      hasReview: reviewSnap.exists,
+      proofId: proof,
+      message: proof ? null : REVIEW_PROOF_REQUIRED_MESSAGE,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    res.status(/cliente|sesión|autoriz/i.test(message) ? 401 : 500).json({ error: message || 'No se pudo comprobar.' })
+  }
+})
+
 router.post('/', async (req: Request, res: Response) => {
   try {
     const customer = await verifyCustomerUid(req)
-    const input = reviewInput(req.body)
-    await assertReservationOwnership(
-      input.reservationId,
-      input.companyId,
-      customer.uid,
-      // Una reserva hecha sin cuenta solo cuenta si ha verificado ese correo.
-      customer.emailVerified ? customer.email : '',
-    )
+    const parsed = reviewInput(req.body)
+    // Con reserva concreta (desde «Mis reservas») tiene que ser una a la que fuiste;
+    // sin ella (desde la ficha) el servidor busca la prueba: reserva asistida o consumo.
+    let proofId: string | null = null
+    if (parsed.reservationId) {
+      const snap = await adminDb.collection('reservations').doc(parsed.reservationId).get()
+      const data = snap.data()
+      const email = customer.emailVerified ? customer.email : ''
+      const owned = (typeof data?.customerUid === 'string' && data.customerUid === customer.uid)
+        || (!data?.customerUid && email !== '' && String(data?.clientEmail ?? '').trim().toLowerCase() === email)
+      proofId = snap.exists && owned && reservationWasAttended(data, parsed.companyId) ? snap.id : null
+    }
+    proofId = proofId ?? await findReviewProof(parsed.companyId, customer)
+    if (!proofId) throw new Error(`Solo puedes reseñar locales donde has estado. ${REVIEW_PROOF_REQUIRED_MESSAGE}`)
+    const input = { ...parsed, reservationId: proofId }
 
     const companyRef = adminDb.collection('companies').doc(input.companyId)
     const reviewRef = companyRef.collection('reviews').doc(customer.uid)
@@ -302,14 +376,24 @@ router.get('/', async (req: Request, res: Response) => {
 router.put('/:companyId', async (req: Request, res: Response) => {
   try {
     const customer = await verifyCustomerUid(req)
-    const input = reviewInput({ ...req.body, companyId: req.params.companyId })
-    await assertReservationOwnership(
-      input.reservationId,
-      input.companyId,
-      customer.uid,
-      // Una reserva hecha sin cuenta solo cuenta si ha verificado ese correo.
-      customer.emailVerified ? customer.email : '',
-    )
+    const parsed = reviewInput({ ...req.body, companyId: req.params.companyId })
+    let input = parsed
+    if (parsed.reservationId) {
+      await assertReservationOwnership(
+        parsed.reservationId,
+        parsed.companyId,
+        customer.uid,
+        // Una reserva hecha sin cuenta solo cuenta si ha verificado ese correo.
+        customer.emailVerified ? customer.email : '',
+      )
+    } else {
+      // Editar desde la ficha: se mantiene la prueba con la que se escribió.
+      const current = await adminDb.collection('companies').doc(parsed.companyId).collection('reviews').doc(customer.uid).get()
+      const storedProof = String(current.data()?.reservationId ?? '')
+      const proofId = storedProof || await findReviewProof(parsed.companyId, customer)
+      if (!current.exists || !proofId) throw new Error(`Solo puedes reseñar locales donde has estado. ${REVIEW_PROOF_REQUIRED_MESSAGE}`)
+      input = { ...parsed, reservationId: proofId }
+    }
     const companyRef = adminDb.collection('companies').doc(input.companyId)
     const reviewRef = companyRef.collection('reviews').doc(customer.uid)
     const userRef = adminDb.collection('users').doc(customer.uid)

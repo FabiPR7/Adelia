@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import L from 'leaflet'
+import { addCleanBaseMap } from '../utils/cleanBaseMap'
 import { adelinaCoinUrl } from '../constants/adelina'
-import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, getMapTileConfig } from '../constants/mapConfig'
+import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from '../constants/mapConfig'
 import {
   formatDistanceKm,
   type GeoCoordinates,
@@ -171,11 +172,8 @@ function NearbyRestaurantsMap({
       zoomControl: true,
     })
 
-    const tiles = getMapTileConfig()
-    L.tileLayer(tiles.url, {
-      attribution: tiles.attribution,
-      maxZoom: 19,
-    }).addTo(map)
+    // Mapa limpio: solo nuestros restaurantes, sin tiendas ni negocios.
+    addCleanBaseMap(map)
 
     layerGroupRef.current = L.layerGroup().addTo(map)
     mapRef.current = map

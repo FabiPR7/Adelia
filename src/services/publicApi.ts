@@ -42,6 +42,13 @@ function cachedPublicGet<T>(key: string, loader: () => Promise<T>): Promise<T> {
   return value
 }
 
+/** Tras escribir, editar o borrar tu reseña: que la ficha pida de nuevo las reseñas. */
+export function invalidatePublicReviews(slug: string): void {
+  for (const key of [...publicGetCache.keys()]) {
+    if (key === `reviews:${slug}` || key.startsWith(`reviews:${slug}:`)) publicGetCache.delete(key)
+  }
+}
+
 /** Lo ya descargado, sin esperar (para pintar la ficha al momento al deslizar). */
 export function peekPublicBookingPage(slug: string) {
   const hit = publicGetCache.get(`booking:${slug}`)

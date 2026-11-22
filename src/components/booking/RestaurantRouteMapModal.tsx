@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
-import { getMapTileConfig } from '../../constants/mapConfig'
+import { addCleanBaseMap } from '../../utils/cleanBaseMap'
 import { geocodePlace } from '../../services/geocoding'
 import {
   buildGoogleMapsDirectionsUrl,
@@ -126,11 +126,8 @@ export default function RestaurantRouteMapModal({
         zoomControl: true,
       })
 
-      const tiles = getMapTileConfig()
-      L.tileLayer(tiles.url, {
-        attribution: tiles.attribution,
-        maxZoom: 19,
-      }).addTo(map)
+      // Mapa limpio: solo nuestros restaurantes, sin tiendas ni negocios.
+      addCleanBaseMap(map)
 
       layerGroupRef.current = L.layerGroup().addTo(map)
       mapRef.current = map

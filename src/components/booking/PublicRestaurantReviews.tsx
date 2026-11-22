@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import AdelinaCoin from '../AdelinaCoin'
 import ReviewCommentBody from '../ReviewCommentBody'
 import {
-  fetchPublicReviewsPage,
+  fetchPublicReviewsPage, invalidatePublicReviews,
   markReviewHelpful,
   type PublicCompanyReview,
 } from '../../services/publicApi'
@@ -33,6 +33,10 @@ function buildReportHref(companyName: string, authorName: string, createdAt: str
 interface PublicRestaurantReviewsProps {
   companySlug: string
   companyName: string
+  /** Botón junto al título (p. ej. «Escribir reseña»). */
+  headerAction?: ReactNode
+  /** Cambia tras escribir o editar tu reseña: se vuelven a pedir. */
+  refreshKey?: number
 }
 
 const ADELINA_RATING_FILTERS = ['all', 1, 2, 3, 4, 5] as const
@@ -227,6 +231,8 @@ function PublicReviewCard({
 export default function PublicRestaurantReviews({
   companySlug,
   companyName,
+  headerAction,
+  refreshKey = 0,
 }: PublicRestaurantReviewsProps) {
   const [reviews, setReviews] = useState<PublicCompanyReview[]>([])
   const [stats, setStats] = useState({ reviewCount: 0, averageRating: 0 })
@@ -251,6 +257,7 @@ export default function PublicRestaurantReviews({
       setError(null)
 
       try {
+        if (refreshKey > 0) invalidatePublicReviews(companySlug)
         const data = await fetchPublicReviewsPage(companySlug, {
           rating: ratingFilter === 'all' ? null : ratingFilter,
         })
@@ -279,7 +286,7 @@ export default function PublicRestaurantReviews({
     return () => {
       cancelled = true
     }
-  }, [companySlug, ratingFilter])
+  }, [companySlug, ratingFilter, refreshKey])
 
   const loadMore = async () => {
     if (!nextBefore || loadingMore) return
@@ -340,6 +347,7 @@ export default function PublicRestaurantReviews({
             <span className={styles.titleDot} aria-hidden="true" />
             Reseñas
           </h2>
+          {headerAction}
           {stats.reviewCount > 0 && ratingBadge ? (
             <div
               className={styles.summary}

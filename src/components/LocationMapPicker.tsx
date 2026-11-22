@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
+import { addCleanBaseMap } from '../utils/cleanBaseMap'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
-  getMapTileConfig,
   LOCATION_MAP_ZOOM,
 } from '../constants/mapConfig'
 import { geocodePlace } from '../services/geocoding'
@@ -70,11 +70,8 @@ function LocationMapPicker({
       scrollWheelZoom: true,
     })
 
-    const tiles = getMapTileConfig()
-    L.tileLayer(tiles.url, {
-      attribution: tiles.attribution,
-      maxZoom: 19,
-    }).addTo(map)
+    // Mapa limpio: solo nuestros restaurantes, sin tiendas ni negocios.
+    addCleanBaseMap(map)
 
     const placeMarker = (coords: GeoCoordinates, draggable: boolean) => {
       if (markerRef.current) {
