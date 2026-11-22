@@ -21,6 +21,8 @@ export interface DiscoveryOptions {
 export interface DiscoveryResult {
   restaurants: PublicDiscoveryRestaurant[]
   nextCursor: string | null
+  /** Sin internet: es la copia guardada en el navegador (fecha en ms). */
+  offlineAt?: number
 }
 
 const cache = new Map<string, { at: number; result: DiscoveryResult }>()
@@ -87,6 +89,37 @@ function mapApiRestaurant(raw: Record<string, unknown>): PublicDiscoveryRestaura
  * Listado público de restaurantes. Sin opciones: los más valorados (primera
  * página). Con `near` o `city`: los de esa zona, aunque haya miles en total.
  */
+const OFFLINE_PREFIX = 'adelia-offline:discovery:'
+
+function toResult(payload: { restaurants?: unknown; nextCursor?: unknown }, offlineAt?: number): DiscoveryResult {
+  const rawList = Array.isArray(payload.restaurants) ? payload.restaurants : []
+  return {
+    restaurants: rawList
+      .filter((item): item is Record<string, unknown> => item != null && typeof item === 'object')
+      .map(mapApiRestaurant)
+      .filter((item): item is PublicDiscoveryRestaurant => item !== null),
+    nextCursor: offlineAt ? null : typeof payload.nextCursor === 'string' ? payload.nextCursor : null,
+    ...(offlineAt ? { offlineAt } : {}),
+  }
+}
+
+function saveOfflineDiscovery(key: string, payload: unknown): void {
+  try {
+    localStorage.setItem(OFFLINE_PREFIX + key, JSON.stringify({ at: Date.now(), value: payload }))
+  } catch {
+    // Sin espacio o almacenamiento bloqueado: solo no habrá copia.
+  }
+}
+
+function loadOfflineDiscovery(key: string): { at: number; value: { restaurants?: unknown; nextCursor?: unknown } } | null {
+  try {
+    const raw = localStorage.getItem(OFFLINE_PREFIX + key)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 export async function fetchPublicDiscoveryPage(options: DiscoveryOptions = {}): Promise<DiscoveryResult> {
   const key = discoveryQueryString(options)
   const hit = cache.get(key)
@@ -100,19 +133,21 @@ export async function fetchPublicDiscoveryPage(options: DiscoveryOptions = {}): 
 
   const request = (async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/public/discovery${key}`)
+      let response: Response
+      try {
+        response = await fetch(`${API_BASE}/api/public/discovery${key}`)
+      } catch {
+        // Sin internet (igual que la app): la última lista guardada de esta búsqueda.
+        const stored = loadOfflineDiscovery(key)
+        if (stored) return toResult(stored.value, stored.at)
+        throw new Error('Sin conexión a internet. Comprueba tu conexión e inténtalo de nuevo.')
+      }
       if (!response.ok) {
         throw new Error('No se pudo cargar el listado de restaurantes.')
       }
       const payload = await response.json() as { restaurants?: unknown; nextCursor?: unknown }
-      const rawList = Array.isArray(payload.restaurants) ? payload.restaurants : []
-      const result: DiscoveryResult = {
-        restaurants: rawList
-          .filter((item): item is Record<string, unknown> => item != null && typeof item === 'object')
-          .map(mapApiRestaurant)
-          .filter((item): item is PublicDiscoveryRestaurant => item !== null),
-        nextCursor: typeof payload.nextCursor === 'string' ? payload.nextCursor : null,
-      }
+      saveOfflineDiscovery(key, payload)
+      const result = toResult(payload)
       cache.set(key, { at: Date.now(), result })
       return result
     } finally {

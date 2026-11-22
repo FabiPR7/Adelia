@@ -59,6 +59,8 @@ function CustomerExploreTab() {
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Sin internet: la última lista guardada y desde cuándo es (igual que la app).
+  const [offlineAt, setOfflineAt] = useState<number | null>(null)
   // Siguiente página del listado general (el servidor manda 80 cada vez).
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -87,6 +89,7 @@ function CustomerExploreTab() {
         if (!cancelled) {
           setRestaurants((previous) => mergeDiscoveryRestaurants(page.restaurants, previous))
           setNextCursor(page.nextCursor)
+          setOfflineAt(page.offlineAt ?? null)
         }
       })
       .catch((err) => {
@@ -432,6 +435,16 @@ function CustomerExploreTab() {
       <main className={styles.main}>
         {loading && <DiscoverySkeleton />}
 
+        {offlineAt && !loading ? (
+          <div className={styles.offlineNotice} role="alert">
+            <strong>Sin conexión</strong>
+            <span>
+              Te enseñamos los restaurantes que cargaste {formatOfflineMoment(offlineAt)}. Recarga la página cuando
+              vuelvas a tener internet.
+            </span>
+          </div>
+        ) : null}
+
         {error && (
           <div className={styles.errorBox} role="alert">
             {error}
@@ -578,3 +591,14 @@ function CustomerExploreTab() {
 }
 
 export default CustomerExploreTab
+
+/** «hoy a las 13:05», «ayer a las 20:10» o «el 18/11». */
+function formatOfflineMoment(at: number): string {
+  const date = new Date(at)
+  const time = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+  const today = new Date()
+  const yesterday = new Date(today.getTime() - 86_400_000)
+  if (date.toDateString() === today.toDateString()) return `hoy a las ${time}`
+  if (date.toDateString() === yesterday.toDateString()) return `ayer a las ${time}`
+  return `el ${date.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric' })}`
+}
