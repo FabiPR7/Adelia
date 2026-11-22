@@ -321,20 +321,3 @@
   outline-offset: 2px;
 }
 
-/* Sin internet: lista guardada en el navegador */
-.offlineNotice {
-  display: grid;
-  gap: 0.15rem;
-  margin: 1rem;
-  padding: 0.8rem 1rem;
-  border-radius: 14px;
-  background: #fff4e5;
-  border: 1px solid rgba(196, 92, 62, 0.25);
-  color: var(--color-text);
-  font-size: 0.875rem;
-  line-height: 1.45;
-}
-
-.offlineNotice span {
-  color: var(--color-text-muted);
-}

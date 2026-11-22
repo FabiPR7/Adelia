@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { ReservationChallengeProvider } from '../context/ReservationChallengeContext'
 import CustomerBottomNav from './CustomerBottomNav'
 import CustomerNotificationsBell from './CustomerNotificationsBell'
+import ConnectionBadge from './ConnectionBadge'
 import CancellationPenaltyModal from './CancellationPenaltyModal'
 import styles from './CustomerAppLayout.module.css'
 
@@ -17,6 +18,7 @@ function CustomerAppLayout() {
     <ReservationChallengeProvider>
       <div className={styles.layout}>
         <div className={styles.topBar}>
+          <ConnectionBadge />
           <CustomerNotificationsBell />
         </div>
         <div className={styles.content}>

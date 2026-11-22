@@ -2,10 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { browseListFrom, nearestBrowseList } from '../../utils/restaurantBrowse'
 import { useNavigate } from 'react-router-dom'
 import DiscoverySearchBar from '../../components/DiscoverySearchBar'
-import DiscoveryQuickFilters, { type QuickFilterOption } from '../../components/DiscoveryQuickFilters'
 import MissionNudgeCard from '../../components/MissionNudgeCard'
 import { useMissionNudge } from '../../hooks/useMissionNudge'
-import { applyQuickFilters, missionFilterLabel, type QuickFilterId } from '../../utils/discoveryQuickFilters'
+import { applyQuickFilters, type QuickFilterId } from '../../utils/discoveryQuickFilters'
 import DiscoveryVenueKindFilter from '../../components/DiscoveryVenueKindFilter'
 import DiscoverySkeleton from '../../components/DiscoverySkeleton'
 import NearbyRestaurantsMap from '../../components/NearbyRestaurantsMap'
@@ -59,8 +58,6 @@ function CustomerExploreTab() {
   const [restaurants, setRestaurants] = useState<PublicDiscoveryRestaurant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // Sin internet: la última lista guardada y desde cuándo es (igual que la app).
-  const [offlineAt, setOfflineAt] = useState<number | null>(null)
   // Siguiente página del listado general (el servidor manda 80 cada vez).
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -89,7 +86,6 @@ function CustomerExploreTab() {
         if (!cancelled) {
           setRestaurants((previous) => mergeDiscoveryRestaurants(page.restaurants, previous))
           setNextCursor(page.nextCursor)
-          setOfflineAt(page.offlineAt ?? null)
         }
       })
       .catch((err) => {
@@ -159,28 +155,6 @@ function CustomerExploreTab() {
 
     return results
   }, [restaurants, effectiveQuery, activeFoodCategory, selectedCity, appliedCity, venueKind, favoritesActive, favoriteSlugs, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts, nudge.visitedCompanyIds, nudge.closest])
-
-  const quickFilterOptions = useMemo<QuickFilterOption[]>(() => [
-    ...(nudge.closest
-      ? [{ id: 'mission' as const, label: missionFilterLabel(nudge.closest.mission), highlight: true }]
-      : []),
-    { id: 'promo', label: 'Con promo' },
-    { id: 'reservable', label: 'Con reserva' },
-    { id: 'unvisited', label: 'Sin visitar' },
-    { id: 'topRated', label: 'Mejor valorados' },
-  ], [nudge.closest])
-
-  const toggleQuickFilter = useCallback((id: QuickFilterId) => {
-    setQuickFilters((current) => {
-      const next = new Set(current)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      return next
-    })
-  }, [])
 
   const homeCoords = useMemo(
     () => toGeoCoordinates(profile?.homeLatitude, profile?.homeLongitude),
@@ -428,22 +402,8 @@ function CustomerExploreTab() {
         onToggleFavorites={() => setFavoritesActive((current) => !current)}
       />
 
-      <div className={styles.quickFilters}>
-        <DiscoveryQuickFilters options={quickFilterOptions} active={quickFilters} onToggle={toggleQuickFilter} />
-      </div>
-
       <main className={styles.main}>
         {loading && <DiscoverySkeleton />}
-
-        {offlineAt && !loading ? (
-          <div className={styles.offlineNotice} role="alert">
-            <strong>Sin conexión</strong>
-            <span>
-              Te enseñamos los restaurantes que cargaste {formatOfflineMoment(offlineAt)}. Recarga la página cuando
-              vuelvas a tener internet.
-            </span>
-          </div>
-        ) : null}
 
         {error && (
           <div className={styles.errorBox} role="alert">
@@ -592,13 +552,3 @@ function CustomerExploreTab() {
 
 export default CustomerExploreTab
 
-/** «hoy a las 13:05», «ayer a las 20:10» o «el 18/11». */
-function formatOfflineMoment(at: number): string {
-  const date = new Date(at)
-  const time = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-  const today = new Date()
-  const yesterday = new Date(today.getTime() - 86_400_000)
-  if (date.toDateString() === today.toDateString()) return `hoy a las ${time}`
-  if (date.toDateString() === yesterday.toDateString()) return `ayer a las ${time}`
-  return `el ${date.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric' })}`
-}

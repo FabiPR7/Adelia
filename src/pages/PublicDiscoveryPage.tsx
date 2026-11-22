@@ -5,7 +5,6 @@ import CityAutocomplete from '../components/CityAutocomplete'
 import DiscoverySkeleton from '../components/DiscoverySkeleton'
 import DiscoveryTraitsFilter from '../components/DiscoveryTraitsFilter'
 import DiscoveryVenueKindFilter from '../components/DiscoveryVenueKindFilter'
-import DiscoveryQuickFilters, { type QuickFilterOption } from '../components/DiscoveryQuickFilters'
 import { usePromotionCounts } from '../hooks/usePromotionCounts'
 import { applyQuickFilters, type QuickFilterId } from '../utils/discoveryQuickFilters'
 import LandingBusinessBand from '../components/LandingBusinessBand'
@@ -173,24 +172,6 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
 
     return results
   }, [restaurants, effectiveQuery, selectedCity, appliedCity, venueKind, nearbyActive, userCoords, distancesKm, quickFilters, promoCounts])
-
-  const quickFilterOptions: QuickFilterOption[] = [
-    { id: 'promo', label: 'Con promo' },
-    { id: 'reservable', label: 'Con reserva' },
-    { id: 'topRated', label: 'Mejor valorados' },
-  ]
-
-  const toggleQuickFilter = (id: QuickFilterId) => {
-    setQuickFilters((current) => {
-      const next = new Set(current)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      return next
-    })
-  }
 
   const { primary, secondary } = useMemo(
     () => restaurantsForCarouselRows(filteredRestaurants),
@@ -406,8 +387,6 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
               </button>
             </div>
           </div>
-
-          <DiscoveryQuickFilters options={quickFilterOptions} active={quickFilters} onToggle={toggleQuickFilter} />
 
           {nearbyMessage && (
             <p
