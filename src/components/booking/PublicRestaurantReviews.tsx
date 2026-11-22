@@ -350,7 +350,7 @@ export default function PublicRestaurantReviews({
             </div>
           ) : null}
         </div>
-        <div className={styles.filters} role="group" aria-label="Filtrar reseñas por Adelinas">
+        <div className={styles.filters} data-no-browse-swipe role="group" aria-label="Filtrar reseñas por Adelinas">
           {ADELINA_RATING_FILTERS.map((filter) => {
             const active = ratingFilter === filter
             const label = filter === 'all' ? 'Todas' : String(filter)

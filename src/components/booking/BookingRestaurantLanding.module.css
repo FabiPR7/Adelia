@@ -803,3 +803,98 @@
     transition: none;
   }
 }
+
+/* Pasar de restaurante (deslizar, flechas o teclado) */
+.browsePill {
+  position: absolute;
+  top: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 40px;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(31, 23, 20, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+
+.browseArrow {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.browseArrow:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.browseArrow:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.browseArrow:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.browseArrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.browseText {
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  padding: 0 0.15rem;
+}
+
+.enterFromRight {
+  animation: browseEnterRight 220ms ease-out;
+}
+
+.enterFromLeft {
+  animation: browseEnterLeft 220ms ease-out;
+}
+
+@keyframes browseEnterRight {
+  from { opacity: 0.4; transform: translateX(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes browseEnterLeft {
+  from { opacity: 0.4; transform: translateX(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enterFromRight,
+  .enterFromLeft {
+    animation: browseFade 160ms ease-out;
+  }
+}
+
+@keyframes browseFade {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
+/* En móvil no cabe entre «← Volver» y el corazón: va una fila más abajo. */
+@media (max-width: 640px) {
+  .browsePill {
+    top: calc(0.9rem + 48px);
+  }
+}

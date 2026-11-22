@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { browseListFrom, nearestBrowseList } from '../../utils/restaurantBrowse'
 import { useNavigate } from 'react-router-dom'
 import DiscoverySearchBar from '../../components/DiscoverySearchBar'
 import DiscoveryQuickFilters, { type QuickFilterOption } from '../../components/DiscoveryQuickFilters'
@@ -378,11 +379,17 @@ function CustomerExploreTab() {
   }, [nextCursor, loadingMore])
 
   const openRestaurant = useCallback(
-    (restaurant: PublicDiscoveryRestaurant) => {
-      navigate(`/reservar/${restaurant.slug}`)
+    (restaurant: PublicDiscoveryRestaurant, browse?: string[]) => {
+      navigate(`/reservar/${restaurant.slug}`, browse ? { state: { browse } } : undefined)
     },
     [navigate],
   )
+  // Cada sección pasa su lista para poder deslizar a la ficha siguiente o anterior.
+  const openFrom = (list: readonly PublicDiscoveryRestaurant[]) => (restaurant: PublicDiscoveryRestaurant) =>
+    openRestaurant(restaurant, browseListFrom(list, restaurant.slug))
+  // En el mapa, el siguiente es el más cercano al que se ha tocado.
+  const openNearestIn = (list: readonly PublicDiscoveryRestaurant[]) => (restaurant: PublicDiscoveryRestaurant) =>
+    openRestaurant(restaurant, nearestBrowseList(list, restaurant))
 
   return (
     <div className={styles.page}>
@@ -462,7 +469,7 @@ function CustomerExploreTab() {
                 restaurants={primary}
                 direction="right"
                 distancesKm={nearbyActive ? distancesKm : undefined}
-                onOpenRestaurant={openRestaurant}
+                onOpenRestaurant={openFrom(primary)}
               />
             </section>
 
@@ -471,7 +478,7 @@ function CustomerExploreTab() {
                 <RotatingRestaurantSpotlight
                   title="Lo más pedido"
                   restaurants={mostReserved}
-                  onOpenRestaurant={openRestaurant}
+                  onOpenRestaurant={openFrom(mostReserved)}
                 />
               </div>
               <div className={styles.spotlightBridge}>
@@ -488,7 +495,7 @@ function CustomerExploreTab() {
                 <RotatingRestaurantSpotlight
                   title="Mejor valorados"
                   restaurants={topRated}
-                  onOpenRestaurant={openRestaurant}
+                  onOpenRestaurant={openFrom(topRated)}
                 />
               </div>
             </section>
@@ -503,7 +510,7 @@ function CustomerExploreTab() {
                   restaurants={secondary}
                   direction="left"
                   distancesKm={nearbyActive ? distancesKm : undefined}
-                  onOpenRestaurant={openRestaurant}
+                  onOpenRestaurant={openFrom(secondary)}
                 />
               </section>
             ) : null}
@@ -526,14 +533,14 @@ function CustomerExploreTab() {
                 locationError={nearbyState === 'error' ? nearbyMessage : null}
                 promoCounts={promoCounts}
                 onRequestGps={requestGpsLocation}
-                onOpenRestaurant={openRestaurant}
+                onOpenRestaurant={openNearestIn(filteredRestaurants)}
               />
             </LazySection>
             <LazySection minHeight={280}>
               <CollectionProgress
                 city={selectedCity?.name || profile?.homeMunicipality || profile?.homeCity || ''}
                 restaurants={restaurants}
-                onOpenRestaurant={openRestaurant}
+                onOpenRestaurant={openFrom(restaurants)}
               />
             </LazySection>
             <LazySection minHeight={480}>
@@ -545,7 +552,7 @@ function CustomerExploreTab() {
             <LazySection minHeight={220}>
               <FeaturedReviewHighlight
                 restaurants={filteredRestaurants}
-                onOpenRestaurant={openRestaurant}
+                onOpenRestaurant={openFrom(filteredRestaurants)}
               />
             </LazySection>
             <LazySection minHeight={320}>
@@ -558,7 +565,7 @@ function CustomerExploreTab() {
               distancesKm={feedDistancesKm}
               locating={nearbyState === 'locating'}
               onRequestLocation={requestGpsLocation}
-              onOpenRestaurant={openRestaurant}
+              onOpenRestaurant={openFrom(local.list)}
               hasMoreRemote={Boolean(nextCursor)}
               loadingMoreRemote={loadingMore}
               onLoadMoreRemote={loadMoreRestaurants}

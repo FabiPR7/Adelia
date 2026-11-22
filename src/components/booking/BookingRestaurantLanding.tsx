@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpen, CalendarCheck, Clock, Mail, MapPin, Navigation, Phone, Tag } from 'lucide-react'
 import PublicRestaurantReviews from './PublicRestaurantReviews'
@@ -28,6 +28,7 @@ import {
 import type { BookingRules } from '../../types/bookingRules'
 import RestaurantPrestige from './RestaurantPrestige'
 import RestaurantVisitStatus from './RestaurantVisitStatus'
+import { useRestaurantBrowse } from './useRestaurantBrowse'
 import styles from './BookingRestaurantLanding.module.css'
 
 const MAX_TEASER_PROMOTIONS = 3
@@ -78,6 +79,9 @@ export default function BookingRestaurantLanding({
   const [routeMapOpen, setRouteMapOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const { profile } = useAuth()
+  const pageRef = useRef<HTMLDivElement>(null)
+  const browseNav = useRestaurantBrowse(company.slug, pageRef)
+  const { neighbors } = browseNav
   const isCustomer = profile?.role === 'customer'
   const [promotions, setPromotions] = useState<PublicPromotion[]>([])
   const [showAllAmenities, setShowAllAmenities] = useState(false)
@@ -147,8 +151,44 @@ export default function BookingRestaurantLanding({
   const hiddenAmenityCount = amenityItems.length - visibleAmenities.length
 
   return (
-    <div className={`${styles.page} ${acceptsReservations ? styles.pageWithBar : ''}`}>
+    <div
+      // Al pasar de restaurante se vuelve a montar para repetir la entrada.
+      key={company.slug}
+      ref={pageRef}
+      className={[
+        styles.page,
+        acceptsReservations ? styles.pageWithBar : '',
+        browseNav.enter === 'next' ? styles.enterFromRight : '',
+        browseNav.enter === 'prev' ? styles.enterFromLeft : '',
+      ].filter(Boolean).join(' ')}
+      {...browseNav.touchHandlers}
+    >
       <section className={styles.hero} aria-label="Foto principal del restaurante">
+        {neighbors ? (
+          <nav className={styles.browsePill} aria-label="Pasar de restaurante">
+            <button
+              type="button"
+              className={styles.browseArrow}
+              onClick={() => browseNav.goTo('prev')}
+              disabled={!neighbors.prev}
+              aria-label="Restaurante anterior"
+            >
+              ‹
+            </button>
+            <span className={styles.browseText}>
+              {neighbors.position} de {neighbors.total}
+            </span>
+            <button
+              type="button"
+              className={styles.browseArrow}
+              onClick={() => browseNav.goTo('next')}
+              disabled={!neighbors.next}
+              aria-label="Restaurante siguiente"
+            >
+              ›
+            </button>
+          </nav>
+        ) : null}
         {backHref ? (
           <Link to={backHref} className={styles.backButton} data-tour="tour-restaurant-back">
             {backLabel}

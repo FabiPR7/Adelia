@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { browseListFrom } from '../../utils/restaurantBrowse'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -61,7 +62,9 @@ function CustomerFoodCategoryPage() {
     return [...list.filter(isHome), ...list.filter((restaurant) => !isHome(restaurant))]
   }, [restaurants, category, homeCity])
 
-  const openRestaurant = (restaurant: PublicDiscoveryRestaurant) => navigate(`/reservar/${restaurant.slug}`)
+  // Deslizando en la ficha se pasa al de al lado dentro de este tipo de comida.
+  const openRestaurant = (restaurant: PublicDiscoveryRestaurant) =>
+    navigate(`/reservar/${restaurant.slug}`, { state: { browse: browseListFrom(matching, restaurant.slug) } })
 
   if (!category) {
     return (

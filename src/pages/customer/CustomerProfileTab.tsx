@@ -1,4 +1,5 @@
 import type { PublicDiscoveryRestaurant } from '../../utils/publicDiscovery'
+import { browseListFrom } from '../../utils/restaurantBrowse'
 import { fetchDiscoveryRestaurantsBySlugs } from '../../services/publicDiscovery'
 import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
@@ -294,7 +295,8 @@ function CustomerProfileTab() {
                     key={restaurant.slug}
                     className={`${styles.favoriteCard} ${styles[`favorite_${accent}`]}`}
                   >
-                    <Link to={`/reservar/${restaurant.slug}`} className={styles.favoriteMediaLink}>
+                    <Link to={`/reservar/${restaurant.slug}`}
+                      state={{ browse: browseListFrom(favoriteRestaurants, restaurant.slug) }} className={styles.favoriteMediaLink}>
                       {imageUrl ? (
                         <img src={imageUrl} alt="" />
                       ) : (

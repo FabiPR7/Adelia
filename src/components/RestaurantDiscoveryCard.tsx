@@ -123,7 +123,14 @@ function RestaurantDiscoveryCard({
           <Link
             to={`/reservar/${restaurant.slug}`}
             className={styles.reserveButton}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              // Clic normal: mismo camino que la tarjeta (lleva la lista para deslizar).
+              // Con Ctrl/Cmd se abre en otra pestaña como cualquier enlace.
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+              event.preventDefault()
+              onOpen(restaurant)
+            }}
           >
             {restaurant.canReserve ? 'Reservar mesa' : 'Ver restaurante'}
           </Link>

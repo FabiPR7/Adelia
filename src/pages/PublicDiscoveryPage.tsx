@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { browseListFrom, nearestBrowseList } from '../utils/restaurantBrowse'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import CityAutocomplete from '../components/CityAutocomplete'
 import DiscoverySkeleton from '../components/DiscoverySkeleton'
@@ -117,11 +118,17 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
 
   const isCustomer = profile?.role === 'customer'
   const openRestaurant = useCallback(
-    (restaurant: PublicDiscoveryRestaurant) => {
-      navigate(`/reservar/${restaurant.slug}`)
+    (restaurant: PublicDiscoveryRestaurant, browse?: string[]) => {
+      navigate(`/reservar/${restaurant.slug}`, browse ? { state: { browse } } : undefined)
     },
     [navigate],
   )
+  // Cada sección pasa su lista para poder deslizar a la ficha siguiente o anterior.
+  const openFrom = (list: readonly PublicDiscoveryRestaurant[]) => (restaurant: PublicDiscoveryRestaurant) =>
+    openRestaurant(restaurant, browseListFrom(list, restaurant.slug))
+  // En el mapa, el siguiente es el más cercano al que se ha tocado.
+  const openNearestIn = (list: readonly PublicDiscoveryRestaurant[]) => (restaurant: PublicDiscoveryRestaurant) =>
+    openRestaurant(restaurant, nearestBrowseList(list, restaurant))
 
   const traitOptions = useMemo(
     () => collectPopularCharacteristics(restaurants),
@@ -430,7 +437,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
           <FavoriteRestaurantsRow
             restaurants={favoriteRestaurants}
             distancesKm={nearbyActive ? distancesKm : undefined}
-            onOpenRestaurant={openRestaurant}
+            onOpenRestaurant={openFrom(favoriteRestaurants)}
           />
         )}
 
@@ -464,7 +471,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
                 restaurants={primary}
                 direction="right"
                 distancesKm={nearbyActive ? distancesKm : undefined}
-                onOpenRestaurant={openRestaurant}
+                onOpenRestaurant={openFrom(primary)}
               />
             </section>
 
@@ -480,7 +487,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
                   restaurants={secondary}
                   direction="left"
                   distancesKm={nearbyActive ? distancesKm : undefined}
-                  onOpenRestaurant={openRestaurant}
+                  onOpenRestaurant={openFrom(secondary)}
                 />
               </section>
             ) : null}
@@ -488,7 +495,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
         )}
 
         {!loading && !error ? (
-          <LandingNearbyMap restaurants={restaurants} onOpenRestaurant={openRestaurant} />
+          <LandingNearbyMap restaurants={restaurants} onOpenRestaurant={openNearestIn(restaurants)} />
         ) : null}
 
         <LandingRewards />
