@@ -4,6 +4,7 @@ import { adminApi, type BroadcastTarget } from '../../services/adminApi'
 import { findCustomerIdByEmail } from '../../services/adminOps'
 import ConfirmDialog from '../ConfirmDialog'
 import styles from './AdminPanel.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 const TARGETS: Array<{ id: BroadcastTarget; label: string; hint: string }> = [
   { id: 'allCustomers', label: 'Todos los clientes', hint: 'Les llega a la campana de notificaciones de la web y la app.' },
@@ -75,7 +76,7 @@ function AdminBroadcastBoard({ companies }: AdminBroadcastBoardProps) {
       setBody('')
       setActionUrl('')
     } catch (err) {
-      setResult({ ok: false, text: err instanceof Error ? err.message : 'No se pudo enviar.' })
+      setResult({ ok: false, text: friendlyErrorMessage(err, 'No se pudo enviar.') })
     } finally {
       setBusy(false)
     }

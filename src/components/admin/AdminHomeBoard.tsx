@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { adminApi, type AdminDayStats, type AdminStats } from '../../services/adminApi'
 import styles from './AdminPanel.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 const RANGES = [
   { days: 7, label: '7 días' },
@@ -109,7 +110,7 @@ function AdminHomeBoard({ onOpenCompany, onNavigate }: AdminHomeBoardProps) {
       setStats({ ...result, series: current })
       setPrevious(before)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudieron cargar los datos.')
+      setError(friendlyErrorMessage(err, 'No se pudieron cargar los datos.'))
     } finally {
       setLoading(false)
     }

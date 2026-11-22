@@ -5,6 +5,7 @@ import { ADELIA_LOGO_URL } from '../constants/brand'
 import CustomerAuthShell from '../components/CustomerAuthShell'
 import LegalLinks from '../components/LegalLinks'
 import styles from './UserCustomerAuth.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function UserForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -22,7 +23,7 @@ function UserForgotPasswordPage() {
       const message = await requestCustomerPasswordReset(email.trim().toLowerCase())
       setSuccessMessage(message)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo enviar la solicitud.')
+      setError(friendlyErrorMessage(err, 'No se pudo enviar la solicitud.'))
     } finally {
       setIsLoading(false)
     }

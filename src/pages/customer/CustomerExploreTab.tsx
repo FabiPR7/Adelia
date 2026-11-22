@@ -41,6 +41,7 @@ import FoodCategoryButtons from '../../components/discovery/FoodCategoryButtons'
 import LazySection from '../../components/LazySection'
 import { findFoodCategory, MAIN_FOOD_CATEGORIES, restaurantMatchesFoodCategory } from '../../data/foodCategories'
 import styles from './CustomerExploreTab.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
 
@@ -90,7 +91,7 @@ function CustomerExploreTab() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'No se pudieron cargar los restaurantes.')
+          setError(friendlyErrorMessage(err, 'No se pudieron cargar los restaurantes.'))
         }
       })
       .finally(() => {

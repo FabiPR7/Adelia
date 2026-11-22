@@ -21,6 +21,7 @@ import {
 import { isLiveChallengeStatus, type ReservationChallenge } from '../types/reservationChallenges'
 import type { MazeDirection } from '../types/maze'
 import { usablePlayerPhoto } from '../components/challenges/challengeBrand'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function pickVisibleChallenge(uid: string, challenges: ReservationChallenge[]): ReservationChallenge | null {
   const live = challenges.filter((item) => {
@@ -408,7 +409,7 @@ export function useReservationChallenges() {
         })
       }
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'No se pudo completar el reto.'
+      const message = friendlyErrorMessage(caught, 'No se pudo completar el reto.')
       setError(message)
     } finally {
       setBusy(false)
@@ -475,7 +476,7 @@ export function useReservationChallenges() {
     try {
       apply(await moveMazeGame(challengeId, direction))
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'No se pudo mover en el laberinto.'
+      const message = friendlyErrorMessage(caught, 'No se pudo mover en el laberinto.')
       const rateLimited = message.toLowerCase().includes('demasiad')
       if (rateLimited) {
         await new Promise((resolve) => window.setTimeout(resolve, 280))
@@ -502,7 +503,7 @@ export function useReservationChallenges() {
     try {
       apply(await pickHotColdNumber(challengeId, value))
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'No se pudo elegir el número.'
+      const message = friendlyErrorMessage(caught, 'No se pudo elegir el número.')
       setError(message)
     }
   }, [])

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { adminApi, type AdminAuditEntry } from '../../services/adminApi'
 import styles from './AdminPanel.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 const ACTION_LABEL: Record<string, string> = {
   'customer.adjust': 'Ajuste de puntos u objetos',
@@ -38,7 +39,7 @@ function AdminAuditBoard() {
   useEffect(() => {
     void adminApi.audit(100)
       .then((data) => setEntries(data.entries))
-      .catch((err) => setError(err instanceof Error ? err.message : 'No se pudo cargar el registro.'))
+      .catch((err) => setError(friendlyErrorMessage(err, 'No se pudo cargar el registro.')))
   }, [])
 
   return (

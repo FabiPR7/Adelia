@@ -23,6 +23,7 @@ import {
 } from '../services/customerIdentityApi'
 import { personNameError } from '../utils/personName'
 import styles from './CustomerOnboardingPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function CustomerOnboardingPageContent() {
   const navigate = useNavigate()
@@ -141,7 +142,7 @@ function CustomerOnboardingPageContent() {
       try {
         await saveIdentity()
       } catch (identityError) {
-        setError(identityError instanceof Error ? identityError.message : 'No se pudo guardar tu nombre.')
+        setError(friendlyErrorMessage(identityError, 'No se pudo guardar tu nombre.'))
         return
       }
       await completeCustomerOnboarding(user.uid, {
@@ -196,7 +197,7 @@ function CustomerOnboardingPageContent() {
       await refreshProfile()
       navigate('/app/explorar', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo continuar.')
+      setError(friendlyErrorMessage(err, 'No se pudo continuar.'))
     } finally {
       setIsSaving(false)
     }

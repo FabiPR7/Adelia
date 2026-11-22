@@ -39,6 +39,7 @@ import type { VerifyMinimumSpendResult } from '../../services/minimumSpendApi'
 import type { PublicDiscoveryRestaurant } from '../../utils/publicDiscovery'
 import type { RegisterConsumptionInput } from '../../services/firestore'
 import styles from './CustomerReservationsTab.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 type ReservationTab = 'upcoming' | 'past'
 type PageSection = 'reservations' | 'consumption'
@@ -342,7 +343,7 @@ function CustomerReservationsTab() {
         setAcceptedInvites((current) => [invite, ...current.filter((item) => item.id !== invite.id)])
       }
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : 'No se pudo responder a la invitación.')
+      setInviteError(friendlyErrorMessage(error, 'No se pudo responder a la invitación.'))
     } finally {
       setInviteActionId(null)
     }

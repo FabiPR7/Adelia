@@ -6,6 +6,7 @@ import {
   rejectReservationInvite,
 } from '../../services/customerReservationInvites'
 import styles from './CustomerNotificationsTab.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 function formatRelativeTime(iso: string): string {
   const date = new Date(iso)
@@ -74,7 +75,7 @@ function CustomerNotificationsTab() {
         navigate('/app/reservas')
       }
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : 'No se pudo responder a la invitación.')
+      setInviteError(friendlyErrorMessage(error, 'No se pudo responder a la invitación.'))
     } finally {
       setInviteActionId(null)
     }

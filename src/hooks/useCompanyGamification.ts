@@ -23,6 +23,7 @@ import {
   getCompanyLevelProgress,
   getCompanyXpToNext,
 } from '../data/companyGamificationCatalog'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 export function useCompanyGamification(enabled: boolean) {
   const { company } = useAuth()
@@ -55,7 +56,7 @@ export function useCompanyGamification(enabled: boolean) {
       setActivePromotionCount(promotions.filter((item) => item.active).length)
       setState(synced.state)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar Compite.')
+      setError(friendlyErrorMessage(err, 'No se pudo cargar Compite.'))
     } finally {
       setLoading(false)
     }

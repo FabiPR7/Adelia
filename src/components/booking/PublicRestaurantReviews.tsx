@@ -14,6 +14,7 @@ import { LEGAL_CONTACT_EMAIL } from '../../content/publicLegal'
 import { fetchBlockedIds } from '../../services/customerFriends'
 import ReportContentModal from '../ReportContentModal'
 import styles from './PublicRestaurantReviews.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 function buildReportHref(companyName: string, authorName: string, createdAt: string): string {
   const subject = `Denuncia de reseña en ${companyName}`
@@ -124,7 +125,7 @@ function PublicReviewCard({
     } catch (error) {
       setHelpful((count) => Math.max(0, count - 1))
       setVoted(false)
-      setVoteError(error instanceof Error ? error.message : 'No se pudo marcar como útil.')
+      setVoteError(friendlyErrorMessage(error, 'No se pudo marcar como útil.'))
     } finally {
       setVoting(false)
     }
@@ -278,7 +279,7 @@ export default function PublicRestaurantReviews({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'No se pudieron cargar las reseñas.')
+          setError(friendlyErrorMessage(err, 'No se pudieron cargar las reseñas.'))
         }
       } finally {
         if (!cancelled) {

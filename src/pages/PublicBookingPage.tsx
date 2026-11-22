@@ -66,6 +66,7 @@ import {
 } from '../types'
 import { updateCustomerPhone } from '../services/customerAuth'
 import styles from './PublicBookingPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 const FloorPlanViewer = lazy(() => import('../components/FloorPlanViewer'))
 
@@ -160,7 +161,7 @@ function PublicBookingPage() {
     try {
       setDayAvailability(await fetchPublicAvailability(slug, selectedDate, activePromo?.id ?? null))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar la disponibilidad.')
+      setError(friendlyErrorMessage(err, 'No se pudo cargar la disponibilidad.'))
     } finally {
       setIsAvailabilityLoading(false)
     }
@@ -197,7 +198,7 @@ function PublicBookingPage() {
         if (!cancelled) {
           setDepositIntent(null)
           setDepositPaymentError(
-            err instanceof Error ? err.message : 'No se pudo preparar la fianza.',
+            friendlyErrorMessage(err, 'No se pudo preparar la fianza.'),
           )
         }
       } finally {
@@ -239,7 +240,7 @@ function PublicBookingPage() {
         setBookingRules(data.booking)
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Restaurante no encontrado.')
+          setError(friendlyErrorMessage(err, 'Restaurante no encontrado.'))
         }
       } finally {
         if (!cancelled) {
@@ -610,7 +611,7 @@ function PublicBookingPage() {
     try {
       assertReservationStartInFuture(selectedDate, selectedTime)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Horario no válido.')
+      setError(friendlyErrorMessage(err, 'Horario no válido.'))
       return
     }
 
@@ -708,7 +709,7 @@ function PublicBookingPage() {
       setInviteeIds([])
       await loadAvailability()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la reserva.')
+      setError(friendlyErrorMessage(err, 'No se pudo crear la reserva.'))
     } finally {
       setIsSubmitting(false)
     }

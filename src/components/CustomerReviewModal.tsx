@@ -22,6 +22,7 @@ import { extractTagsFromComment, getReviewCommentPlainLength } from '../utils/re
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../utils/cloudinaryUrl'
 import { REVIEW_BOOST_ADELINAS, REVIEW_BOOST_XP } from '../data/inventoryItems'
 import styles from './CustomerReviewModal.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 type ReviewModalMode = 'manage' | 'create' | 'edit'
 type TagPickerMode = 'product' | 'promotion' | null
@@ -155,7 +156,7 @@ export default function CustomerReviewModal({
 
       onClose()
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'No se pudo guardar la reseña.')
+      setError(friendlyErrorMessage(submitError, 'No se pudo guardar la reseña.'))
     } finally {
       setSubmitting(false)
     }
@@ -169,7 +170,7 @@ export default function CustomerReviewModal({
       await onDelete(reservation.companyId)
       onClose()
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar la reseña.')
+      setError(friendlyErrorMessage(deleteError, 'No se pudo eliminar la reseña.'))
     } finally {
       setSubmitting(false)
     }

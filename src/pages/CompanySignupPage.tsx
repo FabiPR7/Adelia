@@ -35,6 +35,7 @@ import {
 import { loadRecaptchaScript, executeRecaptcha } from '../services/recaptcha'
 import RecaptchaNotice from '../components/RecaptchaNotice'
 import styles from './CompanySignupPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 const STEPS = [
   { id: 'account', label: 'Cuenta' },
@@ -189,7 +190,7 @@ function CompanySignupPage() {
       })
       .catch((caught) => {
         if (!cancelled) {
-          setSessionError(caught instanceof Error ? caught.message : 'No se pudo leer el pago.')
+          setSessionError(friendlyErrorMessage(caught, 'No se pudo leer el pago.'))
         }
       })
       .finally(() => {
@@ -281,7 +282,7 @@ function CompanySignupPage() {
         setError(`Tu local ya está creado. Entra con “${result.loginName}” y tu contraseña.`)
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'No se pudo crear la cuenta.')
+      setError(friendlyErrorMessage(caught, 'No se pudo crear la cuenta.'))
     } finally {
       setBusy(false)
     }

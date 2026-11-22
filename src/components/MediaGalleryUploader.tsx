@@ -12,6 +12,7 @@ import { prepareVideoForUpload, type VideoPreparePhase } from '../utils/videoMed
 import { isAllowedVideoFile, VIDEO_FILE_ACCEPT } from '../constants/fileUpload'
 import { useCompanyDemo } from '../context/CompanyDemoContext'
 import styles from './MediaGalleryUploader.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 interface MediaGalleryUploaderProps {
   label: string
@@ -145,7 +146,7 @@ function MediaGalleryUploader({
       })
       onChange([...urls, secureUrl].slice(0, maxItems))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al subir el archivo.')
+      setError(friendlyErrorMessage(err, 'Error al subir el archivo.'))
     } finally {
       setIsUploading(false)
       setProgress(null)

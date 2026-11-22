@@ -9,6 +9,7 @@ import { findFoodCategory, restaurantMatchesFoodCategory } from '../../data/food
 import { fetchPublicDiscoveryRestaurants, mergeDiscoveryRestaurants } from '../../services/publicDiscovery'
 import type { PublicDiscoveryRestaurant } from '../../utils/publicDiscovery'
 import styles from './CustomerFoodCategoryPage.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 function normalizePlace(value: string | undefined | null): string {
   return (value ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim()
@@ -38,7 +39,7 @@ function CustomerFoodCategoryPage() {
         setRestaurants(extra.reduce((all, items) => mergeDiscoveryRestaurants(all, items), general))
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'No se pudieron cargar los restaurantes.')
+        if (!cancelled) setError(friendlyErrorMessage(err, 'No se pudieron cargar los restaurantes.'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

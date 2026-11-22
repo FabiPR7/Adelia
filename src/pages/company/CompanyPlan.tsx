@@ -37,6 +37,7 @@ import {
 } from 'lucide-react'
 import { ReportCard, ReportHeader } from '../../components/reports/ReportKit'
 import styles from './CompanyPlan.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 function planIcon(id: CompanyPlanId): LucideIcon {
   if (id === 'free') return UtensilsCrossed
@@ -93,7 +94,7 @@ function CompanyPlan() {
       await logout()
       window.location.assign('/empresa')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo eliminar la cuenta.')
+      setError(friendlyErrorMessage(err, 'No se pudo eliminar la cuenta.'))
       setBusy(false)
       setConfirmDelete(false)
     }

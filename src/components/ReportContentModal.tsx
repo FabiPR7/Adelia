@@ -7,6 +7,7 @@ import {
 } from '../services/supportInboxApi'
 import { blockUser } from '../services/customerFriends'
 import styles from './SupportMessageModal.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 interface ReportContentModalProps {
   target: ContentReportTarget
@@ -56,7 +57,7 @@ function ReportContentModal({ target, authorName, blockableUid, onClose, onBlock
       }
       setSent(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo enviar. Inténtalo de nuevo.')
+      setError(friendlyErrorMessage(err, 'No se pudo enviar. Inténtalo de nuevo.'))
     } finally {
       setSending(false)
     }

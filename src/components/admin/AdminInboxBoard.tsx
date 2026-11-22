@@ -8,6 +8,7 @@ import {
 } from '../../services/adminApi'
 import ops from './AdminOpsBoard.module.css'
 import styles from './AdminInboxBoard.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 const REPORT_STATUS_LABEL: Record<AdminReportStatus, string> = {
   open: 'Nuevo',
@@ -50,7 +51,7 @@ function AdminInboxBoard() {
       setReports(reportData.reports)
       setSuggestions(suggestionData.suggestions)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar el buzón.')
+      setError(friendlyErrorMessage(err, 'No se pudo cargar el buzón.'))
     } finally {
       setLoading(false)
     }
@@ -80,7 +81,7 @@ function AdminInboxBoard() {
       await adminApi.setReportStatus(report.id, status, report.adminNote)
       setReports((current) => current.map((item) => (item.id === report.id ? { ...item, status } : item)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar.')
+      setError(friendlyErrorMessage(err, 'No se pudo guardar.'))
     } finally {
       setSavingId(null)
     }
@@ -97,7 +98,7 @@ function AdminInboxBoard() {
       await adminApi.setReportStatus(report.id, 'resolved', report.adminNote || 'Reseña borrada')
       setReports((current) => current.map((item) => (item.id === report.id ? { ...item, status: 'resolved' } : item)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo borrar la reseña.')
+      setError(friendlyErrorMessage(err, 'No se pudo borrar la reseña.'))
     } finally {
       setSavingId(null)
     }
@@ -113,7 +114,7 @@ function AdminInboxBoard() {
       await adminApi.setReportStatus(report.id, 'resolved', report.adminNote || 'Cuenta bloqueada')
       setReports((current) => current.map((item) => (item.id === report.id ? { ...item, status: 'resolved' } : item)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo bloquear la cuenta.')
+      setError(friendlyErrorMessage(err, 'No se pudo bloquear la cuenta.'))
     } finally {
       setSavingId(null)
     }
@@ -126,7 +127,7 @@ function AdminInboxBoard() {
       await adminApi.setSuggestionStatus(suggestion.id, status, suggestion.adminNote)
       setSuggestions((current) => current.map((item) => (item.id === suggestion.id ? { ...item, status } : item)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar.')
+      setError(friendlyErrorMessage(err, 'No se pudo guardar.'))
     } finally {
       setSavingId(null)
     }

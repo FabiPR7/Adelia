@@ -4,6 +4,7 @@ import { ADELIA_LOGO_URL } from '../constants/brand'
 import LegalLinks from '../components/LegalLinks'
 import { fetchSaasCheckoutSession, type SaasCheckoutSession } from '../services/saasBilling'
 import styles from './CompanyPlansPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function CompanyPlanCheckoutSuccessPage() {
   const [searchParams] = useSearchParams()
@@ -25,7 +26,7 @@ function CompanyPlanCheckoutSuccessPage() {
       })
       .catch((caught) => {
         if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : 'No se pudo confirmar el pago.')
+          setError(friendlyErrorMessage(caught, 'No se pudo confirmar el pago.'))
         }
       })
 

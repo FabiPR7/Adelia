@@ -1,4 +1,5 @@
 import { getIdToken } from '../services/auth'
+import { friendlyErrorMessage } from './friendlyError'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
@@ -336,7 +337,7 @@ async function uploadCloudinaryResource(
     onProgress?.(100)
     return result
   } catch (error) {
-    const message = error instanceof Error ? error.message : ''
+    const message = friendlyErrorMessage(error, '')
     const isNetwork = /failed to fetch|networkerror|load failed/i.test(message)
 
     if (resourceType === 'video' && isNetwork) {

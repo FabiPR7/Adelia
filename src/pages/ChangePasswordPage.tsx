@@ -6,6 +6,7 @@ import { getFirestoreErrorMessage } from '../services/firestore'
 import { validatePasswordStrength } from '../utils/passwordValidation'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import styles from './LoginPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function ChangePasswordPage() {
   const navigate = useNavigate()
@@ -43,7 +44,7 @@ function ChangePasswordPage() {
       await refreshProfile()
       navigate('/panel', { replace: true })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'No se pudo cambiar la contraseña.'
+      const message = friendlyErrorMessage(err, 'No se pudo cambiar la contraseña.')
       if (message.includes('permission') || message.includes('Firestore')) {
         setError(getFirestoreErrorMessage(err))
       } else {

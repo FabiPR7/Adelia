@@ -4,6 +4,7 @@ import { ADELIA_LOGO_URL } from '../constants/brand'
 import CustomerAuthShell from '../components/CustomerAuthShell'
 import { resendCustomerVerificationByEmail } from '../services/customerAuthApi'
 import styles from './UserCustomerAuth.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 const RESEND_WAIT_SECONDS = 60
 
@@ -35,7 +36,7 @@ function VerifyEmailPage() {
       setSentTo(target)
       setWait(RESEND_WAIT_SECONDS)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo reenviar el correo.')
+      setError(friendlyErrorMessage(err, 'No se pudo reenviar el correo.'))
     } finally {
       setSending(false)
     }

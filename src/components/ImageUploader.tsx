@@ -12,6 +12,7 @@ import { uploadToCloudinary } from '../utils/cloudinaryUpload'
 import { downscaleImageFile } from '../utils/imageResize'
 import ImageCropModal from './ImageCropModal'
 import styles from './ImageUploader.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 interface ImageUploaderProps {
   onImageUploaded: (url: string) => void
@@ -105,7 +106,7 @@ function ImageUploader({
       setPreviewUrl(secureUrl)
       onImageUploaded(secureUrl)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al subir la imagen.')
+      setError(friendlyErrorMessage(err, 'Error al subir la imagen.'))
     } finally {
       setIsUploading(false)
       resetInput()

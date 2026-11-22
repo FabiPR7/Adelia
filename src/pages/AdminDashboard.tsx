@@ -60,6 +60,7 @@ import {
 import AdminReportsBoard from '../components/admin/AdminReportsBoard'
 import { isAllowedMonthlyBillingDate, parseDateInput } from '../data/companyPlans'
 import styles from './AdminDashboard.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 type AdminView = 'home' | 'reports' | 'companies' | 'plans' | 'customers' | 'game' | 'notify' | 'moderation' | 'security'
 
@@ -284,7 +285,7 @@ function AdminDashboard() {
       setCompanyToDelete(null)
       await loadCompanies()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo eliminar el restaurante.')
+      setError(friendlyErrorMessage(err, 'No se pudo eliminar el restaurante.'))
     } finally {
       setIsDeletingCompany(false)
     }
@@ -299,7 +300,7 @@ function AdminDashboard() {
       setSuccess(`Cobro marcado en ${company.name}.`)
       await loadCompanies()
     } catch (err) {
-      setOpsError(err instanceof Error ? err.message : 'No se pudo marcar el cobro.')
+      setOpsError(friendlyErrorMessage(err, 'No se pudo marcar el cobro.'))
     } finally {
       setIsSaving(false)
     }
@@ -315,7 +316,7 @@ function AdminDashboard() {
       })
       await loadCompanies()
     } catch (err) {
-      setOpsError(err instanceof Error ? err.message : 'No se pudo destacar el local.')
+      setOpsError(friendlyErrorMessage(err, 'No se pudo destacar el local.'))
     } finally {
       setIsSaving(false)
     }
@@ -496,7 +497,7 @@ function AdminDashboard() {
                     item.id === customer.id ? { ...item, blocked: !customer.blocked } : item
                   )))
                 } catch (err) {
-                  setOpsError(err instanceof Error ? err.message : 'No se pudo cambiar el bloqueo.')
+                  setOpsError(friendlyErrorMessage(err, 'No se pudo cambiar el bloqueo.'))
                 } finally {
                   setIsSaving(false)
                 }
@@ -602,7 +603,7 @@ function AdminDashboard() {
             void adminApi.logChange('review.delete', review.id, { name: review.companyName })
             setReviews((current) => current.filter((item) => item.id !== review.id))
           } catch (err) {
-            setOpsError(err instanceof Error ? err.message : 'No se pudo quitar la reseña.')
+            setOpsError(friendlyErrorMessage(err, 'No se pudo quitar la reseña.'))
           } finally {
             setIsSaving(false)
             setReviewToDelete(null)
@@ -628,7 +629,7 @@ function AdminDashboard() {
             await adminApi.blockCustomer(target.id, true, 'Bloqueado desde el panel de administración')
             setCustomers((current) => current.map((item) => (item.id === target.id ? { ...item, blocked: true } : item)))
           } catch (err) {
-            setOpsError(err instanceof Error ? err.message : 'No se pudo bloquear.')
+            setOpsError(friendlyErrorMessage(err, 'No se pudo bloquear.'))
           } finally {
             setIsSaving(false)
             setBlockTarget(null)

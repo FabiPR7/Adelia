@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { saveCustomerPreferences } from '../services/customerAccount'
 import styles from './CustomerPreferencesCard.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -57,7 +58,7 @@ function CustomerPreferencesCard({ birthday, hideFromRanking, hideVisitsFromFrie
       await onSaved()
       setMessage({ tone: 'ok', text: 'Guardado.' })
     } catch (error) {
-      setMessage({ tone: 'error', text: error instanceof Error ? error.message : 'No se pudo guardar.' })
+      setMessage({ tone: 'error', text: friendlyErrorMessage(error, 'No se pudo guardar.') })
     } finally {
       setSaving(false)
     }

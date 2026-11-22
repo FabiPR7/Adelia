@@ -6,6 +6,7 @@ import { validatePasswordStrength } from '../utils/passwordValidation'
 import CustomerAuthShell from '../components/CustomerAuthShell'
 import styles from './LoginPage.module.css'
 import customerStyles from './UserCustomerAuth.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function ResetPasswordPage() {
   const navigate = useNavigate()
@@ -77,7 +78,7 @@ function ResetPasswordPage() {
         state: { passwordReset: true },
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo restablecer la contraseña.')
+      setError(friendlyErrorMessage(err, 'No se pudo restablecer la contraseña.'))
     } finally {
       setIsLoading(false)
     }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import ReasonDialog from '../ReasonDialog'
 import { adminApi, type AdminCompanySummary } from '../../services/adminApi'
 import styles from './AdminPanel.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 const STATUS_LABEL: Record<string, string> = {
   confirmed: 'Confirmada',
@@ -31,7 +32,7 @@ function AdminCompanyActivity({ companyId, onChanged }: AdminCompanyActivityProp
     setError(null)
     void adminApi.companySummary(companyId)
       .then((data) => { if (!cancelled) setSummary(data) })
-      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'No se pudo cargar.') })
+      .catch((err) => { if (!cancelled) setError(friendlyErrorMessage(err, 'No se pudo cargar.')) })
     return () => { cancelled = true }
   }, [companyId])
 
@@ -53,7 +54,7 @@ function AdminCompanyActivity({ companyId, onChanged }: AdminCompanyActivityProp
       setSummary({ ...summary, deactivated: result.deactivated })
       onChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cambiar.')
+      setError(friendlyErrorMessage(err, 'No se pudo cambiar.'))
     } finally {
       setBusy(false)
     }

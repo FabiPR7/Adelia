@@ -21,6 +21,7 @@ import {
 } from '../../utils/minimumSpendVerification'
 import MinSpendProductCart from './MinSpendProductCart'
 import styles from './MinimumSpendVerificationModal.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 type FlowStep = 'intro' | 'mode' | 'total' | 'products' | 'review' | 'pin' | 'success'
 type CaptureMode = 'total' | 'products'
@@ -169,7 +170,7 @@ export default function MinimumSpendVerificationModal({
       onVerified(reservation.id, result)
       setStep('success')
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'No se pudo verificar el gasto mínimo.')
+      setError(friendlyErrorMessage(submitError, 'No se pudo verificar el gasto mínimo.'))
     } finally {
       setSubmitting(false)
     }

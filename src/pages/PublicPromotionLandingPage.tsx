@@ -6,6 +6,7 @@ import { mergeDemoPromotions } from '../data/demoNearbyPromotions'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
 import { trackAppEvent } from '../utils/appEvents'
 import styles from './PublicRestaurantPromotionsPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function PublicPromotionLandingPage() {
   const { slug = '', promotionId = '' } = useParams()
@@ -40,7 +41,7 @@ function PublicPromotionLandingPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'No se pudo cargar la promoción.')
+          setError(friendlyErrorMessage(err, 'No se pudo cargar la promoción.'))
         }
       } finally {
         if (!cancelled) {

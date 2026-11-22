@@ -8,6 +8,7 @@ import { trackAppEvent } from '../utils/appEvents'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import { getCompanyMainPhotoUrl } from '../utils/companyPhotos'
 import styles from './PublicMenuPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function PublicMenuPage() {
   const { slug = '' } = useParams()
@@ -42,7 +43,7 @@ function PublicMenuPage() {
         setBoards(data.boards)
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'No se pudo cargar la carta.')
+          setError(friendlyErrorMessage(err, 'No se pudo cargar la carta.'))
         }
       } finally {
         if (!cancelled) {

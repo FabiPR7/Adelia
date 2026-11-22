@@ -5,6 +5,7 @@ import { changePasswordWithReauth } from '../../services/auth'
 import { validatePasswordStrength, getPasswordStrengthLabel, getPasswordStrengthColor } from '../../utils/passwordValidation'
 import { ADELIA_LOGO_URL } from '../../constants/brand'
 import styles from './CustomerChangePasswordPage.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 function CustomerChangePasswordPage() {
   const navigate = useNavigate()
@@ -52,7 +53,7 @@ function CustomerChangePasswordPage() {
         navigate('/app/perfil')
       }, 2000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cambiar la contraseña.')
+      setError(friendlyErrorMessage(err, 'No se pudo cambiar la contraseña.'))
     } finally {
       setIsLoading(false)
     }

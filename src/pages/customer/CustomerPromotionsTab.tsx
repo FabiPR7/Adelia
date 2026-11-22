@@ -51,6 +51,7 @@ import {
   loadCustomerLadders,
   useCustomerLadders,
 } from '../../services/customerLadders'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 /** Filtro de «Mapas del tesoro». */
 type MapFilter = 'todos' | 'en-curso' | 'nuevos'
@@ -603,7 +604,7 @@ function CustomerPromotionsTab() {
       await applyReservationToken(itemId, tokenGroup.companyId)
       setTokenGroup(null)
     } catch (error) {
-      setTokenError(error instanceof Error ? error.message : 'No se pudo usar la carta.')
+      setTokenError(friendlyErrorMessage(error, 'No se pudo usar la carta.'))
     } finally {
       setTokenApplying(false)
     }

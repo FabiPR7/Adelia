@@ -36,6 +36,7 @@ import {
 import { getLocationErrorMessage, requestUserLocation } from '../utils/requestUserLocation'
 import type { DiscoveryVenueKind } from '../data/companyProfileFacilities'
 import styles from './PublicDiscoveryPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
 
@@ -101,7 +102,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'No se pudieron cargar los restaurantes.')
+          setError(friendlyErrorMessage(err, 'No se pudieron cargar los restaurantes.'))
         }
       })
       .finally(() => {

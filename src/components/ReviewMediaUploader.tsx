@@ -5,6 +5,7 @@ import { CLOUDINARY_DISPLAY, cloudinaryVideoPosterUrl, optimizeCloudinaryUrl, op
 import { getCloudinaryResourceType, uploadToCloudinary } from '../utils/cloudinaryUpload'
 import { prepareVideoForUpload } from '../utils/videoMedia'
 import styles from './ReviewMediaUploader.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 const MAX_MEDIA_ITEMS = 6
 
@@ -52,7 +53,7 @@ function ReviewMediaUploader({ value, onChange, disabled = false }: ReviewMediaU
 
       onChange([...value, ...uploadedItems])
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'No se pudo subir el archivo.')
+      setError(friendlyErrorMessage(uploadError, 'No se pudo subir el archivo.'))
     } finally {
       setUploadingCount(0)
       if (inputRef.current) {

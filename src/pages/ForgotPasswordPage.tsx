@@ -4,6 +4,7 @@ import { requestPasswordReset } from '../services/authApi'
 import { ADELIA_LOGO_URL } from '../constants/brand'
 import LegalLinks from '../components/LegalLinks'
 import styles from './LoginPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function ForgotPasswordPage() {
   const [loginName, setLoginName] = useState('')
@@ -22,7 +23,7 @@ function ForgotPasswordPage() {
       const message = await requestPasswordReset(loginName.trim(), email.trim())
       setSuccessMessage(message)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo enviar la solicitud.')
+      setError(friendlyErrorMessage(err, 'No se pudo enviar la solicitud.'))
     } finally {
       setIsLoading(false)
     }

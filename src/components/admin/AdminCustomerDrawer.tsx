@@ -4,6 +4,7 @@ import { getGamificationLevelTitle } from '../../data/gamificationLevels'
 import { getInventoryItem, INVENTORY_ITEMS } from '../../data/inventoryItems'
 import ReasonDialog from '../ReasonDialog'
 import styles from './AdminPanel.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 const STATUS_LABEL: Record<string, string> = {
   confirmed: 'Confirmada',
@@ -48,7 +49,7 @@ function AdminCustomerDrawer({ customerId, companyNames, onClose, onChanged }: A
     try {
       setDetail(await adminApi.customer(customerId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar el cliente.')
+      setError(friendlyErrorMessage(err, 'No se pudo cargar el cliente.'))
     }
   }
 
@@ -73,7 +74,7 @@ function AdminCustomerDrawer({ customerId, companyNames, onClose, onChanged }: A
     try {
       setMessage(await action())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo completar.')
+      setError(friendlyErrorMessage(err, 'No se pudo completar.'))
     } finally {
       setBusy(false)
     }

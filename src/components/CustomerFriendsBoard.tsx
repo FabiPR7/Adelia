@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext'
 import LeaderboardRow from './LeaderboardRow'
 import RankingStripList from './RankingStripList'
 import styles from './CustomerFriendsBoard.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 interface CustomerFriendsBoardProps {
   favoriteFriends: FriendProfile[]
@@ -152,7 +153,7 @@ function CustomerFriendsBoard({
       .catch((error) => {
         if (!cancelled) {
           setAddSearchResults([])
-          setAddSearchError(error instanceof Error ? error.message : 'No se pudo buscar.')
+          setAddSearchError(friendlyErrorMessage(error, 'No se pudo buscar.'))
         }
       })
       .finally(() => {
@@ -221,7 +222,7 @@ function CustomerFriendsBoard({
       .catch((error) => {
         if (!cancelled) {
           setPeopleResults([])
-          setPeopleError(error instanceof Error ? error.message : 'No se pudo buscar.')
+          setPeopleError(friendlyErrorMessage(error, 'No se pudo buscar.'))
         }
       })
       .finally(() => {
@@ -273,7 +274,7 @@ function CustomerFriendsBoard({
       .catch((error) => {
         setRequestErrorById((current) => ({
           ...current,
-          [id]: error instanceof Error ? error.message : 'No se pudo enviar.',
+          [id]: friendlyErrorMessage(error, 'No se pudo enviar.'),
         }))
       })
       .finally(() => setSendingRequestId(null))

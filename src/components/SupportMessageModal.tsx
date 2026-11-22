@@ -8,6 +8,7 @@ import {
   type SuggestionTopic,
 } from '../services/supportInboxApi'
 import styles from './SupportMessageModal.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 type SupportMessageModalProps =
   | {
@@ -73,7 +74,7 @@ function SupportMessageModal(props: SupportMessageModalProps) {
       }
       setSent(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo enviar. Inténtalo de nuevo.')
+      setError(friendlyErrorMessage(err, 'No se pudo enviar. Inténtalo de nuevo.'))
     } finally {
       setSending(false)
     }

@@ -33,6 +33,7 @@ import {
 } from '../../types/review'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../../utils/cloudinaryUrl'
 import styles from './CompanyReviews.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 interface CompanyReviewsProps {
   companyId: string
@@ -231,7 +232,7 @@ function ReviewCard({
       onReplySaved(review.id, savedReply)
       setReplyOpen(false)
     } catch (err) {
-      setReplyError(err instanceof Error ? err.message : 'No se pudo guardar la respuesta.')
+      setReplyError(friendlyErrorMessage(err, 'No se pudo guardar la respuesta.'))
     } finally {
       setReplySubmitting(false)
     }

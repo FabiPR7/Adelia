@@ -11,6 +11,7 @@ import {
   type InventoryItemDefinition,
 } from '../data/inventoryItems'
 import styles from './InventoryHub.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 type InventoryFilter = 'owned' | 'mesas' | 'utilidad' | 'all'
 
@@ -202,7 +203,7 @@ function ItemDetail({
       const message = await onUse(item.id)
       setNotice(message)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo usar.')
+      setError(friendlyErrorMessage(err, 'No se pudo usar.'))
     } finally {
       setUsing(false)
     }

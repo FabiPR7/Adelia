@@ -20,6 +20,7 @@ import SupportMessageModal from '../../components/SupportMessageModal'
 import CustomerPreferencesCard from '../../components/CustomerPreferencesCard'
 import { cleanReviewExcerpt } from '../../utils/reviewCommentTags'
 import styles from './CustomerProfileTab.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 const QUICK_ACCENTS = ['coral', 'gold', 'magenta', 'sunset'] as const
 
@@ -103,7 +104,7 @@ function CustomerProfileTab() {
       await deleteCustomerAccount(deleteConfirm.trim())
       await logout()
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : 'No se pudo eliminar la cuenta.')
+      setDeleteError(friendlyErrorMessage(error, 'No se pudo eliminar la cuenta.'))
       setDeleting(false)
     }
   }

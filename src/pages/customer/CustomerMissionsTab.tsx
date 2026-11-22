@@ -28,6 +28,7 @@ import { isAlmostDone, missionAction, remainingLabel } from '../../utils/mission
 import { achievementGlyphFor } from '../../data/achievementGlyphs'
 import { getLevelRankingStripTheme } from '../../utils/levelRankingStripThemes'
 import styles from './CustomerMissionsTab.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 /** Cuánto falta para que se renueven (semana: domingo a medianoche; mes: fin de mes). */
 function resetLabel(cadence: 'weekly' | 'monthly', now = new Date()): string {
@@ -213,7 +214,7 @@ function CustomerMissionsTab() {
     try {
       await gamification.claimSeasonPack(pack)
     } catch (error) {
-      setClaimError(error instanceof Error ? error.message : 'No se pudo reclamar.')
+      setClaimError(friendlyErrorMessage(error, 'No se pudo reclamar.'))
     } finally {
       setClaimingPack(null)
     }

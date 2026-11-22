@@ -4,6 +4,7 @@ import BookingInviteFriends from './BookingInviteFriends'
 import { inviteFriendsToReservation } from '../../services/customerReservationInvites'
 import type { FriendProfile } from '../../types/friends'
 import styles from './PostBookingInvite.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 interface PostBookingInviteProps {
   reservationId: string
@@ -39,7 +40,7 @@ function PostBookingInvite({ reservationId, friends, loading, alreadyInvitedIds 
         setError('No se ha enviado ninguna invitación nueva: ya estaban invitados o ya no sois amigos.')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo enviar la invitación.')
+      setError(friendlyErrorMessage(err, 'No se pudo enviar la invitación.'))
     } finally {
       setSending(false)
     }

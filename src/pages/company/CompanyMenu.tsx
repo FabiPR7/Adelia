@@ -111,6 +111,7 @@ import {
 } from '../../constants/fileUpload'
 import { uploadPdfToCloudinary } from '../../utils/cloudinaryUpload'
 import styles from './CompanyMenu.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 interface CompanyMenuProps {
   companyId: string
@@ -598,7 +599,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
         pdfPages: uploaded.pages,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo subir el PDF.')
+      setError(friendlyErrorMessage(err, 'No se pudo subir el PDF.'))
     } finally {
       setSaving(false)
     }

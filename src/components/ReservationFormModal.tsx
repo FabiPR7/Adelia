@@ -21,6 +21,7 @@ import {
   isSlotAvailableForTable,
 } from '../utils/reservationSlots'
 import styles from './ReservationFormModal.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 interface ReservationFormModalProps {
   isOpen: boolean
@@ -284,7 +285,7 @@ function ReservationFormModal({
         onClose()
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar la reserva.')
+      setError(friendlyErrorMessage(err, 'No se pudo guardar la reserva.'))
     }
   }
 

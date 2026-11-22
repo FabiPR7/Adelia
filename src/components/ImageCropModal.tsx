@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { loadImageFile, loadImageForEditing, renderImageRegion, type LoadedImage } from '../utils/imageResize'
 import styles from './ImageCropModal.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 interface ImageCropModalProps {
   file: File
@@ -57,7 +58,7 @@ function ImageCropModal({
         else setImage(result)
       })
       .catch((error: unknown) => {
-        if (!cancelled) setLoadError(error instanceof Error ? error.message : 'No se pudo abrir la imagen.')
+        if (!cancelled) setLoadError(friendlyErrorMessage(error, 'No se pudo abrir la imagen.'))
       })
     return () => {
       cancelled = true
@@ -203,7 +204,7 @@ function ImageCropModal({
       const result = await renderImageRegion(full, region, Math.max(1, outW), Math.max(1, outH), file.type, file.name)
       onConfirm(result)
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'No se pudo preparar la imagen.')
+      setLoadError(friendlyErrorMessage(error, 'No se pudo preparar la imagen.'))
       setSaving(false)
     } finally {
       if (full) {

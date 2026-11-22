@@ -8,6 +8,7 @@ import { buildPromotionBookingHref } from '../utils/promotionBooking'
 import { resolvePromotionDetail, resolvePromotionHighlight, resolvePromotionMinimumSpend } from '../utils/promotionOffer'
 import { trackAppEvent } from '../utils/appEvents'
 import styles from './PublicRestaurantPromotionsPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function PublicRestaurantPromotionsPage() {
   const { slug = '' } = useParams()
@@ -44,7 +45,7 @@ function PublicRestaurantPromotionsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'No se pudieron cargar las promociones.')
+          setError(friendlyErrorMessage(err, 'No se pudieron cargar las promociones.'))
         }
       } finally {
         if (!cancelled) {

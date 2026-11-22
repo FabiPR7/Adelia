@@ -18,6 +18,7 @@ import type { MenuNode, Reservation } from '../../types'
 import type { CompanyReview, ReviewMediaItem, ReviewTaggedProduct, ReviewTaggedPromotion } from '../../types/review'
 import { REVIEW_BOOST_ITEM_ID } from '../../data/inventoryItems'
 import styles from './WriteReviewButton.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 // «Escribir reseña» en la ficha (igual que la app): solo si fuiste al local, con
 // una reserva asistida o un consumo validado. Lo decide el servidor al pulsar.
@@ -136,7 +137,7 @@ export function useReviewWriter(
       }
       await openEditor(result.review)
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'No se pudo comprobar. Inténtalo de nuevo.')
+      setNotice(friendlyErrorMessage(error, 'No se pudo comprobar. Inténtalo de nuevo.'))
     } finally {
       setChecking(false)
     }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { adminApi, type AdminAnalytics, type AdminGeography } from '../../services/adminApi'
 import { getCompanyPlan, parseCompanyPlanId } from '../../data/companyPlans'
 import styles from './AdminReportsBoard.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 type Metric = 'reservations' | 'revenueCents' | 'newCustomers' | 'claims' | 'pax'
 type SortKey = 'reservations' | 'pax' | 'revenueCents' | 'noShows' | 'claims' | 'avgRating'
@@ -179,7 +180,7 @@ function AdminReportsBoard() {
     try {
       setData(await adminApi.analytics(from, to, includeTest))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudieron cargar los informes.')
+      setError(friendlyErrorMessage(err, 'No se pudieron cargar los informes.'))
     } finally {
       setLoading(false)
     }

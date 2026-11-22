@@ -8,6 +8,7 @@ import {
 import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import InfoHint from '../../components/company/InfoHint'
 import styles from './CompanyStripeConnectPanel.module.css'
+import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 interface CompanyStripeConnectPanelProps {
   companyId: string
@@ -62,7 +63,7 @@ export default function CompanyStripeConnectPanel({
       const next = await fetchCompanyStripeStatus(companyId)
       setStatus(next)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo consultar Stripe.')
+      setError(friendlyErrorMessage(err, 'No se pudo consultar Stripe.'))
     } finally {
       setLoading(false)
     }
@@ -84,7 +85,7 @@ export default function CompanyStripeConnectPanel({
       const result = await startCompanyStripeConnect(companyId)
       window.location.assign(result.url)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo abrir Stripe Connect.')
+      setError(friendlyErrorMessage(err, 'No se pudo abrir Stripe Connect.'))
       setActionLoading(false)
     }
   }
@@ -97,7 +98,7 @@ export default function CompanyStripeConnectPanel({
       const result = await openCompanyStripeDashboard(companyId)
       window.open(result.url, '_blank', 'noopener,noreferrer')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo abrir el panel de Stripe.')
+      setError(friendlyErrorMessage(err, 'No se pudo abrir el panel de Stripe.'))
     } finally {
       setActionLoading(false)
     }

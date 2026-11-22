@@ -8,6 +8,7 @@ import { BOOKING_RULES_UNKNOWN, type BookingRules } from '../types/bookingRules'
 import { hasMenuPdf, type MenuBoard, type MenuNode } from '../types/company'
 import { trackAppEvent } from '../utils/appEvents'
 import styles from './PublicMenuViewPage.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function PublicMenuViewPage() {
   const { slug = '', boardId = '' } = useParams()
@@ -41,7 +42,7 @@ function PublicMenuViewPage() {
         setNodes(data.nodes)
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'No se pudo cargar la carta.')
+          setError(friendlyErrorMessage(err, 'No se pudo cargar la carta.'))
         }
       } finally {
         if (!cancelled) {

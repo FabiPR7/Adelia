@@ -16,6 +16,7 @@ import {
   PROMO_LOCK_STRIKES,
 } from '../data/cancellationPenalties'
 import styles from './PublicCancelReservation.module.css'
+import { friendlyErrorMessage } from '../utils/friendlyError'
 
 function formatReservationWhen(startTime: string | null): string | null {
   if (!startTime) {
@@ -78,7 +79,7 @@ function PublicCancelReservation() {
         }
       } catch (err) {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'No se pudo cargar la cancelación.')
+          setLoadError(friendlyErrorMessage(err, 'No se pudo cargar la cancelación.'))
         }
       } finally {
         if (!cancelled) {
@@ -123,7 +124,7 @@ function PublicCancelReservation() {
       setResultMessage(result.message)
       setResultPenalty(result.xpPenalty ?? null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cancelar la reserva.')
+      setError(friendlyErrorMessage(err, 'No se pudo cancelar la reserva.'))
     } finally {
       setIsSubmitting(false)
     }
