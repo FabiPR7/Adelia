@@ -47,7 +47,7 @@ import { handleLemonSqueezyWebhook } from './routes/lemonSqueezyWebhook.ts'
 import appEventsRouter from './routes/appEvents.ts'
 import adminRouter from './routes/admin.ts'
 import publicCatalogRouter from './routes/publicCatalog.ts'
-import { verifyAdmin } from './auth/verifyRequest.ts'
+import { verifyAdmin, requireCustomerSession } from './auth/verifyRequest.ts'
 import { isAllowedOrigin } from './security/origins.ts'
 import { securityHeaders } from './security/headers.ts'
 import { sanitizeRequest } from './security/sanitize.ts'
@@ -141,6 +141,8 @@ export function createApp() {
   app.use('/api/uploads', uploadsRouter)
   app.use('/api/public/client-errors', clientErrorsRouter)
   app.use(seoRouter)
+  // Todas las rutas de clientes piden sesión: sin ella, 401 al momento.
+  app.use('/api/customer', requireCustomerSession)
   app.use('/api/customer/notifications', customerNotificationsRouter)
   app.use('/api/customer/friends', customerFriendsRouter)
   app.use('/api/customer/favorites', customerFavoritesRouter)

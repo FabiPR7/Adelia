@@ -21,7 +21,9 @@ async function verifyRequestUser(req: Request): Promise<VerifiedRequestUser> {
     throw new Error('No autorizado.')
   }
 
-  const decoded = await adminAuth.verifyIdToken(token)
+  // Si la entrada de /api/customer ya comprobó el token, se reutiliza.
+  const cached = req.res?.locals?.decodedToken as Awaited<ReturnType<typeof adminAuth.verifyIdToken>> | undefined
+  const decoded = cached ?? await adminAuth.verifyIdToken(token)
   const userSnap = await adminDb.collection('users').doc(decoded.uid).get()
   if (!userSnap.exists) {
     throw new Error('Perfil no encontrado.')
@@ -143,4 +145,28 @@ export async function verifyAdmin(
     const message = error instanceof Error ? error.message : 'Token inválido o expirado.'
     res.status(401).json({ error: message })
   }
+}
+
+/**
+ * Entrada de todas las rutas de clientes: sin sesión o con una sesión falsa o
+ * caducada responde 401 al momento (antes algunas daban 400 o 500). El token ya
+ * comprobado se guarda para que la ruta no lo vuelva a comprobar.
+ */
+export async function requireCustomerSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (req.method === 'OPTIONS') {
+    next()
+    return
+  }
+  const token = bearerToken(req)
+  if (!token) {
+    res.status(401).json({ error: 'Debes iniciar sesión.' })
+    return
+  }
+  try {
+    res.locals.decodedToken = await adminAuth.verifyIdToken(token)
+  } catch {
+    res.status(401).json({ error: 'Tu sesión ha caducado. Vuelve a entrar.' })
+    return
+  }
+  next()
 }

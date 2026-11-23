@@ -92,13 +92,13 @@
           ]
         },
         {
-          "source": "**",
           "headers": [
             {
               "key": "Cache-Control",
               "value": "no-cache"
             }
-          ]
+          ],
+          "regex": "^/($|[^a].*|a($|[^p].*)|ap($|[^i].*)|api($|[^/].*))"
         },
         {
           "source": "/assets/**",
@@ -180,13 +180,13 @@
           ]
         },
         {
-          "source": "**",
           "headers": [
             {
               "key": "Cache-Control",
               "value": "no-cache"
             }
-          ]
+          ],
+          "regex": "^/($|[^a].*|a($|[^p].*)|ap($|[^i].*)|api($|[^/].*))"
         },
         {
           "source": "/assets/**",
