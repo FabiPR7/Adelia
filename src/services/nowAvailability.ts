@@ -1,103 +1,124 @@
 import type { PublicDiscoveryRestaurant } from '../utils/publicDiscovery'
 import { mapApiRestaurant } from './publicDiscovery'
 
+// «Comer ahora»: lo calcula el servidor; aquí solo se pide y se pinta. Igual en web y app.
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 /** La mesa libre para «ahora» de un local (la calcula el servidor). */
 export interface NowSlot {
-  date: string
   time: string
-  /** Minutos desde ya (negativo = empezó hace poco y aún llegas). */
-  minutesFromNow: number
+  startsAt: string
   freeTableCount: number
   freeTableIds: string[]
+  maxSeats: number
 }
+
+/** book: se puede reservar ya · missed: hora pasada sin reservar · ask: abierto, hay que preguntar. */
+export type NowState = 'book' | 'missed' | 'ask'
 
 export interface NowRestaurant extends PublicDiscoveryRestaurant {
-  now: NowSlot
+  state: NowState
+  now: NowSlot | null
+  missedTime: string
+  phone: string
+  closesAt: string
 }
 
-export interface NowResult {
-  pax: number
+export interface NowPage {
   graceMinutes: number
   windowMinutes: number
-  radiusKm: number | null
   restaurants: NowRestaurant[]
+  nextCursor: string | null
 }
 
-/**
- * «Comer ahora»: locales cercanos con mesa libre para ya o en unos minutos.
- * Se guarda 30 s por zona y personas (el servidor ya guarda 60 s).
- */
-const cache = new Map<string, { at: number; result: NowResult }>()
+export type NowWhere = { near: { lat: number; lng: number } } | { city: string }
 
-export async function fetchNowRestaurants(
-  where: { near: { lat: number; lng: number } } | { city: string },
-  pax: number,
-): Promise<NowResult> {
-  const params = new URLSearchParams({ pax: String(pax) })
+function text(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function mapNowRestaurant(raw: unknown): NowRestaurant | null {
+  const row = (raw ?? {}) as Record<string, unknown>
+  const base = mapApiRestaurant(row)
+  const slot = row.now as Record<string, unknown> | undefined
+  const missed = row.missed as Record<string, unknown> | undefined
+  const state = row.state
+  if (!base || (state !== 'book' && state !== 'missed' && state !== 'ask')) return null
+  const now = slot && text(slot.time)
+    ? {
+        time: text(slot.time),
+        startsAt: text(slot.startsAt),
+        freeTableCount: typeof slot.freeTableCount === 'number' ? slot.freeTableCount : 1,
+        freeTableIds: Array.isArray(slot.freeTableIds) ? slot.freeTableIds.filter((id): id is string => typeof id === 'string') : [],
+        maxSeats: typeof slot.maxSeats === 'number' ? slot.maxSeats : 0,
+      }
+    : null
+  if (state === 'book' && !now) return null
+  return { ...base, state, now, missedTime: text(missed?.time), phone: text(row.phone), closesAt: text(row.closesAt) }
+}
+
+function nowQuery(where: NowWhere, pax: number | null, cursor: string | null): string {
+  const params = new URLSearchParams()
   if ('near' in where) {
     params.set('lat', where.near.lat.toFixed(2))
     params.set('lng', where.near.lng.toFixed(2))
   } else {
     params.set('city', where.city.trim())
   }
-  const key = params.toString()
-  const hit = cache.get(key)
-  if (hit && Date.now() - hit.at < 30_000) return hit.result
+  if (pax != null) params.set('pax', String(pax))
+  if (cursor) params.set('cursor', cursor)
+  return params.toString()
+}
 
+/** Una página de sitios abiertos ahora. `pax` null = da igual cuántos seáis. */
+export async function fetchNowPage(where: NowWhere, pax: number | null, cursor: string | null): Promise<NowPage> {
   let response: Response
   try {
-    response = await fetch(`${API_BASE}/api/public/discovery/now?${key}`)
+    response = await fetch(`${API_BASE}/api/public/discovery/now?${nowQuery(where, pax, cursor)}`)
   } catch {
     throw new Error('Sin conexión. Revisa internet e inténtalo de nuevo.')
   }
   const data = (await response.json().catch(() => ({}))) as Record<string, unknown>
   if (!response.ok) {
-    throw new Error(typeof data.error === 'string' ? data.error : 'No se pudieron buscar mesas para ahora.')
+    throw new Error(text(data.error) || 'No se pudieron buscar mesas para ahora.')
   }
-  const restaurants = (Array.isArray(data.restaurants) ? data.restaurants : []).flatMap((raw) => {
-    const row = raw as Record<string, unknown>
-    const base = mapApiRestaurant(row)
-    const now = row.now as Record<string, unknown> | undefined
-    if (!base || !now || typeof now.time !== 'string') return []
-    return [{
-      ...base,
-      now: {
-        date: String(now.date ?? ''),
-        time: now.time,
-        minutesFromNow: typeof now.minutesFromNow === 'number' ? now.minutesFromNow : 0,
-        freeTableCount: typeof now.freeTableCount === 'number' ? now.freeTableCount : 1,
-        freeTableIds: Array.isArray(now.freeTableIds) ? now.freeTableIds.filter((id): id is string => typeof id === 'string') : [],
-      },
-    }]
-  })
-  const result: NowResult = {
-    pax: typeof data.pax === 'number' ? data.pax : pax,
+  return {
     graceMinutes: typeof data.graceMinutes === 'number' ? data.graceMinutes : 5,
     windowMinutes: typeof data.windowMinutes === 'number' ? data.windowMinutes : 30,
-    radiusKm: typeof data.radiusKm === 'number' ? data.radiusKm : null,
-    restaurants,
+    restaurants: (Array.isArray(data.restaurants) ? data.restaurants : [])
+      .map(mapNowRestaurant)
+      .filter((item): item is NowRestaurant => item !== null),
+    nextCursor: text(data.nextCursor) || null,
   }
-  cache.set(key, { at: Date.now(), result })
-  return result
 }
 
-/** «Ya», «en 5 min» o «empezó hace 2 min»: cómo de pronto es la mesa. */
-export function nowSlotLabel(slot: NowSlot): string {
-  if (slot.minutesFromNow <= 0) {
-    return slot.minutesFromNow < 0 ? `A las ${slot.time} · aún llegas` : `A las ${slot.time} · ya`
+/** Lo que se sabe de ese local ahora mismo: título y detalle. */
+export function nowStatus(item: NowRestaurant): { title: string; detail: string } {
+  if (item.state === 'book' && item.now) {
+    const minutes = Math.round((new Date(item.now.startsAt).getTime() - Date.now()) / 60_000)
+    const when = minutes > 0 ? `en ${minutes} min` : minutes < 0 ? 'aún llegas' : 'ya'
+    const tables = item.now.freeTableCount === 1 ? '1 mesa libre' : `${item.now.freeTableCount} mesas libres`
+    return { title: `A las ${item.now.time} · ${when}`, detail: `${tables} · la mayor, para ${item.now.maxSeats}` }
   }
-  return `A las ${slot.time} · en ${slot.minutesFromNow} min`
+  if (item.state === 'missed') {
+    return {
+      title: `A las ${item.missedTime} quedó mesa sin reservar`,
+      detail: 'Puede que siga libre: llama o acércate.',
+    }
+  }
+  return {
+    title: item.closesAt ? `Abierto hasta las ${item.closesAt}` : 'Abierto ahora',
+    detail: 'Puede que haya mesa: pregunta en el local.',
+  }
 }
 
-/** Enlace a la reserva con hoy, la hora, las personas y las mesas libres ya puestos. */
-export function nowBookingHref(restaurant: NowRestaurant, pax: number): string {
+/** Enlace a la reserva con hoy, la hora y las mesas libres ya puestas. */
+export function nowBookingHref(item: NowRestaurant, pax: number | null): string {
   const params = new URLSearchParams({
     reservar: '1',
-    ahora: restaurant.now.time,
-    pax: String(pax),
-    mesas: restaurant.now.freeTableIds.join(','),
+    ahora: item.now?.time ?? '',
+    mesas: item.now?.freeTableIds.join(',') ?? '',
   })
-  return `/reservar/${encodeURIComponent(restaurant.slug)}?${params.toString()}`
+  if (pax != null) params.set('pax', String(pax))
+  return `/reservar/${encodeURIComponent(item.slug)}?${params.toString()}`
 }

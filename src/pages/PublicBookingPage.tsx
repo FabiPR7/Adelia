@@ -145,6 +145,15 @@ function PublicBookingPage() {
   const nowTime = /^\d{2}:\d{2}$/.test(nowTimeParam) ? nowTimeParam : ''
   const nowTablesParam = searchParams.get('mesas') ?? ''
   const nowAppliedRef = useRef(false)
+  // Mesas libres que mandó «Comer ahora», de la más ajustada a la más grande.
+  const nowTables = useMemo(() => {
+    const ids = new Set(nowTablesParam.split(',').filter(Boolean))
+    return tables.filter((table) => ids.has(table.id)).sort((left, right) => left.capacity - right.capacity)
+  }, [tables, nowTablesParam])
+  const nowMaxSeats = nowTables.length > 0 ? nowTables[nowTables.length - 1].capacity : 0
+  const pickNowTable = useCallback((people: number) => (
+    nowTables.find((table) => table.capacity >= people) ?? nowTables[nowTables.length - 1]
+  ), [nowTables])
   const durationMinutes = company?.timeSlotMinutes ?? 120
   const schedule = company?.schedule
   const hasDepositPass = inventoryQuantity(profile?.gamification?.inventory, DEPOSIT_PASS_ITEM_ID) > 0
@@ -293,20 +302,19 @@ function PublicBookingPage() {
     if (!nowTime || nowAppliedRef.current || !company || !bookingRules.canReserve || tables.length === 0) {
       return
     }
-    const tableId = nowTablesParam.split(',').find((id) => tables.some((table) => table.id === id))
+    const paxParam = Number(searchParams.get('pax'))
+    const people = Number.isInteger(paxParam) && paxParam >= 1 && paxParam <= 20 ? paxParam : 2
+    const tableId = pickNowTable(people)?.id
     if (!tableId) {
       return
     }
     nowAppliedRef.current = true
-    const paxParam = Number(searchParams.get('pax'))
-    if (Number.isInteger(paxParam) && paxParam >= 1 && paxParam <= 20) {
-      setPax(paxParam)
-    }
+    setPax(Math.min(people, nowMaxSeats))
     setPageView('booking')
     setSelectedTime(nowTime)
     setSelectedTableId(tableId)
     setStep('form')
-  }, [nowTime, nowTablesParam, company, bookingRules.canReserve, tables, searchParams])
+  }, [nowTime, pickNowTable, nowMaxSeats, company, bookingRules.canReserve, tables, searchParams])
 
   useEffect(() => {
     if (profile?.role !== 'customer') {
@@ -373,6 +381,7 @@ function PublicBookingPage() {
   const returnPath = `${location.pathname}${location.search}`
   const promoAuthRedirect = encodeURIComponent(returnPath)
   const selectedTable = tables.find((table) => table.id === selectedTableId)
+  const isNowMode = Boolean(nowTime) && selectedTime === nowTime && nowTables.some((table) => table.id === selectedTableId)
   const extraPaxCapacity = selectedTable
     ? selectedTable.capacity + (useExtraPax && hasExtraPax ? 1 : 0)
     : 20
@@ -1109,12 +1118,17 @@ function PublicBookingPage() {
                       <input
                         type="number"
                         min={1}
-                        max={extraPaxCapacity}
+                        max={isNowMode ? Math.max(extraPaxCapacity, nowMaxSeats) : extraPaxCapacity}
                         value={pax}
                         onChange={(e) => {
                           const next = Math.max(1, Math.trunc(Number(e.target.value)) || 1)
-                          const clamped = Math.min(next, extraPaxCapacity)
+                          const clamped = Math.min(next, isNowMode ? Math.max(extraPaxCapacity, nowMaxSeats) : extraPaxCapacity)
                           setPax(clamped)
+                          // «Comer ahora»: se pasa a la mesa libre donde entráis todos.
+                          if (isNowMode) {
+                            const table = pickNowTable(clamped)
+                            if (table && table.capacity >= clamped) setSelectedTableId(table.id)
+                          }
                           if (selectedTable && clamped <= selectedTable.capacity) {
                             setUseExtraPax(false)
                           }

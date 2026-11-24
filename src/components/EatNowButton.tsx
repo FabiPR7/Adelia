@@ -8,7 +8,7 @@ function EatNowButton({ className = '' }: { className?: string }) {
       <span className={styles.icon} aria-hidden="true">🍽️</span>
       <span className={styles.text}>
         <strong>Comer ahora</strong>
-        <span>Sitios con mesa libre para ya mismo</span>
+        <span>Sitios abiertos con mesa para ya</span>
       </span>
       <span className={styles.arrow} aria-hidden="true">→</span>
     </Link>

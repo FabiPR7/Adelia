@@ -64,6 +64,7 @@
 
 .paxChip {
   min-width: 44px;
+  padding: 0 0.8rem;
   min-height: 44px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
@@ -253,4 +254,31 @@
   .secondary {
     transition: none;
   }
+}
+
+.tip {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-warn);
+}
+
+.maybe {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-warn);
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.primary:hover,
+.primary:focus,
+.primary:visited {
+  color: var(--color-white);
 }

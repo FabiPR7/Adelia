@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findNowSlot } from '../nowAvailability.ts'
+import { closesAtIfOpen, findMissedSlot, findNowSlot, hasTableFreeNow } from '../nowAvailability.ts'
 import { isNowBookingTime, parseBookingDate } from '../../reservationSlots.ts'
 
 const closed = { open: '', close: '', active: false }
@@ -22,7 +22,7 @@ const tables = [{ id: 'm1', capacity: 2 }, { id: 'm2', capacity: 4 }]
 describe('Comer ahora', () => {
   it('con horas cada 2 h ofrece llegar ya (la siguiente en punto de 5 min)', () => {
     const slot = findNowSlot({ date, schedule, durationMinutes: 120, tables, pax: 2, reservations: [], window, now })
-    expect(slot).toEqual({ time: '20:35', minutesFromNow: 3, freeTableCount: 2, freeTableIds: ['m1', 'm2'] })
+    expect(slot).toMatchObject({ time: '20:35', startsAt: '2026-11-27T19:35:00.000Z', minutesFromNow: 3, freeTableCount: 2, freeTableIds: ['m1', 'm2'], maxSeats: 4 })
   })
 
   it('con horas cada 30 min deja llegar 2 min tarde a la de las 20:30', () => {
@@ -54,5 +54,31 @@ describe('Comer ahora', () => {
     expect(isNowBookingTime(date, '21:30', schedule, 120, window, now)).toBe(false) // dentro de 58 min
     expect(isNowBookingTime(date, '20:33', schedule, 120, window, now)).toBe(false) // no es de 5 en 5
     expect(isNowBookingTime(date, '22:00', schedule, 120, { graceMinutes: 5, windowMinutes: 120 }, now)).toBe(false) // no cabe antes del cierre
+  })
+
+  it('sin decir cuántos son valen todas las mesas', () => {
+    expect(findNowSlot({ date, schedule, durationMinutes: 120, tables, pax: null, reservations: [], window, now })?.maxSeats).toBe(4)
+  })
+
+  it('una hora recién pasada y sin reservar sale como «puede que haya mesa»', () => {
+    const late = Date.UTC(2026, 10, 27, 20, 40) // 21:40 en Madrid
+    const base = { date, schedule, durationMinutes: 90, tables, pax: null, reservations: [], now: late }
+    expect(findMissedSlot({ ...base, missedMinutes: 15 })?.time).toBe('21:30')
+    expect(findMissedSlot({ ...base, missedMinutes: 5 })).toBeNull()
+    const all = tables.map((table) => ({
+      id: table.id, tableId: table.id, status: 'completed',
+      startTime: new Date(Date.UTC(2026, 10, 27, 20, 30)), endTime: new Date(Date.UTC(2026, 10, 27, 22, 0)),
+    }))
+    expect(findMissedSlot({ ...base, reservations: all, missedMinutes: 15 })).toBeNull()
+    expect(hasTableFreeNow(tables, all, null, late)).toBe(false)
+    expect(hasTableFreeNow(tables, [], null, late)).toBe(true)
+  })
+
+  it('sabe si está abierto, también pasada la medianoche', () => {
+    expect(closesAtIfOpen(schedule, now)?.time).toBe('23:30')
+    expect(closesAtIfOpen(schedule, Date.UTC(2026, 10, 27, 16, 0))).toBeNull()
+    const night = { ...schedule, friday: { open: '20:00', close: '02:00', active: true } }
+    expect(closesAtIfOpen(night, Date.UTC(2026, 10, 28, 0, 30))?.time).toBe('02:00') // sábado 01:30
+    expect(closesAtIfOpen(night, Date.UTC(2026, 10, 28, 1, 30))).toBeNull()
   })
 })

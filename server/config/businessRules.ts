@@ -44,6 +44,10 @@ export interface BusinessRules {
   nowRadiusKm: number
   /** «Comer ahora»: cuántos locales cercanos se miran como mucho. */
   nowMaxRestaurants: number
+  /** «Comer ahora»: cuántos locales se cargan cada vez (al bajar, los siguientes). */
+  nowPageSize: number
+  /** «Comer ahora»: una hora sin reservar se enseña como «puede que haya mesa» hasta estos minutos después. */
+  nowMissedMinutes: number
 }
 
 export const EMERGENCY_BUSINESS_RULES: BusinessRules = {
@@ -72,8 +76,10 @@ export const EMERGENCY_BUSINESS_RULES: BusinessRules = {
   ],
   nowGraceMinutes: 5,
   nowWindowMinutes: 30,
-  nowRadiusKm: 5,
-  nowMaxRestaurants: 20,
+  nowRadiusKm: 10,
+  nowMaxRestaurants: 80,
+  nowPageSize: 12,
+  nowMissedMinutes: 15,
 }
 
 const CACHE_MS = 5 * 60 * 1000
@@ -136,7 +142,9 @@ export function parseBusinessRules(data: Record<string, unknown> | undefined): B
     nowGraceMinutes: Math.min(30, nonNegativeInt(d.nowGraceMinutes) ?? base.nowGraceMinutes),
     nowWindowMinutes: Math.min(120, positiveInt(d.nowWindowMinutes) ?? base.nowWindowMinutes),
     nowRadiusKm: Math.min(30, positiveInt(d.nowRadiusKm) ?? base.nowRadiusKm),
-    nowMaxRestaurants: Math.min(40, positiveInt(d.nowMaxRestaurants) ?? base.nowMaxRestaurants),
+    nowMaxRestaurants: Math.min(80, positiveInt(d.nowMaxRestaurants) ?? base.nowMaxRestaurants),
+    nowPageSize: Math.min(20, positiveInt(d.nowPageSize) ?? base.nowPageSize),
+    nowMissedMinutes: Math.min(60, positiveInt(d.nowMissedMinutes) ?? base.nowMissedMinutes),
   }
 }
 

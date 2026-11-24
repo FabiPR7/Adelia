@@ -1,30 +1,36 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { requestUserLocation } from '../utils/requestUserLocation'
-import { formatDistanceKm, haversineDistanceKm, type GeoCoordinates } from '../utils/geo'
-import { fetchNowRestaurants, nowBookingHref, nowSlotLabel, type NowResult } from '../services/nowAvailability'
+import { formatDistanceKm, haversineDistanceKm } from '../utils/geo'
+import { fetchNowPage, nowBookingHref, nowStatus, type NowRestaurant, type NowWhere } from '../services/nowAvailability'
 import styles from './EatNowPage.module.css'
 
-const PAX_OPTIONS = [1, 2, 3, 4, 5, 6, 8]
+const PAX_OPTIONS: Array<number | null> = [null, 1, 2, 3, 4, 5, 6, 7, 8]
 
-type Where = { near: GeoCoordinates } | { city: string }
+type Where = NowWhere
 
 /**
- * «Comer ahora»: para cuando hay prisa. Enseña los locales cercanos con mesa libre
- * para ya mismo o en unos minutos (lo calcula el servidor) y abre la reserva con
- * todo puesto: hoy, la hora, las personas y una mesa libre.
+ * «Comer ahora»: para cuando hay prisa. Todos los sitios abiertos cerca, de 12 en 12:
+ * primero los que tienen mesa para reservar ya; después, los que puede que tengan sitio.
+ * Decir cuántos sois es opcional.
  */
 function EatNowPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
-  const [pax, setPax] = useState(2)
+  const [pax, setPax] = useState<number | null>(null)
   const [where, setWhere] = useState<Where | null>(null)
   const [locating, setLocating] = useState(true)
   const [cityInput, setCityInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<NowResult | null>(null)
+  const [items, setItems] = useState<NowRestaurant[]>([])
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+  const [windowMinutes, setWindowMinutes] = useState(30)
+  // Si cambias de sitio o de comensales, lo que llegue de la búsqueda anterior se ignora.
+  const searchId = useRef(0)
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     document.title = 'Comer ahora · Adelia'
@@ -51,22 +57,54 @@ function EatNowPage() {
     }
   }, [profile])
 
-  const search = useCallback(async (target: Where, people: number) => {
+  /** Pide una página (y las siguientes si esa no trae ningún local abierto). */
+  const loadPage = useCallback(async (target: Where, people: number | null, from: string | null) => {
+    if (from == null) searchId.current += 1
+    const id = searchId.current
     setLoading(true)
     setError(null)
+    if (from == null) {
+      setItems([])
+      setDone(false)
+    }
     try {
-      setResult(await fetchNowRestaurants(target, people))
+      let next = from
+      for (let tries = 0; tries < 4; tries += 1) {
+        const page = await fetchNowPage(target, people, next)
+        if (id !== searchId.current) return
+        setWindowMinutes(page.windowMinutes)
+        next = page.nextCursor
+        setItems((current) => {
+          const seen = new Set(current.map((item) => item.id))
+          return [...current, ...page.restaurants.filter((item) => !seen.has(item.id))]
+        })
+        if (page.restaurants.length > 0 || !next) break
+      }
+      setCursor(next)
+      setDone(next == null)
     } catch (err) {
-      setResult(null)
-      setError(err instanceof Error ? err.message : 'No se pudieron buscar mesas para ahora.')
+      if (id === searchId.current) {
+        setError(err instanceof Error ? err.message : 'No se pudieron buscar mesas para ahora.')
+      }
     } finally {
-      setLoading(false)
+      if (id === searchId.current) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    if (where) void search(where, pax)
-  }, [where, pax, search])
+    if (where) void loadPage(where, pax, null)
+  }, [where, pax, loadPage])
+
+  // Al acercarse al final de la lista se cargan los siguientes.
+  useEffect(() => {
+    const node = sentinelRef.current
+    if (!node || !where || !cursor || loading || error) return undefined
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) void loadPage(where, pax, cursor)
+    }, { rootMargin: '400px' })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [where, pax, cursor, loading, error, loadPage])
 
   const submitCity = (event: FormEvent) => {
     event.preventDefault()
@@ -74,7 +112,6 @@ function EatNowPage() {
   }
 
   const origin = where && 'near' in where ? where.near : null
-  const restaurants = result?.restaurants ?? []
 
   return (
     <div className={styles.page}>
@@ -85,24 +122,25 @@ function EatNowPage() {
         <p className={styles.eyebrow}>Comer ahora</p>
         <h1 className={styles.title}>Mesa libre, ya</h1>
         <p className={styles.lead}>
-          Sitios cerca de ti con mesa para ahora mismo o en los próximos {result?.windowMinutes ?? 30} minutos.
+          Sitios abiertos cerca de ti: con mesa para reservar en los próximos {windowMinutes} minutos o donde puede que haya sitio.
         </p>
 
-        <div className={styles.paxRow} role="radiogroup" aria-label="¿Cuántos sois?">
-          <span className={styles.paxLabel}>¿Cuántos sois?</span>
+        <div className={styles.paxRow} role="radiogroup" aria-label="¿Cuántos sois? (opcional)">
+          <span className={styles.paxLabel}>¿Cuántos sois? (opcional)</span>
           {PAX_OPTIONS.map((option) => (
             <button
-              key={option}
+              key={option ?? 'all'}
               type="button"
               role="radio"
               aria-checked={pax === option}
               className={`${styles.paxChip} ${pax === option ? styles.paxChipOn : ''}`}
               onClick={() => setPax(option)}
             >
-              {option === 8 ? '8+' : option}
+              {option == null ? 'Todos' : option === 8 ? '8+' : option}
             </button>
           ))}
         </div>
+        <p className={styles.tip}>Antes de ir, asegúrate de que entráis todos.</p>
       </header>
 
       <main className={styles.main}>
@@ -121,45 +159,48 @@ function EatNowPage() {
           </form>
         ) : null}
 
-        {locating || loading ? (
-          <p className={styles.status} role="status">
-            {locating ? 'Buscando dónde estás…' : 'Buscando mesas libres para ahora…'}
-          </p>
-        ) : null}
-
         {error ? (
           <div className={styles.error} role="alert">
             <p>{error}</p>
-            {where ? <button type="button" className={styles.secondary} onClick={() => void search(where, pax)}>Reintentar</button> : null}
+            {where ? <button type="button" className={styles.secondary} onClick={() => void loadPage(where, pax, items.length > 0 ? cursor : null)}>Reintentar</button> : null}
           </div>
         ) : null}
 
-        {!loading && !error && result && restaurants.length === 0 ? (
+        {done && !loading && !error && items.length === 0 ? (
           <div className={styles.empty}>
-            <p className={styles.emptyTitle}>Ahora mismo no hay mesas libres cerca</p>
-            <p>Prueba con menos personas, o reserva para más tarde.</p>
+            <p className={styles.emptyTitle}>Ahora mismo no hay sitios abiertos cerca</p>
+            <p>{pax == null ? 'Prueba más tarde o reserva para otro momento.' : 'Prueba con «Todos» o con menos personas.'}</p>
             <Link className={styles.primary} to="/">Ver todos los restaurantes</Link>
           </div>
         ) : null}
 
-        {!loading && restaurants.length > 0 ? (
+        {items.length > 0 ? (
           <ul className={styles.list}>
-            {restaurants.map((restaurant) => {
-              const distance = origin && restaurant.latitude != null && restaurant.longitude != null
-                ? formatDistanceKm(haversineDistanceKm(origin, { lat: restaurant.latitude, lng: restaurant.longitude }))
+            {items.map((item) => {
+              const distance = origin && item.latitude != null && item.longitude != null
+                ? formatDistanceKm(haversineDistanceKm(origin, { lat: item.latitude, lng: item.longitude }))
                 : ''
+              const status = nowStatus(item)
               return (
-                <li key={restaurant.id} className={styles.card}>
+                <li key={item.id} className={styles.card}>
                   <div className={styles.photo}>
-                    {restaurant.photoUrl ? <img src={restaurant.photoUrl} alt="" loading="lazy" /> : <span>{restaurant.name.charAt(0)}</span>}
+                    {item.photoUrl ? <img src={item.photoUrl} alt="" loading="lazy" /> : <span>{item.name.charAt(0)}</span>}
                   </div>
                   <div className={styles.body}>
-                    <h2>{restaurant.name}</h2>
-                    <p className={styles.meta}>{[restaurant.municipality, distance].filter(Boolean).join(' · ')}</p>
-                    <p className={styles.slot}>{nowSlotLabel(restaurant.now)}</p>
-                    <Link className={styles.primary} to={nowBookingHref(restaurant, pax)}>
-                      Reservar a las {restaurant.now.time}
-                    </Link>
+                    <h2>{item.name}</h2>
+                    <p className={styles.meta}>{[item.municipality, distance].filter(Boolean).join(' · ')}</p>
+                    <p className={item.state === 'book' ? styles.slot : styles.maybe}>{status.title}</p>
+                    <p className={styles.meta}>{status.detail}</p>
+                    <div className={styles.cardActions}>
+                      {item.state === 'book' && item.now ? (
+                        <Link className={styles.primary} to={nowBookingHref(item, pax)}>Reservar a las {item.now.time}</Link>
+                      ) : (
+                        <>
+                          {item.phone ? <a className={styles.primary} href={`tel:${item.phone.replace(/[^\d+]/g, '')}`}>Llamar</a> : null}
+                          <Link className={styles.secondary} to={`/reservar/${encodeURIComponent(item.slug)}`}>Ver el local</Link>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </li>
               )
@@ -167,11 +208,13 @@ function EatNowPage() {
           </ul>
         ) : null}
 
-        {result && result.graceMinutes > 0 ? (
-          <p className={styles.note}>
-            Si la hora ya ha empezado, aún puedes reservar durante {result.graceMinutes} minutos: el local te espera.
+        <div ref={sentinelRef} />
+        {locating || loading ? (
+          <p className={styles.status} role="status">
+            {locating ? 'Buscando dónde estás…' : items.length > 0 ? 'Cargando más…' : 'Buscando sitios abiertos…'}
           </p>
         ) : null}
+        {done && !loading && items.length > 0 ? <p className={styles.note}>No hay más sitios abiertos cerca.</p> : null}
       </main>
     </div>
   )
