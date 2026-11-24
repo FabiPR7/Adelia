@@ -44,7 +44,7 @@ function discoveryQueryString(options: DiscoveryOptions): string {
   return query ? `?${query}` : ''
 }
 
-function mapApiRestaurant(raw: Record<string, unknown>): PublicDiscoveryRestaurant | null {
+export function mapApiRestaurant(raw: Record<string, unknown>): PublicDiscoveryRestaurant | null {
   const id = typeof raw.id === 'string' ? raw.id : ''
   const name = typeof raw.name === 'string' ? raw.name : ''
   const slug = typeof raw.slug === 'string' ? raw.slug : ''

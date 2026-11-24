@@ -42,6 +42,7 @@ import LazySection from '../../components/LazySection'
 import { findFoodCategory, MAIN_FOOD_CATEGORIES, restaurantMatchesFoodCategory } from '../../data/foodCategories'
 import styles from './CustomerExploreTab.module.css'
 import { friendlyErrorMessage } from '../../utils/friendlyError'
+import EatNowButton from '../../components/EatNowButton'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
 
@@ -376,6 +377,11 @@ function CustomerExploreTab() {
         <h1>Buscar restaurante</h1>
         <p className={styles.lead}>Busca, filtra y reserva tu próxima mesa.</p>
       </header>
+
+      {/* Para cuando hay prisa: mesa libre para ya mismo. */}
+      <div className={styles.eatNow}>
+        <EatNowButton />
+      </div>
 
       <div className={styles.nudge}>
         <MissionNudgeCard />

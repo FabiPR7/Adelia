@@ -36,6 +36,14 @@ export interface BusinessRules {
   collectionCityMinRestaurants: number
   collectionCityRewards: CollectionRewardRule[]
   collectionCountryTiers: CollectionTierRule[]
+  /** «Comer ahora»: minutos de margen si la hora ya empezó (llegar un poco tarde). */
+  nowGraceMinutes: number
+  /** «Comer ahora»: hasta cuántos minutos desde ya se buscan mesas. */
+  nowWindowMinutes: number
+  /** «Comer ahora»: radio de búsqueda alrededor de ti (km). */
+  nowRadiusKm: number
+  /** «Comer ahora»: cuántos locales cercanos se miran como mucho. */
+  nowMaxRestaurants: number
 }
 
 export const EMERGENCY_BUSINESS_RULES: BusinessRules = {
@@ -62,6 +70,10 @@ export const EMERGENCY_BUSINESS_RULES: BusinessRules = {
     { percent: 50, minVisited: 25, badgeName: 'Gran ruta de Adelia', rewards: [{ itemId: 'llave_maestra', quantity: 1 }, { itemId: 'salvoconducto', quantity: 1 }] },
     { percent: 100, minVisited: 40, badgeName: 'Leyenda nacional', rewards: [{ itemId: 'llave_maestra', quantity: 3 }, { itemId: 'escudo_mesa', quantity: 2 }] },
   ],
+  nowGraceMinutes: 5,
+  nowWindowMinutes: 30,
+  nowRadiusKm: 5,
+  nowMaxRestaurants: 20,
 }
 
 const CACHE_MS = 5 * 60 * 1000
@@ -71,6 +83,10 @@ let inflight: Promise<void> | null = null
 
 function positiveInt(value: unknown): number | null {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null
+}
+
+function nonNegativeInt(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
 }
 
 function rewards(value: unknown): CollectionRewardRule[] | null {
@@ -117,6 +133,10 @@ export function parseBusinessRules(data: Record<string, unknown> | undefined): B
     collectionCityMinRestaurants: positiveInt(d.collectionCityMinRestaurants) ?? base.collectionCityMinRestaurants,
     collectionCityRewards: rewards(d.collectionCityRewards) ?? base.collectionCityRewards,
     collectionCountryTiers: tiers(d.collectionCountryTiers) ?? base.collectionCountryTiers,
+    nowGraceMinutes: Math.min(30, nonNegativeInt(d.nowGraceMinutes) ?? base.nowGraceMinutes),
+    nowWindowMinutes: Math.min(120, positiveInt(d.nowWindowMinutes) ?? base.nowWindowMinutes),
+    nowRadiusKm: Math.min(30, positiveInt(d.nowRadiusKm) ?? base.nowRadiusKm),
+    nowMaxRestaurants: Math.min(40, positiveInt(d.nowMaxRestaurants) ?? base.nowMaxRestaurants),
   }
 }
 

@@ -37,6 +37,7 @@ import { getLocationErrorMessage, requestUserLocation } from '../utils/requestUs
 import type { DiscoveryVenueKind } from '../data/companyProfileFacilities'
 import styles from './PublicDiscoveryPage.module.css'
 import { friendlyErrorMessage } from '../utils/friendlyError'
+import EatNowButton from '../components/EatNowButton'
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
 
@@ -329,6 +330,9 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
           </p>
         </div>
         ) : null}
+
+        {/* Para cuando hay prisa: mesa libre para ya mismo. */}
+        <EatNowButton className={styles.eatNow} />
 
         <div className={styles.searchSection}>
           <DiscoveryVenueKindFilter value={venueKind} onChange={setVenueKind} />

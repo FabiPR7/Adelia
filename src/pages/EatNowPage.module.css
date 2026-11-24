@@ -1,0 +1,256 @@
+.page {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 107, 74, 0.14), transparent 36%),
+    linear-gradient(180deg, #fff9f2 0%, var(--color-cream) 100%);
+}
+
+.hero {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1rem 1rem 0.75rem;
+}
+
+.back {
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: -0.5rem;
+  border: 0;
+  background: none;
+  font-size: 1.3rem;
+  color: var(--color-brown);
+  cursor: pointer;
+}
+
+.eyebrow {
+  margin: 0.25rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent-ink);
+}
+
+.title {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--color-brown);
+}
+
+.lead {
+  margin: 0.4rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.paxRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.paxLabel {
+  margin-right: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.paxChip {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-white);
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.paxChip:active {
+  transform: scale(0.97);
+}
+
+.paxChipOn {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+}
+
+.main {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0.25rem 1rem 2rem;
+}
+
+.status,
+.note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.cityForm p,
+.error p,
+.empty p {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.cityForm,
+.error,
+.empty {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+}
+
+.cityRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cityRow input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font: inherit;
+}
+
+.emptyTitle {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--color-brown) !important;
+}
+
+.list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 0.9rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  box-shadow: 0 8px 24px var(--color-shadow);
+}
+
+.photo {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border-radius: calc(var(--radius-lg) - 0.75rem);
+  background: var(--color-beige);
+  font-family: var(--font-display);
+  font-size: 2rem;
+  color: var(--color-brown);
+}
+
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.body {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+}
+
+.body h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  line-height: 1.15;
+  color: var(--color-brown);
+}
+
+.meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.slot {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ok);
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 1.2rem;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.18s ease;
+}
+
+.primary {
+  border: 0;
+  background: var(--color-accent-strong);
+  color: var(--color-white);
+}
+
+.secondary {
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-text);
+}
+
+.primary:active,
+.secondary:active {
+  transform: scale(0.97);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.paxChip:focus-visible,
+.back:focus-visible {
+  outline: 2px solid var(--color-accent-ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paxChip,
+  .primary,
+  .secondary {
+    transition: none;
+  }
+}

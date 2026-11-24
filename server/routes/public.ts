@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express'
-import { getBusinessRules } from '../config/businessRules.ts'
+import { ensureBusinessRules, getBusinessRules } from '../config/businessRules.ts'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
 import { isValidClientEmail } from '../email/config.ts'
@@ -9,6 +9,7 @@ import {
   parseBookingDate,
   combineDateAndTime,
   assertReservationStartInFuture,
+  isNowBookingTime,
 } from '../reservationSlots.ts'
 import { defaultSchedule, companyAcceptsReservations, parseCompanyReservationMode } from '../utils.ts'
 import {
@@ -136,7 +137,7 @@ function stringList(value: unknown, max: number) {
  * plan (por ejemplo, tras bajar de plan), solo se ofrecen las primeras; el resto
  * se conserva por si vuelve a subir.
  */
-async function loadBookableTables(companyId: string, planIdRaw: unknown) {
+export async function loadBookableTables(companyId: string, planIdRaw: unknown) {
   const snapshot = await adminDb
     .collection('tables')
     .where('companyId', '==', companyId)
@@ -863,22 +864,31 @@ router.post('/:slug/reservations', async (req: Request<Record<string, string>>, 
     }
 
     try {
-      assertReservationStartInFuture(date, bookingTime)
+      // «Comer ahora»: vale una hora que no es de las fijas del local (o que empezó
+      // hace unos minutos) si es hoy, dentro del margen y con el local abierto.
+      await ensureBusinessRules()
+      const rules = getBusinessRules()
+      const nowWindow = { graceMinutes: rules.nowGraceMinutes, windowMinutes: rules.nowWindowMinutes }
+      const isNowBooking = isNowBookingTime(date, bookingTime, company.schedule, company.timeSlotMinutes, nowWindow)
+      if (!isNowBooking) assertReservationStartInFuture(date, bookingTime)
       if (
         securityConfig.maxBookingDaysAhead > 0
         && date.getTime() - Date.now() > securityConfig.maxBookingDaysAhead * 24 * 60 * 60 * 1000
       ) {
         throw new Error(`Solo se puede reservar con ${securityConfig.maxBookingDaysAhead} días de antelación como máximo.`)
       }
-      assertReservationSlotValid(
-        table,
-        bookingTime,
-        date,
-        company.schedule,
-        company.timeSlotMinutes,
-        company.timeSlotMinutes,
-        [],
-      )
+      // La mesa libre se comprueba igual al guardar (transacción), sea «ahora» o no.
+      if (!isNowBooking) {
+        assertReservationSlotValid(
+          table,
+          bookingTime,
+          date,
+          company.schedule,
+          company.timeSlotMinutes,
+          company.timeSlotMinutes,
+          [],
+        )
+      }
     } catch (validationError) {
       res.status(409).json({
         error:

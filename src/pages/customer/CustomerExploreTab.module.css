@@ -321,3 +321,8 @@
   outline-offset: 2px;
 }
 
+
+/* «Comer ahora»: botón grande bajo la cabecera. */
+.eatNow {
+  padding: 0.5rem 1rem 0.25rem;
+}

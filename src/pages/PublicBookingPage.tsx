@@ -140,6 +140,11 @@ function PublicBookingPage() {
   const depositPaymentRef = useRef<ReservationDepositPaymentHandle>(null)
 
   const promoId = searchParams.get('promo')
+  // «Comer ahora»: llega con ?ahora=HH:MM&pax=N&mesas=a,b (hoy, mesa libre ya elegida).
+  const nowTimeParam = searchParams.get('ahora') ?? ''
+  const nowTime = /^\d{2}:\d{2}$/.test(nowTimeParam) ? nowTimeParam : ''
+  const nowTablesParam = searchParams.get('mesas') ?? ''
+  const nowAppliedRef = useRef(false)
   const durationMinutes = company?.timeSlotMinutes ?? 120
   const schedule = company?.schedule
   const hasDepositPass = inventoryQuantity(profile?.gamification?.inventory, DEPOSIT_PASS_ITEM_ID) > 0
@@ -282,6 +287,26 @@ function PublicBookingPage() {
       setPageView('booking')
     }
   }, [company, bookingRules.canReserve, searchParams])
+
+  // «Comer ahora»: en cuanto están las mesas, se abre el formulario con todo puesto.
+  useEffect(() => {
+    if (!nowTime || nowAppliedRef.current || !company || !bookingRules.canReserve || tables.length === 0) {
+      return
+    }
+    const tableId = nowTablesParam.split(',').find((id) => tables.some((table) => table.id === id))
+    if (!tableId) {
+      return
+    }
+    nowAppliedRef.current = true
+    const paxParam = Number(searchParams.get('pax'))
+    if (Number.isInteger(paxParam) && paxParam >= 1 && paxParam <= 20) {
+      setPax(paxParam)
+    }
+    setPageView('booking')
+    setSelectedTime(nowTime)
+    setSelectedTableId(tableId)
+    setStep('form')
+  }, [nowTime, nowTablesParam, company, bookingRules.canReserve, tables, searchParams])
 
   useEffect(() => {
     if (profile?.role !== 'customer') {
@@ -609,7 +634,10 @@ function PublicBookingPage() {
     }
 
     try {
-      assertReservationStartInFuture(selectedDate, selectedTime)
+      // La hora de «Comer ahora» puede haber empezado hace unos minutos: la valida el servidor.
+      if (!nowTime || selectedTime !== nowTime) {
+        assertReservationStartInFuture(selectedDate, selectedTime)
+      }
     } catch (err) {
       setError(friendlyErrorMessage(err, 'Horario no válido.'))
       return

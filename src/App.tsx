@@ -28,6 +28,7 @@ import ScrollToTop from './components/ScrollToTop'
 import { getPostLoginPath } from './utils/authProfile'
 
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
+const EatNowPage = lazy(() => import('./pages/EatNowPage'))
 const PublicMenuPage = lazy(() => import('./pages/PublicMenuPage'))
 const PublicMenuViewPage = lazy(() => import('./pages/PublicMenuViewPage'))
 const PublicRestaurantPromotionsPage = lazy(() => import('./pages/PublicRestaurantPromotionsPage'))
@@ -160,6 +161,7 @@ function App() {
         path="/empresa/alta"
         element={<CompanySignupPage />}
       />
+      <Route path="/ahora" element={<Suspense fallback={<RouteFallback />}><EatNowPage /></Suspense>} />
       <Route path="/cuenta" element={<Navigate to="/app/perfil" replace />} />
       <Route path="/cuenta/verificar-email" element={<VerifyEmailPage />} />
       <Route path="/cuenta/completar-perfil" element={<CustomerOnboardingPage />} />

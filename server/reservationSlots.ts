@@ -161,6 +161,59 @@ export function assertReservationSlotValid(
   }
 }
 
+/** «Comer ahora»: margen para llegar tarde y ventana de búsqueda (de appConfig/businessRules). */
+export interface NowWindow {
+  graceMinutes: number
+  windowMinutes: number
+}
+
+/**
+ * Hora que vale como «ahora» aunque no sea una de las horas fijas del local: hoy,
+ * en minutos redondos de 5, como pronto hace `graceMinutes` y como tarde dentro
+ * de `windowMinutes`, y con la reserva entera dentro de un tramo abierto.
+ */
+export function isNowBookingTime(
+  date: Date,
+  time: string,
+  schedule: CompanySchedule,
+  durationMinutes: number,
+  window: NowWindow,
+  now = Date.now(),
+): boolean {
+  if (!/^\d{2}:\d{2}$/.test(time)) return false
+  const minutes = timeToMinutes(time)
+  if (!Number.isFinite(minutes) || minutes % 5 !== 0) return false
+  const start = combineDateAndTime(date, time).getTime()
+  if (start < now - window.graceMinutes * 60_000 || start > now + window.windowMinutes * 60_000) return false
+  const day = getDaySchedule(date, schedule)
+  if (!day?.active) return false
+  const duration = Math.max(5, Math.trunc(Number(durationMinutes)) || 0)
+  return schedulePeriods(day).some((period) => (
+    minutes >= timeToMinutes(period.open) && minutes + duration <= timeToMinutes(period.close)
+  ))
+}
+
+/** Horas candidatas para «ahora»: las fijas del local en la ventana y la siguiente en punto de 5 min. */
+export function nowCandidateTimes(
+  date: Date,
+  schedule: CompanySchedule,
+  durationMinutes: number,
+  window: NowWindow,
+  now = Date.now(),
+): string[] {
+  const grid = generateSlotTimes(date, schedule, durationMinutes, durationMinutes)
+  const nowParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(now))
+  const hour = Number(nowParts.find((part) => part.type === 'hour')?.value ?? 0)
+  const minute = Number(nowParts.find((part) => part.type === 'minute')?.value ?? 0)
+  const next5 = Math.ceil((hour * 60 + minute) / 5) * 5
+  const extra = next5 < 24 * 60 ? [minutesToTime(next5)] : []
+  return [...new Set([...grid, ...extra])]
+    .filter((time) => isNowBookingTime(date, time, schedule, durationMinutes, window, now))
+    .sort()
+}
+
 export function parseBookingDate(value: string): Date {
   return utcNoonFromYmd(value)
 }

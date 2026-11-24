@@ -11,6 +11,7 @@ import publicBookingRouter from './routes/public.ts'
 import publicBillingRouter from './routes/publicBilling.ts'
 import publicPromotionsRouter from './routes/publicPromotions.ts'
 import publicDiscoveryRouter from './routes/publicDiscovery.ts'
+import publicNowRouter from './routes/publicNow.ts'
 import publicMenusRouter from './routes/publicMenus.ts'
 import citiesRouter from './routes/cities.ts'
 import geocodeRouter from './routes/geocode.ts'
@@ -133,6 +134,7 @@ export function createApp() {
   app.use('/api/public/events', appEventsRouter)
   app.use('/api/public/booking', publicBookingRouter)
   app.use('/api/public/promotions', publicPromotionsRouter)
+  app.use('/api/public/discovery', publicNowRouter)
   app.use('/api/public/discovery', publicDiscoveryRouter)
   app.use('/api/public/menus', publicMenusRouter)
   app.use('/api/public/reservations', reservationMinSpendRouter)
