@@ -14,7 +14,7 @@
   padding: 0.48rem 0.82rem;
   border: 1px solid rgba(107, 83, 68, 0.14);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--tone-glass, rgba(255, 255, 255, 0.92));
   color: var(--color-brown);
   font-size: 0.78rem;
   font-weight: 700;
@@ -78,7 +78,7 @@
   z-index: 1100;
   padding: 0.18rem 0.4rem;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--tone-glass, rgba(255, 255, 255, 0.9));
   font-size: 0.62rem;
 }
 

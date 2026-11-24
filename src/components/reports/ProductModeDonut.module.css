@@ -29,7 +29,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: #1c1917;
+  color: var(--tone-ink, #1c1917);
 }
 
 .legendDot {
@@ -39,17 +39,17 @@
 }
 
 .legendLabel {
-  color: #a29a91;
+  color: var(--tone-muted, #a29a91);
 }
 
 .legendValue {
   font-weight: 600;
-  color: #1c1917;
+  color: var(--tone-ink, #1c1917);
 }
 
 .legendValue em {
   font-style: normal;
   font-weight: 500;
-  color: #a29a91;
+  color: var(--tone-muted, #a29a91);
   margin-left: 0.35rem;
 }

@@ -9,6 +9,8 @@ import {
   Clock,
   Contact,
   CreditCard,
+  KeyRound,
+  Palette,
   Inbox,
   LayoutDashboard,
   LifeBuoy,
@@ -30,8 +32,10 @@ import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import { useAuth } from '../context/AuthContext'
 import { logout } from '../services/auth'
 import {
+  ACCOUNT_SECTIONS,
   CLIENTS_SECTIONS,
   COMPITE_SECTIONS,
+  isAccountTab,
   isClientsTab,
   isCompiteTab,
   isReportsTab,
@@ -56,6 +60,7 @@ import {
   planAllowsCompite,
 } from '../data/companyPlanLimits'
 import { syncCompanyGamification } from '../services/companyGamification'
+import { useResolvedPanelTheme } from '../hooks/usePanelTheme'
 import styles from './CompanyDashboard.module.css'
 
 const CompanyHome = lazy(() => import('./company/CompanyHome'))
@@ -67,6 +72,8 @@ const CompanyReportsProducts = lazy(() => import('./company/CompanyReportsProduc
 const CompanyReportsReviews = lazy(() => import('./company/CompanyReportsReviews'))
 const CompanyReportsApp = lazy(() => import('./company/CompanyReportsApp'))
 const CompanyCompiteNotifications = lazy(() => import('./company/CompanyCompiteNotifications'))
+const CompanyAccountSettings = lazy(() => import('./company/CompanyAccountSettings'))
+const CompanyAppearanceSettings = lazy(() => import('./company/CompanyAppearanceSettings'))
 const CompiteArena = lazy(() => import('./company/arena/CompiteArena'))
 const CompanyPromotions = lazy(() => import('./company/CompanyPromotions'))
 const CompanyReviews = lazy(() => import('./company/CompanyReviews'))
@@ -101,6 +108,10 @@ function settingsSectionLabel(tab: CompanyTab): string {
     return 'Ayuda'
   }
 
+  if (isAccountTab(tab)) {
+    return ACCOUNT_SECTIONS.find((section) => section.id === tab)?.label ?? 'Ajustes'
+  }
+
   return SETTINGS_SECTIONS.find((section) => section.id === tab)?.label ?? 'Mi restaurante'
 }
 
@@ -111,6 +122,7 @@ function groupLabelForTab(tab: CompanyTab): string {
   if (isReportsTab(tab)) return 'Informes'
   if (isCompiteTab(tab)) return 'Compite'
   if (tab === 'help') return 'Soporte'
+  if (isAccountTab(tab)) return 'Ajustes'
   return 'Mi restaurante'
 }
 
@@ -124,6 +136,7 @@ const KNOWN_TABS = new Set<string>([
   ...COMPITE_SECTIONS.map((section) => section.id),
   ...REPORTS_SECTIONS.map((section) => section.id),
   ...SETTINGS_SECTIONS.map((section) => section.id),
+  ...ACCOUNT_SECTIONS.map((section) => section.id),
 ])
 
 /* Icono de cada sección del menú (también en Favoritos). */
@@ -146,6 +159,8 @@ const TAB_ICONS: Partial<Record<CompanyTab, LucideIcon>> = {
   tables: Armchair,
   menu: BookOpen,
   plan: CreditCard,
+  account: KeyRound,
+  appearance: Palette,
   'compite-notifications': Bell,
   'compite-missions': Trophy,
   'compite-ranking': Medal,
@@ -184,11 +199,12 @@ function writeFavorites(key: string, favorites: CompanyTab[]) {
   }
 }
 
-type SidebarGroupId = 'clients' | 'reports' | 'settings' | 'compite'
+type SidebarGroupId = 'clients' | 'reports' | 'settings' | 'compite' | 'account'
 
 function sidebarGroupForTab(tab: CompanyTab): SidebarGroupId | null {
   if (isClientsTab(tab)) return 'clients'
   if (isReportsTab(tab)) return 'reports'
+  if (isAccountTab(tab)) return 'account'
   if (isSettingsTab(tab)) return 'settings'
   if (isCompiteTab(tab)) return 'compite'
   return null
@@ -199,6 +215,7 @@ const CLOSED_GROUPS: Record<SidebarGroupId, boolean> = {
   reports: false,
   settings: false,
   compite: false,
+  account: false,
 }
 
 interface SidebarNavGroupProps {
@@ -393,6 +410,8 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
   const goToPlan = () => attemptNavigate('plan')
   const inMenu = activeTab === 'menu'
   const inPlan = activeTab === 'plan'
+  const inAccount = isAccountTab(activeTab)
+  const panelTheme = useResolvedPanelTheme()
   const inSettingsEditor = isSettingsEditorTab(activeTab)
   const inClients = isClientsTab(activeTab)
   const inCompite = isCompiteTab(activeTab)
@@ -484,7 +503,7 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
     )
 
   return (
-    <div className={`${styles.page} ${demo ? styles.pageDemo : ''}`}>
+    <div className={`${styles.page} ${demo ? styles.pageDemo : ''}`} data-panel-theme={panelTheme}>
       {demo ? (
         <p className={styles.demoRibbon}>Vista de ejemplo · puedes navegar, no se guarda nada</p>
       ) : null}
@@ -587,9 +606,9 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
 
           <SidebarNavGroup
             label="Mi restaurante"
-            hint="Perfil, mesas, carta y plan"
+            hint="Perfil, mesas y carta"
             open={openGroups.settings}
-            active={inSettingsEditor || inMenu || inPlan}
+            active={inSettingsEditor || inMenu}
             onToggle={() => toggleGroup('settings')}
           >
             {SETTINGS_SECTIONS.map((section) => navRow(section.id, (
@@ -615,6 +634,16 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
             onToggle={() => toggleGroup('compite')}
           >
             {COMPITE_SECTIONS.map((section) => renderSubNav(section))}
+          </SidebarNavGroup>
+
+          <SidebarNavGroup
+            label="Ajustes"
+            hint="Cuenta, plan y pagos, apariencia"
+            open={openGroups.account}
+            active={inAccount}
+            onToggle={() => toggleGroup('account')}
+          >
+            {ACCOUNT_SECTIONS.map((section) => renderSubNav(section))}
           </SidebarNavGroup>
 
           {navRow('help', (
@@ -747,6 +776,8 @@ function CompanyDashboard({ demo = false }: { demo?: boolean }) {
                 {activeTab === 'help' ? <CompanyHelp /> : null}
                 {inMenu ? <CompanyMenu companyId={company.id} /> : null}
                 {inPlan ? <CompanyPlan /> : null}
+                {activeTab === 'account' ? <CompanyAccountSettings onOpenTab={attemptNavigate} /> : null}
+                {activeTab === 'appearance' ? <CompanyAppearanceSettings /> : null}
                 {inSettingsEditor ? (
                   <CompanySettings ref={settingsRef} activeSection={settingsSection} />
                 ) : null}

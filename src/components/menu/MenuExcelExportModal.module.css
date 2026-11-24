@@ -15,7 +15,7 @@
   overflow: auto;
   padding: 1.5rem;
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
 }
@@ -103,7 +103,7 @@
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-surface);
   cursor: pointer;
 }
 
@@ -130,7 +130,7 @@
 
 .secondaryBtn {
   border: 1px solid rgba(59, 130, 246, 0.35);
-  background: #fff;
+  background: var(--color-surface);
   color: #1d4ed8;
 }
 
@@ -154,7 +154,7 @@
 
 .cancelBtn {
   border: 1px solid var(--color-border);
-  background: #fff;
+  background: var(--color-surface);
   color: var(--color-brown);
 }
 

@@ -17,7 +17,7 @@
   padding: 0 0.95rem;
   border: 1px solid var(--color-border);
   border-radius: 9px;
-  background: #ffffff;
+  background: var(--color-surface);
   font: inherit;
   font-size: 0.875rem;
   font-weight: 600;
@@ -27,7 +27,7 @@
 }
 
 .secondaryButton:hover {
-  background: #f6f4f1;
+  background: var(--tone-light, #f6f4f1);
 }
 
 .list {
@@ -39,7 +39,7 @@
 }
 
 .list li + li {
-  border-top: 1px solid #f1ede8;
+  border-top: 1px solid var(--tone-line, #f1ede8);
 }
 
 .item {
@@ -59,7 +59,7 @@
 }
 
 .item:hover {
-  background: #faf9f7;
+  background: var(--tone-light, #faf9f7);
 }
 
 .item:focus-visible {
@@ -74,12 +74,12 @@
   flex: 0 0 34px;
   height: 34px;
   border-radius: 10px;
-  background: #f3f1ee;
-  color: #4a443e;
+  background: var(--tone-light, #f3f1ee);
+  color: var(--tone-ink, #4a443e);
 }
 
 .unread .icon {
-  background: #fbf1ea;
+  background: var(--tone-light, #fbf1ea);
   color: var(--color-accent-strong);
 }
 

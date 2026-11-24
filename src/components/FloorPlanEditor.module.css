@@ -90,7 +90,7 @@
   font-weight: 700;
   cursor: pointer;
   border: 1px solid var(--color-brown);
-  background: var(--color-brown);
+  background: var(--tone-pill, var(--color-brown));
   color: var(--color-white);
   width: 100%;
 }
@@ -111,7 +111,7 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 0.35rem;
   padding: 0.35rem;
-  background: var(--color-white);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
@@ -174,7 +174,7 @@
 }
 
 .floorSwatch_checker {
-  background-color: #f5ebe0;
+  background-color: var(--tone-soft, #f5ebe0);
   background-image:
     linear-gradient(45deg, #c45c3e 25%, transparent 25%, transparent 75%, #c45c3e 75%),
     linear-gradient(45deg, #c45c3e 25%, transparent 25%, transparent 75%, #c45c3e 75%);
@@ -205,9 +205,9 @@
 }
 
 .floorSwatch_marble {
-  background-color: #ececec;
+  background-color: var(--tone-light, #ececec);
   background-image:
-    linear-gradient(125deg, rgba(255, 255, 255, 0.95) 0%, transparent 45%),
+    linear-gradient(125deg, var(--tone-glass, rgba(255, 255, 255, 0.95)) 0%, transparent 45%),
     linear-gradient(305deg, rgba(160, 160, 160, 0.25) 0%, transparent 55%),
     linear-gradient(45deg, rgba(200, 200, 200, 0.15) 0%, transparent 40%);
 }
@@ -235,7 +235,7 @@
   font-weight: 600;
   cursor: pointer;
   border: 1px solid var(--color-border);
-  background: var(--color-white);
+  background: var(--color-surface);
   color: var(--color-brown);
   width: 100%;
   text-align: left;
@@ -246,7 +246,7 @@
 }
 
 .tool_wall {
-  border-left: 3px solid #5c4a3a;
+  border-left: 3px solid var(--tone-ink, #5c4a3a);
 }
 
 .tool_window {
@@ -370,7 +370,7 @@
   padding: 0.35rem 0.25rem 0.3rem;
   border: 2px solid transparent;
   border-radius: 8px;
-  background: var(--color-white);
+  background: var(--color-surface);
   cursor: pointer;
   color: var(--color-brown);
 }
@@ -462,7 +462,7 @@
 }
 
 .canvasFloorChecker {
-  background-color: #f5ebe0;
+  background-color: var(--tone-soft, #f5ebe0);
   background-image:
     linear-gradient(45deg, #8b3a2a 25%, transparent 25%, transparent 75%, #8b3a2a 75%),
     linear-gradient(45deg, #8b3a2a 25%, transparent 25%, transparent 75%, #8b3a2a 75%),
@@ -512,9 +512,9 @@
 }
 
 .canvasFloorMarble {
-  background-color: #ececec;
+  background-color: var(--tone-light, #ececec);
   background-image:
-    linear-gradient(125deg, rgba(255, 255, 255, 0.92) 0%, transparent 42%),
+    linear-gradient(125deg, var(--tone-glass, rgba(255, 255, 255, 0.92)) 0%, transparent 42%),
     linear-gradient(305deg, rgba(170, 170, 170, 0.22) 0%, transparent 48%),
     linear-gradient(15deg, rgba(210, 210, 210, 0.18) 0%, transparent 35%),
     linear-gradient(195deg, rgba(140, 140, 140, 0.12) 0%, transparent 40%);
@@ -553,7 +553,7 @@
   transform: translate(-50%, -110%);
   padding: 0.12rem 0.4rem;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--tone-glass, rgba(255, 255, 255, 0.94));
   border: 1px solid rgba(92, 74, 58, 0.35);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
   font-size: 0.5625rem;
@@ -607,7 +607,7 @@
   padding: 0;
   border: 1px solid rgba(92, 74, 58, 0.35);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--tone-glass, rgba(255, 255, 255, 0.96));
   color: var(--color-brown);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
   z-index: 8;
@@ -646,7 +646,7 @@
   bottom: 0;
   color: var(--color-error);
   border-color: rgba(181, 74, 74, 0.4);
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--tone-glass, rgba(255, 255, 255, 0.96));
   transform: translate(-50%, 50%);
 }
 
@@ -765,28 +765,28 @@
 
 .canvasFloorTerrazzo,
 .floorSwatch_terrazzo {
-  background-color: #efe9e1;
+  background-color: var(--tone-soft, #efe9e1);
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27140%27%20height%3D%27140%27%3E%3Crect%20width%3D%27140%27%20height%3D%27140%27%20fill%3D%27%23efe9e1%27%2F%3E%3Cpolygon%20points%3D%271.4%2C130.1%20-0.0%2C131.0%20-1.8%2C128.7%20-0.5%2C127.0%201.3%2C128.3%27%20fill%3D%27%238d8378%27%2F%3E%3Cpolygon%20points%3D%2754.7%2C101.0%2050.3%2C102.1%2049.7%2C100.6%2052.3%2C95.7%2055.0%2C97.3%27%20fill%3D%27%23c9b8a6%27%2F%3E%3Cpolygon%20points%3D%27128.9%2C128.5%20128.0%2C128.9%20126.0%2C127.5%20127.7%2C125.0%20129.9%2C125.9%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%2710.1%2C39.1%207.2%2C39.8%205.9%2C38.9%207.3%2C35.1%209.7%2C36.9%27%20fill%3D%27%23d8cfc4%27%2F%3E%3Cpolygon%20points%3D%2758.7%2C40.4%2056.3%2C41.3%2054.9%2C39.2%2056.6%2C37.5%2058.4%2C38.5%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%2773.1%2C98.5%2069.8%2C99.7%2067.3%2C97.5%2070.0%2C91.8%2072.6%2C92.3%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%2711.5%2C57.9%2010.6%2C57.9%209.4%2C57.2%209.6%2C55.7%2012.5%2C56.3%27%20fill%3D%27%23c9b8a6%27%2F%3E%3Cpolygon%20points%3D%27126.6%2C127.1%20124.4%2C129.2%20121.3%2C127.1%20123.3%2C123.9%20126.2%2C125.7%27%20fill%3D%27%238d8378%27%2F%3E%3Cpolygon%20points%3D%27125.5%2C33.2%20124.3%2C35.4%20120.9%2C32.9%20121.4%2C31.4%20124.8%2C30.6%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%2780.9%2C95.5%2079.7%2C97.1%2077.2%2C95.0%2078.6%2C94.0%2080.0%2C93.1%27%20fill%3D%27%238d8378%27%2F%3E%3Cpolygon%20points%3D%2721.2%2C99.8%2015.3%2C100.0%2014.9%2C95.8%2015.6%2C93.1%2021.5%2C95.1%27%20fill%3D%27%23c9b8a6%27%2F%3E%3Cpolygon%20points%3D%2736.5%2C58.0%2031.6%2C59.6%2029.5%2C56.4%2030.7%2C54.4%2037.5%2C55.4%27%20fill%3D%27%23d8cfc4%27%2F%3E%3Cpolygon%20points%3D%2790.8%2C123.8%2087.8%2C125.9%2083.8%2C121.4%2087.2%2C119.5%2090.5%2C120.0%27%20fill%3D%27%238d8378%27%2F%3E%3Cpolygon%20points%3D%2794.5%2C74.7%2092.0%2C74.7%2090.2%2C73.9%2090.7%2C70.8%2094.0%2C71.3%27%20fill%3D%27%23d8cfc4%27%2F%3E%3Cpolygon%20points%3D%2793.3%2C61.1%2091.6%2C61.1%2091.6%2C59.8%2092.1%2C58.9%2093.6%2C59.4%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%276.0%2C19.1%204.8%2C20.5%204.4%2C19.4%204.3%2C18.1%205.8%2C18.1%27%20fill%3D%27%23c9b8a6%27%2F%3E%3Cpolygon%20points%3D%27141.7%2C60.2%20139.8%2C61.5%20135.3%2C58.5%20136.5%2C56.5%20140.8%2C57.7%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%2730.9%2C84.8%2029.1%2C85.7%2028.5%2C84.0%2028.8%2C83.3%2029.7%2C83.5%27%20fill%3D%27%23c9b8a6%27%2F%3E%3Cpolygon%20points%3D%2759.2%2C14.1%2057.6%2C14.8%2056.1%2C12.2%2057.4%2C11.2%2058.8%2C11.6%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%2771.8%2C71.0%2068.2%2C72.3%2066.2%2C68.5%2068.3%2C67.0%2072.9%2C68.3%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%2751.8%2C12.6%2048.7%2C13.0%2048.6%2C11.7%2049.9%2C9.7%2052.3%2C10.3%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%2790.6%2C101.6%2087.8%2C101.4%2086.5%2C99.5%2087.9%2C97.9%2090.6%2C98.3%27%20fill%3D%27%23d8cfc4%27%2F%3E%3Cpolygon%20points%3D%27126.8%2C116.2%20125.9%2C117.6%20124.7%2C115.9%20125.2%2C114.0%20127.9%2C113.8%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%2727.0%2C30.2%2023.4%2C32.1%2020.3%2C29.0%2023.7%2C26.9%2026.8%2C26.2%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%27136.1%2C78.7%20133.2%2C78.6%20131.3%2C78.3%20131.8%2C74.6%20134.9%2C74.8%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%2788.3%2C90.0%2085.6%2C91.1%2083.1%2C87.5%2086.5%2C85.7%2090.0%2C87.0%27%20fill%3D%27%238d8378%27%2F%3E%3Cpolygon%20points%3D%27118.6%2C62.5%20113.8%2C61.9%20112.5%2C59.2%20111.8%2C56.3%20117.6%2C58.7%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%2712.6%2C39.3%2011.1%2C39.3%206.9%2C37.3%208.4%2C34.4%2013.0%2C34.5%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%279.0%2C6.9%207.2%2C7.3%206.6%2C6.1%207.2%2C4.7%209.1%2C5.5%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%27103.5%2C84.7%2098.6%2C87.5%2096.5%2C84.7%2098.5%2C82.2%20100.5%2C82.2%27%20fill%3D%27%238d8378%27%2F%3E%3Cpolygon%20points%3D%2750.6%2C48.4%2050.2%2C50.0%2048.6%2C48.0%2049.4%2C46.9%2050.9%2C46.8%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%27114.5%2C3.9%20112.4%2C4.6%20107.0%2C1.0%20108.4%2C-2.1%20114.7%2C0.1%27%20fill%3D%27%238d8378%27%2F%3E%3Cpolygon%20points%3D%2765.5%2C43.3%2063.9%2C43.9%2062.3%2C41.5%2063.9%2C39.7%2065.5%2C41.1%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%27102.3%2C48.3%2098.0%2C48.4%2095.4%2C44.7%2097.4%2C43.6%20100.9%2C43.3%27%20fill%3D%27%238d8378%27%2F%3E%3Cpolygon%20points%3D%2783.1%2C116.3%2081.2%2C116.6%2078.3%2C114.1%2079.6%2C110.6%2082.8%2C111.9%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%2772.4%2C35.0%2069.0%2C37.3%2066.9%2C33.3%2068.0%2C31.6%2072.5%2C32.2%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%2781.5%2C23.2%2079.1%2C24.0%2078.6%2C22.9%2079.4%2C21.6%2080.4%2C21.6%27%20fill%3D%27%23c9b8a6%27%2F%3E%3Cpolygon%20points%3D%2767.7%2C53.1%2067.0%2C54.0%2065.7%2C53.0%2066.0%2C52.0%2067.3%2C51.9%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%2788.6%2C82.8%2084.2%2C83.2%2081.4%2C80.9%2084.9%2C77.6%2087.7%2C80.1%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%27140.3%2C6.4%20138.8%2C6.4%20138.1%2C5.7%20139.1%2C4.3%20140.5%2C4.7%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%2782.8%2C134.4%2080.8%2C135.1%2080.1%2C133.1%2080.9%2C130.8%2083.3%2C132.3%27%20fill%3D%27%23c9b8a6%27%2F%3E%3Cpolygon%20points%3D%2781.1%2C31.4%2077.8%2C33.2%2077.1%2C29.7%2078.7%2C27.0%2081.8%2C28.6%27%20fill%3D%27%23d8cfc4%27%2F%3E%3Cpolygon%20points%3D%2730.1%2C34.0%2026.5%2C36.4%2026.0%2C34.9%2027.0%2C31.8%2028.9%2C32.3%27%20fill%3D%27%23d8cfc4%27%2F%3E%3Cpolygon%20points%3D%2712.3%2C52.8%2010.0%2C54.1%207.5%2C51.0%209.0%2C49.3%2012.6%2C51.1%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%2757.9%2C88.0%2056.8%2C88.8%2055.8%2C87.9%2056.1%2C87.3%2057.4%2C87.5%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%2788.1%2C106.7%2087.0%2C106.3%2086.8%2C106.1%2087.5%2C104.9%2088.0%2C105.0%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%27120.5%2C99.5%20115.9%2C101.3%20114.0%2C100.1%20116.3%2C95.4%20119.0%2C97.6%27%20fill%3D%27%23c9b8a6%27%2F%3E%3Cpolygon%20points%3D%27133.7%2C140.3%20130.6%2C142.2%20127.6%2C139.6%20128.6%2C136.5%20132.2%2C137.6%27%20fill%3D%27%23e2d2b8%27%2F%3E%3Cpolygon%20points%3D%2793.4%2C15.2%2091.6%2C15.4%2091.3%2C15.0%2092.1%2C13.4%2093.8%2C13.2%27%20fill%3D%27%238d8378%27%2F%3E%3Cpolygon%20points%3D%2761.6%2C30.0%2060.5%2C30.3%2059.6%2C29.2%2060.8%2C28.4%2062.0%2C28.9%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%2740.2%2C94.8%2039.1%2C96.9%2036.9%2C95.5%2037.1%2C92.5%2039.5%2C93.0%27%20fill%3D%27%23c9b8a6%27%2F%3E%3Cpolygon%20points%3D%27102.7%2C105.5%2099.6%2C107.8%2097.4%2C105.1%2098.8%2C101.6%20102.8%2C103.9%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%2754.2%2C137.2%2048.1%2C139.2%2046.7%2C136.5%2050.1%2C133.8%2052.4%2C134.1%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%27110.5%2C104.8%20106.5%2C107.6%20105.3%2C106.5%20107.8%2C102.7%20111.1%2C103.7%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%2781.0%2C120.7%2076.5%2C124.7%2073.7%2C122.3%2074.2%2C118.4%2078.7%2C118.0%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%2756.3%2C3.6%2055.0%2C3.7%2052.2%2C1.8%2053.4%2C0.6%2055.5%2C0.6%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%2739.7%2C94.2%2039.0%2C94.4%2037.5%2C92.9%2038.1%2C91.9%2039.5%2C92.1%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%274.6%2C30.9%201.5%2C32.8%20-2.1%2C30.5%200.2%2C27.9%202.9%2C30.2%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%2735.5%2C23.4%2034.5%2C25.2%2032.7%2C22.6%2033.3%2C21.2%2035.3%2C20.8%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%2797.9%2C101.7%2094.1%2C104.4%2091.4%2C102.8%2093.9%2C97.1%2098.3%2C98.7%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%27119.9%2C76.1%20118.8%2C76.3%20118.3%2C75.5%20118.8%2C74.5%20119.6%2C74.4%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%272.7%2C72.4%200.6%2C74.5%20-1.1%2C72.9%20-0.1%2C69.6%203.0%2C70.7%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%2795.6%2C106.4%2093.5%2C106.3%2091.5%2C105.2%2090.8%2C101.7%2096.0%2C102.4%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%273.2%2C8.6%20-1.2%2C8.6%20-2.4%2C6.1%20-1.2%2C4.1%203.1%2C3.6%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%2773.9%2C84.8%2071.0%2C84.7%2069.4%2C84.8%2072.1%2C80.8%2072.7%2C80.9%27%20fill%3D%27%23d8cfc4%27%2F%3E%3Cpolygon%20points%3D%278.8%2C63.9%206.5%2C65.9%202.7%2C61.7%204.1%2C60.4%207.2%2C61.2%27%20fill%3D%27%236f7a72%27%2F%3E%3Cpolygon%20points%3D%2741.2%2C93.3%2040.2%2C93.4%2039.9%2C92.7%2040.7%2C91.4%2041.4%2C91.6%27%20fill%3D%27%23d8cfc4%27%2F%3E%3Cpolygon%20points%3D%2751.0%2C74.5%2048.2%2C73.7%2047.0%2C73.1%2048.4%2C70.9%2050.5%2C71.3%27%20fill%3D%27%23a49482%27%2F%3E%3Cpolygon%20points%3D%2758.0%2C85.9%2055.5%2C88.0%2051.4%2C84.4%2054.1%2C81.5%2056.7%2C82.1%27%20fill%3D%27%23b5643f%27%2F%3E%3Cpolygon%20points%3D%27124.2%2C20.3%20121.5%2C19.8%20119.9%2C19.9%20122.1%2C16.1%20123.3%2C16.5%27%20fill%3D%27%23b5643f%27%2F%3E%3C%2Fsvg%3E");
   background-size: 140px 140px;
 }
 
 .canvasFloorHydraulic,
 .floorSwatch_hydraulic {
-  background-color: #f1eadf;
+  background-color: var(--tone-soft, #f1eadf);
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2756%27%20height%3D%2756%27%3E%3Crect%20width%3D%2756%27%20height%3D%2756%27%20fill%3D%27%23f1eadf%27%2F%3E%3Ccircle%20cx%3D%270%27%20cy%3D%270%27%20r%3D%2715%27%20fill%3D%27%232f5a7a%27%2F%3E%3Ccircle%20cx%3D%270%27%20cy%3D%270%27%20r%3D%279%27%20fill%3D%27%23f1eadf%27%2F%3E%3Ccircle%20cx%3D%270%27%20cy%3D%270%27%20r%3D%274%27%20fill%3D%27%23b8643f%27%2F%3E%3Ccircle%20cx%3D%2756%27%20cy%3D%270%27%20r%3D%2715%27%20fill%3D%27%232f5a7a%27%2F%3E%3Ccircle%20cx%3D%2756%27%20cy%3D%270%27%20r%3D%279%27%20fill%3D%27%23f1eadf%27%2F%3E%3Ccircle%20cx%3D%2756%27%20cy%3D%270%27%20r%3D%274%27%20fill%3D%27%23b8643f%27%2F%3E%3Ccircle%20cx%3D%270%27%20cy%3D%2756%27%20r%3D%2715%27%20fill%3D%27%232f5a7a%27%2F%3E%3Ccircle%20cx%3D%270%27%20cy%3D%2756%27%20r%3D%279%27%20fill%3D%27%23f1eadf%27%2F%3E%3Ccircle%20cx%3D%270%27%20cy%3D%2756%27%20r%3D%274%27%20fill%3D%27%23b8643f%27%2F%3E%3Ccircle%20cx%3D%2756%27%20cy%3D%2756%27%20r%3D%2715%27%20fill%3D%27%232f5a7a%27%2F%3E%3Ccircle%20cx%3D%2756%27%20cy%3D%2756%27%20r%3D%279%27%20fill%3D%27%23f1eadf%27%2F%3E%3Ccircle%20cx%3D%2756%27%20cy%3D%2756%27%20r%3D%274%27%20fill%3D%27%23b8643f%27%2F%3E%3Cellipse%20cx%3D%2728%27%20cy%3D%2718%27%20rx%3D%274.2%27%20ry%3D%279%27%20fill%3D%27%23b8643f%27%20transform%3D%27rotate(0%2028%2028)%27%2F%3E%3Cellipse%20cx%3D%2728%27%20cy%3D%2718%27%20rx%3D%274.2%27%20ry%3D%279%27%20fill%3D%27%23b8643f%27%20transform%3D%27rotate(90%2028%2028)%27%2F%3E%3Cellipse%20cx%3D%2728%27%20cy%3D%2718%27%20rx%3D%274.2%27%20ry%3D%279%27%20fill%3D%27%23b8643f%27%20transform%3D%27rotate(180%2028%2028)%27%2F%3E%3Cellipse%20cx%3D%2728%27%20cy%3D%2718%27%20rx%3D%274.2%27%20ry%3D%279%27%20fill%3D%27%23b8643f%27%20transform%3D%27rotate(270%2028%2028)%27%2F%3E%3Cellipse%20cx%3D%2728%27%20cy%3D%2719%27%20rx%3D%272.6%27%20ry%3D%276%27%20fill%3D%27%232f5a7a%27%20transform%3D%27rotate(45%2028%2028)%27%2F%3E%3Cellipse%20cx%3D%2728%27%20cy%3D%2719%27%20rx%3D%272.6%27%20ry%3D%276%27%20fill%3D%27%232f5a7a%27%20transform%3D%27rotate(135%2028%2028)%27%2F%3E%3Cellipse%20cx%3D%2728%27%20cy%3D%2719%27%20rx%3D%272.6%27%20ry%3D%276%27%20fill%3D%27%232f5a7a%27%20transform%3D%27rotate(225%2028%2028)%27%2F%3E%3Cellipse%20cx%3D%2728%27%20cy%3D%2719%27%20rx%3D%272.6%27%20ry%3D%276%27%20fill%3D%27%232f5a7a%27%20transform%3D%27rotate(315%2028%2028)%27%2F%3E%3Ccircle%20cx%3D%2728%27%20cy%3D%2728%27%20r%3D%273.2%27%20fill%3D%27%23f1eadf%27%2F%3E%3Crect%20width%3D%2756%27%20height%3D%2756%27%20fill%3D%27none%27%20stroke%3D%27%23cbbfae%27%20stroke-width%3D%271%27%2F%3E%3C%2Fsvg%3E");
   background-size: 56px 56px;
 }
 
 .canvasFloorHexagon,
 .floorSwatch_hexagon {
-  background-color: #fafaf8;
+  background-color: var(--tone-light, #fafaf8);
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2724.25%27%20height%3D%2742%27%3E%3Crect%20width%3D%2724.25%27%20height%3D%2742%27%20fill%3D%27%23b9b4ad%27%2F%3E%3Cpolygon%20points%3D%2711.52%2C-6.65%2011.52%2C6.65%200.00%2C13.30%20-11.52%2C6.65%20-11.52%2C-6.65%20-0.00%2C-13.30%27%20fill%3D%27%23fafaf8%27%2F%3E%3Cpolygon%20points%3D%2735.77%2C-6.65%2035.77%2C6.65%2024.25%2C13.30%2012.73%2C6.65%2012.73%2C-6.65%2024.25%2C-13.30%27%20fill%3D%27%23fafaf8%27%2F%3E%3Cpolygon%20points%3D%2723.64%2C14.35%2023.64%2C27.65%2012.12%2C34.30%200.61%2C27.65%200.61%2C14.35%2012.12%2C7.70%27%20fill%3D%27%23fafaf8%27%2F%3E%3Cpolygon%20points%3D%2711.52%2C35.35%2011.52%2C48.65%200.00%2C55.30%20-11.52%2C48.65%20-11.52%2C35.35%20-0.00%2C28.70%27%20fill%3D%27%23fafaf8%27%2F%3E%3Cpolygon%20points%3D%2735.77%2C35.35%2035.77%2C48.65%2024.25%2C55.30%2012.73%2C48.65%2012.73%2C35.35%2024.25%2C28.70%27%20fill%3D%27%23fafaf8%27%2F%3E%3C%2Fsvg%3E");
   background-size: 24.25px 42px;
 }
 
 .canvasFloorDiner,
 .floorSwatch_diner {
-  background-color: #f7f5f0;
+  background-color: var(--tone-light, #f7f5f0);
   background-image:
     linear-gradient(45deg, #26231f 25%, transparent 25%, transparent 75%, #26231f 75%),
     linear-gradient(45deg, #26231f 25%, transparent 25%, transparent 75%, #26231f 75%);
@@ -822,9 +822,9 @@
   gap: 0.625rem;
   min-width: 0;
   padding: 0.75rem;
-  border: 1px solid #e5e1db;
+  border: 1px solid var(--tone-line, #e5e1db);
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .paletteTabs {
@@ -833,7 +833,7 @@
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
-  border-bottom: 1px solid #ece8e2;
+  border-bottom: 1px solid var(--tone-line, #ece8e2);
 }
 
 .paletteTabs::-webkit-scrollbar {
@@ -850,7 +850,7 @@
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: #78716c;
+  color: var(--tone-muted, #78716c);
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -861,34 +861,34 @@
 .paletteTab > span {
   padding: 0 0.35rem;
   border-radius: 999px;
-  background: #f3f0ec;
+  background: var(--tone-light, #f3f0ec);
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #a29a91;
+  color: var(--tone-muted, #a29a91);
   font-variant-numeric: tabular-nums;
 }
 
 .paletteTab:hover {
-  color: #1c1917;
+  color: var(--tone-ink, #1c1917);
 }
 
 .paletteTabActive,
 .paletteTabActive:hover {
   border-bottom-color: #8a3f1c;
-  color: #1c1917;
+  color: var(--tone-ink, #1c1917);
   font-weight: 600;
 }
 
 .paletteTabActive > span {
-  background: #f6e9e1;
-  color: #8a3f1c;
+  background: var(--tone-soft, #f6e9e1);
+  color: var(--tone-amber, #8a3f1c);
 }
 
 .paletteHint {
   margin: 0;
   font-size: 0.75rem;
   line-height: 1.45;
-  color: #78716c;
+  color: var(--tone-muted, #78716c);
 }
 
 .paletteGrid {
@@ -908,10 +908,10 @@
   gap: 0.3rem;
   min-width: 0;
   padding: 0.4rem 0.3rem 0.45rem;
-  border: 1px solid #ece8e2;
+  border: 1px solid var(--tone-line, #ece8e2);
   border-radius: 10px;
-  background: #fbfaf8;
-  color: #44403c;
+  background: var(--tone-light, #fbfaf8);
+  color: var(--tone-ink, #44403c);
   font: inherit;
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
@@ -919,7 +919,7 @@
 
 .paletteTile:hover {
   border-color: #d6cec4;
-  background: #fff;
+  background: var(--color-surface);
   transform: translateY(-1px);
 }
 
@@ -938,7 +938,7 @@
 .paletteTileActive,
 .paletteTileActive:hover {
   border-color: #8a3f1c;
-  background: #fbf3ee;
+  background: var(--tone-light, #fbf3ee);
   box-shadow: 0 0 0 1px #8a3f1c;
 }
 
@@ -979,9 +979,9 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.625rem 0.75rem;
-  border: 1px solid #e5d6cb;
+  border: 1px solid var(--tone-line, #e5d6cb);
   border-radius: 10px;
-  background: #fbf6f2;
+  background: var(--tone-light, #fbf6f2);
 }
 
 .contextHead {
@@ -995,7 +995,7 @@
 .contextTitle {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #1c1917;
+  color: var(--tone-ink, #1c1917);
 }
 
 .contextHead .paletteHint {
@@ -1014,10 +1014,10 @@
   gap: 0.35rem;
   height: 2rem;
   padding: 0 0.7rem;
-  border: 1px solid #e5e1db;
+  border: 1px solid var(--tone-line, #e5e1db);
   border-radius: 8px;
-  background: #fff;
-  color: #44403c;
+  background: var(--color-surface);
+  color: var(--tone-ink, #44403c);
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -1027,17 +1027,17 @@
 
 .contextActions button:hover {
   border-color: #d6cec4;
-  color: #1c1917;
+  color: var(--tone-ink, #1c1917);
 }
 
 .contextActions .contextDanger {
-  color: #b42318;
+  color: var(--tone-red, #b42318);
 }
 
 .contextActions .contextDanger:hover {
   border-color: #f1c4bf;
-  background: #fef3f2;
-  color: #b42318;
+  background: var(--tone-light, #fef3f2);
+  color: var(--tone-red, #b42318);
 }
 
 .contextActions .contextDone {
@@ -1068,9 +1068,9 @@
   width: 3rem;
   height: 3rem;
   padding: 0.25rem;
-  border: 1px solid #ece8e2;
+  border: 1px solid var(--tone-line, #ece8e2);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   cursor: pointer;
   transition: border-color 0.15s ease;
 }

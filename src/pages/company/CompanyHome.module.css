@@ -39,7 +39,7 @@
   padding: 0.75rem 1rem;
   border: 1px solid #efc7c7;
   border-radius: 10px;
-  background: #fbeaea;
+  background: var(--tone-light, #fbeaea);
   color: var(--color-error);
 }
 
@@ -51,8 +51,8 @@
   padding: 0.75rem 1rem;
   border: 1px solid #f0d9b5;
   border-radius: 12px;
-  background: #fff8ec;
-  color: #5c3a00;
+  background: var(--tone-light, #fff8ec);
+  color: var(--tone-amber, #5c3a00);
 }
 
 .noticeText {
@@ -64,8 +64,8 @@
   padding: 0 0.9rem;
   border: 1px solid #e2c089;
   border-radius: 8px;
-  background: #ffffff;
-  color: #5c3a00;
+  background: var(--color-surface);
+  color: var(--tone-amber, #5c3a00);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -73,7 +73,7 @@
 }
 
 .noticeButton:hover {
-  background: #fff3dc;
+  background: var(--tone-amber-bg, #fff3dc);
 }
 
 .kpis {
@@ -89,7 +89,7 @@
   padding: 1rem 1.1rem;
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .kpiLabel {
@@ -119,11 +119,11 @@
 }
 
 .delta_up {
-  color: #1f6b45;
+  color: var(--tone-green, #1f6b45);
 }
 
 .delta_down {
-  color: #9a3412;
+  color: var(--tone-amber, #9a3412);
 }
 
 .delta_flat {
@@ -159,7 +159,7 @@
   padding: 1rem 1.1rem;
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .serviceCard {
@@ -174,7 +174,7 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 1rem 1.1rem;
-  border-bottom: 1px solid #efebe6;
+  border-bottom: 1px solid var(--tone-line, #efebe6);
 }
 
 .cardHeadInline {
@@ -225,7 +225,7 @@
   padding: 0 0.9rem;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   font-weight: 500;
@@ -277,7 +277,7 @@
 
 .table td {
   padding: 0.7rem 0.5rem;
-  border-top: 1px solid #f1ede8;
+  border-top: 1px solid var(--tone-line, #f1ede8);
   vertical-align: middle;
 }
 
@@ -316,8 +316,8 @@
   height: 30px;
   flex-shrink: 0;
   border-radius: 999px;
-  background: #efeae4;
-  color: #4a443e;
+  background: var(--tone-soft, #efeae4);
+  color: var(--tone-ink, #4a443e);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -354,7 +354,7 @@
   border: 1px solid var(--color-border);
   border-radius: 6px;
   font-size: 0.75rem;
-  color: #4a443e;
+  color: var(--tone-ink, #4a443e);
   white-space: nowrap;
 }
 
@@ -368,28 +368,28 @@
 }
 
 .status_ok {
-  background: #e3f1ea;
-  color: #1f6b45;
+  background: var(--tone-soft, #e3f1ea);
+  color: var(--tone-green, #1f6b45);
 }
 
 .status_info {
-  background: #e6ecf8;
-  color: #2b4c8c;
+  background: var(--tone-soft, #e6ecf8);
+  color: var(--tone-blue, #2b4c8c);
 }
 
 .status_warn {
-  background: #fff1d6;
-  color: #7a4a00;
+  background: var(--tone-amber-bg, #fff1d6);
+  color: var(--tone-amber, #7a4a00);
 }
 
 .status_muted {
-  background: #f1efec;
-  color: #6b645d;
+  background: var(--tone-light, #f1efec);
+  color: var(--tone-ink, #6b645d);
 }
 
 .status_danger {
-  background: #fbeaea;
-  color: #9a2a2a;
+  background: var(--tone-light, #fbeaea);
+  color: var(--tone-red, #9a2a2a);
 }
 
 .allGood {
@@ -430,7 +430,7 @@
 }
 
 .attentionItem:hover {
-  background: #f6f4f1;
+  background: var(--tone-light, #f6f4f1);
 }
 
 .dot {
@@ -545,7 +545,7 @@
   height: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: #efeae4;
+  background: var(--tone-soft, #efeae4);
 }
 
 .progressFill {
@@ -582,7 +582,7 @@
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.7rem 0;
-  border-top: 1px solid #f1ede8;
+  border-top: 1px solid var(--tone-line, #f1ede8);
 }
 
 .review:first-child {
@@ -613,20 +613,20 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   font-size: 0.8125rem;
-  color: #4a443e;
+  color: var(--tone-ink, #4a443e);
 }
 
 .replied {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #1f6b45;
+  color: var(--tone-green, #1f6b45);
 }
 
 .skeletonHeader,
 .skeletonCard,
 .skeletonBlock {
   border-radius: 12px;
-  background: linear-gradient(90deg, #efebe6 0%, #f6f4f1 50%, #efebe6 100%);
+  background: linear-gradient(90deg, #efebe6 0%, var(--tone-light, #f6f4f1) 50%, #efebe6 100%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }

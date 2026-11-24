@@ -3,7 +3,7 @@
   padding: 1rem;
   border-radius: 16px;
   border: 1px solid rgba(99, 91, 255, 0.18);
-  background: linear-gradient(180deg, rgba(99, 91, 255, 0.06), rgba(255, 255, 255, 0.92));
+  background: linear-gradient(180deg, rgba(99, 91, 255, 0.06), var(--tone-glass, rgba(255, 255, 255, 0.92)));
 }
 
 .header {
@@ -44,12 +44,12 @@
 
 .badgePending {
   background: rgba(212, 168, 83, 0.18);
-  color: #8b6914;
+  color: var(--tone-amber, #8b6914);
 }
 
 .badgeReady {
   background: rgba(46, 125, 107, 0.16);
-  color: #1f6b59;
+  color: var(--tone-green, #1f6b59);
 }
 
 .warning,
@@ -61,7 +61,7 @@
 }
 
 .warning {
-  color: #8b4a32;
+  color: var(--tone-amber, #8b4a32);
 }
 
 .error {
@@ -96,7 +96,7 @@
 
 .secondaryButton {
   border: 1px solid var(--color-border);
-  background: var(--color-white);
+  background: var(--color-surface);
   color: var(--color-brown);
 }
 

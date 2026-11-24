@@ -1015,7 +1015,10 @@ export type ReportsSection =
 
 export type CompiteSection = 'compite-notifications' | 'compite-missions' | 'compite-ranking'
 
-export type CompanyTab = 'home' | 'reservations' | ClientsSection | ReportsSection | CompiteSection | 'help' | SettingsSection
+/** Ajustes del panel: cuenta, plan y pagos, y apariencia. */
+export type AccountSection = 'account' | 'plan' | 'appearance'
+
+export type CompanyTab = 'home' | 'reservations' | ClientsSection | ReportsSection | CompiteSection | 'help' | SettingsSection | AccountSection
 
 export const CLIENTS_SECTIONS: { id: ClientsSection; label: string; hint: string }[] = [
   { id: 'clients-reservations', label: 'Reservas', hint: 'Historial por cliente' },
@@ -1045,8 +1048,17 @@ export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; hint: stri
   { id: 'reservation-settings', label: 'Reservas y horario', hint: 'Modo, duración y días' },
   { id: 'tables', label: 'Mesas', hint: 'Capacidad y mapa' },
   { id: 'menu', label: 'Carta', hint: 'Productos, diseño y PDF' },
-  { id: 'plan', label: 'Plan', hint: 'Suscripción y baja' },
 ]
+
+export const ACCOUNT_SECTIONS: { id: AccountSection; label: string; hint: string }[] = [
+  { id: 'account', label: 'Cuenta', hint: 'Acceso, contraseña y sesiones' },
+  { id: 'plan', label: 'Plan y pagos', hint: 'Plan, método de pago, facturas y baja' },
+  { id: 'appearance', label: 'Apariencia', hint: 'Modo claro u oscuro' },
+]
+
+export function isAccountTab(tab: CompanyTab): tab is AccountSection {
+  return tab === 'account' || tab === 'plan' || tab === 'appearance'
+}
 
 export function isClientsTab(tab: CompanyTab): tab is ClientsSection {
   return tab === 'clients-reservations'
@@ -1076,6 +1088,7 @@ export function isSettingsTab(tab: CompanyTab): tab is SettingsSection {
     && !isClientsTab(tab)
     && !isReportsTab(tab)
     && !isCompiteTab(tab)
+    && !isAccountTab(tab)
     && tab !== 'help'
 }
 

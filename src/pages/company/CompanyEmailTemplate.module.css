@@ -1,10 +1,10 @@
 .wrapper {
-  --ink: #1c1917;
-  --muted: #78716c;
-  --soft: #a29a91;
-  --line: #e5e1db;
-  --line-soft: #f0ece7;
-  --accent: #8a3f1c;
+  --ink: var(--tone-ink, #1c1917);
+  --muted: var(--tone-muted, #78716c);
+  --soft: var(--tone-muted, #a29a91);
+  --line: var(--tone-line, #e5e1db);
+  --line-soft: var(--tone-line, #f0ece7);
+  --accent: var(--color-accent-strong);
 
   display: flex;
   flex-direction: column;
@@ -69,7 +69,7 @@
 }
 
 .saveStateDirty {
-  color: #a15c07;
+  color: var(--tone-amber, #a15c07);
 }
 
 .saveStateDirty > span {
@@ -113,7 +113,7 @@
 
 .ghostButton {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   font-weight: 500;
 }
@@ -131,13 +131,13 @@
 }
 
 .statusMessage {
-  background: #ecf6f0;
-  color: #23744b;
+  background: var(--tone-light, #ecf6f0);
+  color: var(--tone-green, #23744b);
 }
 
 .errorMessage {
-  background: #fef3f2;
-  color: #b42318;
+  background: var(--tone-light, #fef3f2);
+  color: var(--tone-red, #b42318);
 }
 
 /* ---------- Distribución ---------- */
@@ -154,7 +154,7 @@
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
 }
 
@@ -268,7 +268,7 @@
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   font: inherit;
   font-size: 0.875rem;
@@ -308,7 +308,7 @@
   margin: 1rem 1.25rem 0;
   padding: 0.625rem 0.75rem;
   border-radius: 10px;
-  background: #f6f3ee;
+  background: var(--tone-light, #f6f3ee);
 }
 
 .variablesLabel {
@@ -324,9 +324,9 @@
 .variableChip {
   height: 1.625rem;
   padding: 0 0.5rem;
-  border: 1px solid #e3d9cc;
+  border: 1px solid var(--tone-line, #e3d9cc);
   border-radius: 6px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--accent);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.75rem;
@@ -336,7 +336,7 @@
 
 .variableChip:hover {
   border-color: var(--accent);
-  background: #fbf5f1;
+  background: var(--tone-light, #fbf5f1);
 }
 
 .variablesHint {
@@ -361,7 +361,7 @@
   padding: 0.5rem 0.5rem 0.55rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   font: inherit;
   font-size: 0.8125rem;
@@ -419,7 +419,7 @@
   width: 2rem;
   height: 2rem;
   padding: 0;
-  border: 2px solid #fff;
+  border: 2px solid var(--tone-line, #fff);
   border-radius: 50%;
   box-shadow: 0 0 0 1px var(--line);
   cursor: pointer;
@@ -441,7 +441,7 @@
   padding: 0.25rem 0.25rem 0.25rem 0.3rem;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .colorInput input[type="color"] {
@@ -489,7 +489,7 @@
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   font: inherit;
   text-align: left;
@@ -542,7 +542,7 @@
 }
 
 .switchRow:hover {
-  background: #fbfaf8;
+  background: var(--tone-light, #fbfaf8);
 }
 
 .switchText {
@@ -596,7 +596,7 @@
   width: 1rem;
   height: 1rem;
   border-radius: 50%;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transition: transform 0.18s ease;
 }
@@ -619,7 +619,7 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.25rem 0.875rem 0.875rem;
-  background: #fbfaf8;
+  background: var(--tone-light, #fbfaf8);
 }
 
 .fixedNotice {
@@ -629,7 +629,7 @@
   margin: 0 1.25rem 1.25rem;
   padding: 0.75rem 0.875rem;
   border-radius: 10px;
-  background: #f6f3ee;
+  background: var(--tone-light, #f6f3ee);
 }
 
 .fixedNotice img {
@@ -671,7 +671,7 @@
 
 .linkButton:hover {
   color: var(--ink);
-  background: #f6f3ee;
+  background: var(--tone-light, #f6f3ee);
 }
 
 /* ---------- Vista previa ---------- */
@@ -703,7 +703,7 @@
   display: inline-flex;
   padding: 0.2rem;
   border-radius: 9px;
-  background: #f3f0ec;
+  background: var(--tone-light, #f3f0ec);
 }
 
 .deviceToggle button {
@@ -724,7 +724,7 @@
 }
 
 .deviceToggle .deviceOn {
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   box-shadow: 0 1px 2px rgba(28, 25, 23, 0.08);
 }
@@ -745,7 +745,7 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
-  background: #f3e3d9;
+  background: var(--tone-amber-bg, #f3e3d9);
   color: var(--accent);
   font-weight: 700;
 }
@@ -779,7 +779,7 @@
   display: flex;
   justify-content: center;
   padding: 1rem;
-  background: #f3f0ec;
+  background: var(--tone-light, #f3f0ec);
 }
 
 .previewFrameWrap {
@@ -787,7 +787,7 @@
   width: 100%;
   max-width: 640px;
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(28, 25, 23, 0.08);
   transition: max-width 0.25s ease;
@@ -804,7 +804,7 @@
   width: 100%;
   height: min(72vh, 820px);
   border: 0;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .previewUpdating {
@@ -834,7 +834,7 @@
   width: 100%;
   min-height: 18rem;
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   font-size: 0.875rem;
   color: var(--muted);
   text-align: center;

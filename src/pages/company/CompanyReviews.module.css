@@ -4,13 +4,13 @@
  */
 
 .wrapper {
-  --line: #e7e2db;
-  --line-soft: #f0ece7;
-  --line-strong: #d9d2c9;
-  --subtle: #faf9f7;
+  --line: var(--tone-line, #e7e2db);
+  --line-soft: var(--tone-line, #f0ece7);
+  --line-strong: var(--tone-line, #d9d2c9);
+  --subtle: var(--tone-soft, #faf9f7);
   --ink: var(--color-text);
   --muted: var(--color-text-muted);
-  --faint: #a29a91;
+  --faint: var(--tone-muted, #a29a91);
   --accent: var(--color-accent-strong);
   --ring: 0 0 0 3px rgba(138, 63, 28, 0.14);
   --field-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
@@ -85,7 +85,7 @@
   padding: 0 0.95rem;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   font: inherit;
   font-size: 0.8125rem;
@@ -154,10 +154,10 @@
 
 .errorBanner {
   padding: 0.65rem 0.875rem;
-  border: 1px solid #efcfcf;
+  border: 1px solid var(--tone-line, #efcfcf);
   border-radius: 8px;
   background: var(--color-danger-bg);
-  color: #9a2a2a;
+  color: var(--tone-red, #9a2a2a);
   font-size: 0.8125rem;
 }
 
@@ -177,7 +177,7 @@
   padding: 0.875rem 1rem;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: var(--elev-1);
   font: inherit;
   text-align: left;
@@ -201,7 +201,7 @@
 
 .kpiAlert {
   border-color: #f3dfb4;
-  background: linear-gradient(180deg, #fffaf0 0%, #fff 70%);
+  background: linear-gradient(180deg, var(--tone-light, #fffaf0) 0%, var(--color-surface) 70%);
 }
 
 .kpiAlert .kpiValue {
@@ -253,7 +253,7 @@
   height: 5px;
   margin-top: 0.25rem;
   border-radius: 999px;
-  background: #efebe6;
+  background: var(--tone-soft, #efebe6);
   overflow: hidden;
 }
 
@@ -295,7 +295,7 @@
   padding: 1rem 1.125rem;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: var(--elev-1);
 }
 
@@ -398,7 +398,7 @@
   display: block;
   height: 8px;
   border-radius: 999px;
-  background: #f1eee9;
+  background: var(--tone-soft, #f1eee9);
   overflow: hidden;
 }
 
@@ -520,7 +520,7 @@
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: var(--elev-1);
   overflow: hidden;
 }
@@ -566,7 +566,7 @@
 
 .segmentedButtonOn,
 .segmentedButtonOn:hover {
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(28, 25, 23, 0.08), 0 0 0 1px var(--line);
@@ -576,7 +576,7 @@
   min-width: 1.25rem;
   padding: 0 0.35rem;
   border-radius: 999px;
-  background: #ece8e2;
+  background: var(--tone-soft, #ece8e2);
   color: var(--muted);
   font-size: 0.6875rem;
   font-weight: 600;
@@ -619,7 +619,7 @@
   padding: 0 0.75rem 0 2.1rem;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   font: inherit;
   font-size: 0.8125rem;
@@ -658,7 +658,7 @@
   padding: 0 0.75rem;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--muted);
   font: inherit;
   font-size: 0.8125rem;
@@ -759,7 +759,7 @@
   height: 2.75rem;
   margin-bottom: 0.25rem;
   border-radius: 12px;
-  background: #f3f0ec;
+  background: var(--tone-light, #f3f0ec);
   color: var(--muted);
 }
 
@@ -812,7 +812,7 @@
 }
 
 .reviewCard:hover {
-  background: #fdfcfb;
+  background: var(--tone-light, #fdfcfb);
 }
 
 .reviewCardPending::before {
@@ -873,8 +873,8 @@
   height: 1.25rem;
   padding: 0 0.45rem;
   border-radius: 999px;
-  background: #e6ecf8;
-  color: #2b4c8c;
+  background: var(--tone-soft, #e6ecf8);
+  color: var(--tone-blue, #2b4c8c);
   font-size: 0.6875rem;
   font-weight: 600;
 }
@@ -925,13 +925,13 @@
 }
 
 .rating_mid {
-  background: #fdf3d3;
-  color: #7a5a00;
+  background: var(--tone-amber-bg, #fdf3d3);
+  color: var(--tone-amber, #7a5a00);
 }
 
 .rating_bad {
   background: var(--color-danger-bg);
-  color: #9a2a2a;
+  color: var(--tone-red, #9a2a2a);
 }
 
 .ratingPill svg,
@@ -960,7 +960,7 @@
 }
 
 .replyStatusDone {
-  background: #f1efec;
+  background: var(--tone-light, #f1efec);
   color: var(--muted);
 }
 
@@ -996,7 +996,7 @@
   max-width: 75ch;
   font-size: 0.9375rem;
   line-height: 1.6;
-  color: #33302c;
+  color: var(--tone-ink, #33302c);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1024,7 +1024,7 @@
   padding: 0;
   border: 0;
   border-radius: 10px;
-  background: #f3f0ec;
+  background: var(--tone-light, #f3f0ec);
   overflow: hidden;
   cursor: zoom-in;
   box-shadow: inset 0 0 0 1px rgba(28, 25, 23, 0.06);
@@ -1069,7 +1069,7 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--subtle);
-  color: #57504a;
+  color: var(--tone-ink, #57504a);
   font-size: 0.75rem;
   font-weight: 500;
 }
@@ -1165,7 +1165,7 @@
 }
 
 .replyEditButton:hover {
-  background: #efebe6;
+  background: var(--tone-soft, #efebe6);
   color: var(--ink);
 }
 
@@ -1173,7 +1173,7 @@
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.55;
-  color: #33302c;
+  color: var(--tone-ink, #33302c);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1186,7 +1186,7 @@
   padding: 0 0.875rem;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   font: inherit;
   font-size: 0.8125rem;
@@ -1209,7 +1209,7 @@
   padding: 0.875rem;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: var(--elev-2);
   animation: reveal 0.2s ease-out;
 }
@@ -1280,7 +1280,7 @@
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--ink);
   font: inherit;
   font-size: 0.875rem;
@@ -1334,7 +1334,7 @@
   margin: 0;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #9a2a2a;
+  color: var(--tone-red, #9a2a2a);
 }
 
 /* ================= Visor de fotos ================= */

@@ -18,7 +18,7 @@
 
 .errorState {
   border: 1px solid #efc7c7;
-  background: #fbeaea;
+  background: var(--tone-light, #fbeaea);
   color: var(--color-error);
 }
 
@@ -61,7 +61,7 @@
   padding: 0 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text-muted);
 }
 
@@ -87,7 +87,7 @@
   padding: 0 0.9rem;
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   font-size: 0.875rem;
@@ -99,7 +99,7 @@
 .refreshButton:hover,
 .loadMoreButton:hover,
 .filterClearButton:hover {
-  background: #f6f4f1;
+  background: var(--tone-light, #f6f4f1);
 }
 
 .refreshButton:disabled,
@@ -120,7 +120,7 @@
   min-width: 0;
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .listPanel {
@@ -156,12 +156,12 @@
 }
 
 .clientItem:hover {
-  background: #f6f4f1;
+  background: var(--tone-light, #f6f4f1);
 }
 
 .clientItemActive,
 .clientItemActive:hover {
-  background: #f1ece6;
+  background: var(--tone-soft, #f1ece6);
 }
 
 .clientItem:focus-visible,
@@ -179,8 +179,8 @@
   justify-content: center;
   flex-shrink: 0;
   border-radius: 999px;
-  background: #efeae4;
-  color: #4a443e;
+  background: var(--tone-soft, #efeae4);
+  color: var(--tone-ink, #4a443e);
   font-weight: 600;
 }
 
@@ -227,8 +227,8 @@
   min-width: 26px;
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
-  background: #f1efec;
-  color: #4a443e;
+  background: var(--tone-light, #f1efec);
+  color: var(--tone-ink, #4a443e);
   font-size: 0.75rem;
   font-weight: 600;
   text-align: center;
@@ -245,13 +245,13 @@
 }
 
 .badgeNew {
-  background: #e3f1ea;
-  color: #1f6b45;
+  background: var(--tone-soft, #e3f1ea);
+  color: var(--tone-green, #1f6b45);
 }
 
 .badgeRegular {
-  background: #e6ecf8;
-  color: #2b4c8c;
+  background: var(--tone-soft, #e6ecf8);
+  color: var(--tone-blue, #2b4c8c);
 }
 
 .loadMoreButton {
@@ -327,8 +327,8 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   margin: 0;
-  border-top: 1px solid #efebe6;
-  border-bottom: 1px solid #efebe6;
+  border-top: 1px solid var(--tone-line, #efebe6);
+  border-bottom: 1px solid var(--tone-line, #efebe6);
 }
 
 .stat {
@@ -336,7 +336,7 @@
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.8rem 1.25rem;
-  border-right: 1px solid #f1ede8;
+  border-right: 1px solid var(--tone-line, #f1ede8);
 }
 
 .stat:last-child {
@@ -362,7 +362,7 @@
 }
 
 .statDanger {
-  color: #9a3412 !important;
+  color: var(--tone-amber, #9a3412) !important;
 }
 
 .historyHead {
@@ -384,8 +384,8 @@
 .historyCount {
   padding: 0.05rem 0.5rem;
   border-radius: 999px;
-  background: #f1efec;
-  color: #4a443e;
+  background: var(--tone-light, #f1efec);
+  color: var(--tone-ink, #4a443e);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -415,7 +415,7 @@
   padding: 0 0.6rem;
   border: 1px solid var(--color-border);
   border-radius: 9px;
-  background: #ffffff;
+  background: var(--color-surface);
   font: inherit;
   font-size: 0.875rem;
   color: var(--color-text);
@@ -432,7 +432,7 @@
 
 .tableWrap {
   overflow-x: auto;
-  border-top: 1px solid #efebe6;
+  border-top: 1px solid var(--tone-line, #efebe6);
 }
 
 .table {
@@ -445,7 +445,7 @@
 
 .table th {
   padding: 0.6rem 0.75rem;
-  background: #faf9f7;
+  background: var(--tone-light, #faf9f7);
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text-muted);
@@ -460,7 +460,7 @@
 
 .table td {
   padding: 0.65rem 0.75rem;
-  border-top: 1px solid #f1ede8;
+  border-top: 1px solid var(--tone-line, #f1ede8);
   vertical-align: middle;
 }
 
@@ -483,28 +483,28 @@
 }
 
 .statusOk {
-  background: #e3f1ea;
-  color: #1f6b45;
+  background: var(--tone-soft, #e3f1ea);
+  color: var(--tone-green, #1f6b45);
 }
 
 .statusInfo {
-  background: #e6ecf8;
-  color: #2b4c8c;
+  background: var(--tone-soft, #e6ecf8);
+  color: var(--tone-blue, #2b4c8c);
 }
 
 .statusWarn {
-  background: #fff1d6;
-  color: #7a4a00;
+  background: var(--tone-amber-bg, #fff1d6);
+  color: var(--tone-amber, #7a4a00);
 }
 
 .statusMuted {
-  background: #f1efec;
-  color: #6b645d;
+  background: var(--tone-light, #f1efec);
+  color: var(--tone-ink, #6b645d);
 }
 
 .statusDanger {
-  background: #fbeaea;
-  color: #9a2a2a;
+  background: var(--tone-light, #fbeaea);
+  color: var(--tone-red, #9a2a2a);
 }
 
 .legalFooter {
@@ -523,9 +523,9 @@
   gap: 0.1875rem;
   margin: 0.625rem 0.625rem 0.25rem;
   padding: 0.1875rem;
-  border: 1px solid #e7e2db;
+  border: 1px solid var(--tone-line, #e7e2db);
   border-radius: 9px;
-  background: #faf9f7;
+  background: var(--tone-light, #faf9f7);
 }
 
 .segmentedButton {
@@ -555,7 +555,7 @@
 
 .segmentedButtonOn,
 .segmentedButtonOn:hover {
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text);
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(28, 25, 23, 0.08), 0 0 0 1px #e7e2db;
@@ -571,7 +571,7 @@
   min-width: 1.125rem;
   padding: 0 0.3rem;
   border-radius: 999px;
-  background: #ece8e2;
+  background: var(--tone-soft, #ece8e2);
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.125rem;
@@ -589,7 +589,7 @@
 
 .clientLast {
   font-size: 0.6875rem;
-  color: #a29a91;
+  color: var(--tone-muted, #a29a91);
   white-space: nowrap;
 }
 
@@ -600,8 +600,8 @@
   gap: 0.25rem 0.75rem;
   margin-top: auto;
   padding: 0.625rem 0.875rem;
-  border-top: 1px solid #efebe6;
-  background: #faf9f7;
+  border-top: 1px solid var(--tone-line, #efebe6);
+  background: var(--tone-light, #faf9f7);
   font-size: 0.75rem;
   color: var(--color-text-muted);
 }
@@ -631,9 +631,9 @@
   gap: 0.4rem;
   min-height: 2.25rem;
   padding: 0 0.875rem;
-  border: 1px solid #d9d2c9;
+  border: 1px solid var(--tone-line, #d9d2c9);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text);
   font-size: 0.8125rem;
   font-weight: 600;
@@ -644,7 +644,7 @@
 
 .actionButton:hover {
   border-color: #cdc5bb;
-  background: #faf9f7;
+  background: var(--tone-light, #faf9f7);
 }
 
 .actionButton:active {
@@ -653,7 +653,7 @@
 
 .habits {
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid #efebe6;
+  border-bottom: 1px solid var(--tone-line, #efebe6);
 }
 
 .habitsTitle {
@@ -674,9 +674,9 @@
   gap: 0.125rem;
   min-width: 0;
   padding: 0.75rem 0.875rem;
-  border: 1px solid #efebe6;
+  border: 1px solid var(--tone-line, #efebe6);
   border-radius: 10px;
-  background: #faf9f7;
+  background: var(--tone-light, #faf9f7);
 }
 
 .habitLabel {
@@ -698,7 +698,7 @@
 
 .habitHint {
   font-size: 0.6875rem;
-  color: #a29a91;
+  color: var(--tone-muted, #a29a91);
 }
 
 /* ---------- Ordenador: las dos columnas ocupan toda la altura ---------- */

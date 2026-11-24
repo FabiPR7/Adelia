@@ -41,22 +41,22 @@
 
 .secondaryButton {
   border: 1px solid var(--color-border);
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text);
 }
 
 .secondaryButton:hover {
-  background: #f6f4f1;
+  background: var(--tone-light, #f6f4f1);
 }
 
 .dangerBtn {
   border: 1px solid #e6b3b3;
-  background: #ffffff;
-  color: #9a2a2a;
+  background: var(--color-surface);
+  color: var(--tone-red, #9a2a2a);
 }
 
 .dangerBtn:hover:not(:disabled) {
-  background: #fbeaea;
+  background: var(--tone-light, #fbeaea);
 }
 
 .dangerBtn:disabled,
@@ -89,7 +89,7 @@
   padding: 1.15rem 1.25rem;
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .summaryIcon {
@@ -160,20 +160,20 @@
 .chip {
   padding: 0.1rem 0.55rem;
   border-radius: 999px;
-  background: #f1efec;
-  color: #4a443e;
+  background: var(--tone-light, #f1efec);
+  color: var(--tone-ink, #4a443e);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .chipOk {
-  background: #e3f1ea;
-  color: #1f6b45;
+  background: var(--tone-soft, #e3f1ea);
+  color: var(--tone-green, #1f6b45);
 }
 
 .chipDanger {
-  background: #fbeaea;
-  color: #9a2a2a;
+  background: var(--tone-light, #fbeaea);
+  color: var(--tone-red, #9a2a2a);
 }
 
 /* Avisos */
@@ -183,16 +183,16 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.8rem 1rem;
-  border: 1px solid #c9d6ef;
+  border: 1px solid var(--tone-line, #c9d6ef);
   border-radius: 12px;
-  background: #f1f5fc;
-  color: #1e3a70;
+  background: var(--tone-light, #f1f5fc);
+  color: var(--tone-blue, #1e3a70);
 }
 
 .noticeDanger {
   border-color: #efc7c7;
-  background: #fbeaea;
-  color: #8a2525;
+  background: var(--tone-light, #fbeaea);
+  color: var(--tone-red, #8a2525);
 }
 
 .noticeText {
@@ -209,7 +209,7 @@
   padding: 0.8rem 1rem;
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text-muted);
 }
 
@@ -230,7 +230,7 @@
 }
 
 .actionList li + li {
-  border-top: 1px solid #f1ede8;
+  border-top: 1px solid var(--tone-line, #f1ede8);
 }
 
 .actionRow {
@@ -245,7 +245,7 @@
 }
 
 .actionRow:hover {
-  background: #f6f4f1;
+  background: var(--tone-light, #f6f4f1);
 }
 
 .actionIcon {
@@ -256,8 +256,8 @@
   height: 34px;
   flex-shrink: 0;
   border-radius: 9px;
-  background: #f3efea;
-  color: #4a443e;
+  background: var(--tone-light, #f3efea);
+  color: var(--tone-ink, #4a443e);
 }
 
 .actionText {
@@ -284,12 +284,12 @@
 }
 
 .actionRowDanger strong {
-  color: #9a2a2a;
+  color: var(--tone-red, #9a2a2a);
 }
 
 .actionRowDanger .actionIcon {
-  background: #fbeaea;
-  color: #9a2a2a;
+  background: var(--tone-light, #fbeaea);
+  color: var(--tone-red, #9a2a2a);
 }
 
 /* Lo incluido */
@@ -314,7 +314,7 @@
 .perkIcon {
   flex-shrink: 0;
   margin-top: 0.15rem;
-  color: #1f6b45;
+  color: var(--tone-green, #1f6b45);
 }
 
 .perkValue {
@@ -335,9 +335,9 @@
   justify-content: space-between;
   gap: 0.75rem 1.5rem;
   padding: 1rem 1.25rem;
-  border: 1px solid #efd6d6;
+  border: 1px solid var(--tone-line, #efd6d6);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .dangerText {
@@ -349,7 +349,7 @@
   margin: 0 0 0.2rem;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #9a2a2a;
+  color: var(--tone-red, #9a2a2a);
 }
 
 .dangerText p {
@@ -376,10 +376,10 @@
   width: min(440px, 100%);
   padding: 1.25rem;
   border-radius: 14px;
-  background: #ffffff;
+  background: var(--color-surface);
   box-shadow: 0 16px 40px rgba(28, 25, 23, 0.2);
   font-family: 'Inter', system-ui, sans-serif;
-  color: #1c1917;
+  color: var(--tone-ink, #1c1917);
 }
 
 .deleteDialog h2 {
@@ -393,13 +393,13 @@
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #4a443e;
+  color: var(--tone-ink, #4a443e);
 }
 
 .deleteInput {
   min-height: 40px;
   padding: 0 0.75rem;
-  border: 1px solid #e0dbd4;
+  border: 1px solid var(--tone-line, #e0dbd4);
   border-radius: 9px;
   font: inherit;
   font-size: 0.875rem;

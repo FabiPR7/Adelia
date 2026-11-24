@@ -2,6 +2,8 @@
 
 :root {
   --color-cream: #faf7f2;
+  /* Fondo de tarjetas y cajas (blanco en claro; en el panel oscuro, madera oscura). */
+  --color-surface: #ffffff;
   --color-beige: #f0e6d8;
   --color-beige-dark: #e2d4c0;
   --color-sand: #c4a882;
@@ -75,6 +77,12 @@
   --dur-slow: 320ms;
   --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* Campos de texto sin estilo propio: que no salgan blancos en oscuro. */
+:where([data-panel-theme='dark']) :where(input, textarea, select) {
+  background-color: var(--color-surface);
+  color: var(--color-text);
 }
 
 *,

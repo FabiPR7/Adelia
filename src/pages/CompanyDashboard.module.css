@@ -55,6 +55,65 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * Modo oscuro (Ajustes → Apariencia): la misma herramienta de trabajo, en tonos
+ * cálidos oscuros. Solo dentro del panel; la web de clientes no cambia.
+ */
+.page[data-panel-theme='dark'] {
+  color-scheme: dark;
+  --color-cream: #171412;
+  --color-surface: #221e1a;
+  --color-beige: #2a2521;
+  --color-beige-dark: #37302a;
+  --color-sand: #b9a68f;
+  --color-brown: #f4efe9;
+  --color-brown-light: #cbc2b8;
+  --color-text: #f1ece6;
+  --color-text-muted: #aaa196;
+  --color-border: #37302a;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+  --color-shadow-strong: rgba(0, 0, 0, 0.45);
+
+  --color-accent: #d9713f;
+  --color-accent-strong: #c25a2a;
+  --color-accent-ink: #f0a27a;
+  --color-accent-wash: rgba(217, 113, 63, 0.16);
+  --gradient-energy: linear-gradient(135deg, #c25a2a 0%, #d9713f 100%);
+  --color-sand-wash: rgba(255, 255, 255, 0.05);
+
+  --color-ok: #7cc39a;
+  --color-ok-bg: rgba(124, 195, 154, 0.14);
+  --color-warn: #e6b45e;
+  --color-warn-bg: rgba(230, 180, 94, 0.14);
+  --color-error: #ec9090;
+  --color-danger-bg: rgba(236, 144, 144, 0.14);
+
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --elev-2: 0 4px 14px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --elev-3: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+
+  /* Colores sueltos del panel (blancos, tintas y bordes neutros). */
+  --tone-light: var(--color-surface);
+  --tone-ink: var(--color-text);
+  --tone-line: var(--color-border);
+  --tone-glass: rgba(34, 30, 26, 0.92);
+  --tone-soft: var(--color-beige);
+  --tone-muted: var(--color-text-muted);
+  /* Píldoras con fondo marrón (fecha elegida, filtro activo): marrón medio con letra blanca. */
+  --tone-pill: #5b4d40;
+  /* Colores con significado: texto más claro y fondo oscuro de su mismo color. */
+  --tone-green: #7cc39a;
+  --tone-green-bg: rgba(124, 195, 154, 0.14);
+  --tone-red: #ec9090;
+  --tone-red-bg: rgba(236, 144, 144, 0.14);
+  --tone-amber: #e6b45e;
+  --tone-amber-bg: rgba(230, 180, 94, 0.14);
+  --tone-blue: #93b8f0;
+  --tone-blue-bg: rgba(147, 184, 240, 0.14);
+  --tone-purple: #c3a6ec;
+  --tone-purple-bg: rgba(195, 166, 236, 0.14);
+}
+
 /* Títulos de las secciones: misma escala y peso en todo el panel. */
 .main :where(h1) {
   font-family: var(--font-display);
@@ -138,7 +197,7 @@
   min-height: 0;
   height: 100%;
   padding: 1.1rem 0.85rem 0.9rem;
-  background: #ffffff;
+  background: var(--color-surface);
   border-right: 1px solid var(--color-border);
   overflow: hidden;
 }
@@ -218,7 +277,7 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #4a443e;
+  color: var(--tone-ink, #4a443e);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -227,7 +286,7 @@
 
 .navItem:hover,
 .navSubItem:hover {
-  background: #f6f4f1;
+  background: var(--tone-light, #f6f4f1);
   color: var(--color-text);
 }
 
@@ -240,7 +299,7 @@
 
 .navItemActive,
 .navSubItemActive {
-  background: #f1ece6;
+  background: var(--tone-soft, #f1ece6);
   color: var(--color-text);
 }
 
@@ -260,7 +319,7 @@
 .navIcon {
   flex-shrink: 0;
   margin-right: 0.625rem;
-  color: #8a8279;
+  color: var(--tone-muted, #8a8279);
   transition: color 0.15s ease;
 }
 
@@ -406,8 +465,8 @@
 
 .favStar:hover,
 .favStarTop:hover {
-  background: #efebe6;
-  color: #7a4a00;
+  background: var(--tone-soft, #efebe6);
+  color: var(--tone-amber, #7a4a00);
 }
 
 .favStar:active {
@@ -481,14 +540,14 @@
   padding: 0.1rem 0.65rem 0.2rem;
   font-size: 0.75rem;
   line-height: 1.45;
-  color: #a29a91;
+  color: var(--tone-muted, #a29a91);
 }
 
 .favoriteGroup {
   margin-left: auto;
   padding-left: 0.5rem;
   font-size: 0.6875rem;
-  color: #a29a91;
+  color: var(--tone-muted, #a29a91);
   white-space: nowrap;
 }
 
@@ -537,7 +596,7 @@
   padding: 0 0.85rem;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   font-size: 0.8125rem;
@@ -547,7 +606,7 @@
 }
 
 .logoutButton:hover {
-  background: #f6f4f1;
+  background: var(--tone-light, #f6f4f1);
 }
 
 /* ── Zona de contenido ────────────────────────────────────── */
@@ -568,7 +627,7 @@
   flex-shrink: 0;
   min-height: 60px;
   padding: 0 2rem;
-  background: #ffffff;
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   position: relative;
   z-index: 50;
@@ -792,7 +851,7 @@
     height: 2.25rem;
     border: 1px solid var(--color-border);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--color-surface);
     color: var(--color-text);
     font-size: 0.875rem;
     cursor: pointer;
@@ -815,7 +874,7 @@
     padding: 0.6rem;
     border: 1px solid var(--color-border);
     border-radius: 9px;
-    background: #ffffff;
+    background: var(--color-surface);
     cursor: pointer;
   }
 
@@ -824,7 +883,7 @@
     width: 100%;
     height: 2px;
     border-radius: 1px;
-    background: var(--color-text);
+    background: var(--tone-pill, var(--color-text));
   }
 
   .main {

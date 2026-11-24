@@ -6,7 +6,7 @@
   padding: 1rem;
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .legend {
@@ -14,7 +14,7 @@
   flex-wrap: wrap;
   gap: 0.9rem;
   font-size: 0.75rem;
-  color: #4a443e;
+  color: var(--tone-ink, #4a443e);
 }
 
 .legendItem {
@@ -39,7 +39,7 @@
 
 .scroller {
   overflow-x: auto;
-  border: 1px solid #efebe6;
+  border: 1px solid var(--tone-line, #efebe6);
   border-radius: 10px;
 }
 
@@ -57,8 +57,8 @@
 .headRow {
   position: sticky;
   top: 0;
-  background: #faf9f7;
-  border-bottom: 1px solid #efebe6;
+  background: var(--tone-light, #faf9f7);
+  border-bottom: 1px solid var(--tone-line, #efebe6);
 }
 
 .headCell,
@@ -75,12 +75,12 @@
 }
 
 .hour {
-  border-left: 1px solid #efebe6;
+  border-left: 1px solid var(--tone-line, #efebe6);
 }
 
 .row {
   min-height: 54px;
-  border-bottom: 1px solid #f1ede8;
+  border-bottom: 1px solid var(--tone-line, #f1ede8);
 }
 
 .row:last-child {
@@ -170,33 +170,33 @@ button.block:focus-visible {
 }
 
 .tone_info {
-  background: #e6ecf8;
+  background: var(--tone-soft, #e6ecf8);
   border-color: #a9bce3;
-  color: #1e3a70;
+  color: var(--tone-blue, #1e3a70);
 }
 
 .tone_warn {
-  background: #fff1d6;
+  background: var(--tone-amber-bg, #fff1d6);
   border-color: #ebc27a;
-  color: #6b3f00;
+  color: var(--tone-amber, #6b3f00);
 }
 
 .tone_ok {
-  background: #e3f1ea;
+  background: var(--tone-soft, #e3f1ea);
   border-color: #9fd0b6;
-  color: #14532d;
+  color: var(--tone-green, #14532d);
 }
 
 .tone_muted {
-  background: #f1efec;
-  border-color: #d6d0c8;
-  color: #4a443e;
+  background: var(--tone-light, #f1efec);
+  border-color: var(--tone-line, #d6d0c8);
+  color: var(--tone-ink, #4a443e);
 }
 
 .tone_danger {
-  background: #fbeaea;
+  background: var(--tone-light, #fbeaea);
   border-color: #e6b3b3;
-  color: #8a2525;
+  color: var(--tone-red, #8a2525);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -211,13 +211,13 @@ button.block:focus-visible {
   position: sticky;
   left: 0;
   z-index: 3;
-  border-right: 1px solid #efebe6;
+  border-right: 1px solid var(--tone-line, #efebe6);
 }
 
 .headCell {
-  background: #faf9f7;
+  background: var(--tone-light, #faf9f7);
 }
 
 .tableCell {
-  background: #ffffff;
+  background: var(--color-surface);
 }
