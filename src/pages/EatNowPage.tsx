@@ -36,26 +36,29 @@ function EatNowPage() {
     document.title = 'Comer ahora · Adelia'
   }, [])
 
-  // Primero tu ubicación; si no se puede, tu ciudad del perfil; si no, la escribes tú.
+  // Con prisa no se espera al GPS: si tarda más de 5 s se busca en la ciudad del perfil
+  // y, cuando llega, se busca con él.
+  const homeCity = ((profile as { homeCity?: string } | null)?.homeCity ?? '').trim()
   useEffect(() => {
     let cancelled = false
-    setLocating(true)
+    const useCity = () => {
+      if (cancelled) return
+      if (homeCity) setWhere((current) => current ?? { city: homeCity })
+      setLocating(false)
+    }
+    const timer = setTimeout(useCity, 5000)
     requestUserLocation('')
       .then((location) => {
-        if (!cancelled) setWhere({ near: location.coords })
-      })
-      .catch(() => {
         if (cancelled) return
-        const city = (profile as { homeCity?: string } | null)?.homeCity?.trim() ?? ''
-        if (city) setWhere({ city })
+        setWhere({ near: location.coords })
+        setLocating(false)
       })
-      .finally(() => {
-        if (!cancelled) setLocating(false)
-      })
+      .catch(useCity)
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
-  }, [profile])
+  }, [homeCity])
 
   /** Pide una página (y las siguientes si esa no trae ningún local abierto). */
   const loadPage = useCallback(async (target: Where, people: number | null, from: string | null) => {
