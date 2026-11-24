@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { closesAtIfOpen, findMissedSlot, findNowSlot, hasTableFreeNow } from '../nowAvailability.ts'
+import { closesAtIfOpen, findMissedSlot, findNowSlot, hasOwnSchedule, hasTableFreeNow } from '../nowAvailability.ts'
+import { defaultSchedule } from '../../utils.ts'
 import { isNowBookingTime, parseBookingDate } from '../../reservationSlots.ts'
 
 const closed = { open: '', close: '', active: false }
@@ -72,6 +73,15 @@ describe('Comer ahora', () => {
     expect(findMissedSlot({ ...base, reservations: all, missedMinutes: 15 })).toBeNull()
     expect(hasTableFreeNow(tables, all, null, late)).toBe(false)
     expect(hasTableFreeNow(tables, [], null, late)).toBe(true)
+  })
+
+  it('distingue el horario automático del que puso el local', () => {
+    const auto = defaultSchedule()
+    expect(hasOwnSchedule(null, auto)).toBe(false)
+    expect(hasOwnSchedule(defaultSchedule(), auto)).toBe(false)
+    expect(hasOwnSchedule({ ...auto, monday: { ...auto.monday, periods: [{ open: '13:00', close: '23:00' }] } }, auto)).toBe(false)
+    expect(hasOwnSchedule({ ...auto, wednesday: { open: '13:00', close: '23:00', active: true } }, auto)).toBe(true)
+    expect(hasOwnSchedule(schedule, auto)).toBe(true)
   })
 
   it('sabe si está abierto, también pasada la medianoche', () => {

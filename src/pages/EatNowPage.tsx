@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { requestUserLocation } from '../utils/requestUserLocation'
 import { formatDistanceKm, haversineDistanceKm } from '../utils/geo'
-import { fetchNowPage, nowBookingHref, nowStatus, type NowRestaurant, type NowWhere } from '../services/nowAvailability'
+import { fetchNowPage, NOW_SECTIONS, nowBookingHref, nowStatus, splitNow, type NowRestaurant, type NowWhere } from '../services/nowAvailability'
 import styles from './EatNowPage.module.css'
 
 const PAX_OPTIONS: Array<number | null> = [null, 1, 2, 3, 4, 5, 6, 7, 8]
@@ -114,6 +114,7 @@ function EatNowPage() {
     if (cityInput.trim().length >= 2) setWhere({ city: cityInput.trim() })
   }
 
+  const groups = splitNow(items)
   const origin = where && 'near' in where ? where.near : null
 
   return (
@@ -125,7 +126,7 @@ function EatNowPage() {
         <p className={styles.eyebrow}>Comer ahora</p>
         <h1 className={styles.title}>Mesa libre, ya</h1>
         <p className={styles.lead}>
-          Sitios abiertos cerca de ti: con mesa para reservar en los próximos {windowMinutes} minutos o donde puede que haya sitio.
+          Sitios cerca de ti: con mesa para reservar en los próximos {windowMinutes} minutos y, aparte, los que no tienen reserva.
         </p>
 
         <div className={styles.paxRow} role="radiogroup" aria-label="¿Cuántos sois? (opcional)">
@@ -171,15 +172,23 @@ function EatNowPage() {
 
         {done && !loading && !error && items.length === 0 ? (
           <div className={styles.empty}>
-            <p className={styles.emptyTitle}>Ahora mismo no hay sitios abiertos cerca</p>
+            <p className={styles.emptyTitle}>Ahora mismo no hay sitios cerca</p>
             <p>{pax == null ? 'Prueba más tarde o reserva para otro momento.' : 'Prueba con «Todos» o con menos personas.'}</p>
             <Link className={styles.primary} to="/">Ver todos los restaurantes</Link>
           </div>
         ) : null}
 
-        {items.length > 0 ? (
-          <ul className={styles.list}>
-            {items.map((item) => {
+        {items.length > 0 ? (['booking', 'walkIn'] as const).map((key) => {
+          const group = groups[key]
+          if (key === 'walkIn' && group.length === 0) return null
+          return (
+            <section key={key} className={styles.section} aria-labelledby={`now-${key}`}>
+              <div className={styles.sectionHead}>
+                <h2 id={`now-${key}`}>{NOW_SECTIONS[key].title}</h2>
+                <p>{group.length > 0 ? NOW_SECTIONS[key].hint : 'Ahora mismo no hay mesas para reservar cerca.'}</p>
+              </div>
+              <ul className={styles.list}>
+            {group.map((item) => {
               const distance = origin && item.latitude != null && item.longitude != null
                 ? formatDistanceKm(haversineDistanceKm(origin, { lat: item.latitude, lng: item.longitude }))
                 : ''
@@ -190,7 +199,7 @@ function EatNowPage() {
                     {item.photoUrl ? <img src={item.photoUrl} alt="" loading="lazy" /> : <span>{item.name.charAt(0)}</span>}
                   </div>
                   <div className={styles.body}>
-                    <h2>{item.name}</h2>
+                    <h3>{item.name}</h3>
                     <p className={styles.meta}>{[item.municipality, distance].filter(Boolean).join(' · ')}</p>
                     <p className={item.state === 'book' ? styles.slot : styles.maybe}>{status.title}</p>
                     <p className={styles.meta}>{status.detail}</p>
@@ -208,16 +217,18 @@ function EatNowPage() {
                 </li>
               )
             })}
-          </ul>
-        ) : null}
+              </ul>
+            </section>
+          )
+        }) : null}
 
         <div ref={sentinelRef} />
         {locating || loading ? (
           <p className={styles.status} role="status">
-            {locating ? 'Buscando dónde estás…' : items.length > 0 ? 'Cargando más…' : 'Buscando sitios abiertos…'}
+            {locating ? 'Buscando dónde estás…' : items.length > 0 ? 'Cargando más…' : 'Buscando sitios…'}
           </p>
         ) : null}
-        {done && !loading && items.length > 0 ? <p className={styles.note}>No hay más sitios abiertos cerca.</p> : null}
+        {done && !loading && items.length > 0 ? <p className={styles.note}>No hay más sitios cerca.</p> : null}
       </main>
     </div>
   )

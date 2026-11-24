@@ -7,9 +7,9 @@ import { allowPublicCache } from '../security/httpCache.ts'
 import { ensureBusinessRules, getBusinessRules } from '../config/businessRules.ts'
 import { companyAcceptsReservations, defaultSchedule } from '../utils.ts'
 import { distanceKm } from '../utils/geohash.ts'
-import { madridDayRange, madridYmd } from '../utils/madridDateTime.ts'
+import { madridDayRange, madridHour, madridYmd } from '../utils/madridDateTime.ts'
 import { parseBookingDate } from '../reservationSlots.ts'
-import { closesAtIfOpen, findMissedSlot, findNowSlot, hasTableFreeNow, type NowReservation, type NowTable } from '../reservations/nowAvailability.ts'
+import { closesAtIfOpen, findMissedSlot, findNowSlot, hasOwnSchedule, hasTableFreeNow, type NowReservation, type NowTable } from '../reservations/nowAvailability.ts'
 import { loadBookableTables } from './public.ts'
 
 /**
@@ -17,7 +17,9 @@ import { loadBookableTables } from './public.ts'
  * Todos los locales abiertos cerca, por páginas. De cada uno se dice lo que se sabe:
  *  - book:   mesa libre que se puede reservar ya (campo `now`).
  *  - missed: una hora que acaba de pasar y nadie reservó; puede que haya sitio.
- *  - ask:    abierto según su horario, pero no sabemos si hay mesa: llamar o acercarse.
+ *  - ask:    sin reserva ahora; se puede llamar o acercarse, con riesgo de que esté lleno.
+ * `hoursKnown` false = el local no ha puesto su horario (tiene el automático): no se
+ * dice que está abierto. `usesBooking` = el local tiene mesas para reservar en Adelia.
  * Los cerrados y los que tienen todas las mesas cogidas no salen.
  * `pax` es opcional: sin él valen todas las mesas.
  *
@@ -35,6 +37,7 @@ const venueCache = new Map<string, { at: number; value: Promise<Venue | null> }>
 interface Venue {
   schedule: ReturnType<typeof defaultSchedule>
   duration: number
+  hoursKnown: boolean
   phone: string
   accepts: boolean
   tables: NowTable[]
@@ -57,6 +60,7 @@ async function readVenue(item: PublicDiscoveryRestaurantPayload, windowMinutes: 
   const venue: Venue = {
     schedule,
     duration: typeof data.timeSlotMinutes === 'number' ? data.timeSlotMinutes : 120,
+    hoursKnown: hasOwnSchedule(data.schedule as Venue['schedule'] | undefined, defaultSchedule()),
     phone: typeof data.phone === 'string' ? data.phone.trim() : '',
     accepts: companyAcceptsReservations(data.reservationMode) && item.canReserve !== false,
     tables: [],
@@ -145,6 +149,8 @@ router.get('/now', async (req: Request, res: Response) => {
     const todayYmd = madridYmd(new Date(now))
     const today = parseBookingDate(todayYmd)
     const window = { graceMinutes: rules.nowGraceMinutes, windowMinutes: rules.nowWindowMinutes }
+    const hour = madridHour(new Date(now))
+    const plausibleHour = hour >= rules.nowUnknownFromHour && hour < rules.nowUnknownToHour
     const found: Array<Record<string, unknown> & { rank: number }> = []
 
     for (let round = 0; round < MAX_ROUNDS && offset < list.length && found.length < rules.nowPageSize; round += 1) {
@@ -155,8 +161,15 @@ router.get('/now', async (req: Request, res: Response) => {
           const venue = await cachedVenue(item, rules.nowWindowMinutes)
           if (!venue) return null
           const open = closesAtIfOpen(venue.schedule, now)
-          const base = { ...item, phone: venue.phone, closesAt: open?.time ?? null }
-          if (venue.accepts && venue.tables.length > 0) {
+          const usesBooking = venue.accepts && venue.tables.length > 0
+          const base = {
+            ...item,
+            phone: venue.phone,
+            hoursKnown: venue.hoursKnown,
+            usesBooking,
+            closesAt: venue.hoursKnown ? open?.time ?? null : null,
+          }
+          if (usesBooking) {
             const input = {
               date: today,
               schedule: venue.schedule,
@@ -174,7 +187,9 @@ router.get('/now', async (req: Request, res: Response) => {
             // Con mesas en Adelia y todas cogidas (o ninguna de ese tamaño): no se ofrece.
             if (!hasTableFreeNow(venue.tables, venue.reservations, pax, now)) return null
           }
-          return open ? { ...base, rank: 2, state: 'ask' } : null
+          // Sin horario propio no sabemos si abre: se enseña avisando, a horas razonables.
+          const show = venue.hoursKnown ? Boolean(open) : usesBooking ? Boolean(open) : plausibleHour
+          return show ? { ...base, rank: 2, state: 'ask' } : null
         } catch (error) {
           console.warn('now: local saltado', item.id, error instanceof Error ? error.message : error)
           return null

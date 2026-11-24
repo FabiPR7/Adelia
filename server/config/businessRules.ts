@@ -48,6 +48,9 @@ export interface BusinessRules {
   nowPageSize: number
   /** «Comer ahora»: una hora sin reservar se enseña como «puede que haya mesa» hasta estos minutos después. */
   nowMissedMinutes: number
+  /** «Comer ahora»: locales sin horario propio se enseñan (avisando) solo entre estas horas. */
+  nowUnknownFromHour: number
+  nowUnknownToHour: number
 }
 
 export const EMERGENCY_BUSINESS_RULES: BusinessRules = {
@@ -80,6 +83,8 @@ export const EMERGENCY_BUSINESS_RULES: BusinessRules = {
   nowMaxRestaurants: 80,
   nowPageSize: 12,
   nowMissedMinutes: 15,
+  nowUnknownFromHour: 8,
+  nowUnknownToHour: 24,
 }
 
 const CACHE_MS = 5 * 60 * 1000
@@ -144,6 +149,8 @@ export function parseBusinessRules(data: Record<string, unknown> | undefined): B
     nowRadiusKm: Math.min(30, positiveInt(d.nowRadiusKm) ?? base.nowRadiusKm),
     nowMaxRestaurants: Math.min(80, positiveInt(d.nowMaxRestaurants) ?? base.nowMaxRestaurants),
     nowPageSize: Math.min(20, positiveInt(d.nowPageSize) ?? base.nowPageSize),
+    nowUnknownFromHour: Math.min(23, nonNegativeInt(d.nowUnknownFromHour) ?? base.nowUnknownFromHour),
+    nowUnknownToHour: Math.min(24, positiveInt(d.nowUnknownToHour) ?? base.nowUnknownToHour),
     nowMissedMinutes: Math.min(60, positiveInt(d.nowMissedMinutes) ?? base.nowMissedMinutes),
   }
 }

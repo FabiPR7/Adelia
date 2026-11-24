@@ -13,7 +13,7 @@ export interface NowSlot {
   maxSeats: number
 }
 
-/** book: se puede reservar ya · missed: hora pasada sin reservar · ask: abierto, hay que preguntar. */
+/** book: se puede reservar ya · missed: hora pasada sin reservar · ask: sin reserva ahora, hay que preguntar. */
 export type NowState = 'book' | 'missed' | 'ask'
 
 export interface NowRestaurant extends PublicDiscoveryRestaurant {
@@ -22,6 +22,10 @@ export interface NowRestaurant extends PublicDiscoveryRestaurant {
   missedTime: string
   phone: string
   closesAt: string
+  /** false = el local no ha puesto su horario: no sabemos si está abierto. */
+  hoursKnown: boolean
+  /** El local tiene mesas para reservar en Adelia (aunque ahora no se pueda). */
+  usesBooking: boolean
 }
 
 export interface NowPage {
@@ -54,7 +58,7 @@ function mapNowRestaurant(raw: unknown): NowRestaurant | null {
       }
     : null
   if (state === 'book' && !now) return null
-  return { ...base, state, now, missedTime: text(missed?.time), phone: text(row.phone), closesAt: text(row.closesAt) }
+  return { ...base, state, now, missedTime: text(missed?.time), phone: text(row.phone), closesAt: text(row.closesAt), hoursKnown: row.hoursKnown === true, usesBooking: row.usesBooking === true }
 }
 
 function nowQuery(where: NowWhere, pax: number | null, cursor: string | null): string {
@@ -107,8 +111,12 @@ export function nowStatus(item: NowRestaurant): { title: string; detail: string 
     }
   }
   return {
-    title: item.closesAt ? `Abierto hasta las ${item.closesAt}` : 'Abierto ahora',
-    detail: 'Puede que haya mesa: pregunta en el local.',
+    title: item.hoursKnown && item.closesAt ? `Abierto hasta las ${item.closesAt}` : 'Horario sin confirmar',
+    detail: item.usesBooking
+      ? 'Ahora mismo no se puede reservar. Puede que esté lleno.'
+      : item.hoursKnown
+        ? 'Aquí no se reserva por Adelia. Puede que esté lleno.'
+        : 'Aquí no se reserva por Adelia. Llama antes: puede estar cerrado o lleno.',
   }
 }
 
@@ -121,4 +129,17 @@ export function nowBookingHref(item: NowRestaurant, pax: number | null): string 
   })
   if (pax != null) params.set('pax', String(pax))
   return `/reservar/${encodeURIComponent(item.slug)}?${params.toString()}`
+}
+
+/** Con reserva (o con una hora recién libre) por un lado; sin reserva, por otro. */
+export function splitNow(items: NowRestaurant[]): { booking: NowRestaurant[]; walkIn: NowRestaurant[] } {
+  return {
+    booking: items.filter((item) => item.state !== 'ask'),
+    walkIn: items.filter((item) => item.state === 'ask'),
+  }
+}
+
+export const NOW_SECTIONS = {
+  booking: { title: 'Con reserva', hint: 'Reservas tu mesa ahora mismo.' },
+  walkIn: { title: 'Sin reserva', hint: 'Puedes acercarte, pero hay riesgo de que esté lleno o cerrado.' },
 }

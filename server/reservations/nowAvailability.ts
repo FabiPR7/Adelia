@@ -113,6 +113,22 @@ export function hasTableFreeNow(tables: NowTable[], reservations: NowReservation
   return freeTablesBetween(fittingTables(tables, pax), reservations, new Date(now), new Date(now + 30 * 60_000)).length > 0
 }
 
+/**
+ * ¿El local ha puesto su horario? Al crear un local se le pone uno automático: mientras
+ * siga siendo ese, no sabemos cuándo abre y no se puede decir «abierto».
+ */
+export function hasOwnSchedule(schedule: Schedule | null | undefined, automatic: Schedule): boolean {
+  if (!schedule) return false
+  return DAY_KEYS.some((key) => {
+    const day = schedule[key]
+    const auto = automatic[key]
+    if (!day || Boolean(day.active) !== Boolean(auto.active)) return true
+    if (!day.active) return false
+    const periods = Array.isArray(day.periods) && day.periods.length > 0 ? day.periods : [{ open: day.open, close: day.close }]
+    return periods.length !== 1 || periods[0].open !== auto.open || periods[0].close !== auto.close
+  })
+}
+
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
 const HHMM = /^\d{2}:\d{2}$/
 
