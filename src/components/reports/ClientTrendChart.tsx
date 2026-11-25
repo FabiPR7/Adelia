@@ -11,7 +11,7 @@ const HEIGHT = 180
 const PADDING = { top: 14, right: 12, bottom: 28, left: 32 }
 
 const SERIES = [
-  { key: 'newClients' as const, label: 'Nuevos', color: '#5c6b3a', fill: 'rgba(92, 107, 58, 0.24)' },
+  { key: 'newClients' as const, label: 'Nuevos', color: '#3f9a6b', fill: 'rgba(63, 154, 107, 0.26)' },
   { key: 'returning' as const, label: 'Recurrentes', color: '#8a3f1c', fill: 'rgba(138, 63, 28, 0.22)' },
 ]
 

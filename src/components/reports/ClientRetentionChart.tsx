@@ -25,7 +25,7 @@ function ClientRetentionChart({ data }: ClientRetentionChartProps) {
     <div className={shared.chartBody}>
       <div className={shared.legend} aria-hidden="true">
         <span className={shared.legendItem}>
-          <span className={shared.legendSwatch} style={{ background: '#5c6b3a' }} />
+          <span className={shared.legendSwatch} style={{ background: '#3f9a6b' }} />
           Captados
         </span>
         <span className={shared.legendItem}>
@@ -59,7 +59,7 @@ function ClientRetentionChart({ data }: ClientRetentionChartProps) {
                   width={barWidth}
                   height={Math.max(acquiredHeight, acquired > 0 ? 4 : 0)}
                   rx={5}
-                  fill="#5c6b3a"
+                  fill="#3f9a6b"
                   className={styles.bar}
                 />
                 <rect
@@ -77,7 +77,7 @@ function ClientRetentionChart({ data }: ClientRetentionChartProps) {
                     y={baseY - acquiredHeight - 4}
                     textAnchor="middle"
                     fontSize="9"
-                    fill="#5c6b3a"
+                    fill="#3f9a6b"
                   >
                     {acquired}
                   </text>

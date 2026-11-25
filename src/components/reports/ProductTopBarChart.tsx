@@ -57,7 +57,7 @@ function ProductTopBarChart({ products, metric }: ProductTopBarChartProps) {
                   width={Math.max(barWidth, value > 0 ? 4 : 0)}
                   height={barHeight}
                   rx={6}
-                  fill={isTop ? '#5c6b3a' : 'rgba(138, 63, 28, 0.32)'}
+                  fill={isTop ? '#3f9a6b' : 'rgba(138, 63, 28, 0.32)'}
                 />
                 {value > 0 && (
                   <text

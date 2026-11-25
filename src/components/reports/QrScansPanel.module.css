@@ -43,7 +43,7 @@
 
 .head h2 {
   margin: 0;
-  font-family: var(--report-serif, 'Cormorant Garamond', Georgia, serif);
+  font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.15;
@@ -436,86 +436,4 @@
   .download {
     transition: none;
   }
-}
-
-/* ---------- Estilo «carta y periódico», como el resto de informes ---------- */
-
-.panel {
-  border-top: 2px solid #2c241d;
-  border-radius: 2px 2px 6px 6px;
-  background: #fffdf9;
-  box-shadow: none;
-}
-
-.headIcon {
-  display: none;
-}
-
-.head h2 {
-  font-size: 1.6rem;
-}
-
-.head p {
-  font-family: var(--report-serif, 'Cormorant Garamond', Georgia, serif);
-  font-size: 1rem;
-  font-style: italic;
-}
-
-.heroNumber > strong {
-  font-family: var(--report-serif, 'Cormorant Garamond', Georgia, serif);
-  font-size: clamp(3.4rem, 8vw, 4.75rem);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-}
-
-.delta {
-  height: auto;
-  padding: 0;
-  background: none;
-  font-family: var(--report-serif, 'Cormorant Garamond', Georgia, serif);
-  font-size: 1rem;
-  font-style: italic;
-}
-
-.deltaUp {
-  background: none;
-  color: #2f7a4b;
-}
-
-.deltaDown {
-  background: none;
-  color: #a23b33;
-}
-
-.tile {
-  border-radius: 4px;
-  background: #ffffff;
-}
-
-.tileLabel {
-  font-family: var(--report-serif, 'Cormorant Garamond', Georgia, serif);
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--qr-ink);
-}
-
-.tileLabel svg {
-  display: none;
-}
-
-.tileCount {
-  font-family: var(--report-serif, 'Cormorant Garamond', Georgia, serif);
-  font-size: 2.4rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.sparkBar {
-  background: linear-gradient(to top, #2c241d, #6b5344);
-}
-
-.shareFill {
-  background: linear-gradient(90deg, #2c241d, #8a3f1c);
 }

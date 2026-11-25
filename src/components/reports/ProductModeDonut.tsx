@@ -7,8 +7,8 @@ interface ProductModeDonutProps {
 }
 
 const SLICES = [
-  { key: 'withProducts' as const, label: 'Detalle por productos', color: '#5c6b3a' },
-  { key: 'totalOnly' as const, label: 'Solo importe total', color: '#2c241d' },
+  { key: 'withProducts' as const, label: 'Detalle por productos', color: '#3f9a6b' },
+  { key: 'totalOnly' as const, label: 'Solo importe total', color: '#2b4c8c' },
 ]
 
 function describeArc(

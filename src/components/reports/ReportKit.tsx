@@ -81,12 +81,10 @@ export function formatNumber(value: number, decimals = 0): string {
   return text.replace(/^(-?)(d)(d{3})(?=$|,)/, '$1$2.$3')
 }
 
-/** Cabecera como la de un periódico: antetítulo, título y doble raya. */
 export function ReportHeader({ title, subtitle, actions }: { title: string; subtitle: string; actions?: ReactNode }) {
   return (
     <header className={styles.header}>
       <div className={styles.headerText}>
-        <p className={styles.kicker}>Informes · Adelia</p>
         <h2 className={styles.title}>{title}</h2>
         <p className={styles.subtitle}>{subtitle}</p>
       </div>
@@ -265,12 +263,15 @@ interface ReportCardProps {
   children: ReactNode
 }
 
-export function ReportCard({ title, subtitle, wide, aside, children }: ReportCardProps) {
+export function ReportCard({ title, subtitle, icon: Icon, wide, aside, children }: ReportCardProps) {
   return (
     <section className={`${styles.card} ${wide ? styles.cardWide : ''}`}>
       <header className={styles.cardHead}>
         <div className={styles.cardHeadText}>
-          <h3>{title}</h3>
+          <h3>
+            {Icon ? <Icon size={15} aria-hidden="true" /> : null}
+            {title}
+          </h3>
           {subtitle ? <p>{subtitle}</p> : null}
         </div>
         {aside ? <div className={styles.cardAside}>{aside}</div> : null}

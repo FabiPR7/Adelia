@@ -11,9 +11,9 @@ const HEIGHT = 180
 const PADDING = { top: 14, right: 12, bottom: 28, left: 32 }
 
 const SERIES = [
-  { key: 'confirmed' as const, label: 'Asistieron', color: '#5c6b3a', fill: 'rgba(92, 107, 58, 0.24)' },
-  { key: 'completed' as const, label: 'Reservadas', color: '#2c241d', fill: 'rgba(44, 36, 29, 0.14)' },
-  { key: 'cancelled' as const, label: 'Canceladas', color: '#b5532e', fill: 'rgba(181, 83, 46, 0.18)' },
+  { key: 'confirmed' as const, label: 'Asistieron', color: '#3f9a6b', fill: 'rgba(63, 154, 107, 0.26)' },
+  { key: 'completed' as const, label: 'Reservadas', color: '#2b4c8c', fill: 'rgba(43, 76, 140, 0.2)' },
+  { key: 'cancelled' as const, label: 'Canceladas', color: '#c2553b', fill: 'rgba(194, 85, 59, 0.2)' },
 ]
 
 export function buildAreaPath(
