@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useCompanyDemo } from '../../context/CompanyDemoContext'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import LegalLinks from '../../components/LegalLinks'
 import { changePasswordWithReauth, logout } from '../../services/auth'
@@ -16,6 +17,7 @@ interface CompanyAccountSettingsProps {
 /** Ajustes → Cuenta: acceso, contraseña, sesiones, datos del local y ayuda. */
 function CompanyAccountSettings({ onOpenTab }: CompanyAccountSettingsProps) {
   const { user, company } = useAuth()
+  const demo = useCompanyDemo()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [repeatPassword, setRepeatPassword] = useState('')
@@ -90,47 +92,61 @@ function CompanyAccountSettings({ onOpenTab }: CompanyAccountSettingsProps) {
         </p>
       </section>
 
-      <section className={styles.card} aria-labelledby="account-password">
-        <h3 id="account-password">Cambiar contraseña</h3>
-        <form className={styles.form} onSubmit={(event) => void submitPassword(event)} noValidate>
-          <label>
-            <span>Contraseña actual</span>
-            <input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
-          </label>
-          <label>
-            <span>Nueva contraseña</span>
-            <input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
-          </label>
-          <label>
-            <span>Repite la nueva</span>
-            <input type="password" autoComplete="new-password" value={repeatPassword} onChange={(event) => setRepeatPassword(event.target.value)} />
-          </label>
-          <p className={styles.hint}>Al menos 8 caracteres, con mayúscula, minúscula y un número.</p>
-          {passwordMessage ? (
-            <p className={passwordMessage.ok ? styles.ok : styles.error} role="status">{passwordMessage.text}</p>
-          ) : null}
-          <button type="submit" className={styles.primary} disabled={savingPassword}>
-            {savingPassword ? 'Guardando…' : 'Cambiar contraseña'}
-          </button>
-        </form>
-      </section>
-
-      <section className={styles.card} aria-labelledby="account-sessions">
-        <h3 id="account-sessions">Sesiones</h3>
-        <p className={styles.hint}>
-          Si has entrado en un ordenador o móvil que no es tuyo, o crees que alguien conoce tu contraseña,
-          cierra la sesión en todos los dispositivos y cambia la contraseña.
-        </p>
-        {sessionError ? <p className={styles.error} role="alert">{sessionError}</p> : null}
-        <div className={styles.actions}>
-          <button type="button" className={styles.secondary} onClick={() => setConfirm('here')}>
-            Cerrar sesión aquí
-          </button>
-          <button type="button" className={styles.danger} onClick={() => setConfirm('everywhere')}>
-            Cerrar sesión en todos los dispositivos
-          </button>
-        </div>
-      </section>
+      {demo ? (
+        /* En la vista de ejemplo no hay sesión: ni contraseña que cambiar ni sesión que cerrar. */
+        <section className={styles.card} aria-labelledby="account-demo">
+          <h3 id="account-demo">Contraseña y sesiones</h3>
+          <p className={styles.hint}>
+            En tu panel, aquí cambias la contraseña y cierras la sesión (también en todos tus dispositivos).
+            En esta vista de ejemplo no hay ninguna sesión abierta.
+          </p>
+        </section>
+      ) : (
+        <>
+        <section className={styles.card} aria-labelledby="account-password">
+          <h3 id="account-password">Cambiar contraseña</h3>
+          <form className={styles.form} onSubmit={(event) => void submitPassword(event)} noValidate>
+            <label>
+              <span>Contraseña actual</span>
+              <input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+            </label>
+            <label>
+              <span>Nueva contraseña</span>
+              <input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+            </label>
+            <label>
+              <span>Repite la nueva</span>
+              <input type="password" autoComplete="new-password" value={repeatPassword} onChange={(event) => setRepeatPassword(event.target.value)} />
+            </label>
+            <p className={styles.hint}>Al menos 8 caracteres, con mayúscula, minúscula y un número.</p>
+            {passwordMessage ? (
+              <p className={passwordMessage.ok ? styles.ok : styles.error} role="status">{passwordMessage.text}</p>
+            ) : null}
+            <button type="submit" className={styles.primary} disabled={savingPassword}>
+              {savingPassword ? 'Guardando…' : 'Cambiar contraseña'}
+            </button>
+          </form>
+        </section>
+  
+        <section className={styles.card} aria-labelledby="account-sessions">
+          <h3 id="account-sessions">Sesiones</h3>
+          <p className={styles.hint}>
+            Si has entrado en un ordenador o móvil que no es tuyo, o crees que alguien conoce tu contraseña,
+            cierra la sesión en todos los dispositivos y cambia la contraseña.
+          </p>
+          {sessionError ? <p className={styles.error} role="alert">{sessionError}</p> : null}
+          <div className={styles.actions}>
+            <button type="button" className={styles.secondary} onClick={() => setConfirm('here')}>
+              Cerrar sesión aquí
+            </button>
+            <button type="button" className={styles.danger} onClick={() => setConfirm('everywhere')}>
+              Cerrar sesión en todos los dispositivos
+            </button>
+          </div>
+        </section>
+  
+        </>
+      )}
 
       <section className={styles.card} aria-labelledby="account-more">
         <h3 id="account-more">Más ajustes</h3>
