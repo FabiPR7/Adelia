@@ -3,7 +3,7 @@
  * cifras con comparación, tarjetas de gráfico y tablas con buscador.
  * Así los cinco informes se ven y se usan igual.
  */
-import type { ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { CalendarRange, Download, RefreshCw, Search, type LucideIcon } from 'lucide-react'
 import type { ReportGranularity, ReportPeriodConfig } from '../../utils/reservationReports'
 import styles from './ReportKit.module.css'
@@ -66,14 +66,27 @@ export function computeDelta(current: number, previous: number | null | undefine
   return { text: `${pct > 0 ? '+' : ''}${pct} %`, tone: good ? 'up' : 'down' }
 }
 
+/** Con punto de miles también en los de 4 cifras («1.265», no «1265»). */
 export function formatNumber(value: number, decimals = 0): string {
-  return value.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  let text: string
+  try {
+    text = new Intl.NumberFormat('es-ES', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+      useGrouping: 'always' as unknown as boolean,
+    }).format(value)
+  } catch {
+    text = value.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  }
+  return text.replace(/^(-?)(d)(d{3})(?=$|,)/, '$1$2.$3')
 }
 
+/** Cabecera como la de un periódico: antetítulo, título y doble raya. */
 export function ReportHeader({ title, subtitle, actions }: { title: string; subtitle: string; actions?: ReactNode }) {
   return (
     <header className={styles.header}>
       <div className={styles.headerText}>
+        <p className={styles.kicker}>Informes · Adelia</p>
         <h2 className={styles.title}>{title}</h2>
         <p className={styles.subtitle}>{subtitle}</p>
       </div>
@@ -159,8 +172,25 @@ export function ReportPeriodBar({ config, years, periodLabel, loading, onChange,
   )
 }
 
-export function KpiGrid({ children, columns = 4 }: { children: ReactNode; columns?: 3 | 4 | 5 }) {
-  return <div className={`${styles.kpis} ${styles[`kpis${columns}`]}`}>{children}</div>
+/**
+ * Las cifras del informe, como la carta de un restaurante: la primera va sola
+ * y en grande (el «plato del día»); el resto, en lista con puntos hasta la cifra.
+ * `columns` se mantiene por compatibilidad: la carta se reparte sola.
+ */
+export function KpiGrid({ children }: { children: ReactNode; columns?: 3 | 4 | 5 }) {
+  const items = Children.toArray(children).filter(isValidElement) as ReactElement<KpiCardProps>[]
+  if (items.length === 0) return null
+  const [lead, ...rest] = items
+  return (
+    <div className={styles.kpis}>
+      {cloneElement(lead, { variant: 'lead' })}
+      {rest.length > 0 ? (
+        <div className={styles.menu}>
+          {rest.map((item) => cloneElement(item, { variant: 'item' }))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 interface KpiCardProps {
@@ -172,29 +202,56 @@ interface KpiCardProps {
   delta?: KpiDelta | null
   deltaLabel?: string
   tone?: 'default' | 'good' | 'warn' | 'bad' | 'info'
+  /** Lo pone KpiGrid: la primera cifra va destacada y el resto en la carta. */
+  variant?: 'lead' | 'item'
 }
 
-export function KpiCard({ icon: Icon, label, value, suffix, hint, delta, deltaLabel, tone = 'default' }: KpiCardProps) {
+function DeltaNote({ delta, deltaLabel, long }: { delta: KpiDelta; deltaLabel?: string; long?: boolean }) {
+  const arrow = delta.tone === 'up' ? '↗' : delta.tone === 'down' ? '↘' : '→'
   return (
-    <div className={styles.kpi}>
-      <div className={styles.kpiTop}>
-        <span className={styles.kpiLabel}>{label}</span>
-        <span className={`${styles.kpiIcon} ${styles[`tone_${tone}`]}`} aria-hidden="true">
-          <Icon size={16} />
+    <span className={`${styles.delta} ${styles[`delta_${delta.tone}`]}`} title={deltaLabel ? `Frente a ${deltaLabel}` : undefined}>
+      <span aria-hidden="true">{arrow}</span> {delta.text}
+      {long && deltaLabel ? (
+        <span className={styles.deltaWhen}> {deltaLabel.startsWith('el ') ? `frente al ${deltaLabel.slice(3)}` : `frente a ${deltaLabel}`}</span>
+      ) : null}
+    </span>
+  )
+}
+
+export function KpiCard({ label, value, suffix, hint, delta, deltaLabel, variant = 'item' }: KpiCardProps) {
+  if (variant === 'lead') {
+    return (
+      <div className={styles.lead}>
+        <span className={styles.leadLabel}>{label}</span>
+        <span className={styles.leadValue}>
+          {value}
+          {suffix ? <small>{suffix}</small> : null}
+        </span>
+        <span className={styles.leadFoot}>
+          {delta ? <DeltaNote delta={delta} deltaLabel={deltaLabel} long /> : null}
+          {/* La frase ya dice con qué se compara: no se repite «vs. …». */}
+          {hint && !(delta && deltaLabel && typeof hint === 'string' && hint.startsWith('vs.')) ? (
+            <span className={styles.kpiHint}>{hint}</span>
+          ) : null}
         </span>
       </div>
+    )
+  }
+
+  return (
+    <div className={styles.kpi}>
+      <span className={styles.kpiLabel}>{label}</span>
+      <span className={styles.leader} aria-hidden="true" />
       <span className={styles.kpiValue}>
         {value}
         {suffix ? <small>{suffix}</small> : null}
       </span>
-      <span className={styles.kpiFoot}>
-        {delta ? (
-          <span className={`${styles.delta} ${styles[`delta_${delta.tone}`]}`} title={deltaLabel ? `Frente a ${deltaLabel}` : undefined}>
-            {delta.tone === 'up' ? '▲' : delta.tone === 'down' ? '▼' : '•'} {delta.text}
-          </span>
-        ) : null}
-        {hint ? <span className={styles.kpiHint}>{hint}</span> : null}
-      </span>
+      {delta || hint ? (
+        <span className={styles.kpiFoot}>
+          {delta ? <DeltaNote delta={delta} deltaLabel={deltaLabel} /> : null}
+          {hint ? <span className={styles.kpiHint}>{hint}</span> : null}
+        </span>
+      ) : null}
     </div>
   )
 }
@@ -208,15 +265,12 @@ interface ReportCardProps {
   children: ReactNode
 }
 
-export function ReportCard({ title, subtitle, icon: Icon, wide, aside, children }: ReportCardProps) {
+export function ReportCard({ title, subtitle, wide, aside, children }: ReportCardProps) {
   return (
     <section className={`${styles.card} ${wide ? styles.cardWide : ''}`}>
       <header className={styles.cardHead}>
         <div className={styles.cardHeadText}>
-          <h3>
-            {Icon ? <Icon size={15} aria-hidden="true" /> : null}
-            {title}
-          </h3>
+          <h3>{title}</h3>
           {subtitle ? <p>{subtitle}</p> : null}
         </div>
         {aside ? <div className={styles.cardAside}>{aside}</div> : null}

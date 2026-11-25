@@ -46,11 +46,11 @@ function ProductRevenueTrendChart({ data }: ProductRevenueTrendChartProps) {
     <div className={shared.chartBody}>
       <div className={shared.legend} aria-hidden="true">
         <span className={shared.legendItem}>
-          <span className={shared.legendSwatch} style={{ background: '#3f9a6b' }} />
+          <span className={shared.legendSwatch} style={{ background: '#5c6b3a' }} />
           Ingresos verificados
         </span>
         <span className={shared.legendItem}>
-          <span className={shared.legendSwatch} style={{ background: '#2b4c8c' }} />
+          <span className={shared.legendSwatch} style={{ background: '#2c241d' }} />
           Unidades vendidas
         </span>
       </div>
@@ -86,7 +86,7 @@ function ProductRevenueTrendChart({ data }: ProductRevenueTrendChartProps) {
           <path
             d={buildLinePath(data.revenueCents, maxRevenue, plotWidth, plotHeight)}
             fill="none"
-            stroke="#3f9a6b"
+            stroke="#5c6b3a"
             strokeWidth="2.5"
             strokeLinejoin="round"
           />
@@ -94,7 +94,7 @@ function ProductRevenueTrendChart({ data }: ProductRevenueTrendChartProps) {
           <path
             d={buildLinePath(data.unitsSold, maxUnits, plotWidth, plotHeight)}
             fill="none"
-            stroke="#2b4c8c"
+            stroke="#2c241d"
             strokeWidth="2"
             strokeDasharray="5 4"
             strokeLinejoin="round"

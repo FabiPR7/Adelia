@@ -7,9 +7,9 @@ interface ReservationStatusDonutProps {
 }
 
 const SLICES = [
-  { key: 'confirmed' as const, label: 'Asistieron', color: '#3f9a6b' },
-  { key: 'completed' as const, label: 'Reservadas', color: '#2b4c8c' },
-  { key: 'cancelled' as const, label: 'Canceladas', color: '#c2553b' },
+  { key: 'confirmed' as const, label: 'Asistieron', color: '#5c6b3a' },
+  { key: 'completed' as const, label: 'Reservadas', color: '#2c241d' },
+  { key: 'cancelled' as const, label: 'Canceladas', color: '#b5532e' },
 ]
 
 function describeArc(

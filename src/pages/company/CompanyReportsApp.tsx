@@ -233,7 +233,16 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
   const now = useMemo(() => aggregate(months), [months])
   const before = useMemo(() => aggregate(prevMonths), [prevMonths])
 
-  const tiles = [
+  // «Este mes» va por la mitad: el mes pasado se cuenta solo hasta el mismo día.
+  const prevScale = useMemo(() => {
+    if (rangeId !== 'this-month') return 1
+    const today = new Date()
+    const daysInPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate()
+    return Math.min(1, today.getDate() / daysInPrevMonth)
+  }, [rangeId])
+  const comparedWith = rangeId === 'this-month' ? 'los mismos días del mes pasado' : 'el periodo anterior'
+
+  const rawTiles = [
     { key: 'profile', icon: Eye, label: 'Visitas a tu ficha', value: now.profileViews, prev: before.profileViews, tone: 'info' as const },
     { key: 'uniques', icon: UserRound, label: 'Personas distintas', value: now.uniques, prev: before.uniques, tone: 'default' as const },
     { key: 'menu', icon: BookOpen, label: 'Aperturas de carta', value: now.menuViews, prev: before.menuViews, tone: 'default' as const },
@@ -241,6 +250,7 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
     { key: 'claims', icon: TicketCheck, label: 'Promos reclamadas', value: now.promoClaims, prev: before.promoClaims, tone: 'good' as const },
     { key: 'reserveClicks', icon: MousePointerClick, label: 'Clics en «Reservar» desde promo', value: now.promoReserveClicks, prev: before.promoReserveClicks, tone: 'good' as const },
   ]
+  const tiles = rawTiles.map((tile) => ({ ...tile, prev: Math.round(tile.prev * prevScale) }))
 
   const topBoards = useMemo(
     () =>
@@ -387,7 +397,7 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
                 label={tile.label}
                 value={formatNumber(tile.value)}
                 delta={computeDelta(tile.value, tile.prev)}
-                deltaLabel="el periodo anterior"
+                deltaLabel={comparedWith}
                 hint={`antes: ${formatNumber(tile.prev)}`}
                 tone={tile.tone}
               />
