@@ -482,7 +482,7 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
         )}
 
         {!loading && !error ? (
-          <LazySection minHeight={560}>
+          <LazySection minHeight={560} rootMargin="300px 0px">
             <Suspense fallback={<div style={{ minHeight: 560 }} aria-hidden="true" />}>
               <LandingNearbyMap restaurants={restaurants} onOpenRestaurant={openNearestIn(restaurants)} />
             </Suspense>
