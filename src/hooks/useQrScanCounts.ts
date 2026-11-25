@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { isDemoCompanyId } from '../data/companyPanelDemo'
 import { fetchCompanyMonthMetrics } from '../services/companyMetrics'
 
 export interface QrScanCounts {
@@ -20,7 +19,7 @@ export function useQrScanCounts(companyId: string | null | undefined): QrScanCou
   const [counts, setCounts] = useState<QrScanCounts | null>(null)
 
   useEffect(() => {
-    if (!companyId || isDemoCompanyId(companyId)) {
+    if (!companyId) {
       setCounts(null)
       return
     }

@@ -1,5 +1,7 @@
 import { collection, getDocs, limit, query, where } from 'firebase/firestore'
 import { db } from '../config/firebase'
+import { isDemoCompanyId } from '../data/companyPanelDemo'
+import { demoMonthMetricsRaw } from '../data/demoAppMetrics'
 
 export interface CompanyMonthMetrics {
   month: string
@@ -139,6 +141,10 @@ export async function fetchCompanyMonthMetrics(
 ): Promise<CompanyMonthMetrics[]> {
   if (months.length === 0) {
     return []
+  }
+  // Panel de demostración: números de ejemplo, sin tocar la base de datos.
+  if (isDemoCompanyId(companyId)) {
+    return months.map((month) => normalize(month, demoMonthMetricsRaw(month)))
   }
   const metricsRef = collection(db, 'companies', companyId, 'metrics')
   const byMonth = new Map<string, Record<string, unknown>>()

@@ -27,7 +27,6 @@ import {
   TableCard,
 } from '../../components/reports/ReportKit'
 import { getFirestoreErrorMessage } from '../../services/firestore'
-import { isDemoCompanyId } from '../../data/companyPanelDemo'
 import { getCompanyMenuBoards } from '../../services/companyMenu'
 import { getCompanyPromotions } from '../../services/promotions'
 import {
@@ -210,11 +209,9 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
     setLoading(true)
     setError(null)
     try {
-      // El local de demostración no tiene métricas reales: se muestra vacío, sin error.
-      const demoCompany = isDemoCompanyId(companyId)
       const [current, previous, boards, promotions] = await Promise.all([
-        demoCompany ? Promise.resolve([]) : fetchCompanyMonthMetrics(companyId, range.months),
-        demoCompany ? Promise.resolve([]) : fetchCompanyMonthMetrics(companyId, range.prevMonths),
+        fetchCompanyMonthMetrics(companyId, range.months),
+        fetchCompanyMonthMetrics(companyId, range.prevMonths),
         getCompanyMenuBoards(companyId).catch(() => []),
         getCompanyPromotions(companyId).catch(() => []),
       ])
@@ -283,6 +280,15 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
         .sort((a, b) => b.qrScans - a.qrScans),
     [promoNames, now.promos],
   )
+
+  // «Este mes» va por la mitad: se compara con los mismos días del mes anterior.
+  const qrPreviousTotal = useMemo(() => {
+    if (rangeId !== 'this-month') return before.qr.total
+    const todayDay = new Date().getDate()
+    return before.daily
+      .filter((point) => Number(point.day.slice(8)) <= todayDay)
+      .reduce((sum, point) => sum + point.qrScans, 0)
+  }, [rangeId, before])
 
   const maxDaily = Math.max(1, ...now.daily.map((point) => point.views))
   const totalDaily = now.daily.reduce((sum, point) => sum + point.views, 0)
@@ -390,7 +396,7 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
 
           <QrScansPanel
             total={now.qr.total}
-            previousTotal={before.qr.total}
+            previousTotal={qrPreviousTotal}
             reservas={now.qr.reservas}
             carta={now.qr.carta}
             promo={now.qr.promo}
