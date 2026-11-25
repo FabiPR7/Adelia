@@ -21,6 +21,7 @@ import {
   type ArenaView,
 } from './arenaUtils'
 import styles from './Arena.module.css'
+import { formatNumber } from '../../../utils/formatNumber'
 
 type Gamification = ReturnType<typeof useCompanyGamification>
 
@@ -347,9 +348,9 @@ export default function ArenaHome({ data, gamification, notifications, onView, o
               <span className={`${styles.tierPill} ${styles[`tierPill_${tone}`]}`}>Prestigio {data.level.prestige.label}</span>
               <span className={styles.levelTitle}>{level.title}</span>
               <span>
-                {data.level.xp.toLocaleString('es-ES')} XP
+                {formatNumber(data.level.xp)} XP
                 {toNext != null ? (
-                  <> · <strong style={{ color: 'var(--gold)' }}>{toNext.toLocaleString('es-ES')} para el nivel {level.level + 1}</strong></>
+                  <> · <strong style={{ color: 'var(--gold)' }}>{formatNumber(toNext)} para el nivel {level.level + 1}</strong></>
                 ) : ' · nivel máximo'}
               </span>
               {nextTier ? (

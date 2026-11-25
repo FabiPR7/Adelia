@@ -4,6 +4,7 @@ import { CHALLENGE_MINIGAME_IDS, CHALLENGE_MINIGAME_LABELS } from '../types/rese
 import { getLevelForXp } from '../utils/gamificationProgress'
 import { getStripEmblem } from '../utils/levelRankingStripAssets'
 import styles from './LandingFriends.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 const GAME_ICONS = {
   three_cards: Layers,
@@ -108,7 +109,7 @@ function LandingFriends({ isCustomer }: LandingFriendsProps) {
                     <span className={styles.rowBody}>
                       <span className={styles.rowTop}>
                         <strong>{friend.name}</strong>
-                        <span className={styles.xp}>{friend.xp.toLocaleString('es-ES')} XP</span>
+                        <span className={styles.xp}>{formatNumber(friend.xp)} XP</span>
                       </span>
                       <span className={styles.bar}>
                         <span style={{ width: `${Math.round((friend.xp / maxXp) * 100)}%` }} />

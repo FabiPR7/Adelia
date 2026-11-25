@@ -1,4 +1,5 @@
 import type { CompanyLeagueView, LeagueBoardView, LeagueId } from '../../../services/companyGamification'
+import { formatNumber } from '../../../utils/formatNumber'
 
 export type ArenaView = 'arena' | 'standings' | 'challenges' | 'showcase'
 
@@ -59,7 +60,7 @@ export function formatGap(board: LeagueBoardView, gap: number): string {
   const unit = board.id === 'promotions'
     ? (rounded === 1 ? 'premio' : 'premios')
     : (rounded === 1 ? 'asistencia' : 'asistencias')
-  return `${rounded.toLocaleString('es-ES')} ${unit}`
+  return `${formatNumber(rounded)} ${unit}`
 }
 
 /** Tu liga estrella: donde mejor puesto tienes (en empate, la de reservas primero). */

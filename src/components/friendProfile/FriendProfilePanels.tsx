@@ -14,6 +14,7 @@ import {
   IconUtensils,
 } from './FriendProfileIcons'
 import styles from './FriendProfilePanels.module.css'
+import { formatNumber } from '../../utils/formatNumber'
 
 const stagger: Variants = {
   hidden: { opacity: 0 },
@@ -72,7 +73,7 @@ function StatBubble({
       <EpicBubbleFrame variant="stat" ornament={ornament} level={level} aria-label={`${value} ${label}`}>
         <div className={styles.statInner}>
           <span className={`epicIconMedallion epicIconMedallionRound ${styles.statMedallion}`}>{icon}</span>
-          <strong className={`epicHeadline ${styles.statValue}`}>{value.toLocaleString('es-ES')}</strong>
+          <strong className={`epicHeadline ${styles.statValue}`}>{formatNumber(value)}</strong>
           <span className={`epicEyebrow ${styles.statLabel}`}>{label}</span>
         </div>
       </EpicBubbleFrame>
@@ -114,7 +115,7 @@ function FriendProfilePanels({
           ornament={ornament}
           level={level}
           sparkles={level === 11}
-          aria-label={`${xp.toLocaleString('es-ES')} XP, ${progressPercent}% al siguiente nivel`}
+          aria-label={`${formatNumber(xp)} XP, ${progressPercent}% al siguiente nivel`}
         >
           <div className={styles.xpInner}>
             <span className={`epicIconMedallion ${styles.xpMedallion}`}>
@@ -122,7 +123,7 @@ function FriendProfilePanels({
             </span>
             <div className={styles.xpCopy}>
               <span className="epicEyebrow">Experiencia acumulada</span>
-              <strong className={`epicHeadline ${styles.xpHeadline}`}>{xp.toLocaleString('es-ES')} XP</strong>
+              <strong className={`epicHeadline ${styles.xpHeadline}`}>{formatNumber(xp)} XP</strong>
               <EpicTagline>{progressPercent}% al siguiente nivel</EpicTagline>
             </div>
             <div className={styles.xpMeter} aria-hidden="true">

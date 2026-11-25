@@ -29,6 +29,7 @@ import { achievementGlyphFor } from '../../data/achievementGlyphs'
 import { getLevelRankingStripTheme } from '../../utils/levelRankingStripThemes'
 import styles from './CustomerMissionsTab.module.css'
 import { friendlyErrorMessage } from '../../utils/friendlyError'
+import { formatNumber } from '../../utils/formatNumber'
 
 /** Cuánto falta para que se renueven (semana: domingo a medianoche; mes: fin de mes). */
 function resetLabel(cadence: 'weekly' | 'monthly', now = new Date()): string {
@@ -400,7 +401,7 @@ function CustomerMissionsTab() {
             <span>
               {gamification.xpToNext === null
                 ? 'Has alcanzado el rango máximo'
-                : `${gamification.xpToNext.toLocaleString('es-ES')} XP para ${nextLevel?.title ?? 'siguiente nivel'}`}
+                : `${formatNumber(gamification.xpToNext)} XP para ${nextLevel?.title ?? 'siguiente nivel'}`}
             </span>
           </div>
         </div>
@@ -418,9 +419,9 @@ function CustomerMissionsTab() {
           <p className={styles.rivalChip}>
             <span aria-hidden="true">{rival.lead ? '👑' : '🔥'}</span>
             {rival.lead ? (
-              <span>Vas <strong>#1 de {userCountry}</strong> · {rival.gap.toLocaleString('es-ES')} XP de ventaja sobre {rival.name}</span>
+              <span>Vas <strong>#1 de {userCountry}</strong> · {formatNumber(rival.gap)} XP de ventaja sobre {rival.name}</span>
             ) : (
-              <span>Te faltan <strong>{rival.gap.toLocaleString('es-ES')} XP</strong> para pasar a {rival.name} (#{rival.rank})</span>
+              <span>Te faltan <strong>{formatNumber(rival.gap)} XP</strong> para pasar a {rival.name} (#{rival.rank})</span>
             )}
           </p>
         ) : null}
@@ -428,7 +429,7 @@ function CustomerMissionsTab() {
         <div className={styles.heroStats}>
           <div>
             <span className={styles.statEmoji} aria-hidden="true">⚡</span>
-            <strong>{gamification.state.xp.toLocaleString('es-ES')}</strong>
+            <strong>{formatNumber(gamification.state.xp)}</strong>
             <span>XP total</span>
           </div>
           <div>

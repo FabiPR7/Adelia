@@ -4,6 +4,7 @@ import { getStripBackground, getStripEmblem } from '../utils/levelRankingStripAs
 import { getLevelRankingStripTheme } from '../utils/levelRankingStripThemes'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './RankingPodium.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 function initials(name: string): string {
   return name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()
@@ -41,7 +42,7 @@ function RankingPodium({ entries }: { entries: LeaderboardEntry[] }) {
             className={`${styles.spot} ${styles[`place${place}`]}`}
             style={vars}
             role="listitem"
-            aria-label={`${PLACE_LABEL[place] ?? place} ${entry.isYou ? 'tú' : entry.displayName}, nivel ${level}, ${entry.xp.toLocaleString('es-ES')} XP`}
+            aria-label={`${PLACE_LABEL[place] ?? place} ${entry.isYou ? 'tú' : entry.displayName}, nivel ${level}, ${formatNumber(entry.xp)} XP`}
           >
             <span className={styles.avatar}>
               {place === 1 ? <span className={styles.crown} aria-hidden="true">👑</span> : null}
@@ -54,7 +55,7 @@ function RankingPodium({ entries }: { entries: LeaderboardEntry[] }) {
             </span>
             <span className={styles.name}>{entry.isYou ? 'Tú' : entry.displayName}</span>
             <span className={styles.levelTitle}>{entry.levelTitle}</span>
-            <span className={styles.xp}>{entry.xp.toLocaleString('es-ES')} XP</span>
+            <span className={styles.xp}>{formatNumber(entry.xp)} XP</span>
             <span className={styles.block}>
               <span className={styles.number}>{PLACE_LABEL[place] ?? place}</span>
             </span>

@@ -7,6 +7,7 @@ import { getLevelProfileBadgeTheme } from '../utils/levelProfileBadgeThemes'
 import { getLevelUpCelebrationTheme } from '../utils/levelUpCelebrationThemes'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './LevelUpHeroCard.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 interface LevelUpHeroCardProps {
   level: number
@@ -103,7 +104,7 @@ function LevelUpHeroCard({
         </div>
 
         <p className={styles.tagline}>{badge.tagline}</p>
-        <p className={styles.xp}>{xp.toLocaleString('es-ES')} XP</p>
+        <p className={styles.xp}>{formatNumber(xp)} XP</p>
       </div>
     </article>
   )

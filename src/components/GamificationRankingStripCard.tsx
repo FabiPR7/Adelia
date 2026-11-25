@@ -10,6 +10,7 @@ import StripLevelTitle from './StripLevelTitle'
 import StripRankBadge from './StripRankBadge'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './GamificationRankingStripCard.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 interface GamificationRankingStripCardProps {
   level: number
@@ -66,7 +67,7 @@ function GamificationRankingStripCard({
     <article
       className={`${styles.strip} ${styles[levelClass]} ${highlight ? styles.highlight : ''} ${profileSize ? styles.profileSize : ''} ${className}`}
       style={cssVars}
-      aria-label={`${displayName}, ${levelTitle}, ${xp.toLocaleString('es-ES')} XP`}
+      aria-label={`${displayName}, ${levelTitle}, ${formatNumber(xp)} XP`}
     >
       <img src={background} alt="" className={styles.bgArt} draggable={false} decoding="async" />
       <div className={styles.bgOverlay} aria-hidden="true" />
@@ -97,12 +98,12 @@ function GamificationRankingStripCard({
 
             <div
               className={styles.xpBar}
-              aria-label={`${xp.toLocaleString('es-ES')} puntos de experiencia`}
+              aria-label={`${formatNumber(xp)} puntos de experiencia`}
             >
               <div className={styles.xpTrack}>
                 <div className={styles.xpFill} style={{ width: `${progressPercent}%` }} />
               </div>
-              <span className={styles.xpLabel}>{xp.toLocaleString('es-ES')} XP</span>
+              <span className={styles.xpLabel}>{formatNumber(xp)} XP</span>
             </div>
           </div>
         </div>

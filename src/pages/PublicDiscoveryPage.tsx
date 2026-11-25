@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { browseListFrom, nearestBrowseList } from '../utils/restaurantBrowse'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import CityAutocomplete from '../components/CityAutocomplete'
@@ -10,7 +10,7 @@ import { applyQuickFilters, type QuickFilterId } from '../utils/discoveryQuickFi
 import LandingBusinessBand from '../components/LandingBusinessBand'
 import LandingFaq from '../components/LandingFaq'
 import LandingFriends from '../components/LandingFriends'
-import LandingNearbyMap from '../components/LandingNearbyMap'
+import LazySection from '../components/LazySection'
 import LandingRewards from '../components/LandingRewards'
 import FavoriteRestaurantsRow from '../components/FavoriteRestaurantsRow'
 import RestaurantInfiniteCarousel from '../components/RestaurantInfiniteCarousel'
@@ -38,6 +38,9 @@ import type { DiscoveryVenueKind } from '../data/companyProfileFacilities'
 import styles from './PublicDiscoveryPage.module.css'
 import { friendlyErrorMessage } from '../utils/friendlyError'
 import EatNowButton from '../components/EatNowButton'
+
+// El mapa (y su librería, la parte más pesada de la portada) se descarga al acercarse a él.
+const LandingNearbyMap = lazy(() => import('../components/LandingNearbyMap'))
 
 type NearbyState = 'idle' | 'locating' | 'geocoding' | 'ready' | 'error'
 
@@ -479,7 +482,11 @@ function PublicDiscoveryPage({ appMode = false }: PublicDiscoveryPageProps) {
         )}
 
         {!loading && !error ? (
-          <LandingNearbyMap restaurants={restaurants} onOpenRestaurant={openNearestIn(restaurants)} />
+          <LazySection minHeight={560}>
+            <Suspense fallback={<div style={{ minHeight: 560 }} aria-hidden="true" />}>
+              <LandingNearbyMap restaurants={restaurants} onOpenRestaurant={openNearestIn(restaurants)} />
+            </Suspense>
+          </LazySection>
         ) : null}
 
         <LandingRewards />

@@ -3,6 +3,7 @@ import { getLevelCardFrame, levelCardNeedsTextCover } from '../utils/levelCardAs
 import { getLevelCardTheme } from '../utils/levelCardLayout'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './GamificationLevelFrameCard.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 interface GamificationLevelFrameCardProps {
   level: number
@@ -121,7 +122,7 @@ function GamificationLevelFrameCard({
         </div>
 
         <div className={styles.xpSlot}>
-          <p className={styles.xpValue}>{xp.toLocaleString('es-ES')} XP</p>
+          <p className={styles.xpValue}>{formatNumber(xp)} XP</p>
         </div>
       </div>
 

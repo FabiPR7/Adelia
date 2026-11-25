@@ -4,6 +4,7 @@ import { getLevelRankingStripTheme } from '../utils/levelRankingStripThemes'
 import { getStripBackground, getStripEmblem } from '../utils/levelRankingStripAssets'
 import LevelLaurel from './LevelLaurel'
 import styles from './FriendProfileView.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 /**
  * Tarjeta de jugador con la estética de su nivel (igual que las 12 tarjetas de
@@ -84,7 +85,7 @@ function LevelPlayerCard({
           <span className={styles.levelTitle}>{levelTitle}</span>
         </span>
         <span className={styles.xpBox}>
-          <strong>{xp.toLocaleString('es-ES')}</strong>
+          <strong>{formatNumber(xp)}</strong>
           <span>XP</span>
         </span>
       </div>

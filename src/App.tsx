@@ -12,14 +12,12 @@ import PublicDiscoveryPage from './pages/PublicDiscoveryPage'
 import CompanyLandingPage from './pages/CompanyLandingPage'
 import CompanyPlansPage from './pages/CompanyPlansPage'
 import CompanyPlanCheckoutSuccessPage from './pages/CompanyPlanCheckoutSuccessPage'
-import CompanySignupPage from './pages/CompanySignupPage'
 import UserLoginPage from './pages/UserLoginPage'
 import UserRegisterPage from './pages/UserRegisterPage'
 import UserForgotPasswordPage from './pages/UserForgotPasswordPage'
 import CustomerAppLayout from './components/CustomerAppLayout'
 import CustomerGate from './components/CustomerGate'
 import VerifyEmailPage from './pages/VerifyEmailPage'
-import CustomerOnboardingPage from './pages/CustomerOnboardingPage'
 import NotFoundPage from './pages/NotFoundPage'
 import CookieConsentBanner from './components/CookieConsentBanner'
 import OpenInAppPrompt from './components/OpenInAppPrompt'
@@ -27,6 +25,9 @@ import RouteTitle from './components/RouteTitle'
 import ScrollToTop from './components/ScrollToTop'
 import { getPostLoginPath } from './utils/authProfile'
 
+// Llevan mapa: se descargan solo al entrar, no en la portada.
+const CompanySignupPage = lazy(() => import('./pages/CompanySignupPage'))
+const CustomerOnboardingPage = lazy(() => import('./pages/CustomerOnboardingPage'))
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'))
 const EatNowPage = lazy(() => import('./pages/EatNowPage'))
 const PublicMenuPage = lazy(() => import('./pages/PublicMenuPage'))
@@ -159,12 +160,12 @@ function App() {
       />
       <Route
         path="/empresa/alta"
-        element={<CompanySignupPage />}
+        element={<Suspense fallback={<RouteFallback />}><CompanySignupPage /></Suspense>}
       />
       <Route path="/ahora" element={<Suspense fallback={<RouteFallback />}><EatNowPage /></Suspense>} />
       <Route path="/cuenta" element={<Navigate to="/app/perfil" replace />} />
       <Route path="/cuenta/verificar-email" element={<VerifyEmailPage />} />
-      <Route path="/cuenta/completar-perfil" element={<CustomerOnboardingPage />} />
+      <Route path="/cuenta/completar-perfil" element={<Suspense fallback={<RouteFallback />}><CustomerOnboardingPage /></Suspense>} />
       <Route
         path="/app"
         element={

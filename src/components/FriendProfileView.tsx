@@ -13,6 +13,7 @@ import LevelPlayerCard from './LevelPlayerCard'
 import ConfirmDialog from './ConfirmDialog'
 import ReportContentModal from './ReportContentModal'
 import styles from './FriendProfileView.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 interface FriendProfileViewProps {
   friend: FriendProfile
@@ -29,7 +30,7 @@ function DuelRow({ label, mine, theirs }: { label: string; mine: number; theirs:
   const winner = mine === theirs ? 'tie' : mine > theirs ? 'me' : 'them'
   return (
     <div className={styles.duelRow}>
-      <span className={`${styles.duelValue} ${winner === 'me' ? styles.duelWin : ''}`}>{mine.toLocaleString('es-ES')}</span>
+      <span className={`${styles.duelValue} ${winner === 'me' ? styles.duelWin : ''}`}>{formatNumber(mine)}</span>
       <span className={styles.duelMiddle}>
         <span className={styles.duelLabel}>{label}</span>
         <span className={styles.duelBar} aria-hidden="true">
@@ -37,7 +38,7 @@ function DuelRow({ label, mine, theirs }: { label: string; mine: number; theirs:
           <span className={styles.duelTheirs} style={{ width: `${100 - minePercent}%` }} />
         </span>
       </span>
-      <span className={`${styles.duelValue} ${styles.duelRight} ${winner === 'them' ? styles.duelWin : ''}`}>{theirs.toLocaleString('es-ES')}</span>
+      <span className={`${styles.duelValue} ${styles.duelRight} ${winner === 'them' ? styles.duelWin : ''}`}>{formatNumber(theirs)}</span>
     </div>
   )
 }
@@ -119,8 +120,8 @@ function FriendProfileView({ friend, onBack, onBlock }: FriendProfileViewProps) 
           {xpGap === 0
             ? 'Empatados en XP. ¡La próxima reserva desempata!'
             : xpGap > 0
-              ? `Le sacas ${xpGap.toLocaleString('es-ES')} XP. Que no te alcance.`
-              : `Te saca ${Math.abs(xpGap).toLocaleString('es-ES')} XP. ¡Reserva y alcánzale!`}
+              ? `Le sacas ${formatNumber(xpGap)} XP. Que no te alcance.`
+              : `Te saca ${formatNumber(Math.abs(xpGap))} XP. ¡Reserva y alcánzale!`}
         </p>
         <DuelRow label="XP" mine={myXp} theirs={friend.xp} />
         <DuelRow label="Medallas" mine={myMedals} theirs={medals.length} />

@@ -3,6 +3,7 @@ import { getStripBackground, getStripEmblem } from '../utils/levelRankingStripAs
 import { getLevelRankingStripTheme } from '../utils/levelRankingStripThemes'
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl } from '../utils/cloudinaryUrl'
 import styles from './LeaderboardRow.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 export interface LeaderboardRowProps {
   level: number
@@ -59,7 +60,7 @@ function LeaderboardRow({
     <article
       className={`${styles.row} ${isYou ? styles.you : ''} ${highlight ? styles.highlight : ''} ${rank == null ? styles.noRank : ''}`}
       style={vars}
-      aria-label={`${rank != null ? `Puesto ${rank}. ` : ''}${isYou ? 'Tú' : displayName}, nivel ${level}, ${levelTitle}, ${xp.toLocaleString('es-ES')} XP`}
+      aria-label={`${rank != null ? `Puesto ${rank}. ` : ''}${isYou ? 'Tú' : displayName}, nivel ${level}, ${levelTitle}, ${formatNumber(xp)} XP`}
     >
       <img src={getStripBackground(level)} alt="" className={styles.bg} draggable={false} decoding="async" />
       <span className={styles.overlay} aria-hidden="true" />
@@ -91,7 +92,7 @@ function LeaderboardRow({
       </span>
 
       <span className={styles.score}>
-        <strong>{xp.toLocaleString('es-ES')}</strong>
+        <strong>{formatNumber(xp)}</strong>
         <span>{hint ?? 'XP'}</span>
       </span>
     </article>

@@ -4,6 +4,7 @@ import { Flame } from 'lucide-react'
 import { fetchPublicPromotions, type PublicPromotion } from '../../services/publicPromotions'
 import { getPromotionHeroUrl, promotionTypeLabel } from '../promotions/promoAppDisplay'
 import styles from './TopPromotionsSection.module.css'
+import { formatNumber } from '../../utils/formatNumber'
 
 const MAX = 6
 
@@ -67,7 +68,7 @@ function TopPromotionsSection() {
                   <span className={styles.footer}>
                     <span className={styles.count}>
                       <Flame size={14} aria-hidden="true" />
-                      {promotion.currentRedemptions.toLocaleString('es-ES')}{' '}
+                      {formatNumber(promotion.currentRedemptions)}{' '}
                       {promotion.currentRedemptions === 1 ? 'vez reclamada' : 'veces reclamada'}
                     </span>
                     <span className={full ? styles.full : styles.cta}>{full ? 'Agotada' : 'Ver promo →'}</span>

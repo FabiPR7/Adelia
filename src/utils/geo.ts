@@ -70,3 +70,26 @@ export function buildGoogleMapsDirectionsUrl(
 
   return `https://www.google.com/maps/dir/?${params.toString()}`
 }
+
+/**
+ * Puntos de la zona con más locales (los que quedan a `radiusKm` del punto con
+ * más vecinos). Sirve para encuadrar el mapa sin que un local suelto en otra
+ * ciudad obligue a alejarlo hasta ver media España.
+ */
+export function densestClusterPoints<T extends GeoCoordinates>(points: T[], radiusKm = 40): T[] {
+  if (points.length <= 2) {
+    return points
+  }
+
+  let best = points[0]
+  let bestCount = -1
+  for (const candidate of points) {
+    const count = points.filter((other) => haversineDistanceKm(candidate, other) <= radiusKm).length
+    if (count > bestCount) {
+      best = candidate
+      bestCount = count
+    }
+  }
+
+  return points.filter((point) => haversineDistanceKm(best, point) <= radiusKm)
+}

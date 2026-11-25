@@ -8,6 +8,7 @@ import type { CompanyPromotion } from '../../types/company'
 import type { CompanyReview } from '../../types/review'
 import { cleanReviewExcerpt } from '../../utils/reviewCommentTags'
 import styles from './CompanyHome.module.css'
+import { formatNumber } from '../../utils/formatNumber'
 
 interface CompanyHomeProps {
   companyId: string
@@ -357,7 +358,7 @@ function CompanyHome({ companyId, onOpenTab }: CompanyHomeProps) {
                     const status = rowStatus(row, now)
                     const tags = [
                       row.promotionId ? 'Promo' : '',
-                      row.depositAmountCents ? `Fianza ${(row.depositAmountCents / 100).toLocaleString('es-ES')} €` : '',
+                      row.depositAmountCents ? `Fianza ${formatNumber((row.depositAmountCents / 100))} €` : '',
                       row.customerUid ? '' : 'Sin cuenta',
                     ].filter(Boolean)
                     return (

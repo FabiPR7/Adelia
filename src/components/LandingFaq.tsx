@@ -30,13 +30,25 @@ const QUESTIONS = [
   {
     question: '¿Puedo cancelar una reserva?',
     answer:
-      'Sí, desde el enlace que te llega en el correo de la reserva. Si el local tiene condiciones de cancelación o fianza, te las mostramos al reservar.',
+      'Sí. Con cuenta, desde «Mis reservas»; sin cuenta, desde el enlace del correo de la reserva. Con 24 horas o más de antelación no pierdes XP. Si el local pide fianza o tiene condiciones, te las mostramos al reservar.',
   },
 ]
+
+// Las mismas preguntas marcadas para Google: pueden salir desplegadas en los resultados.
+const FAQ_STRUCTURED_DATA = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: QUESTIONS.map((item) => ({
+    '@type': 'Question',
+    name: item.question,
+    acceptedAnswer: { '@type': 'Answer', text: item.answer },
+  })),
+})
 
 function LandingFaq() {
   return (
     <section className={styles.section} aria-labelledby="landing-faq-title">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: FAQ_STRUCTURED_DATA }} />
       <div className={styles.intro}>
         <p className={styles.eyebrow}>Preguntas frecuentes</p>
         <h2 id="landing-faq-title">Lo que más nos preguntan</h2>

@@ -3,6 +3,7 @@ import type { LeaderboardEntry } from '../data/gamificationLeaderboard'
 import LeaderboardRow from './LeaderboardRow'
 import RankingPodium from './RankingPodium'
 import styles from './RankingStripList.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 interface RankingStripListProps {
   entries: LeaderboardEntry[]
@@ -161,7 +162,7 @@ function RankingStripList({
                     rank={entry.rank}
                     levelProgress={entry.levelProgress}
                     highlight={showFavoriteGlow || isActive}
-                    hint={userEntry && entry.rank === userRank - 1 ? `+${Math.max(1, entry.xp - userEntry.xp + 1).toLocaleString('es-ES')} para pasarle` : undefined}
+                    hint={userEntry && entry.rank === userRank - 1 ? `+${formatNumber(Math.max(1, entry.xp - userEntry.xp + 1))} para pasarle` : undefined}
                   />
                 </button>
               ) : (
@@ -186,7 +187,7 @@ function RankingStripList({
       {showChaseCopy && userEntry && chaseTarget && userRank > 1 && (
         <p className={styles.chaseCopy}>
           Te faltan{' '}
-          <strong>{(chaseTarget.xp - userEntry.xp).toLocaleString('es-ES')} XP</strong> para
+          <strong>{formatNumber((chaseTarget.xp - userEntry.xp))} XP</strong> para
           superar a {chaseTarget.displayName} (#{chaseTarget.rank}).
         </p>
       )}

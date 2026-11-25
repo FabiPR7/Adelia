@@ -34,6 +34,7 @@ import {
 import { CLOUDINARY_DISPLAY, optimizeCloudinaryUrl, optimizeCloudinaryVideoUrl } from '../../utils/cloudinaryUrl'
 import styles from './CompanyReviews.module.css'
 import { friendlyErrorMessage } from '../../utils/friendlyError'
+import { formatNumber } from '../../utils/formatNumber'
 
 interface CompanyReviewsProps {
   companyId: string
@@ -713,7 +714,7 @@ function CompanyReviews({ companyId }: CompanyReviewsProps) {
         </div>
         <div className={styles.kpi}>
           <span className={styles.kpiLabel}>Reseñas</span>
-          <span className={styles.kpiValue}>{totals.reviewCount.toLocaleString('es-ES')}</span>
+          <span className={styles.kpiValue}>{formatNumber(totals.reviewCount)}</span>
           <span className={styles.kpiHint}>
             {analysis.last30Count} en los últimos 30 días
             {trendDelta !== 0 ? (

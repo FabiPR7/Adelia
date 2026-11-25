@@ -21,6 +21,7 @@ import CustomerPreferencesCard from '../../components/CustomerPreferencesCard'
 import { cleanReviewExcerpt } from '../../utils/reviewCommentTags'
 import styles from './CustomerProfileTab.module.css'
 import { friendlyErrorMessage } from '../../utils/friendlyError'
+import { formatNumber } from '../../utils/formatNumber'
 
 const QUICK_ACCENTS = ['coral', 'gold', 'magenta', 'sunset'] as const
 
@@ -172,14 +173,14 @@ function CustomerProfileTab() {
             </div>
           ) : null}
           {xpToNext != null ? (
-            <p className={styles.progressHint}>Te faltan {xpToNext.toLocaleString('es-ES')} XP para subir de nivel</p>
+            <p className={styles.progressHint}>Te faltan {formatNumber(xpToNext)} XP para subir de nivel</p>
           ) : null}
         </section>
 
         <section className={styles.metrics}>
           <div className={styles.metricCard}>
             <span className={styles.metricIcon} aria-hidden="true">⚡</span>
-            <strong>{state.xp.toLocaleString('es-ES')}</strong>
+            <strong>{formatNumber(state.xp)}</strong>
             <span>XP total</span>
           </div>
           <div className={styles.metricCard}>

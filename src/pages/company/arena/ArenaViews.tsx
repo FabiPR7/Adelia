@@ -16,6 +16,7 @@ import {
   shiftMonth,
 } from './arenaUtils'
 import styles from './Arena.module.css'
+import { formatNumber } from '../../../utils/formatNumber'
 
 type Gamification = ReturnType<typeof useCompanyGamification>
 
@@ -298,7 +299,7 @@ export function ArenaShowcase({ data }: { data: CompanyLeagueView }) {
                 <span className={styles.badgeProgress}>
                   {badge.next == null
                     ? 'Oro conseguido'
-                    : `${badge.value.toLocaleString('es-ES')} / ${badge.next.toLocaleString('es-ES')} para ${nextName}`}
+                    : `${formatNumber(badge.value)} / ${formatNumber(badge.next)} para ${nextName}`}
                 </span>
               </div>
             )
@@ -325,7 +326,7 @@ export function ArenaShowcase({ data }: { data: CompanyLeagueView }) {
                     >
                       <b>{item.level}</b>
                       <span>{item.title}</span>
-                      <span>{item.minXp.toLocaleString('es-ES')}</span>
+                      <span>{formatNumber(item.minXp)}</span>
                     </li>
                   ))}
                 </ul>

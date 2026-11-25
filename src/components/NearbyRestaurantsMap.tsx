@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import L from 'leaflet'
 import { addCleanBaseMap } from '../utils/cleanBaseMap'
+import { densestClusterPoints } from '../utils/geo'
 import { adelinaCoinUrl } from '../constants/adelina'
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from '../constants/mapConfig'
 import {
@@ -318,7 +319,18 @@ function NearbyRestaurantsMap({
         map.setView(points[0], 14)
         return
       }
-      map.fitBounds(L.latLngBounds(points), {
+      // Sin zona elegida se encuadra donde hay más locales: un local suelto en
+      // otra ciudad no obliga a alejar el mapa (sigue saliendo si se aleja a mano).
+      const fitPoints = origin
+        ? points
+        : densestClusterPoints(
+            nearby.map((item) => ({ lat: item.latitude as number, lng: item.longitude as number })),
+          ).map((item) => [item.lat, item.lng] as L.LatLngTuple)
+      if (fitPoints.length === 1) {
+        map.setView(fitPoints[0], 14)
+        return
+      }
+      map.fitBounds(L.latLngBounds(fitPoints), {
         paddingTopLeft: [20, 72],
         paddingBottomRight: [20, 28],
         maxZoom: 15,

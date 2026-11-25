@@ -5,6 +5,7 @@ import {
   getUserRank,
 } from '../data/gamificationLeaderboard'
 import { getLevelForXp } from './gamificationProgress'
+import { formatNumber } from './formatNumber'
 
 export type CelebrationKind =
   | 'xp_gain'
@@ -192,7 +193,7 @@ export function missionCelebrationEvents(
       kind: 'mission_complete' as const,
       title: '¡Misión completada!',
       message: xp > 0
-        ? `${name} · +${xp.toLocaleString('es-ES')} XP`
+        ? `${name} · +${formatNumber(xp)} XP`
         : name,
       missionName: name,
       missionId: id,
@@ -405,7 +406,7 @@ export function buildCelebrationEvents(
       kind: 'mission_complete',
       title: '¡Misión completada!',
       message: missionXp > 0
-        ? `${name} · +${missionXp.toLocaleString('es-ES')} XP`
+        ? `${name} · +${formatNumber(missionXp)} XP`
         : name,
       missionName: name,
       missionId,
@@ -418,7 +419,7 @@ export function buildCelebrationEvents(
     events.push({
       id: `xp-${xp}`,
       kind: 'xp_gain',
-      title: `+${xpGained.toLocaleString('es-ES')} XP`,
+      title: `+${formatNumber(xpGained)} XP`,
       message: completedIds.length > 0
         ? 'El progreso ya cuenta en tu ranking.'
         : 'Sigue completando misiones para dominar el ranking.',

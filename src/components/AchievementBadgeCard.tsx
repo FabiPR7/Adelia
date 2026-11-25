@@ -4,6 +4,7 @@ import { MEDAL_PALETTES, MEDAL_TIER_BY_DIFFICULTY } from '../data/achievementMed
 import type { MissionProgress } from '../types/gamification'
 import AchievementMedal from './AchievementMedal'
 import styles from './AchievementBadgeCard.module.css'
+import { formatNumber } from '../utils/formatNumber'
 
 interface AchievementBadgeCardProps {
   item: MissionProgress
@@ -48,7 +49,7 @@ function AchievementBadgeCard({ item, earned }: AchievementBadgeCardProps) {
         <span className={styles.faceBack}>
           <span className={styles.backTier}>{palette.label}</span>
           <span className={styles.backDescription}>{item.mission.description}</span>
-          <span className={styles.backXp}>+{item.mission.xp.toLocaleString('es-ES')} XP</span>
+          <span className={styles.backXp}>+{formatNumber(item.mission.xp)} XP</span>
           {earned ? (
             <span className={styles.backDone}>✓ Conseguida</span>
           ) : (
