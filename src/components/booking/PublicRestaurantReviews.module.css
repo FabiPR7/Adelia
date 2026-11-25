@@ -25,6 +25,8 @@
 
 .headerTop {
   display: flex;
+  /* en móviles de 375 px título, botón y nota no caben en una fila: la nota baja */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;

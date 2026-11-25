@@ -70,7 +70,7 @@ export const COMPANY_PLANS: CompanyPlan[] = [
     specs: [
       { label: 'Cartas', value: '3' },
       { label: 'Mesas', value: '15' },
-      { label: 'Mapas', value: '1' },
+      { label: 'Mapa', value: '1' },
       { label: 'Promos', value: '3 Oferta' },
     ],
     features: [

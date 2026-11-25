@@ -225,7 +225,7 @@ const ReservationDepositPayment = forwardRef<
   if (!publishableKey) {
     return (
       <p className={styles.error}>
-        Falta configurar Stripe en el entorno (`VITE_STRIPE_PUBLISHABLE_KEY`).
+        Ahora mismo no se puede pagar la fianza. Inténtalo de nuevo en un rato.
       </p>
     )
   }

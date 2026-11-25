@@ -57,9 +57,11 @@ function PublicCancelReservation() {
 
     void (async () => {
       if (!slug || !token) {
-        if (!slug) {
-          setLoadError('Enlace no válido.')
-        }
+        setLoadError(
+          !slug
+            ? 'Enlace no válido.'
+            : 'Este enlace está incompleto. Abre el enlace «Cancelar reserva» del correo que te enviamos al reservar.',
+        )
         setIsLoading(false)
         return
       }
@@ -112,7 +114,7 @@ function PublicCancelReservation() {
 
   const handleCancel = async () => {
     if (!token) {
-      setError('Falta el token de cancelación en el enlace.')
+      setError('Este enlace está incompleto. Abre el enlace del correo de tu reserva.')
       return
     }
 

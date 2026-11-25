@@ -32,8 +32,8 @@ describe('cloudinary upload helpers', () => {
   it('debería traducir Failed to fetch a un error accionable', () => {
     expect(formatCloudinaryUploadError(new TypeError('Failed to fetch'), 'video')).toContain('40 MB')
     expect(formatCloudinaryUploadError(new Error('Timeout'), 'video')).toContain('corto')
-    expect(formatCloudinaryUploadError(new Error('File size too large'), 'video')).toContain('tamaño')
-    expect(formatCloudinaryUploadError(new Error('Upload preset must be whitelisted'), 'video')).toContain('preset')
+    expect(formatCloudinaryUploadError(new Error('File size too large'), 'video')).toContain('pesa demasiado')
+    expect(formatCloudinaryUploadError(new Error('Upload preset must be whitelisted'), 'video')).not.toContain('preset')
   })
 
   it('debería detectar fotos y vídeos por tipo o extensión', () => {

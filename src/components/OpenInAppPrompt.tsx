@@ -51,7 +51,10 @@ export default function OpenInAppPrompt() {
 
   const params = new URLSearchParams(location.search)
   const cameBackWithoutApp = params.has(MISSING_PARAM)
+  // /cancelar no: el enlace del correo lleva un código que la app no sabe usar
+  // (abriría la ficha del local y el invitado no podría cancelar).
   const eligiblePath = location.pathname.startsWith('/reservar/')
+    && !/\/cancelar\/?$/.test(location.pathname)
 
   useEffect(() => {
     if (!platform || !eligiblePath || isStandaloneApp()) return

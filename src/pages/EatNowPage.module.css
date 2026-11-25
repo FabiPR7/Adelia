@@ -89,6 +89,8 @@
 
 .main {
   display: grid;
+  /* minmax(0, 1fr): sin esto el buscador de ciudad ensancha la página en móviles de 375 px */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.9rem;
   max-width: 720px;
   margin: 0 auto;
@@ -114,6 +116,7 @@
 .error,
 .empty {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
   padding: 1rem;
   border: 1px solid var(--color-border);

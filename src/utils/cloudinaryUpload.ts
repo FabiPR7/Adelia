@@ -7,6 +7,8 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 export type CloudinaryResourceType = 'image' | 'video'
 
+const UPLOAD_UNAVAILABLE = 'Ahora mismo no se pueden subir archivos. Inténtalo de nuevo en un rato.'
+
 export const CLOUDINARY_CHUNK_SIZE = 6 * 1024 * 1024
 export const CLOUDINARY_CHUNK_THRESHOLD = 8 * 1024 * 1024
 const CLOUDINARY_REQUEST_TIMEOUT_MS = 90_000
@@ -17,9 +19,8 @@ export interface CloudinaryUploadOptions {
 
 function assertCloudinaryConfig() {
   if (!CLOUD_NAME) {
-    throw new Error(
-      'Faltan VITE_CLOUDINARY_CLOUD_NAME o VITE_CLOUDINARY_UPLOAD_PRESET en .env.local',
-    )
+    console.error('Falta VITE_CLOUDINARY_CLOUD_NAME en la configuración de la web.')
+    throw new Error(UPLOAD_UNAVAILABLE)
   }
 }
 
@@ -68,7 +69,7 @@ export function formatCloudinaryUploadError(error: unknown, resourceType: Cloudi
     || normalized.includes('network request failed')
   ) {
     return resourceType === 'video'
-      ? 'No se pudo subir el vídeo. Suele pasar si pesa demasiado, se corta la conexión o Cloudinary no admite vídeos en el preset. Usa un clip de hasta 30 s y 40 MB.'
+      ? 'No se pudo subir el vídeo. Suele pasar si pesa mucho o se corta la conexión. Prueba con un clip de hasta 30 segundos y 40 MB.'
       : 'No se pudo subir el archivo. Revisa la conexión e inténtalo de nuevo.'
   }
 
@@ -77,18 +78,20 @@ export function formatCloudinaryUploadError(error: unknown, resourceType: Cloudi
   }
 
   if (normalized.includes('file size too large') || normalized.includes('maximum is')) {
-    return 'Cloudinary ha rechazado el archivo por tamaño. Recórtalo o expórtalo en HD (720p).'
+    return 'El archivo pesa demasiado. Recórtalo o guárdalo en menor calidad (720p) y vuelve a probar.'
   }
 
-  if (normalized.includes('upload preset') || normalized.includes('unsigned')) {
-    return 'El preset de Cloudinary no permite esta subida. En el dashboard, el preset unsigned debe admitir vídeos.'
+  if (normalized.includes('format') || normalized.includes('invalid image') || normalized.includes('resource type')) {
+    return resourceType === 'video'
+      ? 'Este tipo de vídeo no se admite. Usa un MP4, MOV o WEBM.'
+      : 'Este tipo de archivo no se admite. Usa una foto JPG, PNG o WEBP, o un PDF.'
   }
 
-  if (normalized.includes('invalid image') || normalized.includes('resource type')) {
-    return 'Este preset de Cloudinary parece estar limitado a imágenes. Activa la subida de vídeos en el unsigned preset.'
-  }
-
-  return raw.trim() || 'No se pudo subir el archivo.'
+  // Cualquier otro fallo: mensaje sencillo en pantalla y el detalle técnico solo en la consola.
+  if (raw.trim()) console.error('Fallo al subir a Cloudinary:', raw)
+  return resourceType === 'video'
+    ? 'No se pudo subir el vídeo. Inténtalo de nuevo en un momento.'
+    : 'No se pudo subir el archivo. Inténtalo de nuevo en un momento.'
 }
 
 interface CloudinaryUploadResult {
@@ -115,7 +118,7 @@ function parseCloudinaryResponse(
     if (!responseText && status >= 200 && status < 300 && !requireSecureUrl) {
       return null
     }
-    throw new Error(status >= 400 ? 'No se pudo subir el archivo.' : 'Respuesta inválida del servidor de medios.')
+    throw new Error(status >= 400 ? 'No se pudo subir el archivo.' : 'No se pudo subir el archivo.')
   }
 
   if (status < 200 || status >= 300) {
@@ -237,7 +240,8 @@ async function resolveUploadTarget(
   }
 
   if (!UPLOAD_PRESET) {
-    throw new Error('Faltan VITE_CLOUDINARY_CLOUD_NAME o VITE_CLOUDINARY_UPLOAD_PRESET en .env.local')
+    console.error('No hay firma de subida del servidor ni VITE_CLOUDINARY_UPLOAD_PRESET.')
+    throw new Error(UPLOAD_UNAVAILABLE)
   }
   return { url: cloudinaryUploadEndpoint(resourceType), fields: { upload_preset: UPLOAD_PRESET } }
 }
