@@ -75,10 +75,10 @@ function LifetimeOfferHero({ companyId, onSeePlans }: LifetimeOfferHeroProps) {
           <p className={styles.priceNote}>
             {monthly > 0 ? (
               <>
-                En vez de <s>{monthly.toFixed(2).replace('.', ',')} € al mes</s>
+                + IVA · en vez de <s>{monthly.toFixed(2).replace('.', ',')} € al mes</s>
                 {monthsToPayOff ? ` · lo amortizas en ${monthsToPayOff} meses` : ''}
               </>
-            ) : 'Para siempre'}
+            ) : '+ IVA · para siempre'}
           </p>
           <a className={styles.buy} href={lifetimeOfferHref(companyId)}>
             Lo quiero de por vida

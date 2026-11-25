@@ -57,7 +57,20 @@
 }
 
 @media (max-width: 420px) {
-  /* En móvil solo queda el logo: los botones tapaban el nombre. */
+  /* En móvil los botones encogen para que quepa el nombre «Adelia». */
+  .headerActions {
+    gap: 0.3rem;
+  }
+
+  .headerActions .headerGhost,
+  .headerActions .headerUserLink {
+    padding: 0.4rem 0.62rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 340px) {
+  /* En pantallas muy estrechas solo queda el logo. */
   .brand span {
     display: none;
   }

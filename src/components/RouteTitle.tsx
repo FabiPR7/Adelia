@@ -31,6 +31,21 @@ const TITLE_BY_PATH: [RegExp, string][] = [
   [/^\/app/, 'Explorar'],
 ]
 
+const DEFAULT_DESCRIPTION =
+  'Adelia — Descubre restaurantes, reserva mesa en segundos y desbloquea promociones exclusivas.'
+
+/** Descripción para Google de las páginas que no son para comensales. */
+const DESCRIPTION_BY_PATH: [RegExp, string][] = [
+  [
+    /^\/empresa\/planes/,
+    'Planes de Adelia para restaurantes: Mesa gratis, Sala y Local. Reservas online sin comisión, promociones, QR y clientes que vuelven.',
+  ],
+  [
+    /^\/empresa/,
+    'Adelia para restaurantes: llena mesas con reservas online sin comisión, promociones que se ven en la app, QR con contador y un panel para gestionarlo todo.',
+  ],
+]
+
 /** Cada página con su título: antes todas compartían el del `index.html`. */
 function RouteTitle() {
   const { pathname } = useLocation()
@@ -38,6 +53,14 @@ function RouteTitle() {
   useEffect(() => {
     const match = TITLE_BY_PATH.find(([pattern]) => pattern.test(pathname))
     document.title = match ? `${match[1]} · ${SITE_NAME}` : DEFAULT_TITLE
+
+    const description = DESCRIPTION_BY_PATH.find(([pattern]) => pattern.test(pathname))?.[1] ?? DEFAULT_DESCRIPTION
+    const meta = document.head.querySelector<HTMLMetaElement>('meta[name="description"]')
+    if (meta) meta.content = description
+    const ogDescription = document.head.querySelector<HTMLMetaElement>('meta[property="og:description"]')
+    if (ogDescription && DESCRIPTION_BY_PATH.some(([pattern]) => pattern.test(pathname))) {
+      ogDescription.content = description
+    }
 
     // Una sola dirección para Google: adeliareservas.com (sin www ni parámetros).
     let link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')

@@ -429,6 +429,22 @@
   align-items: center;
 }
 
+/* Mismo título que el resto de secciones (antes solo lo tenía en pantallas grandes). */
+.growthCopy h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4.5vw, 2.5rem);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+.growthCopy > p:not(.eyebrow) {
+  margin: 0.65rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
 .growthList {
   margin: 1rem 0 0;
   padding: 0;
@@ -526,7 +542,13 @@
   justify-content: flex-end;
   min-height: 280px;
   padding: 1.35rem;
-  background: linear-gradient(180deg, transparent 8%, rgba(35, 28, 22, 0.88) 100%);
+  /* Más oscuro donde empieza el texto: sobre la foto el título se leía mal. */
+  background: linear-gradient(
+    180deg,
+    rgba(20, 16, 12, 0.05) 0%,
+    rgba(20, 16, 12, 0.62) 40%,
+    rgba(20, 16, 12, 0.92) 100%
+  );
   color: #fff;
 }
 
@@ -550,6 +572,7 @@
 
 .promoFeatureBody h3 {
   margin: 0.45rem 0 0;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
   font-family: var(--font-display);
   font-size: clamp(1.15rem, 2.5vw, 1.4rem);
   line-height: 1.2;

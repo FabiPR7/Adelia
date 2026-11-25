@@ -320,7 +320,10 @@ export function getDemoReservations(): Reservation[] {
       const startTime = atDay(offset, slot[0], slot[1])
       const endTime = new Date(startTime.getTime() + 90 * 60 * 1000)
       const cancelled = offset < 0 && n % 13 === 0
-      const status: Reservation['status'] = offset < 0 ? (cancelled ? 'cancelled' : 'completed') : 'confirmed'
+      // En Adelia «confirmed» es que el cliente asistió y «completed» que aún
+      // está por venir (o por marcar): las pasadas asistieron, las futuras no.
+      const alreadyHappened = startTime.getTime() < Date.now()
+      const status: Reservation['status'] = cancelled ? 'cancelled' : alreadyHappened ? 'confirmed' : 'completed'
       const promo = n % 7 === 0 ? PROMO_POSTRE : n % 5 === 0 ? PROMO_MEDIODIA : n % 9 === 0 ? PROMO_COPA : null
 
       rows.push({
@@ -336,10 +339,14 @@ export function getDemoReservations(): Reservation[] {
         endTime,
         status,
         cancelToken: `demo-cancel-${n}`,
-        createdAt: new Date(startTime.getTime() - 36 * 60 * 60 * 1000),
+        // Hecha día y medio antes, pero nunca en el futuro (si no, «Actividad
+        // reciente» enseñaba reservas hechas mañana).
+        createdAt: new Date(
+          Math.min(startTime.getTime() - 36 * 60 * 60 * 1000, Date.now() - ((n % 40) + 1) * 60 * 60 * 1000),
+        ),
         customerUid: `demo-customer-${n % CLIENTS.length}`,
         promotionId: promo,
-        promotionVisitStatus: status === 'completed' ? 'eligible' : status === 'cancelled' ? 'not_eligible' : 'pending',
+        promotionVisitStatus: status === 'confirmed' ? 'eligible' : status === 'cancelled' ? 'not_eligible' : 'pending',
       })
       n += 1
     }
@@ -636,7 +643,7 @@ export function getDemoReviews(): CompanyReview[] {
       customerUid: 'demo-customer-1',
       customerName: 'Martín Soto',
       rating: 4,
-      comment: 'Muy buena atención. El unique fue la croqueta de rabo. Volveremos el viernes.',
+      comment: 'Muy buena atención. Lo mejor, la croqueta de rabo. Volveremos el viernes.',
       hasPhoto: false,
       mediaItems: [],
       taggedProducts: [{ nodeId: 'prod-croquetas', boardId: BOARD_CARTA, name: 'Croquetas de rabo' }],
@@ -698,7 +705,7 @@ export function getDemoReviews(): CompanyReview[] {
 
 export function getDemoVerifiedConsumptions(): VerifiedConsumptionRecord[] {
   return getDemoReservations()
-    .filter((row) => row.status === 'completed')
+    .filter((row) => row.status === 'confirmed')
     .slice(0, 36)
     .map((row, index) => {
       const tartarQty = 1 + (index % 2)
