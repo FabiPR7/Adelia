@@ -1,0 +1,439 @@
+/* «Tus códigos QR» en el informe de la app: escaneos de cada QR impreso. */
+
+.panel {
+  --qr-ink: var(--color-text);
+  --qr-muted: var(--color-text-muted);
+  --qr-line: var(--tone-line, #e7e2db);
+  --qr-soft: var(--tone-soft, #faf9f7);
+  --qr-accent: var(--color-accent-strong);
+  --qr-warm: #8a3f1c;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--qr-line);
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(194, 70, 31, 0.07), transparent 55%),
+    var(--color-surface);
+  box-shadow: var(--elev-1);
+  overflow: hidden;
+}
+
+/* ---------- Cabecera ---------- */
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.headIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  background: var(--qr-ink);
+  color: #fffaf4;
+}
+
+.head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--qr-ink);
+}
+
+.head p {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--qr-muted);
+}
+
+/* ---------- Número grande + escaneos por día ---------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: end;
+}
+
+.heroNumber {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+}
+
+.heroNumber > strong {
+  font-family: var(--font-epic);
+  font-size: clamp(3.25rem, 9vw, 4.25rem);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  color: var(--qr-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.heroNumber > span:first-of-type {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--qr-muted);
+}
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.5rem;
+  padding: 0 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.deltaUp {
+  background: #e6f5ec;
+  color: #1f7a45;
+}
+
+.deltaDown {
+  background: #fbeceb;
+  color: #a23b33;
+}
+
+.heroConversion {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-basis: 100%;
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--qr-muted);
+}
+
+.heroConversion svg {
+  flex-shrink: 0;
+  color: var(--qr-accent);
+}
+
+.heroConversion b {
+  color: var(--qr-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.heroConversion em {
+  font-style: normal;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--qr-accent);
+}
+
+.spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 4.5rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 12px;
+  background: var(--qr-soft);
+  border: 1px solid var(--qr-line);
+}
+
+.sparkCol {
+  display: flex;
+  flex: 1 1 0;
+  align-items: flex-end;
+  height: 100%;
+  max-width: 1rem;
+}
+
+.sparkBar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px 3px 1px 1px;
+  background: linear-gradient(to top, var(--qr-warm), var(--qr-accent));
+  transform-origin: bottom;
+  animation: sparkGrow 0.32s ease-out both;
+  transition: opacity 0.15s ease;
+}
+
+.sparkBarZero {
+  background: var(--qr-line);
+}
+
+.sparkCol:hover .sparkBar {
+  opacity: 0.75;
+}
+
+.sparkEmpty {
+  align-self: center;
+  width: 100%;
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--qr-muted);
+}
+
+@keyframes sparkGrow {
+  from {
+    opacity: 0;
+    scale: 1 0.6;
+  }
+}
+
+.emptyNote {
+  margin: -0.25rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: var(--qr-soft);
+  border: 1px dashed var(--qr-line);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--qr-muted);
+}
+
+/* ---------- Un bloque por tipo de QR ---------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--qr-line);
+  border-radius: 14px;
+  background: var(--color-surface);
+  transition: transform 0.18s ease-out, box-shadow 0.18s ease-out;
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--elev-2);
+  }
+}
+
+.tileTop {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.thumb {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 4.25rem;
+  height: 4.25rem;
+  padding: 0.4rem;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid var(--qr-line);
+  color: var(--qr-muted);
+}
+
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.tileHead {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tileLabel {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--qr-muted);
+}
+
+.tileCount {
+  margin-top: 0.15rem;
+  font-family: var(--font-epic);
+  font-size: 2.25rem;
+  font-weight: 400;
+  line-height: 0.95;
+  color: var(--qr-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.tileHint {
+  font-size: 0.75rem;
+  color: var(--qr-muted);
+}
+
+.shareRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.shareTrack {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--qr-soft);
+  box-shadow: inset 0 0 0 1px var(--qr-line);
+  overflow: hidden;
+}
+
+.shareFill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--qr-warm), var(--qr-accent));
+  transform-origin: left;
+  transition: transform 0.4s ease-out;
+}
+
+.sharePct {
+  min-width: 2.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: right;
+  color: var(--qr-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.itemList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.itemList li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--qr-ink);
+}
+
+.itemList span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemList strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tileNote {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--qr-muted);
+}
+
+.download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  margin-top: auto;
+  padding: 0 1rem;
+  border: 1px solid var(--qr-ink);
+  border-radius: 999px;
+  background: var(--qr-ink);
+  color: #fffaf4;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease-out, opacity 0.15s ease;
+}
+
+.download:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.download:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.download:focus-visible {
+  outline: 2px solid var(--qr-accent);
+  outline-offset: 2px;
+}
+
+.download:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (min-width: 720px) {
+  .panel {
+    padding: 1.5rem;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  }
+
+}
+
+/* Tres bloques en fila solo cuando caben con holgura. */
+@media (min-width: 1100px) {
+  .tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 560px) and (max-width: 1099px) {
+  .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* El tercero, solo en su fila, ocupa el ancho entero. */
+  .tile:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sparkBar {
+    animation: none;
+  }
+
+  .shareFill,
+  .tile,
+  .download {
+    transition: none;
+  }
+}

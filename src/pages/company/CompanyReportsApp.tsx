@@ -7,7 +7,6 @@ import {
   Filter,
   Heart,
   MousePointerClick,
-  QrCode,
   RefreshCw,
   Search,
   Tag,
@@ -37,6 +36,7 @@ import {
   type CompanyMonthMetrics,
 } from '../../services/companyMetrics'
 import { downloadExcelFile } from '../../utils/exportSpreadsheet'
+import QrScansPanel from '../../components/reports/QrScansPanel'
 
 interface CompanyReportsAppProps {
   companyId: string
@@ -95,7 +95,7 @@ interface Aggregate {
   favoritesAdd: number
   favoritesRemove: number
   uniques: number
-  daily: { day: string; views: number; promoViews: number }[]
+  daily: { day: string; views: number; promoViews: number; qrScans: number }[]
   menuBoards: Record<string, number>
   qrMenuBoards: Record<string, number>
   promos: Record<string, { views: number; claims: number; reserveClicks: number; reservations: number; qrScans: number }>
@@ -151,7 +151,7 @@ function aggregate(months: CompanyMonthMetrics[]): Aggregate {
       out.uniques += value
     }
     for (const [day, entry] of Object.entries(month.daily)) {
-      out.daily.push({ day, views: entry.views, promoViews: entry.promoViews })
+      out.daily.push({ day, views: entry.views, promoViews: entry.promoViews, qrScans: entry.qrScans })
     }
     for (const [id, count] of Object.entries(month.menuBoards)) {
       out.menuBoards[id] = (out.menuBoards[id] ?? 0) + count
@@ -169,6 +169,25 @@ function aggregate(months: CompanyMonthMetrics[]): Aggregate {
   }
 
   out.daily.sort((a, b) => a.day.localeCompare(b.day))
+  return out
+}
+
+/** Escaneos de QR de cada día del periodo (hasta hoy), con 0 en los días sin ninguno. */
+function qrScansByDay(months: string[], daily: Aggregate['daily']): { day: string; qrScans: number }[] {
+  if (months.length === 0) return []
+  const byDay = new Map(daily.map((point) => [point.day, point.qrScans]))
+  const today = new Date().toISOString().slice(0, 10)
+  const [firstYear, firstMonth] = months[0].split('-').map(Number)
+  const [lastYear, lastMonth] = months[months.length - 1].split('-').map(Number)
+  const cursor = new Date(Date.UTC(firstYear, firstMonth - 1, 1))
+  const end = new Date(Date.UTC(lastYear, lastMonth, 0))
+  const out: { day: string; qrScans: number }[] = []
+  while (cursor <= end) {
+    const day = cursor.toISOString().slice(0, 10)
+    if (day > today) break
+    out.push({ day, qrScans: byDay.get(day) ?? 0 })
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
   return out
 }
 
@@ -247,6 +266,22 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
         .sort((a, b) => b.views + b.reserveClicks - (a.views + a.reserveClicks))
         .slice(0, 10),
     [now.promos, promoNames],
+  )
+
+  // Para «Tus códigos QR»: todas las cartas y promos, las más escaneadas primero.
+  const qrBoards = useMemo(
+    () =>
+      Object.entries(boardNames)
+        .map(([id, name]) => ({ id, name, qrScans: now.qrMenuBoards[id] ?? 0 }))
+        .sort((a, b) => b.qrScans - a.qrScans),
+    [boardNames, now.qrMenuBoards],
+  )
+  const qrPromos = useMemo(
+    () =>
+      Object.entries(promoNames)
+        .map(([id, name]) => ({ id, name, qrScans: now.promos[id]?.qrScans ?? 0 }))
+        .sort((a, b) => b.qrScans - a.qrScans),
+    [promoNames, now.promos],
   )
 
   const maxDaily = Math.max(1, ...now.daily.map((point) => point.views))
@@ -353,6 +388,19 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
             ))}
           </KpiGrid>
 
+          <QrScansPanel
+            total={now.qr.total}
+            previousTotal={before.qr.total}
+            reservas={now.qr.reservas}
+            carta={now.qr.carta}
+            promo={now.qr.promo}
+            reservationsFromQr={now.reservationsFromQr}
+            daily={qrScansByDay(range.months, now.daily)}
+            boards={qrBoards}
+            promos={qrPromos}
+            periodLabel={range.label}
+          />
+
           <div className={styles.chartsGrid}>
             <ReportCard
               wide
@@ -434,36 +482,6 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
                   Balance de favoritos: {favoritesNet > 0 ? `+${favoritesNet}` : favoritesNet} en el periodo.
                 </p>
               ) : null}
-            </ReportCard>
-
-            <ReportCard
-              icon={QrCode}
-              title="Tus códigos QR"
-              subtitle={now.qr.total > 0
-                ? `${formatNumber(now.qr.total)} escaneos · antes: ${formatNumber(before.qr.total)}`
-                : 'Cuánta gente escanea los QR que tienes impresos'}
-            >
-              <dl className={styles.miniStats}>
-                <div>
-                  <dt>QR de reservas</dt>
-                  <dd>{formatNumber(now.qr.reservas)}</dd>
-                </div>
-                <div>
-                  <dt>QR de tus cartas</dt>
-                  <dd>{formatNumber(now.qr.carta)}</dd>
-                </div>
-                <div>
-                  <dt>QR de tus promociones</dt>
-                  <dd>{formatNumber(now.qr.promo)}</dd>
-                </div>
-                <div>
-                  <dt>Reservas tras escanear</dt>
-                  <dd>
-                    {formatNumber(now.reservationsFromQr)}
-                    {now.qr.total > 0 ? <small>{percent(now.reservationsFromQr, now.qr.total)} %</small> : null}
-                  </dd>
-                </div>
-              </dl>
             </ReportCard>
           </div>
 

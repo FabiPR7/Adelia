@@ -132,7 +132,8 @@ import {
   type SettingsEditorState,
 } from '../../utils/settingsSnapshots'
 import styles from './CompanySettings.module.css'
-import { qrScanLabel, useQrScanCounts } from '../../hooks/useQrScanCounts'
+import { useQrScanCounts } from '../../hooks/useQrScanCounts'
+import QrScanBadge from '../../components/QrScanBadge'
 
 const FloorPlanEditor = lazy(() => import('../../components/FloorPlanEditor'))
 
@@ -1402,7 +1403,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                 </span>
               )}
               <span>QR de reservas</span>
-              {qrScanCounts ? <small className={styles.qrScanCount}>{qrScanLabel(qrScanCounts.reservas)}</small> : null}
+              {qrScanCounts ? <QrScanBadge count={qrScanCounts.reservas} /> : null}
             </div>
           </div>
         </div>

@@ -2124,3 +2124,9 @@
     transition: none;
   }
 }
+
+/* Escaneos del QR de la carta, bajo el resumen de la carta. */
+.menuQrBadge {
+  align-self: flex-start;
+  margin-top: -0.25rem;
+}

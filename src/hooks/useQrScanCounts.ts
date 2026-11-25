@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { isDemoCompanyId } from '../data/companyPanelDemo'
 import { fetchCompanyMonthMetrics } from '../services/companyMetrics'
-import { formatNumber } from '../utils/formatNumber'
 
 export interface QrScanCounts {
   reservas: number
@@ -52,6 +51,3 @@ export function useQrScanCounts(companyId: string | null | undefined): QrScanCou
   return counts
 }
 
-export function qrScanLabel(count: number): string {
-  return count === 1 ? 'Escaneado 1 vez este mes' : `Escaneado ${formatNumber(count)} veces este mes`
-}

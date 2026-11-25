@@ -86,7 +86,8 @@ import {
 } from '../../utils/promotionPin'
 import { defaultQrBrandingConfig, resolveBrandedQrOptions } from '../../utils/qrBranding'
 import styles from './CompanyPromotions.module.css'
-import { qrScanLabel, useQrScanCounts } from '../../hooks/useQrScanCounts'
+import { useQrScanCounts } from '../../hooks/useQrScanCounts'
+import QrScanBadge from '../../components/QrScanBadge'
 
 interface CompanyPromotionsProps {
   companyId: string
@@ -1485,7 +1486,7 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                     <>
                       <img src={qrPreviewUrl} alt="QR de la promoción" className={styles.promoQrPreview} />
                       {editingId && qrScanCounts ? (
-                        <p className={styles.previewHint}>{qrScanLabel(qrScanCounts.byPromo[editingId] ?? 0)}</p>
+                        <QrScanBadge count={qrScanCounts.byPromo[editingId] ?? 0} />
                       ) : null}
                     </>
                   ) : (

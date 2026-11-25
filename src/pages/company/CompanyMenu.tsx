@@ -111,7 +111,8 @@ import {
 } from '../../constants/fileUpload'
 import { uploadPdfToCloudinary } from '../../utils/cloudinaryUpload'
 import styles from './CompanyMenu.module.css'
-import { qrScanLabel, useQrScanCounts } from '../../hooks/useQrScanCounts'
+import { useQrScanCounts } from '../../hooks/useQrScanCounts'
+import QrScanBadge from '../../components/QrScanBadge'
 import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 interface CompanyMenuProps {
@@ -1343,8 +1344,10 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                   {hasMenuPdf(selectedBoard)
                     ? `Se muestra el PDF «${selectedBoard.pdfFileName || 'Carta.pdf'}» · ${boardProductCount} productos para reseñas y promociones`
                     : `${boardFamilyCount} ${boardFamilyCount === 1 ? 'familia' : 'familias'} · ${boardProductCount} ${boardProductCount === 1 ? 'producto' : 'productos'}`}
-                  {qrScanCounts ? ` · QR: ${qrScanLabel(qrScanCounts.byBoard[selectedBoard.id] ?? 0).toLowerCase()}` : ''}
                 </p>
+                {qrScanCounts ? (
+                  <QrScanBadge className={styles.menuQrBadge} count={qrScanCounts.byBoard[selectedBoard.id] ?? 0} />
+                ) : null}
 
                 <div className={styles.tabs} role="tablist" aria-label="Editor de la carta">
                   {(['content', 'design', 'pdf'] as EditorTab[]).map((tab) => {
