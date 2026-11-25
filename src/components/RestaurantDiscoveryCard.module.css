@@ -54,7 +54,8 @@
 
 /* Con contador o distancia arriba a la derecha, el nombre no se mete debajo. */
 .topOverlayWithBadge {
-  padding-right: 3rem;
+  /* hueco para la nota (≈ 3,1 rem con su margen): con 3 rem el nombre se metía debajo */
+  padding-right: 3.75rem;
 }
 
 .topOverlay h3 {

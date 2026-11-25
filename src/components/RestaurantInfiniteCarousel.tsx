@@ -29,7 +29,9 @@ function duplicateUntilMinimum(
     duplicated.push(...restaurants)
   }
 
-  return duplicated.slice(0, minimum)
+  // Copias enteras: si se recortara (p. ej. 7 → 8), el primero saldría dos
+  // veces seguidas al dar la vuelta el carrusel.
+  return duplicated
 }
 
 function RestaurantInfiniteCarousel({

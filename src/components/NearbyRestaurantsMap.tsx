@@ -168,9 +168,13 @@ function NearbyRestaurantsMap({
     const map = L.map(mapContainerRef.current, {
       center: [DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng],
       zoom: DEFAULT_MAP_ZOOM,
-      scrollWheelZoom: true,
+      // La rueda del ratón no hace zoom hasta pulsar el mapa: si no, al bajar
+      // por la página el mapa atrapa la rueda y se aleja hasta verse el mundo.
+      scrollWheelZoom: false,
       zoomControl: true,
     })
+    map.on('click focus', () => map.scrollWheelZoom.enable())
+    map.on('mouseout blur', () => map.scrollWheelZoom.disable())
 
     // Mapa limpio: solo nuestros restaurantes, sin tiendas ni negocios.
     addCleanBaseMap(map)
