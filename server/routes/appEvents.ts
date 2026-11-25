@@ -25,7 +25,7 @@ function monthKey(dayKey: string): string {
  * restaurante (`companies/{id}/metrics/{yyyy-mm}`). `__DAY__` se sustituye por
  * la fecha ISO del evento para la serie diaria del informe.
  */
-const EVENT_INCREMENTS: Record<string, (entityId: string) => string[]> = {
+const EVENT_INCREMENTS: Record<string, (entityId: string, entityKind: string) => string[]> = {
   restaurant_view: () => ['views.profile', 'daily.__DAY__.views'],
   menu_zone_view: () => ['views.menuZone'],
   menu_board_view: (id) => ['views.menuBoardOpens', ...(id ? [`menuBoards.${id}`] : [])],
@@ -39,7 +39,19 @@ const EVENT_INCREMENTS: Record<string, (entityId: string) => string[]> = {
   favorite_remove: () => ['favorites.remove'],
   reservation_from_promo: (id) => ['reservations.fromPromo', ...(id ? [`promos.${id}.reservations`] : [])],
   reservation_from_profile: () => ['reservations.fromProfile'],
+  // Alguien abre un QR impreso del local (reservas, carta o promoción).
+  qr_scan: (id, kind) => [
+    'qr.total',
+    `qr.${kind}`,
+    'daily.__DAY__.qrScans',
+    ...(kind === 'promo' && id ? [`promos.${id}.qrScans`] : []),
+    ...(kind === 'carta' && id ? [`qrMenuBoards.${id}`] : []),
+  ],
+  reservation_from_qr: () => ['reservations.fromQr'],
 }
+
+/** Tipos de QR que imprime el local (el valor de `?qr=` en el enlace). */
+export const QR_KINDS = new Set(['reservas', 'carta', 'promo'])
 
 const ALLOWED_TYPES = new Set(Object.keys(EVENT_INCREMENTS))
 
@@ -63,11 +75,15 @@ function parseEvent(raw: unknown): ParsedEvent | null {
     return null
   }
   const entityIdRaw = typeof value.entityId === 'string' ? value.entityId : ''
+  const entityKindRaw = typeof value.entityKind === 'string' ? value.entityKind.slice(0, 32) : ''
+  if (type === 'qr_scan' && !QR_KINDS.has(entityKindRaw)) {
+    return null
+  }
   return {
     type,
     companyId,
     entityId: ID_RE.test(entityIdRaw) ? entityIdRaw : '',
-    entityKind: typeof value.entityKind === 'string' ? value.entityKind.slice(0, 32) : '',
+    entityKind: entityKindRaw,
     source: typeof value.source === 'string' ? value.source.slice(0, 32) : '',
     day: utcDayKey(),
   }
@@ -76,6 +92,17 @@ function parseEvent(raw: unknown): ParsedEvent | null {
 /** Eventos cuyo entityId es una promoción o una carta del propio restaurante. */
 const PROMO_ENTITY_TYPES = new Set(['promo_view', 'promo_claim', 'promo_reserve_click', 'reservation_from_promo'])
 const MAX_COMPANIES_PER_BATCH = 5
+
+/** Colección donde tiene que existir el id del evento (o null si no usa id). */
+function entityCollection(event: ParsedEvent): 'promotions' | 'menuBoards' | null {
+  if (PROMO_ENTITY_TYPES.has(event.type)) return 'promotions'
+  if (event.type === 'menu_board_view') return 'menuBoards'
+  if (event.type === 'qr_scan') {
+    if (event.entityKind === 'promo') return 'promotions'
+    if (event.entityKind === 'carta') return 'menuBoards'
+  }
+  return null
+}
 
 /**
  * Solo cuenta eventos de restaurantes que existen, y solo guarda el id de una
@@ -96,11 +123,7 @@ async function keepRealEntities(events: ParsedEvent[]): Promise<ParsedEvent[]> {
     if (!event.entityId) {
       continue
     }
-    const collection = PROMO_ENTITY_TYPES.has(event.type)
-      ? 'promotions'
-      : event.type === 'menu_board_view'
-        ? 'menuBoards'
-        : null
+    const collection = entityCollection(event)
     if (collection) {
       entityRefs.set(`${event.companyId}/${collection}/${event.entityId}`, adminDb.collection('companies').doc(event.companyId).collection(collection).doc(event.entityId))
     }
@@ -112,7 +135,7 @@ async function keepRealEntities(events: ParsedEvent[]): Promise<ParsedEvent[]> {
     if (!event.entityId) {
       return event
     }
-    const collection = PROMO_ENTITY_TYPES.has(event.type) ? 'promotions' : event.type === 'menu_board_view' ? 'menuBoards' : null
+    const collection = entityCollection(event)
     if (!collection) {
       // Estos eventos no usan el id: no se guarda.
       return { ...event, entityId: '' }
@@ -170,18 +193,17 @@ router.post('/', async (req: Request, res: Response) => {
       return
     }
 
+    // Sin permiso de analítica (cookies rechazadas, o la app móvil) solo se
+    // suman los contadores del local: no se guarda el evento suelto ni quién
+    // lo hizo (ni cuenta ni identificador del dispositivo).
     const analyticsConsent = body.analyticsConsent === true
-    if (!analyticsConsent) {
-      res.status(403).json({ error: 'Se requiere consentimiento de analítica.' })
-      return
-    }
 
     const events = await keepRealEntities(parsed)
     if (events.length === 0) {
       res.json({ received: true, stored: 0 })
       return
     }
-    const uid = await softUid(req)
+    const uid = analyticsConsent ? await softUid(req) : null
 
     const now = FieldValue.serverTimestamp()
     const expireAt = Timestamp.fromMillis(Date.now() + RAW_EVENT_TTL_MS)
@@ -192,7 +214,7 @@ router.post('/', async (req: Request, res: Response) => {
     for (const event of events) {
       const month = monthKey(event.day)
 
-      batch.set(adminDb.collection('appEvents').doc(), {
+      if (analyticsConsent) batch.set(adminDb.collection('appEvents').doc(), {
         type: event.type,
         companyId: event.companyId,
         entityId: event.entityId || null,
@@ -212,7 +234,7 @@ router.post('/', async (req: Request, res: Response) => {
         counters = {}
         companyCounters.set(patchKey, counters)
       }
-      for (const target of EVENT_INCREMENTS[event.type](event.entityId)) {
+      for (const target of EVENT_INCREMENTS[event.type](event.entityId, event.entityKind)) {
         addCounter(counters, target.replace('__DAY__', event.day), 1)
       }
     }

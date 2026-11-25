@@ -12,10 +12,13 @@ export interface CompanyMonthMetrics {
   promo: { views: number; claims: number; reserveClicks: number }
   search: { impressions: number; clicks: number }
   favorites: { add: number; remove: number }
-  reservations: { fromPromo: number; fromProfile: number }
+  reservations: { fromPromo: number; fromProfile: number; fromQr: number }
+  /** Escaneos de los QR impresos: reservas, carta y promociones. */
+  qr: { total: number; reservas: number; carta: number; promo: number }
   menuBoards: Record<string, number>
-  promos: Record<string, { views: number; claims: number; reserveClicks: number; reservations: number }>
-  daily: Record<string, { views: number; promoViews: number; claims: number }>
+  qrMenuBoards: Record<string, number>
+  promos: Record<string, { views: number; claims: number; reserveClicks: number; reservations: number; qrScans: number }>
+  daily: Record<string, { views: number; promoViews: number; claims: number; qrScans: number }>
   uniquesByDay: Record<string, number>
 }
 
@@ -38,6 +41,7 @@ function normalize(month: string, raw: Record<string, unknown>): CompanyMonthMet
       claims: n(entry.claims),
       reserveClicks: n(entry.reserveClicks),
       reservations: n(entry.reservations),
+      qrScans: n(entry.qrScans),
     }
   }
 
@@ -48,6 +52,7 @@ function normalize(month: string, raw: Record<string, unknown>): CompanyMonthMet
       views: n(entry.views),
       promoViews: n(entry.promoViews),
       claims: n(entry.claims),
+      qrScans: n(entry.qrScans),
     }
   }
 
@@ -55,6 +60,12 @@ function normalize(month: string, raw: Record<string, unknown>): CompanyMonthMet
   for (const [id, value] of Object.entries((raw.menuBoards ?? {}) as Record<string, unknown>)) {
     menuBoards[id] = n(value)
   }
+
+  const qrMenuBoards: Record<string, number> = {}
+  for (const [id, value] of Object.entries((raw.qrMenuBoards ?? {}) as Record<string, unknown>)) {
+    qrMenuBoards[id] = n(value)
+  }
+  const qr = (raw.qr ?? {}) as Record<string, unknown>
 
   const uniquesByDay: Record<string, number> = {}
   for (const [day, value] of Object.entries((raw.uniquesByDay ?? {}) as Record<string, unknown>)) {
@@ -76,8 +87,14 @@ function normalize(month: string, raw: Record<string, unknown>): CompanyMonthMet
     },
     search: { impressions: n(search.impressions), clicks: n(search.clicks) },
     favorites: { add: n(favorites.add), remove: n(favorites.remove) },
-    reservations: { fromPromo: n(reservations.fromPromo), fromProfile: n(reservations.fromProfile) },
+    reservations: {
+      fromPromo: n(reservations.fromPromo),
+      fromProfile: n(reservations.fromProfile),
+      fromQr: n(reservations.fromQr),
+    },
+    qr: { total: n(qr.total), reservas: n(qr.reservas), carta: n(qr.carta), promo: n(qr.promo) },
     menuBoards,
+    qrMenuBoards,
     promos,
     daily,
     uniquesByDay,

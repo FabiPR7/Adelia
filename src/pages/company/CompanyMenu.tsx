@@ -62,7 +62,7 @@ import {
 import { DEFAULT_MENU_CURRENCY, MENU_CURRENCY_OPTIONS } from '../../data/menuCurrencies'
 import { getMenuAllergenIcon, getMenuAllergenLabel, MENU_ALLERGEN_OPTIONS } from '../../data/menuAllergens'
 import { getFirestoreErrorMessage } from '../../services/firestore'
-import { copyTextToClipboard, getPublicMenuBoardUrl, slugify } from '../../utils/helpers'
+import { copyTextToClipboard, getPublicMenuBoardUrl, slugify, withQrMark } from '../../utils/helpers'
 import { downloadBookingQrCode } from '../../utils/bookingQr'
 import { resolveBrandedQrOptions } from '../../utils/qrBranding'
 import QrCustomizerModal from '../../components/QrCustomizerModal'
@@ -111,6 +111,7 @@ import {
 } from '../../constants/fileUpload'
 import { uploadPdfToCloudinary } from '../../utils/cloudinaryUpload'
 import styles from './CompanyMenu.module.css'
+import { qrScanLabel, useQrScanCounts } from '../../hooks/useQrScanCounts'
 import { friendlyErrorMessage } from '../../utils/friendlyError'
 
 interface CompanyMenuProps {
@@ -242,6 +243,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
   const [createBoardError, setCreateBoardError] = useState<string | null>(null)
   const [menuShareCopied, setMenuShareCopied] = useState(false)
   const [isDownloadingMenuQr, setIsDownloadingMenuQr] = useState(false)
+  const qrScanCounts = useQrScanCounts(companyId)
   const [menuQrCustomizerOpen, setMenuQrCustomizerOpen] = useState(false)
 
   const selectedBoard = useMemo(
@@ -412,7 +414,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
         companyLogoUrl: company.logoUrl,
         menuBoardName: selectedBoard.name,
       })
-      await downloadBookingQrCode(selectedBoardPublicUrl, filename, renderOptions)
+      await downloadBookingQrCode(withQrMark(selectedBoardPublicUrl, 'carta'), filename, renderOptions)
     } catch {
       setError('No se pudo generar el código QR de la carta.')
     } finally {
@@ -1341,6 +1343,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
                   {hasMenuPdf(selectedBoard)
                     ? `Se muestra el PDF «${selectedBoard.pdfFileName || 'Carta.pdf'}» · ${boardProductCount} productos para reseñas y promociones`
                     : `${boardFamilyCount} ${boardFamilyCount === 1 ? 'familia' : 'familias'} · ${boardProductCount} ${boardProductCount === 1 ? 'producto' : 'productos'}`}
+                  {qrScanCounts ? ` · QR: ${qrScanLabel(qrScanCounts.byBoard[selectedBoard.id] ?? 0).toLowerCase()}` : ''}
                 </p>
 
                 <div className={styles.tabs} role="tablist" aria-label="Editor de la carta">
@@ -2215,7 +2218,7 @@ function CompanyMenu({ companyId }: CompanyMenuProps) {
         <QrCustomizerModal
           isOpen={menuQrCustomizerOpen}
           kind="menu"
-          url={selectedBoardPublicUrl}
+          url={withQrMark(selectedBoardPublicUrl, 'carta')}
           filename={`qr-carta-${slugify(selectedBoard.name)}-${slugify(company.slug || company.name)}.png`}
           companyId={companyId}
           context={{

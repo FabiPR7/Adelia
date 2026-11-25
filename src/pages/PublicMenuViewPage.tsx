@@ -7,6 +7,7 @@ import { fetchPublicMenu, type PublicBookingCompany } from '../services/publicAp
 import { BOOKING_RULES_UNKNOWN, type BookingRules } from '../types/bookingRules'
 import { hasMenuPdf, type MenuBoard, type MenuNode } from '../types/company'
 import { trackAppEvent } from '../utils/appEvents'
+import { useQrScan } from '../utils/qrScan'
 import styles from './PublicMenuViewPage.module.css'
 import { friendlyErrorMessage } from '../utils/friendlyError'
 
@@ -72,6 +73,9 @@ function PublicMenuViewPage() {
       })
     }
   }, [company?.id, board?.id])
+
+  // Llegó por el QR de esta carta (se espera a tenerla para apuntarla).
+  useQrScan(board ? company?.id : null, board?.id)
 
   const boardNodes = useMemo(
     () => (board ? nodes.filter((node) => node.boardId === board.id) : []),

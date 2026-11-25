@@ -7,6 +7,7 @@ import {
   Filter,
   Heart,
   MousePointerClick,
+  QrCode,
   RefreshCw,
   Search,
   Tag,
@@ -96,7 +97,10 @@ interface Aggregate {
   uniques: number
   daily: { day: string; views: number; promoViews: number }[]
   menuBoards: Record<string, number>
-  promos: Record<string, { views: number; claims: number; reserveClicks: number; reservations: number }>
+  qrMenuBoards: Record<string, number>
+  promos: Record<string, { views: number; claims: number; reserveClicks: number; reservations: number; qrScans: number }>
+  qr: { total: number; reservas: number; carta: number; promo: number }
+  reservationsFromQr: number
 }
 
 function aggregate(months: CompanyMonthMetrics[]): Aggregate {
@@ -116,7 +120,10 @@ function aggregate(months: CompanyMonthMetrics[]): Aggregate {
     uniques: 0,
     daily: [],
     menuBoards: {},
+    qrMenuBoards: {},
     promos: {},
+    qr: { total: 0, reservas: 0, carta: 0, promo: 0 },
+    reservationsFromQr: 0,
   }
 
   for (const month of months) {
@@ -128,6 +135,14 @@ function aggregate(months: CompanyMonthMetrics[]): Aggregate {
     out.promoReserveClicks += month.promo.reserveClicks
     out.reservationsFromPromo += month.reservations.fromPromo
     out.reservationsFromProfile += month.reservations.fromProfile
+    out.reservationsFromQr += month.reservations.fromQr
+    out.qr.total += month.qr.total
+    out.qr.reservas += month.qr.reservas
+    out.qr.carta += month.qr.carta
+    out.qr.promo += month.qr.promo
+    for (const [id, count] of Object.entries(month.qrMenuBoards)) {
+      out.qrMenuBoards[id] = (out.qrMenuBoards[id] ?? 0) + count
+    }
     out.searchImpressions += month.search.impressions
     out.searchClicks += month.search.clicks
     out.favoritesAdd += month.favorites.add
@@ -142,12 +157,13 @@ function aggregate(months: CompanyMonthMetrics[]): Aggregate {
       out.menuBoards[id] = (out.menuBoards[id] ?? 0) + count
     }
     for (const [id, entry] of Object.entries(month.promos)) {
-      const current = out.promos[id] ?? { views: 0, claims: 0, reserveClicks: 0, reservations: 0 }
+      const current = out.promos[id] ?? { views: 0, claims: 0, reserveClicks: 0, reservations: 0, qrScans: 0 }
       out.promos[id] = {
         views: current.views + entry.views,
         claims: current.claims + entry.claims,
         reserveClicks: current.reserveClicks + entry.reserveClicks,
         reservations: current.reservations + entry.reservations,
+        qrScans: current.qrScans + entry.qrScans,
       }
     }
   }
@@ -212,11 +228,16 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
 
   const topBoards = useMemo(
     () =>
-      Object.entries(now.menuBoards)
-        .map(([id, count]) => ({ id, name: boardNames[id] ?? 'Carta borrada', count }))
+      [...new Set([...Object.keys(now.menuBoards), ...Object.keys(now.qrMenuBoards)])]
+        .map((id) => ({
+          id,
+          name: boardNames[id] ?? 'Carta borrada',
+          count: now.menuBoards[id] ?? 0,
+          qrScans: now.qrMenuBoards[id] ?? 0,
+        }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10),
-    [now.menuBoards, boardNames],
+    [now.menuBoards, now.qrMenuBoards, boardNames],
   )
 
   const topPromos = useMemo(
@@ -256,14 +277,19 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
       ['Clics en búsqueda', now.searchClicks, before.searchClicks, '', ''],
       ['Favoritos añadidos', now.favoritesAdd, before.favoritesAdd, '', ''],
       ['Favoritos quitados', now.favoritesRemove, before.favoritesRemove, '', ''],
+      ['Escaneos de QR (total)', now.qr.total, before.qr.total, '', ''],
+      ['Escaneos del QR de reservas', now.qr.reservas, before.qr.reservas, '', ''],
+      ['Escaneos de QR de cartas', now.qr.carta, before.qr.carta, '', ''],
+      ['Escaneos de QR de promociones', now.qr.promo, before.qr.promo, '', ''],
+      ['Reservas tras escanear un QR', now.reservationsFromQr, before.reservationsFromQr, '', ''],
       ['', '', '', '', ''],
       ['— Cartas más vistas —', '', '', '', ''],
-      ['Carta', 'Aperturas', '', '', ''],
-      ...topBoards.map((board) => [board.name, board.count, '', '', '']),
+      ['Carta', 'Aperturas', 'Por QR', '', ''],
+      ...topBoards.map((board) => [board.name, board.count, board.qrScans, '', '']),
       ['', '', '', '', ''],
       ['— Promos con más tirón —', '', '', '', ''],
-      ['Promo', 'Vistas', 'Reclamos', 'Clics reservar', 'Reservas'],
-      ...topPromos.map((promo) => [promo.name, promo.views, promo.claims, promo.reserveClicks, promo.reservations]),
+      ['Promo', 'Vistas', 'Reclamos', 'Clics reservar', 'Reservas', 'Escaneos QR'],
+      ...topPromos.map((promo) => [promo.name, promo.views, promo.claims, promo.reserveClicks, promo.reservations, promo.qrScans]),
     ]
     downloadExcelFile(`informe-app-${rangeId}`, [], rows)
   }
@@ -409,6 +435,36 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
                 </p>
               ) : null}
             </ReportCard>
+
+            <ReportCard
+              icon={QrCode}
+              title="Tus códigos QR"
+              subtitle={now.qr.total > 0
+                ? `${formatNumber(now.qr.total)} escaneos · antes: ${formatNumber(before.qr.total)}`
+                : 'Cuánta gente escanea los QR que tienes impresos'}
+            >
+              <dl className={styles.miniStats}>
+                <div>
+                  <dt>QR de reservas</dt>
+                  <dd>{formatNumber(now.qr.reservas)}</dd>
+                </div>
+                <div>
+                  <dt>QR de tus cartas</dt>
+                  <dd>{formatNumber(now.qr.carta)}</dd>
+                </div>
+                <div>
+                  <dt>QR de tus promociones</dt>
+                  <dd>{formatNumber(now.qr.promo)}</dd>
+                </div>
+                <div>
+                  <dt>Reservas tras escanear</dt>
+                  <dd>
+                    {formatNumber(now.reservationsFromQr)}
+                    {now.qr.total > 0 ? <small>{percent(now.reservationsFromQr, now.qr.total)} %</small> : null}
+                  </dd>
+                </div>
+              </dl>
+            </ReportCard>
           </div>
 
           <TableCard title="Cartas más vistas" meta={`Aperturas de cada carta · ${range.label}`}>
@@ -423,6 +479,7 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
                       <th scope="col">Carta</th>
                       <th scope="col" style={{ width: '40%' }}>Peso</th>
                       <th scope="col" className={styles.num}>Aperturas</th>
+                      <th scope="col" className={styles.num}>Por QR</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -432,6 +489,7 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
                         <td><strong>{board.name}</strong></td>
                         <td><InlineBar value={board.count} max={maxBoard} /></td>
                         <td className={styles.num}>{formatNumber(board.count)}</td>
+                        <td className={styles.num}>{formatNumber(board.qrScans)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -453,6 +511,7 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
                       <th scope="col" className={styles.num}>Reclamos</th>
                       <th scope="col" className={styles.num}>Clics reservar</th>
                       <th scope="col" className={styles.num}>Reservas</th>
+                      <th scope="col" className={styles.num}>Escaneos QR</th>
                       <th scope="col" className={styles.num}>Conversión</th>
                     </tr>
                   </thead>
@@ -464,6 +523,7 @@ function CompanyReportsApp({ companyId }: CompanyReportsAppProps) {
                         <td className={styles.num}>{formatNumber(promo.claims)}</td>
                         <td className={styles.num}>{formatNumber(promo.reserveClicks)}</td>
                         <td className={styles.num}>{formatNumber(promo.reservations)}</td>
+                        <td className={styles.num}>{formatNumber(promo.qrScans)}</td>
                         <td className={styles.num}>
                           <span className={`${styles.chip} ${promo.reservations > 0 ? styles.chipOk : styles.chipMuted}`}>
                             {percent(promo.reservations, promo.views)} %

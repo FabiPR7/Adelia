@@ -75,7 +75,11 @@ export default function OpenInAppPrompt() {
 
   if (!platform || !eligiblePath) return null
 
-  const appPath = `${location.pathname.replace(/^\/+/, '')}${location.search}`
+  // Sin `qr`: el escaneo ya lo contó la web, la app no tiene que sumarlo otra vez.
+  const appSearchParams = new URLSearchParams(location.search)
+  appSearchParams.delete('qr')
+  const appSearch = appSearchParams.toString()
+  const appPath = `${location.pathname.replace(/^\/+/, '')}${appSearch ? `?${appSearch}` : ''}`
 
   const stayInBrowser = () => {
     saveDecided()

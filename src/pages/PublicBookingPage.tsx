@@ -38,6 +38,7 @@ import {
 import { mergeDemoPromotions } from '../data/demoNearbyPromotions'
 import { isCustomerPromoLocked } from '../data/cancellationPenalties'
 import { trackAppEvent } from '../utils/appEvents'
+import { trackReservationFromQr, useQrScan } from '../utils/qrScan'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
 import {
   canRedeemPromotionAsCustomer,
@@ -287,6 +288,9 @@ function PublicBookingPage() {
       source: promoId ? 'promo' : 'direct',
     })
   }, [company?.id, promoId])
+
+  // Llegó por el QR de reservas del local.
+  useQrScan(company?.id)
 
   useEffect(() => {
     if (!company || !bookingRules.canReserve) {
@@ -735,6 +739,7 @@ function PublicBookingPage() {
           companyId: company.id,
           entityId: promoId ?? undefined,
         })
+        trackReservationFromQr(company.id)
       }
       setClientName('')
       setClientEmail('')

@@ -2844,3 +2844,12 @@
     width: 100%;
   }
 }
+
+/* Escaneos del QR este mes, debajo de la vista previa. */
+.qrScanCount {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-muted);
+}

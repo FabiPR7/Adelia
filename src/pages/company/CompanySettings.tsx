@@ -54,7 +54,7 @@ import {
   tablesForFloorPlan,
   withFloorPlans,
 } from '../../types/company'
-import { copyTextToClipboard, defaultSchedule, getPublicBookingUrl, selectInputText, slugify } from '../../utils/helpers'
+import { copyTextToClipboard, defaultSchedule, getPublicBookingUrl, selectInputText, slugify, withQrMark } from '../../utils/helpers'
 import {
   getDaySchedulePeriods,
   MAX_SCHEDULE_PERIODS,
@@ -132,6 +132,7 @@ import {
   type SettingsEditorState,
 } from '../../utils/settingsSnapshots'
 import styles from './CompanySettings.module.css'
+import { qrScanLabel, useQrScanCounts } from '../../hooks/useQrScanCounts'
 
 const FloorPlanEditor = lazy(() => import('../../components/FloorPlanEditor'))
 
@@ -576,7 +577,8 @@ const CompanySettings = forwardRef(function CompanySettings(
 
   // Vista previa del QR de reservas (el mismo que se descarga).
   const [bookingQrPreviewUrl, setBookingQrPreviewUrl] = useState<string | null>(null)
-  const bookingUrlForQr = company ? getPublicBookingUrl(company.slug) : ''
+  const qrScanCounts = useQrScanCounts(company?.id)
+  const bookingUrlForQr = company ? withQrMark(getPublicBookingUrl(company.slug), 'reservas') : ''
   const bookingQrConfig = company?.qrBranding.booking
 
   useEffect(() => {
@@ -1146,7 +1148,7 @@ const CompanySettings = forwardRef(function CompanySettings(
     try {
       const filename = `qr-reservas-${slugify(company.slug || company.name)}.png`
       const renderOptions = resolveBrandedQrOptions(company.qrBranding.booking, 'booking', qrBrandingContext)
-      await downloadBookingQrCode(clientBookingUrl, filename, renderOptions)
+      await downloadBookingQrCode(withQrMark(clientBookingUrl, 'reservas'), filename, renderOptions)
     } catch {
       setError('No se pudo generar el código QR.')
     } finally {
@@ -1400,6 +1402,7 @@ const CompanySettings = forwardRef(function CompanySettings(
                 </span>
               )}
               <span>QR de reservas</span>
+              {qrScanCounts ? <small className={styles.qrScanCount}>{qrScanLabel(qrScanCounts.reservas)}</small> : null}
             </div>
           </div>
         </div>
@@ -2752,7 +2755,7 @@ const CompanySettings = forwardRef(function CompanySettings(
       <QrCustomizerModal
         isOpen={qrCustomizerOpen}
         kind="booking"
-        url={clientBookingUrl}
+        url={withQrMark(clientBookingUrl, 'reservas')}
         filename={`qr-reservas-${slugify(company.slug || company.name)}.png`}
         companyId={company.id}
         context={qrBrandingContext}

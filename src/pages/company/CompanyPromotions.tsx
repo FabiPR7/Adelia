@@ -68,7 +68,7 @@ import {
   validatePromotionInput,
 } from '../../types/company'
 import { buildBrandedQrDataUrl } from '../../utils/bookingQr'
-import { getPublicPromotionLandingUrl, slugify } from '../../utils/helpers'
+import { getPublicPromotionLandingUrl, slugify, withQrMark } from '../../utils/helpers'
 import {
   buildPromotionProductRefs,
   formatPromotionOfferSummary,
@@ -86,6 +86,7 @@ import {
 } from '../../utils/promotionPin'
 import { defaultQrBrandingConfig, resolveBrandedQrOptions } from '../../utils/qrBranding'
 import styles from './CompanyPromotions.module.css'
+import { qrScanLabel, useQrScanCounts } from '../../hooks/useQrScanCounts'
 
 interface CompanyPromotionsProps {
   companyId: string
@@ -178,6 +179,7 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
   const [qrCustomizerOpen, setQrCustomizerOpen] = useState(false)
   const [scanPreviewOpen, setScanPreviewOpen] = useState(false)
   const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null)
+  const qrScanCounts = useQrScanCounts(companyId)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -274,7 +276,7 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
       qrBrandingContext,
     )
 
-    void buildBrandedQrDataUrl(promotionLandingUrl, renderOptions)
+    void buildBrandedQrDataUrl(withQrMark(promotionLandingUrl, 'promo'), renderOptions)
       .then((dataUrl) => {
         if (!cancelled) {
           setQrPreviewUrl(dataUrl)
@@ -1480,7 +1482,12 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
                     <span>QR de la promoción</span>
                   </div>
                   {qrPreviewUrl ? (
-                    <img src={qrPreviewUrl} alt="QR de la promoción" className={styles.promoQrPreview} />
+                    <>
+                      <img src={qrPreviewUrl} alt="QR de la promoción" className={styles.promoQrPreview} />
+                      {editingId && qrScanCounts ? (
+                        <p className={styles.previewHint}>{qrScanLabel(qrScanCounts.byPromo[editingId] ?? 0)}</p>
+                      ) : null}
+                    </>
                   ) : (
                     <p className={styles.previewHint}>
                       {editingId ? 'Generando QR…' : 'Guarda la promoción para crear su QR.'}
@@ -1588,7 +1595,7 @@ function CompanyPromotions({ companyId }: CompanyPromotionsProps) {
         <QrCustomizerModal
           isOpen={qrCustomizerOpen}
           kind="promotion"
-          url={promotionLandingUrl}
+          url={withQrMark(promotionLandingUrl, 'promo')}
           filename={`qr-promo-${slugify(form.title || 'promocion')}-${slugify(company.slug || company.name)}.png`}
           companyId={companyId}
           context={qrBrandingContext}

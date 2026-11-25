@@ -318,3 +318,12 @@ export function isValidClientName(input: string): boolean {
 
   return (letters?.length ?? 0) >= 2
 }
+
+/** Tipo de QR impreso: va en el enlace como `?qr=` para contar los escaneos. */
+export type QrKind = 'reservas' | 'carta' | 'promo'
+
+/** Enlace del QR: el mismo que el normal, con la marca para saber que viene del QR. */
+export function withQrMark(url: string, kind: QrKind): string {
+  if (!url) return url
+  return `${url}${url.includes('?') ? '&' : '?'}qr=${kind}`
+}

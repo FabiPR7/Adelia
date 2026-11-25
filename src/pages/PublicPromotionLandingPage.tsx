@@ -5,6 +5,7 @@ import landingStyles from '../components/promotions/PromotionScanLanding.module.
 import { mergeDemoPromotions } from '../data/demoNearbyPromotions'
 import { fetchPublicPromotionsBySlug, type PublicPromotion } from '../services/publicPromotions'
 import { trackAppEvent } from '../utils/appEvents'
+import { useQrScan } from '../utils/qrScan'
 import styles from './PublicRestaurantPromotionsPage.module.css'
 import { friendlyErrorMessage } from '../utils/friendlyError'
 
@@ -56,6 +57,9 @@ function PublicPromotionLandingPage() {
       cancelled = true
     }
   }, [slug, promotionId])
+
+  // Llegó por el QR de esta promoción.
+  useQrScan(promotion?.companyId, promotion?.id)
 
   if (loading) {
     return (
